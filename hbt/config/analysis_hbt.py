@@ -68,6 +68,7 @@ cfg.add_process(procs.n.w)
 cfg.add_process(procs.n.ewk)
 cfg.add_process(procs.n.vv)
 cfg.add_process(procs.n.vvv)
+cfg.add_process(procs.n.qcd)
 cfg.add_process(procs.n.h)
 cfg.add_process(procs.n.hh_ggf_bbtautau)
 
@@ -146,8 +147,8 @@ for dataset_name in dataset_names:
 
 
 # default calibrator, selector, producer, ml model and inference model
-cfg.set_aux("default_calibrator", "test")
-cfg.set_aux("default_selector", "test")
+cfg.set_aux("default_calibrator", "default")
+cfg.set_aux("default_selector", "default")
 cfg.set_aux("default_producer", "features")
 cfg.set_aux("default_ml_model", None)
 cfg.set_aux("default_inference_model", "test")
