@@ -159,7 +159,7 @@ main() {
 
     # run the actual setup
     if setup_hbt "$@"; then
-        echo -e "\x1b[0;49;35mHH -> bbtautau successfully setup\x1b[0m"
+        echo -e "\x1b[0;49;35mHH -> bbtautau analysis successfully setup\x1b[0m"
         return "0"
     else
         local code="$?"
