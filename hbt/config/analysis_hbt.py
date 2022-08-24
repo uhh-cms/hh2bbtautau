@@ -100,8 +100,8 @@ dataset_names = [
     "ttzz_madgraph",
     "ttwz_madgraph",
     "ttww_madgraph",
-    "st_tchannel_t",
-    "st_tchannel_tbar",
+    "st_tchannel_t_powheg",
+    "st_tchannel_tbar_powheg",
     "st_twchannel_t_powheg",
     "st_twchannel_tbar_powheg",
     "st_schannel_lep_amcatnlo",
@@ -384,12 +384,10 @@ cfg.set_aux("keep_columns", DotDict.wrap({
         "Deepjet.pt", "Deepjet.eta", "Deepjet.btagDeepFlavB",
         "nMuon", "Muon.pt", "Muon.eta",
         "nElectron", "Electron.pt", "Electron.eta",
-        "LHEWeight.originalXWGTUP",
-        "PV.npvs",
-        "category_ids", "deterministic_seed",
+        "mc_weight", "PV.npvs", "category_ids", "deterministic_seed",
     },
     "cf.MergeSelectionMasks": {
-        "LHEWeight.originalXWGTUP", "normalization_weight", "process_id", "category_ids", "cutflow.*",
+        "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",
     },
 }))
 
