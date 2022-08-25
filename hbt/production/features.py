@@ -9,9 +9,28 @@ from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 
 from hbt.production.weights import event_weights
-from hbt.selection.test import jet_energy_shifts
 
 ak = maybe_import("awkward")
+
+
+@producer
+def jet_energy_shifts(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    """
+    Pseudo-producer that registers jet energy shifts.
+    """
+    return events
+
+
+@jet_energy_shifts.init
+def jet_energy_shifts_init(self: Producer) -> None:
+    """
+    Register shifts.
+    """
+    self.shifts |= {
+        f"jec_{junc_name}_{junc_dir}"
+        for junc_name in self.config_inst.x.jec.uncertainty_sources
+        for junc_dir in ("up", "down")
+    } | {"jer_up", "jer_down"}
 
 
 @producer(
