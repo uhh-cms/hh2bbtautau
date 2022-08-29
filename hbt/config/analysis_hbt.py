@@ -373,8 +373,10 @@ cfg.set_aux("external_files", DotDict.wrap({
     "jersf": {
         "mc": [(make_jme_filenames(cfg.x.jer, "mc", names=["SF"])[0], "v1")],
     },
-
 }))
+
+# target file size after MergeReducedEvents in MB
+cfg.set_aux("reduced_file_size", 512.0)
 
 # columns to keep after certain steps
 cfg.set_aux("keep_columns", DotDict.wrap({
