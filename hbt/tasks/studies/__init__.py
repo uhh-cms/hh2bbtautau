@@ -2,5 +2,4 @@
 # flake8: noqa
 
 # provisioning imports
-import hbt.tasks.base
-import hbt.tasks.studies
+import hbt.tasks.studies.triggers

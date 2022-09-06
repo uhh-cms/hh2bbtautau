@@ -6,7 +6,7 @@ Column production methods related to higher-level features.
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
-from columnflow.columnar_util import set_ak_column
+from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
 
 from hbt.production.weights import event_weights
 
@@ -56,5 +56,17 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # add event weights
     events = self[event_weights](events, **kwargs)
+
+    return events
+
+
+@producer(
+    uses={"Jet.pt"},
+    produces={"cutflow.n_jet", "cutflow.ht", "cutflow.jet1_pt"},
+)
+def cutflow_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = set_ak_column(events, "cutflow.n_jet", ak.num(events.Jet, axis=1))
+    events = set_ak_column(events, "cutflow.ht", ak.sum(events.Jet.pt, axis=1))
+    events = set_ak_column(events, "cutflow.jet1_pt", Route("Jet.pt[:,0]").apply(events, EMPTY_FLOAT))
 
     return events

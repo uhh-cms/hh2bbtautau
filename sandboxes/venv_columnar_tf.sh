@@ -10,8 +10,10 @@ action() {
 
     # set variables and source the generic venv setup
     export CF_VENV_NAME="$( basename "${this_file%.sh}" )"
-    export CF_VENV_REQUIREMENTS="${this_dir}/ml_tf.txt"
+    export CF_VENV_REQUIREMENTS="${this_dir}/columnar_tf.txt"
 
     source "${CF_BASE}/sandboxes/_setup_venv.sh" "$@"
+
+    export TF_CPP_MIN_LOG_LEVEL="3"
 }
 action "$@"
