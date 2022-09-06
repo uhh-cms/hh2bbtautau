@@ -31,7 +31,7 @@ def patch_bundle_repo_exclude_files():
     # overwrite them
     BundleRepo.exclude_files[:] = exclude_files
 
-    logger.debug("patched exclude_files of BundleRepo")
+    logger.debug("patched exclude_files of cf.BundleRepo")
 
 
 @memoize

@@ -16,6 +16,8 @@ import cmsdb.campaigns.run2_2017
 from columnflow.util import DotDict, get_root_processes_from_campaign
 from hbt.config.categories import add_categories
 from hbt.config.variables import add_variables
+from hbt.config.met_filters import add_met_filters
+from hbt.config.triggers import add_triggers_2017
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -31,17 +33,24 @@ analysis_hbt = ana = od.Analysis(
 )
 
 # analysis-global versions
-ana.set_aux("versions", {
-})
+ana.x.versions = {}
+
+# sandboxes that might be required by remote tasks
+# (used in PrepareJobSandboxes)
+ana.x.job_sandboxes = [
+    "bash::$CF_BASE/sandboxes/venv_columnar.sh",
+    "bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh",
+]
 
 # cmssw sandboxes that should be bundled for remote jobs in case they are needed
-ana.set_aux("cmssw_sandboxes", [
+# TODO
+ana.x.cmssw_sandboxes = [
     # "cmssw_default.sh",
-])
+]
 
 # config groups for conveniently looping over certain configs
 # (used in wrapper_factory)
-ana.set_aux("config_groups", {})
+ana.x.config_groups = {}
 
 
 #
@@ -111,6 +120,10 @@ dataset_names = [
     "dy_lep_pt250To400_amcatnlo",
     "dy_lep_pt400To650_amcatnlo",
     "dy_lep_pt650_amcatnlo",
+
+
+    "dy_lep_m50_ht1200to2500_madgraph",
+
     "w_lnu_madgraph",
     "ewk_wm_lnu_madgraph",
     "ewk_w_lnu_madgraph",
@@ -132,7 +145,7 @@ dataset_names = [
     "tth_tautau_powheg",
     "tth_bb_powheg",
     "tth_nonbb_powheg",
-    # signal
+    # signals
     "hh_ggf_bbtautau_madgraph",
 ]
 for dataset_name in dataset_names:
@@ -147,52 +160,67 @@ for dataset_name in dataset_names:
 
 
 # default calibrator, selector, producer, ml model and inference model
-cfg.set_aux("default_calibrator", "default")
-cfg.set_aux("default_selector", "default")
-cfg.set_aux("default_producer", "features")
-cfg.set_aux("default_ml_model", None)
-cfg.set_aux("default_inference_model", "test")
+cfg.x.default_calibrator = "default"
+cfg.x.default_selector = "default"
+cfg.x.default_producer = "features"
+cfg.x.default_ml_model = None
+cfg.x.default_inference_model = "test"
 
 # process groups for conveniently looping over certain processs
 # (used in wrapper_factory and during plotting)
-cfg.set_aux("process_groups", {})
+cfg.x.process_groups = {}
 
 # dataset groups for conveniently looping over certain datasets
 # (used in wrapper_factory and during plotting)
-cfg.set_aux("dataset_groups", {})
+cfg.x.dataset_groups = {}
 
 # category groups for conveniently looping over certain categories
 # (used during plotting)
-cfg.set_aux("category_groups", {})
+cfg.x.category_groups = {}
 
 # variable groups for conveniently looping over certain variables
 # (used during plotting)
-cfg.set_aux("variable_groups", {})
+cfg.x.variable_groups = {}
 
 # shift groups for conveniently looping over certain shifts
 # (used during plotting)
-cfg.set_aux("shift_groups", {})
+cfg.x.shift_groups = {}
 
 # selector step groups for conveniently looping over certain steps
 # (used in cutflow tasks)
-cfg.set_aux("selector_step_groups", {
+cfg.x.selector_step_groups = {
     "test": ["Jet"],
-})
+}
 
 # 2017 luminosity with values in inverse pb and uncertainties taken from
 # https://twiki.cern.ch/twiki/bin/view/CMS/TWikiLUM?rev=176#LumiComb
-cfg.set_aux("luminosity", Number(41480, {
-    "lumi_13TeV_2018": 0.02j,
+cfg.x.luminosity = Number(41480, {
+    "lumi_13TeV_2017": 0.02j,
     "lumi_13TeV_1718": 0.006j,
     "lumi_13TeV_correlated": 0.009j,
-}))
+})
 
 # 2018 minimum bias cross section in mb (milli) for creating PU weights, values from
 # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=44#Pileup_JSON_Files_For_Run_II
-cfg.set_aux("minbiasxs", Number(69.2, 0.046j))
+cfg.x.minbiasxs = Number(69.2, 0.046j)
+
+# b-tag working points
+# https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
+cfg.x.btag_working_points = DotDict.wrap({
+    "deepjet": {
+        "loose": 0.0532,
+        "medium": 0.3040,
+        "tight": 0.7476,
+    },
+    "deepcsv": {
+        "loose": 0.1355,
+        "medium": 0.4506,
+        "tight": 0.7738,
+    },
+})
 
 # location of JEC txt files
-cfg.set_aux("jec", DotDict.wrap({
+cfg.x.jec = DotDict.wrap({
     "source": "https://raw.githubusercontent.com/cms-jet/JECDatabase/master/textFiles",
     "campaign": "Summer19UL17",
     "version": "V6",
@@ -258,14 +286,14 @@ cfg.set_aux("jec", DotDict.wrap({
         "CorrelationGroupFlavor",
         "CorrelationGroupUncorrelated",
     ],
-}))
+})
 
-cfg.set_aux("jer", DotDict.wrap({
+cfg.x.jer = DotDict.wrap({
     "source": "https://raw.githubusercontent.com/cms-jet/JRDatabase/master/textFiles",
     "campaign": "Summer19UL17",
     "version": "JRV3",
     "jet_type": "AK4PFchs",
-}))
+})
 
 
 # helper to add column aliases for both shifts of a source
@@ -276,15 +304,15 @@ def add_aliases(shift_source, aliases):
         inject_shift = lambda s: re.sub(r"\{([^_])", r"{_\1", s).format(**shift.__dict__)
         _aliases = {inject_shift(key): inject_shift(value) for key, value in aliases.items()}
         # extend existing or register new column aliases
-        shift.set_aux("column_aliases", shift.get_aux("column_aliases", {})).update(_aliases)
+        shift.x.column_aliases = shift.x("column_aliases", {}).update(_aliases)
 
 
 # register shifts
 cfg.add_shift(name="nominal", id=0)
-cfg.add_shift(name="tune_up", id=1, type="shape", aux={"disjoint_from_nominal": True})
-cfg.add_shift(name="tune_down", id=2, type="shape", aux={"disjoint_from_nominal": True})
-cfg.add_shift(name="hdamp_up", id=3, type="shape", aux={"disjoint_from_nominal": True})
-cfg.add_shift(name="hdamp_down", id=4, type="shape", aux={"disjoint_from_nominal": True})
+cfg.add_shift(name="tune_up", id=1, type="shape", tags={"disjoint_from_nominal"})
+cfg.add_shift(name="tune_down", id=2, type="shape", tags={"disjoint_from_nominal"})
+cfg.add_shift(name="hdamp_up", id=3, type="shape", tags={"disjoint_from_nominal"})
+cfg.add_shift(name="hdamp_down", id=4, type="shape", tags={"disjoint_from_nominal"})
 cfg.add_shift(name="minbias_xs_up", id=7, type="shape")
 cfg.add_shift(name="minbias_xs_down", id=8, type="shape")
 add_aliases("minbias_xs", {"pu_weight": "pu_weight_{name}"})
@@ -322,7 +350,7 @@ def make_jme_filenames(jme_aux, sample_type, names, era=None):
 
 
 # external files
-cfg.set_aux("external_files", DotDict.wrap({
+cfg.x.external_files = DotDict.wrap({
     # files from TODO
     "lumi": {
         "golden": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt", "v1"),  # noqa
@@ -373,36 +401,53 @@ cfg.set_aux("external_files", DotDict.wrap({
     "jersf": {
         "mc": [(make_jme_filenames(cfg.x.jer, "mc", names=["SF"])[0], "v1")],
     },
-}))
+
+    # hh-btag repository (lightweight) with TF saved model directories
+    "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
+})
 
 # target file size after MergeReducedEvents in MB
-cfg.set_aux("reduced_file_size", 512.0)
+cfg.x.reduced_file_size = 512.0
 
 # columns to keep after certain steps
-cfg.set_aux("keep_columns", DotDict.wrap({
+cfg.x.keep_columns = DotDict.wrap({
     "cf.ReduceEvents": {
+        # general event info
         "run", "luminosityBlock", "event",
-        "nJet", "Jet.pt", "Jet.eta", "Jet.btagDeepFlavB",
-        "Deepjet.pt", "Deepjet.eta", "Deepjet.btagDeepFlavB",
-        "nMuon", "Muon.pt", "Muon.eta",
-        "nElectron", "Electron.pt", "Electron.eta",
+        # object info
+        "Jet.pt", "Jet.eta", "Jet.btagDeepFlavB",
+        "Muon.*",
+        "Electron.*",
+        "Tau.*",
+        # columns added during selection
+        "channel", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
         "mc_weight", "PV.npvs", "category_ids", "deterministic_seed",
     },
     "cf.MergeSelectionMasks": {
         "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",
     },
-}))
+})
 
 # event weight columns
-cfg.set_aux("event_weights", ["normalization_weight", "pu_weight"])
+cfg.x.event_weights = ["normalization_weight", "pu_weight"]
 
 # versions per task family and optionally also dataset and shift
 # None can be used as a key to define a default value
-cfg.set_aux("versions", {
-})
+cfg.x.versions = {}
+
+# cannels
+cfg.add_channel(name="mutau", id=1)
+cfg.add_channel(name="etau", id=2)
+cfg.add_channel(name="tautau", id=3)
 
 # add categories
 add_categories(cfg)
 
 # add variables
 add_variables(cfg)
+
+# add met filters
+add_met_filters(cfg)
+
+# add triggers
+add_triggers_2017(cfg)
