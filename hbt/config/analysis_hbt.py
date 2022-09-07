@@ -120,10 +120,6 @@ dataset_names = [
     "dy_lep_pt250To400_amcatnlo",
     "dy_lep_pt400To650_amcatnlo",
     "dy_lep_pt650_amcatnlo",
-
-
-    "dy_lep_m50_ht1200to2500_madgraph",
-
     "w_lnu_madgraph",
     "ewk_wm_lnu_madgraph",
     "ewk_w_lnu_madgraph",
@@ -202,7 +198,7 @@ cfg.x.luminosity = Number(41480, {
 
 # 2018 minimum bias cross section in mb (milli) for creating PU weights, values from
 # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=44#Pileup_JSON_Files_For_Run_II
-cfg.x.minbiasxs = Number(69.2, 0.046j)
+cfg.x.minbias_xs = Number(69.2, 0.046j)
 
 # b-tag working points
 # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
