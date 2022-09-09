@@ -35,15 +35,15 @@ analysis_hbt = ana = od.Analysis(
 # analysis-global versions
 ana.x.versions = {}
 
-# sandboxes that might be required by remote tasks
-# (used in PrepareJobSandboxes)
+# bash sandboxes that might be required by remote tasks
+# (used in cf.PrepareJobSandboxes)
 ana.x.job_sandboxes = [
     "bash::$CF_BASE/sandboxes/venv_columnar.sh",
     "bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh",
 ]
 
-# cmssw sandboxes that should be bundled for remote jobs in case they are needed
-# TODO
+# cmssw sandboxes that might be required by remote tasks
+# (used in cf.HTCondorWorkflow)
 ana.x.cmssw_sandboxes = [
     # "cmssw_default.sh",
 ]
@@ -222,7 +222,7 @@ cfg.x.jec = DotDict.wrap({
     "version": "V6",
     "jet_type": "AK4PFchs",
     "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
-    "data_eras": ["RunB", "RunC", "RunD", "RunE", "RunF"],
+    "data_eras": sorted(filter(None, {d.x("jec_era", None) for d in cfg.datasets if d.is_data})),
     "uncertainty_sources": [
         # comment out most for now to prevent large file sizes
         # "AbsoluteStat",
@@ -330,7 +330,9 @@ add_aliases("jer", {"Jet.pt": "Jet.pt_{name}", "Jet.mass": "Jet.mass_{name}"})
 
 
 def make_jme_filenames(jme_aux, sample_type, names, era=None):
-    """Convenience function to compute paths to JEC files."""
+    """
+    Convenience function to compute paths to JEC files.
+    """
 
     # normalize and validate sample type
     sample_type = sample_type.upper()
