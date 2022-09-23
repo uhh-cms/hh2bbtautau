@@ -6,6 +6,7 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 
 import os
 import re
+from collections import OrderedDict
 
 import yaml
 from scinum import Number
@@ -293,14 +294,19 @@ cfg.x.jer = DotDict.wrap({
 
 
 # helper to add column aliases for both shifts of a source
-def add_aliases(shift_source, aliases):
+def add_aliases(
+    shift_source: str,
+    aliases: dict,
+    selection_dependent: bool = False,
+):
+    aux_key = "column_aliases" + ("_selection_dependent" if selection_dependent else "")
     for direction in ["up", "down"]:
         shift = cfg.get_shift(od.Shift.join_name(shift_source, direction))
         # format keys and values
         inject_shift = lambda s: re.sub(r"\{([^_])", r"{_\1", s).format(**shift.__dict__)
         _aliases = {inject_shift(key): inject_shift(value) for key, value in aliases.items()}
         # extend existing or register new column aliases
-        shift.x.column_aliases = shift.x("column_aliases", {}).update(_aliases)
+        shift.set_aux(aux_key, shift.x(aux_key, {}).update(_aliases))
 
 
 # register shifts
@@ -318,33 +324,48 @@ add_aliases("top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})
 
 with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
     all_jec_sources = yaml.load(f, yaml.Loader)["names"]
+
 for jec_source in cfg.x.jec["uncertainty_sources"]:
     idx = all_jec_sources.index(jec_source)
     cfg.add_shift(name=f"jec_{jec_source}_up", id=5000 + 2 * idx, type="shape")
     cfg.add_shift(name=f"jec_{jec_source}_down", id=5001 + 2 * idx, type="shape")
-    add_aliases(f"jec_{jec_source}", {"Jet.pt": "Jet.pt_{name}", "Jet.mass": "Jet.mass_{name}"})
+    add_aliases(
+        f"jec_{jec_source}",
+        {
+            "Jet.pt": "Jet.pt_{name}",
+            "Jet.mass": "Jet.mass_{name}",
+            "MET.pt": "MET.pt_{name}",
+            "MET.phi": "MET.phi_{name}",
+        },
+        selection_dependent=True,
+    )
 
 cfg.add_shift(name="jer_up", id=6000, type="shape")
 cfg.add_shift(name="jer_down", id=6001, type="shape")
-add_aliases("jer", {"Jet.pt": "Jet.pt_{name}", "Jet.mass": "Jet.mass_{name}"})
+add_aliases(
+    "jer",
+    {
+        "Jet.pt": "Jet.pt_{name}",
+        "Jet.mass": "Jet.mass_{name}",
+        "MET.pt": "MET.pt_{name}",
+        "MET.phi": "MET.phi_{name}",
+    },
+    selection_dependent=True,
+)
 
 
-def make_jme_filenames(jme_aux, sample_type, names, era=None):
+def make_jme_filename(jme_aux, sample_type, name, era=None):
     """
     Convenience function to compute paths to JEC files.
     """
-
     # normalize and validate sample type
     sample_type = sample_type.upper()
     if sample_type not in ("DATA", "MC"):
-        raise ValueError(f"Invalid sample type '{sample_type}'. Expected either 'DATA' or 'MC'.")
+        raise ValueError(f"invalid sample type '{sample_type}', expected either 'DATA' or 'MC'")
 
     jme_full_version = "_".join(s for s in (jme_aux.campaign, era, jme_aux.version, sample_type) if s)
 
-    return [
-        f"{jme_aux.source}/{jme_full_version}/{jme_full_version}_{name}_{jme_aux.jet_type}.txt"
-        for name in names
-    ]
+    return f"{jme_aux.source}/{jme_full_version}/{jme_full_version}_{name}_{jme_aux.jet_type}.txt"
 
 
 # external files
@@ -368,36 +389,36 @@ cfg.x.external_files = DotDict.wrap({
 
     # jet energy correction
     "jec": {
-        "mc": [
-            (fname, "v1")
-            for fname in make_jme_filenames(cfg.x.jec, "mc", names=cfg.x.jec.levels)
-        ],
+        "mc": OrderedDict([
+            (level, (make_jme_filename(cfg.x.jec, "mc", name=level), "v1"))
+            for level in cfg.x.jec.levels
+        ]),
         "data": {
-            era: [
-                (fname, "v1")
-                for fname in make_jme_filenames(cfg.x.jec, "data", names=cfg.x.jec.levels, era=era)
-            ]
+            era: OrderedDict([
+                (level, (make_jme_filename(cfg.x.jec, "data", name=level, era=era), "v1"))
+                for level in cfg.x.jec.levels
+            ])
             for era in cfg.x.jec.data_eras
         },
     },
 
     # jec energy correction uncertainties
     "junc": {
-        "mc": [(make_jme_filenames(cfg.x.jec, "mc", names=["UncertaintySources"])[0], "v1")],
+        "mc": [(make_jme_filename(cfg.x.jec, "mc", name="UncertaintySources"), "v1")],
         "data": {
-            era: [(make_jme_filenames(cfg.x.jec, "data", names=["UncertaintySources"], era=era)[0], "v1")]
+            era: [(make_jme_filename(cfg.x.jec, "data", name="UncertaintySources", era=era), "v1")]
             for era in cfg.x.jec.data_eras
         },
     },
 
     # jet energy resolution (pt resolution)
     "jer": {
-        "mc": [(make_jme_filenames(cfg.x.jer, "mc", names=["PtResolution"])[0], "v1")],
+        "mc": [(make_jme_filename(cfg.x.jer, "mc", name="PtResolution"), "v1")],
     },
 
     # jet energy resolution (data/mc scale factors)
     "jersf": {
-        "mc": [(make_jme_filenames(cfg.x.jer, "mc", names=["SF"])[0], "v1")],
+        "mc": [(make_jme_filename(cfg.x.jer, "mc", name="SF"), "v1")],
     },
 
     # hh-btag repository (lightweight) with TF saved model directories

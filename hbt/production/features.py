@@ -5,6 +5,7 @@ Column production methods related to higher-level features.
 """
 
 from columnflow.production import Producer, producer
+from columnflow.production.categories import category_ids
 from columnflow.util import maybe_import
 from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
 
@@ -35,12 +36,12 @@ def jet_energy_shifts_init(self: Producer) -> None:
 
 @producer(
     uses={
-        event_weights,
+        category_ids, event_weights,
         "Electron.pt", "Electron.eta", "Muon.pt", "Muon.eta", "Jet.pt", "Jet.eta",
         "Jet.btagDeepFlavB",
     },
     produces={
-        event_weights,
+        category_ids, event_weights,
         "ht", "n_jet", "n_electron", "n_muon", "n_deepjet",
     },
     shifts={
@@ -53,6 +54,9 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column(events, "n_electron", ak.num(events.Electron.pt, axis=1))
     events = set_ak_column(events, "n_muon", ak.num(events.Muon.pt, axis=1))
     events = set_ak_column(events, "n_deepjet", ak.num(events.Jet.pt[events.Jet.btagDeepFlavB > 0.3], axis=1))
+
+    # add category ids
+    events = self[category_ids](events, **kwargs)
 
     # add event weights
     events = self[event_weights](events, **kwargs)

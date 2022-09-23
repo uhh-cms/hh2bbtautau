@@ -42,4 +42,5 @@ def met_filter_selection_init(self: Selector) -> None:
     """
     Adds only the necessary MET filter flags to the set of used columns.
     """
-    self.uses |= set(self.config_inst.x.met_filters[self.dataset_inst.data_source])
+    if getattr(self, "dataset_inst", None):
+        self.uses |= set(self.config_inst.x.met_filters[self.dataset_inst.data_source])
