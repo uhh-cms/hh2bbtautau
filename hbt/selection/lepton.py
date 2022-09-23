@@ -92,6 +92,7 @@ def electron_selection(
         )
         # convert to sorted indices
         default_indices = sorted_indices[default_mask[sorted_indices]]
+        default_indices = ak.values_astype(default_indices, np.int32)
 
     # veto electron mask
     veto_mask = (
@@ -106,6 +107,7 @@ def electron_selection(
     )
     # convert to sorted indices
     veto_indices = sorted_indices[veto_mask[sorted_indices]]
+    veto_indices = ak.values_astype(veto_indices, np.int32)
 
     return default_indices, veto_indices
 
@@ -167,6 +169,7 @@ def muon_selection(
         )
         # convert to sorted indices
         default_indices = sorted_indices[default_mask[sorted_indices]]
+        default_indices = ak.values_astype(default_indices, np.int32)
 
     # veto muon mask
     veto_mask = (
@@ -179,6 +182,7 @@ def muon_selection(
     )
     # convert to sorted indices
     veto_indices = sorted_indices[veto_mask[sorted_indices]]
+    veto_indices = ak.values_astype(veto_indices, np.int32)
 
     return default_indices, veto_indices
 
@@ -297,6 +301,7 @@ def tau_selection(
 
     # convert to sorted indices
     base_indices = sorted_indices[base_mask[sorted_indices]]
+    base_indices = ak.values_astype(base_indices, np.int32)
 
     # additional mask to select final, Medium isolated taus
     iso_mask = events.Tau[base_indices].idDeepTau2017v2p1VSjet >= 16  # 16: Medium
@@ -454,6 +459,11 @@ def lepton_selection(
             single_triggered = ak.where(where & is_single, True, single_triggered)
             cross_triggered = ak.where(where & is_cross, True, cross_triggered)
             sel_tau_indices = ak.where(where, tau_indices, sel_tau_indices)
+
+    # some final type conversions
+    channel_id = ak.values_astype(channel_id, np.uint8)
+    leptons_os = ak.fill_none(leptons_os, False)
+    sel_tau_indices = ak.values_astype(sel_tau_indices, np.int32)
 
     # save new columns
     events = set_ak_column(events, "channel_id", channel_id)

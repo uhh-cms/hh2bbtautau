@@ -39,6 +39,7 @@ ana.x.versions = {}
 # bash sandboxes that might be required by remote tasks
 # (used in cf.PrepareJobSandboxes)
 ana.x.job_sandboxes = [
+    "bash::$CF_BASE/sandboxes/cf_prod.sh",
     "bash::$CF_BASE/sandboxes/venv_columnar.sh",
     "bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh",
 ]
