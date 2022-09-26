@@ -15,6 +15,7 @@ import cmsdb
 import cmsdb.campaigns.run2_2017
 
 from columnflow.util import DotDict, get_root_processes_from_campaign
+from hbt.config.styles import stylize_processes
 from hbt.config.categories import add_categories
 from hbt.config.variables import add_variables
 from hbt.config.met_filters import add_met_filters
@@ -82,6 +83,9 @@ cfg.add_process(procs.n.vvv)
 cfg.add_process(procs.n.qcd)
 cfg.add_process(procs.n.h)
 cfg.add_process(procs.n.hh_ggf_bbtautau)
+
+# configure colors, labels, etc
+stylize_processes(cfg)
 
 # add datasets we need to study
 dataset_names = [
@@ -310,6 +314,10 @@ def add_aliases(
         shift.set_aux(aux_key, shift.x(aux_key, {}).update(_aliases))
 
 
+# load jec sources
+with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
+    all_jec_sources = yaml.load(f, yaml.Loader)["names"]
+
 # register shifts
 cfg.add_shift(name="nominal", id=0)
 cfg.add_shift(name="tune_up", id=1, type="shape", tags={"disjoint_from_nominal"})
@@ -322,10 +330,6 @@ add_aliases("minbias_xs", {"pu_weight": "pu_weight_{name}"})
 cfg.add_shift(name="top_pt_up", id=9, type="shape")
 cfg.add_shift(name="top_pt_down", id=10, type="shape")
 add_aliases("top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})
-
-with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
-    all_jec_sources = yaml.load(f, yaml.Loader)["names"]
-
 for jec_source in cfg.x.jec["uncertainty_sources"]:
     idx = all_jec_sources.index(jec_source)
     cfg.add_shift(name=f"jec_{jec_source}_up", id=5000 + 2 * idx, type="shape")
@@ -340,7 +344,6 @@ for jec_source in cfg.x.jec["uncertainty_sources"]:
         },
         selection_dependent=True,
     )
-
 cfg.add_shift(name="jer_up", id=6000, type="shape")
 cfg.add_shift(name="jer_down", id=6001, type="shape")
 add_aliases(

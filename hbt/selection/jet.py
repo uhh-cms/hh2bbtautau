@@ -46,6 +46,7 @@ def jet_selection(
     https://twiki.cern.ch/twiki/bin/view/CMS/JetID?rev=107#nanoAOD_Flags
     https://twiki.cern.ch/twiki/bin/view/CMS/JetID13TeVUL?rev=15#Recommendations_for_the_13_T_AN1
     https://twiki.cern.ch/twiki/bin/view/CMS/PileupJetIDUL?rev=17
+    https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookNanoAOD?rev=100#Jets
     """
     is_2016 = self.config_inst.campaign.x.year == 2016
 
@@ -54,7 +55,7 @@ def jet_selection(
 
     # common ak4 jet mask for normal and vbf jets
     ak4_mask = (
-        (events.Jet.jetId == (7 if is_2016 else 6)) &  # tight plus lepton veto
+        (events.Jet.jetId == 6) &  # tight plus lepton veto
         ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4))) &  # flipped in 2016
         ak.all(events.Jet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2)
     )
@@ -131,7 +132,7 @@ def jet_selection(
 
     # check whether the two bjets were matched by fatjet subjets to mark it as boosted
     fatjet_mask = (
-        (events.FatJet.jetId == (7 if is_2016 else 6)) &  # tight plus lepton veto
+        (events.FatJet.jetId == 6) &  # tight plus lepton veto
         (events.FatJet.msoftdrop > 30.0) &
         (abs(events.FatJet.eta) < 2.4) &
         ak.all(events.FatJet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2) &

@@ -191,7 +191,7 @@ def muon_selection(
     uses={
         "nTau", "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz", "Tau.idDecayModeNewDMs",
         "Tau.idDeepTau2017v2p1VSe", "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet",
-        "Tau.idDecayModeOldDMs",  # TODO: remove this one when all datasets containt he new ones
+        "Tau.idDecayModeOldDMs",  # TODO: remove this one when all datasets contain the new ones
         "nTrigObj", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
         "nElectron", "Electron.pt", "Electron.eta", "Electron.phi",
         "nMuon", "Muon.pt", "Muon.eta", "Muon.phi",

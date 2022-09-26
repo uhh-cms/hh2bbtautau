@@ -15,7 +15,10 @@ ak = maybe_import("awkward")
 jec_nominal = jec.derive("jec_nominal", cls_dict={"uncertainty_sources": []})
 
 
-@calibrator
+@calibrator(
+    uses={jec, jec_nominal, jer},
+    produces={jec, jec_nominal, jer},
+)
 def jet_energy(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     """
     Common calibrator for Jet energy corrections, applying nominal JEC for data, and JEC with
