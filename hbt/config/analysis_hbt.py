@@ -425,6 +425,9 @@ cfg.x.external_files = DotDict.wrap({
         "mc": [(make_jme_filename(cfg.x.jer, "mc", name="SF"), "v1")],
     },
 
+
+    # met phi corrector
+    "met_phi_corr": ("https://mrieger.web.cern.ch/snippets/met_phi_correction.py", "v1"),
     # hh-btag repository (lightweight) with TF saved model directories
     "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
 })
@@ -442,6 +445,7 @@ cfg.x.keep_columns = DotDict.wrap({
         "Muon.*",
         "Electron.*",
         "Tau.*",
+        "MET.*",
         # columns added during selection
         "channel", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
         "mc_weight", "PV.npvs", "category_ids", "deterministic_seed",

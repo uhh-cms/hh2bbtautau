@@ -33,6 +33,13 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"Jet 1 $p_{T}$",
     )
+    config.add_variable(
+        name="met_phi",
+        expression="MET.phi",
+        null_value=EMPTY_FLOAT,
+        binning=(33, -3.3, 3.3),
+        x_title=r"MET $\phi$",
+    )
 
     # cutflow variables
     config.add_variable(
