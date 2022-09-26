@@ -221,6 +221,9 @@ cfg.x.btag_working_points = DotDict.wrap({
     },
 })
 
+# name of the deep tau tagger
+cfg.x.tau_tagger = "DeepTau2017v2p1"
+
 # location of JEC txt files
 cfg.x.jec = DotDict.wrap({
     "source": "https://raw.githubusercontent.com/cms-jet/JECDatabase/master/textFiles",
@@ -356,6 +359,19 @@ add_aliases(
     },
     selection_dependent=True,
 )
+for i, dm in enumerate(["0", "1", "10", "11"]):
+    cfg.add_shift(name=f"tec_dm{dm}_up", id=20 + 2 * i, type="shape")
+    cfg.add_shift(name=f"tec_dm{dm}_down", id=21 + 2 * i, type="shape")
+    add_aliases(
+        f"tec_dm{dm}",
+        {
+            "Tau.pt": "Tau.pt_{name}",
+            "Tau.mass": "Tau.mass_{name}",
+            "MET.pt": "MET.pt_{name}",
+            "MET.phi": "MET.phi_{name}",
+        },
+        selection_dependent=True,
+    )
 
 
 def make_jme_filename(jme_aux, sample_type, name, era=None):
@@ -425,9 +441,12 @@ cfg.x.external_files = DotDict.wrap({
         "mc": [(make_jme_filename(cfg.x.jer, "mc", name="SF"), "v1")],
     },
 
+    # tau energy correction and scale factors
+    "tau": ("/afs/cern.ch/user/m/mrieger/public/mirrors/cms-tau-pog/jsonpog-integration/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
 
     # met phi corrector
     "met_phi_corr": ("https://mrieger.web.cern.ch/snippets/met_phi_correction.py", "v1"),
+
     # hh-btag repository (lightweight) with TF saved model directories
     "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
 })
