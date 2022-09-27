@@ -20,15 +20,15 @@ np = maybe_import("numpy")
     },
     produces={
         "Tau.pt", "Tau.mass",
-        "Tau.pt_tec_dm0_up", "Tau.pt_tec_dm0_down",
-        "Tau.pt_tec_dm1_up", "Tau.pt_tec_dm1_down",
-        "Tau.pt_tec_dm10_up", "Tau.pt_tec_dm10_down",
-        "Tau.pt_tec_dm11_up", "Tau.pt_tec_dm11_down",
+        "Tau.pt_tec_dm0_up", "Tau.pt_tec_dm0_down", "Tau.mass_tec_dm0_up", "Tau.mass_tec_dm0_down",
+        "Tau.pt_tec_dm1_up", "Tau.pt_tec_dm1_down", "Tau.mass_tec_dm1_up", "Tau.mass_tec_dm1_down",
+        "Tau.pt_tec_dm10_up", "Tau.pt_tec_dm10_down", "Tau.mass_tec_dm10_up", "Tau.mass_tec_dm10_down",
+        "Tau.pt_tec_dm11_up", "Tau.pt_tec_dm11_down", "Tau.mass_tec_dm11_up", "Tau.mass_tec_dm11_down",
         "MET.pt", "MET.phi",
-        "MET.pt_dm0_up", "MET.phi_dm0_down",
-        "MET.pt_dm1_up", "MET.phi_dm1_down",
-        "MET.pt_dm10_up", "MET.phi_dm10_down",
-        "MET.pt_dm11_up", "MET.phi_dm11_down",
+        "MET.pt_dm0_up", "MET.pt_dm0_down", "MET.phi_dm0_up", "MET.phi_dm0_down",
+        "MET.pt_dm1_up", "MET.pt_dm1_down", "MET.phi_dm1_up", "MET.phi_dm1_down",
+        "MET.pt_dm10_up", "MET.pt_dm10_down", "MET.phi_dm10_up", "MET.phi_dm10_down",
+        "MET.pt_dm11_up", "MET.pt_dm11_down", "MET.phi_dm11_up", "MET.phi_dm11_down",
     },
 )
 def tec(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
