@@ -4,7 +4,7 @@
 Config-related object definitions and utils.
 """
 
-from typing import Union, Tuple, List
+from __future__ import annotations
 
 from order import UniqueObject, TagMixin, DataSourceMixin
 from order.util import typed
@@ -45,7 +45,7 @@ class TriggerLeg(object):
         )
 
     @typed
-    def pdg_id(self, pdg_id: Union[None, int]) -> Union[None, int]:
+    def pdg_id(self, pdg_id: int | None) -> int | None:
         if pdg_id is None:
             return None
 
@@ -55,7 +55,7 @@ class TriggerLeg(object):
         return pdg_id
 
     @typed
-    def min_pt(self, min_pt: Union[None, int, float]) -> Union[None, float]:
+    def min_pt(self, min_pt: int | float | None) -> float | None:
         if min_pt is None:
             return None
 
@@ -69,8 +69,8 @@ class TriggerLeg(object):
     @typed
     def trigger_bits(
         self,
-        trigger_bits: Union[None, int, Tuple[int], List[int]],
-    ) -> Union[None, List[int]]:
+        trigger_bits: int | tuple[int] | list[int] | None,
+    ) -> list[int] | None:
         if trigger_bits is None:
             return None
 
@@ -143,8 +143,8 @@ class Trigger(UniqueObject, TagMixin, DataSourceMixin):
     @typed
     def run_range(
         self,
-        run_range: Union[None, Tuple[int], List[int]],
-    ) -> Union[None, Tuple[int]]:
+        run_range: tuple[int] | list[int] | None,
+    ) -> tuple[int] | None:
         if run_range is None:
             return None
 
@@ -167,8 +167,16 @@ class Trigger(UniqueObject, TagMixin, DataSourceMixin):
     @typed
     def legs(
         self,
-        legs: Union[None, dict, Tuple[dict], List[dict], TriggerLeg, Tuple[TriggerLeg], List[TriggerLeg]],
-    ) -> List[TriggerLeg]:
+        legs: (
+            dict |
+            tuple[dict] |
+            list[dict] |
+            TriggerLeg |
+            tuple[TriggerLeg] |
+            list[TriggerLeg] |
+            None
+        ),
+    ) -> list[TriggerLeg]:
         if legs is None:
             return None
 

@@ -4,7 +4,7 @@
 Lepton selection methods.
 """
 
-from typing import Union, Tuple, List
+from __future__ import annotations
 
 from columnflow.util import maybe_import
 from columnflow.selection import Selector, SelectionResult, selector
@@ -21,7 +21,7 @@ def trigger_object_matching(
     vectors2: ak.Array,
     threshold: float = 0.25,
     axis: int = 2,
-) -> Union[ak.Array, Tuple[ak.Array, ak.Array]]:
+) -> ak.Array | tuple[ak.Array, ak.Array]:
     """
     Helper to check per object in *vectors1* if there is at least one object in *vectors2* that
     leads to a delta R metric below *threshold*. The final reduction is applied over *axis* of the
@@ -32,7 +32,7 @@ def trigger_object_matching(
     dr = vectors1.metric_table(vectors2)
 
     # check per element in vectors1 if there is at least one matching element in vectors2
-    any_match = ak.any(dr < 0.25, axis=axis)
+    any_match = ak.any(dr < threshold, axis=axis)
 
     return any_match
 
@@ -49,9 +49,9 @@ def electron_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
-    leg_masks: List[ak.Array],
+    leg_masks: list[ak.Array],
     **kwargs,
-) -> Tuple[ak.Array, ak.Array]:
+) -> tuple[ak.Array, ak.Array]:
     """
     Electron selection returning two sets of indidces for default and veto electrons.
     See https://twiki.cern.ch/twiki/bin/view/CMS/EgammaNanoAOD?rev=4
@@ -123,9 +123,9 @@ def muon_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
-    leg_masks: List[ak.Array],
+    leg_masks: list[ak.Array],
     **kwargs,
-) -> Tuple[ak.Array, ak.Array]:
+) -> tuple[ak.Array, ak.Array]:
     """
     Muon selection returning two sets of indidces for default and veto muons.
     """
@@ -189,9 +189,8 @@ def muon_selection(
 
 @selector(
     uses={
-        "nTau", "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz", "Tau.idDecayModeNewDMs",
-        "Tau.idDeepTau2017v2p1VSe", "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet",
-        "Tau.idDecayModeOldDMs",  # TODO: remove this one when all datasets contain the new ones
+        "nTau", "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz", "Tau.idDeepTau2017v2p1VSe",
+        "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet",
         "nTrigObj", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
         "nElectron", "Electron.pt", "Electron.eta", "Electron.phi",
         "nMuon", "Muon.pt", "Muon.eta", "Muon.phi",
@@ -201,15 +200,17 @@ def tau_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
-    leg_masks: List[ak.Array],
+    leg_masks: list[ak.Array],
     electron_indices: ak.Array,
     muon_indices: ak.Array,
     **kwargs,
-) -> Tuple[ak.Array, ak.Array]:
+) -> tuple[ak.Array, ak.Array]:
     """
     Tau selection returning a set of indices for taus that are at least VVLoose isolated (vs jet)
     and a second mask to select the action Medium isolated ones, eventually to separate normal and
     iso inverted taus for QCD estimations.
+
+    TODO: there is no decay mode selection yet, but this should be revisited!
     """
     is_single_e = trigger.has_tag("single_e")
     is_single_mu = trigger.has_tag("single_mu")
@@ -241,7 +242,7 @@ def tau_selection(
         min_pt = 20.0
         max_eta = 2.3
     elif is_cross_e:
-        # only existing after 2016
+        # only existing after 2016, so force a failure in case of misconfiguration
         min_pt = None if is_2016 else 35.0
         max_eta = 2.1
     elif is_cross_mu:
@@ -251,7 +252,7 @@ def tau_selection(
         min_pt = 40.0
         max_eta = 2.1
     elif is_cross_tau_vbf:
-        # only existing after 2016
+        # only existing after 2016, so force in failure in case of misconfiguration
         min_pt = None if is_2016 else 25.0
         max_eta = 2.1
 
@@ -260,8 +261,6 @@ def tau_selection(
         (abs(events.Tau.eta) < max_eta) &
         (events.Tau.pt > min_pt) &
         (abs(events.Tau.dz) < 0.2) &
-        # TODO: drop old decay modes once new ones are available in all datasets
-        (events.Tau.idDecayModeNewDMs if "idDecayModeNewDMs" in events.Tau.fields else events.Tau.idDecayModeOldDMs) &
         (events.Tau.idDeepTau2017v2p1VSe >= (2 if is_any_cross_tau else 4)) &  # 2: VVLoose, 4: VLoose
         (events.Tau.idDeepTau2017v2p1VSmu >= (1 if is_any_cross_tau else 8)) &  # 1: VLoose, 8: Tight
         (events.Tau.idDeepTau2017v2p1VSjet >= 2)  # 2: VVLoose
@@ -278,19 +277,11 @@ def tau_selection(
         base_mask = base_mask & matches_leg1
     elif is_cross_tau or is_cross_tau_vbf:
         # taus need to be matched to at least one leg, but as a side condition
-        # each leg has to have at least one match which is encoded in the tau mask as well
+        # each leg has to have at least one match to a tau
         base_mask = base_mask & (
             (matches_leg0 | matches_leg1) &
-            # all legs
-            ak.all(
-                # any match across taus
-                ak.any(
-                    # create a "table" with all taus vs. leg matches
-                    ak.concatenate([matches_leg0[..., None], matches_leg1[..., None]], axis=2),
-                    axis=1,
-                ),
-                axis=1,
-            )
+            ak.any(matches_leg0, axis=1) &
+            ak.any(matches_leg1, axis=1)
         )
 
     # indices for sorting first by isolation, then by pt
@@ -312,7 +303,8 @@ def tau_selection(
 @selector(
     uses={
         electron_selection, muon_selection, tau_selection,
-        "event", "Electron.charge", "Muon.charge", "Tau.charge", "Electron.mass", "Muon.mass", "Tau.mass",
+        "event", "Electron.charge", "Muon.charge", "Tau.charge", "Electron.mass", "Muon.mass",
+        "Tau.mass",
     },
     produces={
         electron_selection, muon_selection, tau_selection,
@@ -324,7 +316,7 @@ def lepton_selection(
     events: ak.Array,
     trigger_results: SelectionResult,
     **kwargs,
-) -> Tuple[ak.Array, SelectionResult]:
+) -> tuple[ak.Array, SelectionResult]:
     """
     Combined lepton selection.
     """

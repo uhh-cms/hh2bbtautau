@@ -4,8 +4,6 @@
 MET and MET filter selection methods.
 """
 
-from typing import Tuple
-
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.util import maybe_import
 from columnflow.columnar_util import Route
@@ -21,7 +19,7 @@ def met_filter_selection(
     self: Selector,
     events: ak.Array,
     **kwargs,
-) -> Tuple[ak.Array, SelectionResult]:
+) -> tuple[ak.Array, SelectionResult]:
     """
     MET filter selection.
     """

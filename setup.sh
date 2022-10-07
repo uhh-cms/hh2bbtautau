@@ -24,29 +24,12 @@ setup_hbt() {
     # Variables defined by the setup and potentially required throughout the analysis:
     #   HBT_BASE
     #       The absolute analysis base directory. Used to infer file locations relative to it.
-    #   PATH
-    #       Ammended PATH variable.
-    #   PYTHONPATH
-    #       Ammended PYTHONPATH variable.
-    #   PYTHONWARNINGS
-    #       Set to "ignore".
-    #   GLOBUS_THREAD_MODEL
-    #       Set to "none".
-    #   VIRTUAL_ENV_DISABLE_PROMPT
-    #       Set to "1" when not defined already, leading to virtual envs leaving the PS1 prompt
-    #       variable unaltered.
-    #   X509_USER_PROXY
-    #       Set to "/tmp/x509up_u$( id -u )" if not already set.
-    #   LAW_HOME
-    #       Set to $HBT_BASE/.law.
-    #   LAW_CONFIG_FILE
-    #       Set to $HBT_BASE/law.cfg.
 
     #
     # prepare local variables
     #
 
-    local shell_is_zsh=$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )
+    local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
     local orig="${PWD}"
@@ -84,15 +67,14 @@ setup_hbt() {
             query CF_CERN_USER "CERN username" "$( whoami )"
             export_and_save CF_CERN_USER_FIRSTCHAR "\${CF_CERN_USER:0:1}"
             query CF_DATA "Local data directory" "\$HBT_BASE/data" "./data"
-            query CF_STORE_NAME "Relative path used in store paths (see next queries)" "ap_store"
+            query CF_STORE_NAME "Relative path used in store paths (see next queries)" "hbt_store"
             query CF_STORE_LOCAL "Default local output store" "\$CF_DATA/\$CF_STORE_NAME"
             query CF_WLCG_CACHE_ROOT "Local directory for caching remote files" "" "''"
             export_and_save CF_WLCG_USE_CACHE "$( [ -z "${CF_WLCG_CACHE_ROOT}" ] && echo false || echo true )"
             export_and_save CF_WLCG_CACHE_CLEANUP "${CF_WLCG_CACHE_CLEANUP:-false}"
             query CF_SOFTWARE_BASE "Local directory for installing software" "\$CF_DATA/software"
-            query CF_CMSSW_BASE "Local directory for installing CMSSW" "\$CF_DATA/cmssw"
             query CF_JOB_BASE "Local directory for storing job files" "\$CF_DATA/jobs"
-            query CF_VOMS "Virtual-organization" "cms:/cms/dcms"
+            query CF_VOMS "Virtual-organization" "cms"
             export_and_save CF_TASK_NAMESPACE "${CF_TASK_NAMESPACE:-cf}"
             query CF_LOCAL_SCHEDULER "Use a local scheduler for law tasks" "True"
             if [ "${CF_LOCAL_SCHEDULER}" != "True" ]; then
@@ -102,12 +84,15 @@ setup_hbt() {
                 export_and_save CF_SCHEDULER_HOST "127.0.0.1"
                 export_and_save CF_SCHEDULER_PORT "8082"
             fi
+            query HBT_BUNDLE_CMSSW "Install and bundle CMSSW sandboxes for job submission?" "True"
         }
         cf_setup_interactive "${CF_SETUP_NAME}" "${HBT_BASE}/.setups/${CF_SETUP_NAME}.sh" || return "$?"
     fi
 
     # continue the fixed setup
+    export CF_CONDA_BASE="${CF_CONDA_BASE:-${CF_SOFTWARE_BASE}/conda}"
     export CF_VENV_BASE="${CF_VENV_BASE:-${CF_SOFTWARE_BASE}/venvs}"
+    export CF_CMSSW_BASE="${CF_CMSSW_BASE:-${CF_SOFTWARE_BASE}/cmssw}"
     export CF_CI_JOB="$( [ "${GITHUB_ACTIONS}" = "true" ] && echo 1 || echo 0 )"
 
     # overwrite some variables in remote and CI jobs
@@ -164,11 +149,11 @@ main() {
 
     # run the actual setup
     if setup_hbt "$@"; then
-        echo -e "\x1b[0;49;35mHH -> bbtautau analysis successfully setup\x1b[0m"
+        cf_color green "HH -> bbtautau analysis successfully setup"
         return "0"
     else
         local code="$?"
-        echo -e "\x1b[0;49;31msetup failed with code ${code}\x1b[0m"
+        cf_color red "setup failed with code ${code}"
         return "${code}"
     fi
 }

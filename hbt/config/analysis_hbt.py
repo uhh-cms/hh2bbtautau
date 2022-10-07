@@ -10,9 +10,10 @@ from collections import OrderedDict
 
 import yaml
 from scinum import Number
+import law
 import order as od
 import cmsdb
-import cmsdb.campaigns.run2_2017
+import cmsdb.campaigns.run2_2017_nano_v9
 
 from columnflow.util import DotDict, get_root_processes_from_campaign
 from hbt.config.styles import stylize_processes
@@ -37,19 +38,23 @@ analysis_hbt = ana = od.Analysis(
 # analysis-global versions
 ana.x.versions = {}
 
-# bash sandboxes that might be required by remote tasks
-# (used in cf.PrepareJobSandboxes)
-ana.x.job_sandboxes = [
-    "bash::$CF_BASE/sandboxes/cf_prod.sh",
-    "bash::$CF_BASE/sandboxes/venv_columnar.sh",
-    "bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh",
+# files of bash sandboxes that might be required by remote tasks
+# (used in cf.HTCondorWorkflow)
+ana.x.bash_sandboxes = [
+    "$CF_BASE/sandboxes/cf_prod.sh",
+    "$CF_BASE/sandboxes/venv_columnar.sh",
+    "$HBT_BASE/sandboxes/venv_columnar_tf.sh",
 ]
 
-# cmssw sandboxes that might be required by remote tasks
+# files of cmssw sandboxes that might be required by remote tasks
 # (used in cf.HTCondorWorkflow)
 ana.x.cmssw_sandboxes = [
-    # "cmssw_default.sh",
+    # "$CF_BASE/sandboxes/cmssw_default.sh",
 ]
+
+# clear the list when cmssw bundling is disabled
+if not law.util.flag_to_bool(os.getenv("HBT_BUNDLE_CMSSW", "1")):
+    del ana.x.cmssw_sandboxes[:]
 
 # config groups for conveniently looping over certain configs
 # (used in wrapper_factory)
@@ -61,13 +66,13 @@ ana.x.config_groups = {}
 #
 
 # copy the campaign, which in turn copies datasets and processes
-campaign_run2_2017 = cmsdb.campaigns.run2_2017.campaign_run2_2017.copy()
+campaign_run2_2017_nano_v9 = cmsdb.campaigns.run2_2017_nano_v9.campaign_run2_2017_nano_v9.copy()
 
 # get all root processes
-procs = get_root_processes_from_campaign(campaign_run2_2017)
+procs = get_root_processes_from_campaign(campaign_run2_2017_nano_v9)
 
 # create a config by passing the campaign, so id and name will be identical
-config_2017 = cfg = ana.add_config(campaign_run2_2017)
+config_2017 = cfg = ana.add_config(campaign_run2_2017_nano_v9)
 
 # add processes we are interested in
 cfg.add_process(procs.n.data)
@@ -151,7 +156,7 @@ dataset_names = [
     "hh_ggf_bbtautau_madgraph",
 ]
 for dataset_name in dataset_names:
-    dataset = cfg.add_dataset(campaign_run2_2017.get_dataset(dataset_name))
+    dataset = cfg.add_dataset(campaign_run2_2017_nano_v9.get_dataset(dataset_name))
 
     # add aux info to datasets
     if dataset.name.startswith(("st", "tt")):
@@ -467,7 +472,7 @@ cfg.x.keep_columns = DotDict.wrap({
         "MET.*",
         # columns added during selection
         "channel", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
-        "mc_weight", "PV.npvs", "category_ids", "deterministic_seed",
+        "mc_weight", "PV.npvs", "category_ids", "deterministic_seed", "cutflow.*",
     },
     "cf.MergeSelectionMasks": {
         "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",

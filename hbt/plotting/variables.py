@@ -5,7 +5,7 @@ Scripts to create plots using the plotter
 """
 
 from collections import OrderedDict
-from typing import Sequence, Optional
+from typing import Sequence
 
 import law
 
@@ -22,7 +22,7 @@ def plot_variable_per_process(
     hists: OrderedDict,
     config_inst: od.config,
     variable_inst: od.variable,
-    style_config: Optional[dict] = None,
+    style_config: dict | None = None,
     **kwargs,
 ) -> plt.Figure:
 
@@ -107,7 +107,7 @@ def plot_variable_variants(
     hists: OrderedDict,
     config_inst: od.config,
     variable_inst: od.variable,
-    style_config: Optional[dict] = None,
+    style_config: dict | None = None,
     **kwargs,
 ) -> plt.Figure:
     plot_config = OrderedDict()
@@ -151,7 +151,7 @@ def plot_shifted_variable(
     config_inst: od.config,
     process_inst: od.process,
     variable_inst: od.variable,
-    style_config: Optional[dict] = None,
+    style_config: dict | None = None,
     **kwargs,
 ) -> plt.Figure:
 
@@ -216,7 +216,7 @@ def plot_shifted_variable(
 def plot_cutflow(
     hists: OrderedDict,
     config_inst: od.config,
-    style_config: Optional[dict] = None,
+    style_config: dict | None = None,
     **kwargs,
 ) -> plt.Figure:
 

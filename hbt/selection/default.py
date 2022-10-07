@@ -7,7 +7,6 @@ Selection methods.
 from operator import and_
 from functools import reduce
 from collections import defaultdict
-from typing import Tuple
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.production.processes import process_ids
@@ -18,6 +17,7 @@ from hbt.selection.met import met_filter_selection
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
+from hbt.production.features import cutflow_features
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -84,11 +84,11 @@ def increment_stats(
 @selector(
     uses={
         attach_coffea_behavior, met_filter_selection, trigger_selection, lepton_selection,
-        jet_selection, process_ids, increment_stats,
+        jet_selection, process_ids, increment_stats, cutflow_features,
     },
     produces={
         met_filter_selection, trigger_selection, lepton_selection, jet_selection, process_ids,
-        increment_stats,
+        increment_stats, cutflow_features,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -98,7 +98,7 @@ def default(
     events: ak.Array,
     stats: defaultdict,
     **kwargs,
-) -> Tuple[ak.Array, SelectionResult]:
+) -> tuple[ak.Array, SelectionResult]:
     # ensure coffea behavior
     events = self[attach_coffea_behavior](events, **kwargs)
 
@@ -130,5 +130,8 @@ def default(
 
     # increment stats
     events = self[increment_stats](events, results, stats, **kwargs)
+
+    # some cutflow features
+    events = self[cutflow_features](events, **kwargs)
 
     return events, results

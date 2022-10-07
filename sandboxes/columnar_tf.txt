@@ -1,8 +1,7 @@
-# version 1
+# version 2
 
-tensorflow==2.6.*
-pyarrow==6.0.*
 coffea==0.7.*
-awkward==1.8.*
-uproot==4.2.3
+awkward==1.10.*
+uproot==4.3.*
 tabulate==0.8.*
+tensorflow==2.10.*

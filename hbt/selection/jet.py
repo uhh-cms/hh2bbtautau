@@ -6,7 +6,6 @@ Jet selection methods.
 
 from operator import or_
 from functools import reduce
-from typing import Tuple
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.util import maybe_import
@@ -38,7 +37,7 @@ def jet_selection(
     trigger_results: SelectionResult,
     lepton_results: SelectionResult,
     **kwargs,
-) -> Tuple[ak.Array, SelectionResult]:
+) -> tuple[ak.Array, SelectionResult]:
     """
     Jet selection based on ultra-legacy recommendations.
 

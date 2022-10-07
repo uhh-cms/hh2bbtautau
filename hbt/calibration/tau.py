@@ -17,6 +17,7 @@ np = maybe_import("numpy")
     uses={
         "nTau", "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.charge", "Tau.genPartFlav",
         "Tau.decayMode",
+        "MET.pt", "MET.phi",
     },
     produces={
         "Tau.pt", "Tau.mass",

@@ -4,8 +4,6 @@
 Trigger selection methods.
 """
 
-from typing import Tuple
-
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
@@ -27,7 +25,7 @@ def trigger_selection(
     self: Selector,
     events: ak.Array,
     **kwargs,
-) -> Tuple[ak.Array, SelectionResult]:
+) -> tuple[ak.Array, SelectionResult]:
     """
     HLT trigger path selection.
     """
