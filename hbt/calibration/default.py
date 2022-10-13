@@ -5,12 +5,12 @@ Calibration methods.
 """
 
 from columnflow.calibration import Calibrator, calibrator
+from columnflow.calibration.met import met_phi
 from columnflow.production.mc_weight import mc_weight
 from columnflow.production.seeds import deterministic_seeds
 from columnflow.util import maybe_import
 
 from hbt.calibration.jet import jet_energy
-from hbt.calibration.met_phi import met_phi
 from hbt.calibration.tau import tec
 
 ak = maybe_import("awkward")
