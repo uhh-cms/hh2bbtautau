@@ -123,7 +123,7 @@ setup_hbt() {
     # initialze submodules
     if [ -d "${HBT_BASE}/.git" ]; then
         for m in $( ls -1q "${HBT_BASE}/modules" ); do
-            cf_init_submodule "${HBT_BASE}/modules/${m}"
+            cf_init_submodule "${HBT_BASE}" "modules/${m}"
         done
     fi
 

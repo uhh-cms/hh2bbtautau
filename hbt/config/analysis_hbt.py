@@ -450,7 +450,7 @@ cfg.x.external_files = DotDict.wrap({
     },
 
     # tau energy correction and scale factors
-    "tau": ("/afs/cern.ch/user/m/mrieger/public/mirrors/cms-tau-pog/jsonpog-integration/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
+    "tau": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
 
     # met phi corrector
     "met_phi_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/cms-met/metphi_corrs_all.json.gz", "v1"),
