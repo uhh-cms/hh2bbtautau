@@ -308,6 +308,48 @@ cfg.x.jec = DotDict.wrap({
     ],
 })
 
+# JEC uncertainty sources propagated to btag scale factors
+# (names derived from contents in BTV correctionlib file)
+cfg.x.btag_sf_jec_sources = [
+    "",  # total
+    "Absolute",
+    "AbsoluteMPFBias",
+    "AbsoluteScale",
+    "AbsoluteStat",
+    "Absolute_2017",
+    "BBEC1",
+    "BBEC1_2017",
+    "EC2",
+    "EC2_2017",
+    "FlavorQCD",
+    "Fragmentation",
+    "HF",
+    "HF_2017",
+    "PileUpDataMC",
+    "PileUpPtBB",
+    "PileUpPtEC1",
+    "PileUpPtEC2",
+    "PileUpPtHF",
+    "PileUpPtRef",
+    "RelativeBal",
+    "RelativeFSR",
+    "RelativeJEREC1",
+    "RelativeJEREC2",
+    "RelativeJERHF",
+    "RelativePtBB",
+    "RelativePtEC1",
+    "RelativePtEC2",
+    "RelativePtHF",
+    "RelativeSample",
+    "RelativeSample_2017",
+    "RelativeStatEC",
+    "RelativeStatFSR",
+    "RelativeStatHF",
+    "SinglePionECAL",
+    "SinglePionHCAL",
+    "TimePtEta",
+]
+
 cfg.x.jer = DotDict.wrap({
     "source": "https://raw.githubusercontent.com/cms-jet/JRDatabase/master/textFiles",
     "campaign": "Summer19UL17",
@@ -350,8 +392,20 @@ cfg.add_shift(name="top_pt_down", id=10, type="shape")
 add_aliases("top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})
 for jec_source in cfg.x.jec["uncertainty_sources"]:
     idx = all_jec_sources.index(jec_source)
-    cfg.add_shift(name=f"jec_{jec_source}_up", id=5000 + 2 * idx, type="shape")
-    cfg.add_shift(name=f"jec_{jec_source}_down", id=5001 + 2 * idx, type="shape")
+    cfg.add_shift(
+        name=f"jec_{jec_source}_up",
+        id=5000 + 2 * idx,
+        type="shape",
+        tags={"jec"},
+        aux={"jec_source": jec_source},
+    )
+    cfg.add_shift(
+        name=f"jec_{jec_source}_down",
+        id=5001 + 2 * idx,
+        type="shape",
+        tags={"jec"},
+        aux={"jec_source": jec_source},
+    )
     add_aliases(
         f"jec_{jec_source}",
         {
