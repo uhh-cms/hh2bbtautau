@@ -407,6 +407,7 @@ cfg.add_shift(name="cferr1_down", id=113, type="shape")
 cfg.add_shift(name="cferr2_up", id=114, type="shape")
 cfg.add_shift(name="cferr2_down", id=115, type="shape")
 
+
 def make_jme_filename(jme_aux, sample_type, name, era=None):
     """
     Convenience function to compute paths to JEC files.
