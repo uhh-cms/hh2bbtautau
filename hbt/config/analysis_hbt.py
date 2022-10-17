@@ -166,12 +166,14 @@ for dataset_name in dataset_names:
         dataset.x.event_weights = ["top_pt_weight"]
 
 
-# default calibrator, selector, producer, ml model and inference model
+# default objects, such as calibrator, selector, producer, ml model, inference model, etc
 cfg.x.default_calibrator = "default"
 cfg.x.default_selector = "default"
-cfg.x.default_producer = "features"
+cfg.x.default_producer = "default"
 cfg.x.default_ml_model = None
 cfg.x.default_inference_model = "test"
+cfg.x.default_categories = ("incl",)
+cfg.x.default_variables = ("n_jet", "n_btag")
 
 # process groups for conveniently looping over certain processs
 # (used in wrapper_factory and during plotting)
@@ -227,9 +229,11 @@ cfg.x.btag_working_points = DotDict.wrap({
 })
 
 # name of the deep tau tagger
+# (used in the tec calibrator)
 cfg.x.tau_tagger = "DeepTau2017v2p1"
 
 # name of the MET phi correction set
+# (used in the met_phi calibrator)
 cfg.x.met_phi_correction_set = "metphicorr_{variable}_pfmet_{data_source}_2017"
 
 # location of JEC txt files
@@ -381,6 +385,24 @@ for i, dm in enumerate(["0", "1", "10", "11"]):
         selection_dependent=True,
     )
 
+# tau weight shifts go here, ids 60 to 99
+
+cfg.add_shift(name="hf_up", id=100, type="shape")
+cfg.add_shift(name="hf_down", id=101, type="shape")
+cfg.add_shift(name="lf_up", id=102, type="shape")
+cfg.add_shift(name="lf_down", id=103, type="shape")
+cfg.add_shift(name="hfstats1_2017_up", id=104, type="shape")
+cfg.add_shift(name="hfstats1_2017_down", id=105, type="shape")
+cfg.add_shift(name="hfstats2_2017_up", id=106, type="shape")
+cfg.add_shift(name="hfstats2_2017_down", id=107, type="shape")
+cfg.add_shift(name="lfstats1_2017_up", id=108, type="shape")
+cfg.add_shift(name="lfstats1_2017_down", id=109, type="shape")
+cfg.add_shift(name="lfstats2_2017_up", id=110, type="shape")
+cfg.add_shift(name="lfstats2_2017_down", id=111, type="shape")
+cfg.add_shift(name="cferr1_up", id=112, type="shape")
+cfg.add_shift(name="cferr1_down", id=113, type="shape")
+cfg.add_shift(name="cferr2_up", id=114, type="shape")
+cfg.add_shift(name="cferr2_down", id=115, type="shape")
 
 def make_jme_filename(jme_aux, sample_type, name, era=None):
     """
@@ -468,11 +490,17 @@ cfg.x.keep_columns = DotDict.wrap({
         # general event info
         "run", "luminosityBlock", "event",
         # object info
-        "Jet.pt", "Jet.eta", "Jet.btagDeepFlavB",
-        "Muon.*",
-        "Electron.*",
-        "Tau.*",
-        "MET.*",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
+        "Jet.hhbtag",
+        "BJet.pt", "BJet.eta", "BJet.phi", "BJet.mass", "BJet.btagDeepFlavB", "BJet.hadronFlavour",
+        "BJet.hhbtag",
+        "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
+        "Electron.pfRelIso03_all",
+        "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
+        "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe",
+        "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
+        "Tau.decayMode",
+        "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
         # columns added during selection
         "channel", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
         "mc_weight", "PV.npvs", "category_ids", "deterministic_seed", "cutflow.*",

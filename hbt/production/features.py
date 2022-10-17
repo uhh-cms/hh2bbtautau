@@ -6,10 +6,9 @@ Column production methods related to higher-level features.
 
 from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
+from columnflow.production.mc_weight import mc_weight
 from columnflow.util import maybe_import
 from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
-
-from hbt.production.weights import event_weights
 
 ak = maybe_import("awkward")
 
@@ -36,13 +35,10 @@ def jet_energy_shifts_init(self: Producer) -> None:
 
 @producer(
     uses={
-        category_ids, event_weights,
-        "Electron.pt", "Electron.eta", "Muon.pt", "Muon.eta", "Jet.pt", "Jet.eta",
-        "Jet.btagDeepFlavB",
+        "Electron.pt", "Muon.pt", "Jet.pt", "BJet.pt",
     },
     produces={
-        category_ids, event_weights,
-        "ht", "n_jet", "n_electron", "n_muon", "n_deepjet",
+        "ht", "n_jet", "n_btag", "n_electron", "n_muon",
     },
     shifts={
         jet_energy_shifts,
@@ -51,24 +47,25 @@ def jet_energy_shifts_init(self: Producer) -> None:
 def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column(events, "ht", ak.sum(events.Jet.pt, axis=1))
     events = set_ak_column(events, "n_jet", ak.num(events.Jet.pt, axis=1))
+    events = set_ak_column(events, "n_btag", ak.num(events.BJet.pt, axis=1))
     events = set_ak_column(events, "n_electron", ak.num(events.Electron.pt, axis=1))
     events = set_ak_column(events, "n_muon", ak.num(events.Muon.pt, axis=1))
-    events = set_ak_column(events, "n_deepjet", ak.num(events.Jet.pt[events.Jet.btagDeepFlavB > 0.3], axis=1))
-
-    # add category ids
-    events = self[category_ids](events, **kwargs)
-
-    # add event weights
-    events = self[event_weights](events, **kwargs)
 
     return events
 
 
 @producer(
-    uses={"Jet.pt"},
-    produces={"cutflow.n_jet", "cutflow.ht", "cutflow.jet1_pt"},
+    uses={
+        mc_weight, category_ids, "Jet.pt",
+    },
+    produces={
+        mc_weight, category_ids, "cutflow.n_jet", "cutflow.ht", "cutflow.jet1_pt",
+    },
 )
 def cutflow_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[mc_weight](events, **kwargs)
+    events = self[category_ids](events, **kwargs)
+
     events = set_ak_column(events, "cutflow.n_jet", ak.num(events.Jet, axis=1))
     events = set_ak_column(events, "cutflow.ht", ak.sum(events.Jet.pt, axis=1))
     events = set_ak_column(events, "cutflow.jet1_pt", Route("Jet.pt[:,0]").apply(events, EMPTY_FLOAT))

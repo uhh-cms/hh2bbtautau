@@ -162,8 +162,9 @@ def jet_selection(
     wp = self.config_inst.x.btag_working_points.deepcsv.loose
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
-    # for central jets (bjetcandidates) remove bjets to avoid amiguities later on
-    default_mask = default_mask & (~bjet_mask)
+    # for central jets ("bjetcandidates") remove bjets to avoid amiguities later on
+    # note: disabled for the moment, meaning that all bjets are contained in jets
+    # default_mask = default_mask & (~bjet_mask)
 
     # pt sorted indices to convert mask
     sorted_indices = ak.argsort(events.Jet.pt, axis=-1, ascending=False)

@@ -14,6 +14,18 @@ def add_variables(config: od.Config) -> None:
     Adds all variables to a *config*.
     """
     config.add_variable(
+        name="n_jet",
+        expression="n_jet",
+        binning=(11, -0.5, 10.5),
+        x_title="Number of jets",
+    )
+    config.add_variable(
+        name="n_btag",
+        expression="n_btag",
+        binning=(11, -0.5, 10.5),
+        x_title="Number of b-tags",
+    )
+    config.add_variable(
         name="mc_weight",
         expression="mc_weight",
         binning=(200, -10, 10),
