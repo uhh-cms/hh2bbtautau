@@ -228,6 +228,9 @@ cfg.x.btag_working_points = DotDict.wrap({
     },
 })
 
+# name of the btag_sf correction set
+cfg.x.btag_sf_correction_set = "deepJet_shape"
+
 # name of the deep tau tagger
 # (used in the tec calibrator)
 cfg.x.tau_tagger = "DeepTau2017v2p1"
@@ -479,6 +482,10 @@ cfg.x.external_files = DotDict.wrap({
 
     # hh-btag repository (lightweight) with TF saved model directories
     "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
+
+    # btag scale factor
+    "btag_sf_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/BTV/2017_UL/btagging.json.gz", "v1"),
+
 })
 
 # target file size after MergeReducedEvents in MB
