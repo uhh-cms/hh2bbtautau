@@ -201,9 +201,9 @@ def jet_selection(
             },
         },
         aux={
-            "n_central_jets": (
-                ak.num(jet_indices, axis=1) +
-                ak.num(bjet_indices, axis=1)
-            ),
+            # jet mask that lead to the jet_indices
+            "jet_mask": default_mask,
+            # used to determine sum of weights in increment_stats
+            "n_central_jets": ak.num(jet_indices, axis=1),
         },
     )

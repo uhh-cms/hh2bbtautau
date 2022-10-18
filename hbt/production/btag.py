@@ -4,6 +4,8 @@
 Producers for btag scale factor weights.
 """
 
+from __future__ import annotations
+
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
@@ -18,9 +20,10 @@ ak = maybe_import("awkward")
     },
     # produced columns are defined in the init function below
 )
-def btag_sf(
+def btag_weight(
     self: Producer,
     events: ak.Array,
+    jet_mask: ak.Array | type(Ellipsis) = Ellipsis,
     **kwargs,
 ) -> ak.Array:
     """
@@ -44,38 +47,45 @@ def btag_sf(
        - https://twiki.cern.ch/twiki/bin/view/CMS/BTagShapeCalibration?rev=26
        - https://indico.cern.ch/event/1096988/contributions/4615134/attachments/2346047/4000529/Nov21_btaggingSFjsons.pdf
     """
-    # get flat inputs
-    flavor = flat_np_view(events.Jet.hadronFlavour, axis=1)
-    abs_eta = flat_np_view(abs(events.Jet.eta), axis=1)
-    pt = flat_np_view(events.Jet.pt, axis=1)
-    b_discr = flat_np_view(events.Jet.btagDeepFlavB, axis=1)
+    # get the total number of jets in the chunk
+    n_jets_all = len(flat_np_view(events.Jet.pt, axis=1))
 
-    # determine the position of c-flavored jets
-    c_mask = flavor == 4
+    # get flat inputs, evaluated at jet_mask
+    flavor = flat_np_view(events.Jet.hadronFlavour[jet_mask], axis=1)
+    abs_eta = flat_np_view(abs(events.Jet.eta[jet_mask]), axis=1)
+    pt = flat_np_view(events.Jet.pt[jet_mask], axis=1)
+    b_discr = flat_np_view(events.Jet.btagDeepFlavB[jet_mask], axis=1)
 
     # helper to create and store the weight
     def add_weight(syst_name, syst_direction, column_name):
-        # start with flat ones and fill scale factors
-        sf_flat = np.ones_like(abs_eta)
-
-        # define an assignment mask
-        mask = Ellipsis
+        # define a mask that selects the correct flavor to assign to, depending on the systematic
+        flavor_mask = Ellipsis
         if syst_name in ["hf", "lf", "hfstats1", "hfstats2", "lfstats1", "lfstats2"]:
-            mask = ~c_mask
+            flavor_mask = flavor != 4
         elif syst_name in ["cferr1", "cferr2"]:
-            mask = c_mask
+            flavor_mask = flavor == 4
 
         # get the flat scale factors
-        sf_flat[mask] = self.btag_sf_corrector.evaluate(
+        sf_flat = self.btag_sf_corrector.evaluate(
             syst_name if syst_name == "central" else f"{syst_direction}_{syst_name}",
-            flavor[mask],
-            abs_eta[mask],
-            pt[mask],
-            b_discr[mask],
+            flavor[flavor_mask],
+            abs_eta[flavor_mask],
+            pt[flavor_mask],
+            b_discr[flavor_mask],
         )
 
+        # insert them into an array of ones whose length corresponds to the total number of jets
+        sf_flat_all = np.ones(n_jets_all, dtype=np.float32)
+        if jet_mask is Ellipsis:
+            indices = flavor_mask
+        else:
+            indices = flat_np_view(jet_mask)
+            if flavor_mask is not Ellipsis:
+                indices = np.where(indices)[0][flavor_mask]
+        sf_flat_all[indices] = sf_flat
+
         # enforce the correct shape and create the product via all jets per event
-        sf = layout_ak_array(sf_flat.astype(np.float32), events.Jet.pt)
+        sf = layout_ak_array(sf_flat_all, events.Jet.pt)
         weight = ak.prod(sf, axis=1, mask_identity=False)
 
         # save the new column
@@ -108,8 +118,8 @@ def btag_sf(
     return events
 
 
-@btag_sf.init
-def btag_sf_init(self: Producer) -> None:
+@btag_weight.init
+def btag_weight_init(self: Producer) -> None:
     # depending on the requested shift_inst, there are three cases to handle:
     #   1. when a JEC uncertainty is requested whose propagation to btag weights is known, the
     #      producer should only produce that specific weight column
@@ -153,8 +163,8 @@ def btag_sf_init(self: Producer) -> None:
         self.produces.add("btag_weight")
 
 
-@btag_sf.requires
-def btag_sf_requires(self: Producer, reqs: dict) -> None:
+@btag_weight.requires
+def btag_weight_requires(self: Producer, reqs: dict) -> None:
     if "external_files" in reqs:
         return
 
@@ -162,8 +172,8 @@ def btag_sf_requires(self: Producer, reqs: dict) -> None:
     reqs["external_files"] = BundleExternalFiles.req(self.task)
 
 
-@btag_sf.setup
-def btag_sf_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+@btag_weight.setup
+def btag_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     bundle = reqs["external_files"]
 
     # create the btag sf corrector

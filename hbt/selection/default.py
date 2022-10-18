@@ -6,9 +6,10 @@ Selection methods.
 
 from operator import and_
 from functools import reduce
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.production.mc_weight import mc_weight
 from columnflow.production.processes import process_ids
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import, dev_sandbox
@@ -17,13 +18,16 @@ from hbt.selection.met import met_filter_selection
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
+from hbt.production.btag import btag_weight
 from hbt.production.features import cutflow_features
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
 
-@selector(uses={"mc_weight"})
+@selector(
+    uses={btag_weight},
+)
 def increment_stats(
     self: Selector,
     events: ak.Array,
@@ -43,35 +47,43 @@ def increment_stats(
     stats["n_events"] += len(events)
     stats["n_events_selected"] += ak.sum(event_mask, axis=0)
 
-    # store sum of event weights for mc events
+    # store sums of different event weights in different variations
+    weight_map = OrderedDict()
     if self.dataset_inst.is_mc:
-        weights = events.mc_weight
+        # default mc weight
+        weight_map["mc_weight"] = events.mc_weight
 
+        # btag weights
+        for name in sorted(self[btag_weight].produces):
+            if name.startswith("btag_weight"):
+                weight_map[name] = events[name]
+
+    for name, weights in weight_map.items():
         # sum for all processes
-        stats["sum_mc_weight"] += ak.sum(weights)
-        stats["sum_mc_weight_selected"] += ak.sum(weights[event_mask])
+        stats[f"sum_{name}"] += ak.sum(weights)
+        stats[f"sum_{name}_selected"] += ak.sum(weights[event_mask])
 
         # sums per process id and again per jet multiplicity
-        stats.setdefault("sum_mc_weight_per_process", defaultdict(float))
-        stats.setdefault("sum_mc_weight_selected_per_process", defaultdict(float))
-        stats.setdefault("sum_mc_weight_per_process_and_njet", defaultdict(lambda: defaultdict(float)))
-        stats.setdefault("sum_mc_weight_selected_per_process_and_njet", defaultdict(lambda: defaultdict(float)))
+        stats.setdefault(f"sum_{name}_per_process", defaultdict(float))
+        stats.setdefault(f"sum_{name}_selected_per_process", defaultdict(float))
+        stats.setdefault(f"sum_{name}_per_process_and_njet", defaultdict(lambda: defaultdict(float)))
+        stats.setdefault(f"sum_{name}_selected_per_process_and_njet", defaultdict(lambda: defaultdict(float)))
         unique_process_ids = np.unique(events.process_id)
         unique_n_jets = []
         if results.has_aux("n_central_jets"):
             unique_n_jets = np.unique(results.x.n_central_jets)
         for p in unique_process_ids:
-            stats["sum_mc_weight_per_process"][int(p)] += ak.sum(
+            stats[f"sum_{name}_per_process"][int(p)] += ak.sum(
                 weights[events.process_id == p],
             )
-            stats["sum_mc_weight_selected_per_process"][int(p)] += ak.sum(
+            stats[f"sum_{name}_selected_per_process"][int(p)] += ak.sum(
                 weights[event_mask][events_sel.process_id == p],
             )
             for n in unique_n_jets:
-                stats["sum_mc_weight_per_process_and_njet"][int(p)][int(n)] += ak.sum(
+                stats[f"sum_{name}_per_process_and_njet"][int(p)][int(n)] += ak.sum(
                     weights[(events.process_id == p) & (results.x.n_central_jets == n)],
                 )
-                stats["sum_mc_weight_selected_per_process_and_njet"][int(p)][int(n)] += ak.sum(
+                stats[f"sum_{name}_selected_per_process_and_njet"][int(p)][int(n)] += ak.sum(
                     weights[event_mask][
                         (events_sel.process_id == p) &
                         (results.x.n_central_jets[event_mask] == n)
@@ -83,12 +95,13 @@ def increment_stats(
 
 @selector(
     uses={
-        attach_coffea_behavior, met_filter_selection, trigger_selection, lepton_selection,
-        jet_selection, process_ids, increment_stats, cutflow_features,
+        attach_coffea_behavior, mc_weight, met_filter_selection, trigger_selection,
+        lepton_selection, jet_selection, process_ids, btag_weight, cutflow_features,
+        increment_stats,
     },
     produces={
-        met_filter_selection, trigger_selection, lepton_selection, jet_selection, process_ids,
-        increment_stats, cutflow_features,
+        mc_weight, met_filter_selection, trigger_selection, lepton_selection, jet_selection,
+        process_ids, btag_weight, cutflow_features, increment_stats,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -101,6 +114,9 @@ def default(
 ) -> tuple[ak.Array, SelectionResult]:
     # ensure coffea behavior
     events = self[attach_coffea_behavior](events, **kwargs)
+
+    # add corrected mc weights
+    events = self[mc_weight](events, **kwargs)
 
     # prepare the selection results that are updated at every step
     results = SelectionResult()
@@ -120,6 +136,9 @@ def default(
     # jet selection
     events, jet_results = self[jet_selection](events, trigger_results, lepton_results, **kwargs)
     results += jet_results
+
+    # produce btag weights
+    events = self[btag_weight](events, results.x.jet_mask, **kwargs)
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
