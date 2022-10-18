@@ -16,9 +16,7 @@ ak = maybe_import("awkward")
     uses={
         "Jet.hadronFlavour", "Jet.eta", "Jet.pt", "Jet.btagDeepFlavB",
     },
-    produces={
-        "btag_weight",
-    },
+    # produced columns are defined in the init function below
 )
 def btag_sf(
     self: Producer,
@@ -61,12 +59,11 @@ def btag_sf(
         sf_flat = np.ones_like(abs_eta)
 
         # define an assignment mask
+        mask = Ellipsis
         if syst_name in ["hf", "lf", "hfstats1", "hfstats2", "lfstats1", "lfstats2"]:
             mask = ~c_mask
         elif syst_name in ["cferr1", "cferr2"]:
             mask = c_mask
-        else:
-            mask = Ellipsis
 
         # get the flat scale factors
         sf_flat[mask] = self.btag_sf_corrector.evaluate(
@@ -86,16 +83,7 @@ def btag_sf(
 
     # when the uncertainty is a known jec shift, obtain the propagated effect and do not produce
     # additional systematics
-    jec_source = self.shift_inst.x.jec_source if self.shift_inst.has_tag("jec") else None
-    btag_sf_jec_source = "" if jec_source == "Total" else jec_source
-    if jec_source and btag_sf_jec_source in self.config_inst.x("btag_sf_jec_sources", []):
-        # TODO: year dependent jec variations covered?
-        events = add_weight(
-            f"jes{'' if jec_source == 'Total' else jec_source}",
-            self.shift_inst.direction,
-            f"btag_weight_jec_{jec_source}_{self.shift_inst.direction}",
-        )
-    elif self.shift_inst.is_nominal:
+    if self.shift_inst.is_nominal:
         # nominal weight and those of all method intrinsic uncertainties
         events = add_weight("central", None, "btag_weight")
         for syst_name, col_name in self.btag_uncs.items():
@@ -106,6 +94,13 @@ def btag_sf(
                     direction,
                     f"btag_weight_{name}_{direction}",
                 )
+    elif self.shift_is_known_jec_source:
+        # TODO: year dependent jec variations covered?
+        events = add_weight(
+            f"jes{'' if self.jec_source == 'Total' else self.jec_source}",
+            self.shift_inst.direction,
+            f"btag_weight_jec_{self.jec_source}_{self.shift_inst.direction}",
+        )
     else:
         # any other shift, just produce the nominal weight
         events = add_weight("central", None, "btag_weight")
@@ -115,6 +110,20 @@ def btag_sf(
 
 @btag_sf.init
 def btag_sf_init(self: Producer) -> None:
+    # depending on the requested shift_inst, there are three cases to handle:
+    #   1. when a JEC uncertainty is requested whose propagation to btag weights is known, the
+    #      producer should only produce that specific weight column
+    #   2. when the nominal shift is requested, the central weight and all variations related to the
+    #      method-intrinsic shifts are produced
+    #   3. when any other shift is requested, only create the central weight column
+    # to handle this efficiently in one spot, store jec information
+    self.jec_source = self.shift_inst.x.jec_source if self.shift_inst.has_tag("jec") else None
+    btag_sf_jec_source = "" if self.jec_source == "Total" else self.jec_source
+    self.shift_is_known_jec_source = (
+        self.jec_source and
+        btag_sf_jec_source in self.config_inst.x("btag_sf_jec_sources", [])
+    )
+
     # save names of method-intrinsic uncertainties
     self.btag_uncs = {
         "hf": "hf",
@@ -128,10 +137,20 @@ def btag_sf_init(self: Producer) -> None:
     }
 
     # add uncertainty sources of the method itself
-    for col_name in self.btag_uncs.values():
-        for direction in ["up", "down"]:
+    if self.shift_inst.is_nominal:
+        # nominal column
+        self.produces.add("btag_weight")
+        # all varied columns
+        for col_name in self.btag_uncs.values():
             name = col_name.format(year=self.config_inst.campaign.x.year)
-            self.produces.add(f"btag_weight_{name}_{direction}")
+            for direction in ["up", "down"]:
+                self.produces.add(f"btag_weight_{name}_{direction}")
+    elif self.shift_is_known_jec_source:
+        # jec varied column
+        self.produces.add(f"btag_weight_jec_{self.jec_source}_{self.shift_inst.direction}")
+    else:
+        # only the nominal column
+        self.produces.add("btag_weight")
 
 
 @btag_sf.requires
