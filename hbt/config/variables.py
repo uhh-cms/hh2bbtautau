@@ -20,10 +20,10 @@ def add_variables(config: od.Config) -> None:
         x_title="Number of jets",
     )
     config.add_variable(
-        name="n_btag",
-        expression="n_btag",
-        binning=(11, -0.5, 10.5),
-        x_title="Number of b-tags",
+        name="n_hhbtag",
+        expression="n_hhbtag",
+        binning=(4, -0.5, 3.5),
+        x_title="Number of HH b-tags",
     )
     config.add_variable(
         name="mc_weight",

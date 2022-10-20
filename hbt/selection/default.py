@@ -39,54 +39,69 @@ def increment_stats(
     Unexposed selector that does not actually select objects but instead increments selection
     *stats* in-place based on all input *events* and the final selection *mask*.
     """
-    # apply the main selection mask to obtain selected events
+    # get event masks
     event_mask = results.main.event
-    events_sel = events[event_mask]
+    event_mask_no_bjet = results.steps.all_but_bjet
 
     # increment plain counts
     stats["n_events"] += len(events)
     stats["n_events_selected"] += ak.sum(event_mask, axis=0)
 
-    # store sums of different event weights in different variations
+    # get a list of unique jet multiplicities present in the chunk
+    unique_process_ids = np.unique(events.process_id)
+    unique_n_jets = []
+    if results.has_aux("n_central_jets"):
+        unique_n_jets = np.unique(results.x.n_central_jets)
+
+    # create a map of entry names to (weight, mask) pairs that will be written to stats
     weight_map = OrderedDict()
     if self.dataset_inst.is_mc:
-        # default mc weight
-        weight_map["mc_weight"] = events.mc_weight
+        # mc weight for all events
+        weight_map["mc_weight"] = (events.mc_weight, Ellipsis)
+
+        # mc weight for selected events
+        weight_map["mc_weight_selected"] = (events.mc_weight, event_mask)
+
+        # mc weight for selected events, excluding the bjet selection
+        weight_map["mc_weight_selected_no_bjet"] = (events.mc_weight, event_mask_no_bjet)
 
         # btag weights
         for name in sorted(self[btag_weight].produces):
-            if name.startswith("btag_weight"):
-                weight_map[name] = events[name]
+            if not name.startswith("btag_weight"):
+                continue
 
-    for name, weights in weight_map.items():
+            # weights for all events
+            weight_map[name] = (events[name], Ellipsis)
+
+            # weights for selected events
+            weight_map[f"{name}_selected"] = (events[name], event_mask)
+
+            # weights for selected events, excluding the bjet selection
+            weight_map[f"{name}_selected_no_bjet"] = (events[name], event_mask_no_bjet)
+
+            # mc weight times btag weight for selected events, excluding the bjet selection
+            weight_map[f"mc_weight_{name}_selected_no_bjet"] = (events[name] * events.mc_weight, event_mask_no_bjet)
+
+    # get and store the weights
+    for name, (weights, mask) in weight_map.items():
+        joinable_mask = True if mask is Ellipsis else mask
+
         # sum for all processes
-        stats[f"sum_{name}"] += ak.sum(weights)
-        stats[f"sum_{name}_selected"] += ak.sum(weights[event_mask])
+        stats[f"sum_{name}"] += ak.sum(weights[mask])
 
         # sums per process id and again per jet multiplicity
         stats.setdefault(f"sum_{name}_per_process", defaultdict(float))
-        stats.setdefault(f"sum_{name}_selected_per_process", defaultdict(float))
         stats.setdefault(f"sum_{name}_per_process_and_njet", defaultdict(lambda: defaultdict(float)))
-        stats.setdefault(f"sum_{name}_selected_per_process_and_njet", defaultdict(lambda: defaultdict(float)))
-        unique_process_ids = np.unique(events.process_id)
-        unique_n_jets = []
-        if results.has_aux("n_central_jets"):
-            unique_n_jets = np.unique(results.x.n_central_jets)
         for p in unique_process_ids:
             stats[f"sum_{name}_per_process"][int(p)] += ak.sum(
-                weights[events.process_id == p],
-            )
-            stats[f"sum_{name}_selected_per_process"][int(p)] += ak.sum(
-                weights[event_mask][events_sel.process_id == p],
+                weights[(events.process_id == p) & joinable_mask],
             )
             for n in unique_n_jets:
                 stats[f"sum_{name}_per_process_and_njet"][int(p)][int(n)] += ak.sum(
-                    weights[(events.process_id == p) & (results.x.n_central_jets == n)],
-                )
-                stats[f"sum_{name}_selected_per_process_and_njet"][int(p)][int(n)] += ak.sum(
-                    weights[event_mask][
-                        (events_sel.process_id == p) &
-                        (results.x.n_central_jets[event_mask] == n)
+                    weights[
+                        (events.process_id == p) &
+                        (results.x.n_central_jets == n) &
+                        joinable_mask
                     ],
                 )
 
@@ -143,6 +158,16 @@ def default(
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
     results.main["event"] = event_sel
+
+    # combined event seleciton after all but the bjet step
+    results.steps.all_but_bjet = reduce(
+        and_,
+        [
+            mask
+            for step_name, mask in results.steps.items()
+            if step_name != "bjet"
+        ],
+    )
 
     # create process ids
     events = self[process_ids](events, **kwargs)

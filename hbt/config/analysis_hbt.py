@@ -554,8 +554,10 @@ cfg.x.keep_columns = DotDict.wrap({
         # object info
         "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
         "Jet.hhbtag",
-        "BJet.pt", "BJet.eta", "BJet.phi", "BJet.mass", "BJet.btagDeepFlavB", "BJet.hadronFlavour",
-        "BJet.hhbtag",
+        "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
+        "HHBJet.hadronFlavour", "HHBJet.hhbtag",
+        "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
+        "NonHHBJet.btagDeepFlavB", "NonHHBJet.hadronFlavour", "NonHHBJet.hhbtag",
         "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
         "Electron.pfRelIso03_all",
         "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
@@ -563,9 +565,10 @@ cfg.x.keep_columns = DotDict.wrap({
         "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
         "Tau.decayMode",
         "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
+        "PV.npvs",
         # columns added during selection
-        "channel", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
-        "mc_weight", "PV.npvs", "category_ids", "deterministic_seed", "cutflow.*",
+        "channel", "process_id", "category_ids", "mc_weight", "leptons_os", "tau2_isolated",
+        "single_triggered", "cross_triggered", "deterministic_seed", "btag_weight*", "cutflow.*",
     },
     "cf.MergeSelectionMasks": {
         "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",

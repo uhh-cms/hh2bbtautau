@@ -38,7 +38,7 @@ def jet_energy_shifts_init(self: Producer) -> None:
         "Electron.pt", "Muon.pt", "Jet.pt", "BJet.pt",
     },
     produces={
-        "ht", "n_jet", "n_btag", "n_electron", "n_muon",
+        "ht", "n_jet", "n_hhbtag", "n_electron", "n_muon",
     },
     shifts={
         jet_energy_shifts,
@@ -47,7 +47,7 @@ def jet_energy_shifts_init(self: Producer) -> None:
 def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column(events, "ht", ak.sum(events.Jet.pt, axis=1))
     events = set_ak_column(events, "n_jet", ak.num(events.Jet.pt, axis=1))
-    events = set_ak_column(events, "n_btag", ak.num(events.BJet.pt, axis=1))
+    events = set_ak_column(events, "n_hhbtag", ak.num(events.HHBJet.pt, axis=1))
     events = set_ak_column(events, "n_electron", ak.num(events.Electron.pt, axis=1))
     events = set_ak_column(events, "n_muon", ak.num(events.Muon.pt, axis=1))
 
