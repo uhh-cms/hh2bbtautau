@@ -371,11 +371,12 @@ def add_aliases(
     aux_key = "column_aliases" + ("_selection_dependent" if selection_dependent else "")
     for direction in ["up", "down"]:
         shift = cfg.get_shift(od.Shift.join_name(shift_source, direction))
+        _aliases = shift.x(aux_key, {})
         # format keys and values
         inject_shift = lambda s: re.sub(r"\{([^_])", r"{_\1", s).format(**shift.__dict__)
-        _aliases = {inject_shift(key): inject_shift(value) for key, value in aliases.items()}
+        _aliases.update({inject_shift(key): inject_shift(value) for key, value in aliases.items()})
         # extend existing or register new column aliases
-        shift.set_aux(aux_key, shift.x(aux_key, {}).update(_aliases))
+        shift.set_aux(aux_key, _aliases)
 
 
 # load jec sources
@@ -394,6 +395,7 @@ add_aliases("minbias_xs", {"pu_weight": "pu_weight_{name}"})
 cfg.add_shift(name="top_pt_up", id=9, type="shape")
 cfg.add_shift(name="top_pt_down", id=10, type="shape")
 add_aliases("top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})
+
 for jec_source in cfg.x.jec["uncertainty_sources"]:
     idx = all_jec_sources.index(jec_source)
     cfg.add_shift(
@@ -410,6 +412,8 @@ for jec_source in cfg.x.jec["uncertainty_sources"]:
         tags={"jec"},
         aux={"jec_source": jec_source},
     )
+    # TODO: btag weight aliases are missing but this can only be solved when the JEC de/correlation
+    # across years is properly integrated
     add_aliases(
         f"jec_{jec_source}",
         {
@@ -420,6 +424,7 @@ for jec_source in cfg.x.jec["uncertainty_sources"]:
         },
         selection_dependent=True,
     )
+
 cfg.add_shift(name="jer_up", id=6000, type="shape")
 cfg.add_shift(name="jer_down", id=6001, type="shape")
 add_aliases(
@@ -432,6 +437,7 @@ add_aliases(
     },
     selection_dependent=True,
 )
+
 for i, dm in enumerate(["0", "1", "10", "11"]):
     cfg.add_shift(name=f"tec_dm{dm}_up", id=20 + 2 * i, type="shape")
     cfg.add_shift(name=f"tec_dm{dm}_down", id=21 + 2 * i, type="shape")
@@ -450,6 +456,7 @@ cfg.add_shift(name="e_sf_up", id=40, type="shape")
 cfg.add_shift(name="e_sf_down", id=41, type="shape")
 cfg.add_shift(name="e_trig_sf_up", id=42, type="shape")
 cfg.add_shift(name="e_trig_sf_down", id=43, type="shape")
+add_aliases("e_sf", {"electron_weight": "electron_weight_{direction}"})
 
 cfg.add_shift(name="mu_sf_up", id=50, type="shape")
 cfg.add_shift(name="mu_sf_down", id=51, type="shape")
@@ -457,23 +464,20 @@ cfg.add_shift(name="mu_trig_sf_up", id=52, type="shape")
 cfg.add_shift(name="mu_trig_sf_down", id=53, type="shape")
 
 # tau weight shifts go here, ids 60 to 99
-
-cfg.add_shift(name="hf_up", id=100, type="shape")
-cfg.add_shift(name="hf_down", id=101, type="shape")
-cfg.add_shift(name="lf_up", id=102, type="shape")
-cfg.add_shift(name="lf_down", id=103, type="shape")
-cfg.add_shift(name="hfstats1_2017_up", id=104, type="shape")
-cfg.add_shift(name="hfstats1_2017_down", id=105, type="shape")
-cfg.add_shift(name="hfstats2_2017_up", id=106, type="shape")
-cfg.add_shift(name="hfstats2_2017_down", id=107, type="shape")
-cfg.add_shift(name="lfstats1_2017_up", id=108, type="shape")
-cfg.add_shift(name="lfstats1_2017_down", id=109, type="shape")
-cfg.add_shift(name="lfstats2_2017_up", id=110, type="shape")
-cfg.add_shift(name="lfstats2_2017_down", id=111, type="shape")
-cfg.add_shift(name="cferr1_up", id=112, type="shape")
-cfg.add_shift(name="cferr1_down", id=113, type="shape")
-cfg.add_shift(name="cferr2_up", id=114, type="shape")
-cfg.add_shift(name="cferr2_down", id=115, type="shape")
+btag_uncs = [
+    "hf", "lf", "hfstats1_2017", "hfstats2_2017", "lfstats1_2017", "lfstats2_2017", "cferr1",
+    "cferr2",
+]
+for i, unc in enumerate(btag_uncs):
+    cfg.add_shift(name=f"btag_{unc}_up", id=100 + 2 * i, type="shape")
+    cfg.add_shift(name=f"btag_{unc}_down", id=101 + 2 * i, type="shape")
+    add_aliases(
+        f"btag_{unc}",
+        {
+            "normalized_btag_weight": f"normalized_btag_weight_{unc}_" + "{direction}",
+            "normalized_njet_btag_weight": f"normalized_njet_btag_weight_{unc}_" + "{direction}",
+        },
+    )
 
 
 def make_jme_filename(jme_aux, sample_type, name, era=None):
@@ -591,8 +595,12 @@ cfg.x.keep_columns = DotDict.wrap({
     },
 })
 
-# event weight columns
-cfg.x.event_weights = ["normalization_weight", "pu_weight"]
+# event weight columns as keys in an OrderedDict, mapped to shift instances they depend on
+get_shifts = lambda *names: sum(([cfg.get_shift(f"{name}_up"), cfg.get_shift(f"{name}_down")] for name in names), [])
+cfg.x.event_weights = DotDict()
+cfg.x.event_weights["normalization_weight"] = []
+cfg.x.event_weights["pu_weight"] = get_shifts("minbias_xs")
+cfg.x.event_weights["normalized_njet_btag_weight"] = get_shifts(*(f"btag_{unc}" for unc in btag_uncs))
 
 # versions per task family and optionally also dataset and shift
 # None can be used as a key to define a default value
