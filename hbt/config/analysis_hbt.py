@@ -236,6 +236,10 @@ cfg.x.tau_tagger = "DeepTau2017v2p1"
 # (used in the met_phi calibrator)
 cfg.x.met_phi_correction_set = "metphicorr_{variable}_pfmet_{data_source}_2017"
 
+# names of electron correction sets and working points
+# (used in the electron_sf producer)
+cfg.x.electron_sf_names = ("UL-Electron-ID-SF", "2017", "wp80iso")
+
 # location of JEC txt files
 cfg.x.jec = DotDict.wrap({
     "source": "https://raw.githubusercontent.com/cms-jet/JECDatabase/master/textFiles",
@@ -385,6 +389,16 @@ for i, dm in enumerate(["0", "1", "10", "11"]):
         selection_dependent=True,
     )
 
+cfg.add_shift(name="e_sf_up", id=40, type="shape")
+cfg.add_shift(name="e_sf_down", id=41, type="shape")
+cfg.add_shift(name="e_trig_sf_up", id=42, type="shape")
+cfg.add_shift(name="e_trig_sf_down", id=43, type="shape")
+
+cfg.add_shift(name="mu_sf_up", id=50, type="shape")
+cfg.add_shift(name="mu_sf_down", id=51, type="shape")
+cfg.add_shift(name="mu_trig_sf_up", id=52, type="shape")
+cfg.add_shift(name="mu_trig_sf_down", id=53, type="shape")
+
 # tau weight shifts go here, ids 60 to 99
 
 cfg.add_shift(name="hf_up", id=100, type="shape")
@@ -403,6 +417,7 @@ cfg.add_shift(name="cferr1_up", id=112, type="shape")
 cfg.add_shift(name="cferr1_down", id=113, type="shape")
 cfg.add_shift(name="cferr2_up", id=114, type="shape")
 cfg.add_shift(name="cferr2_down", id=115, type="shape")
+
 
 def make_jme_filename(jme_aux, sample_type, name, era=None):
     """
@@ -479,6 +494,9 @@ cfg.x.external_files = DotDict.wrap({
 
     # hh-btag repository (lightweight) with TF saved model directories
     "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
+
+    # electron scale factors
+    "electron_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/EGM/2017_UL/electron.json.gz", "v1"),  # noqa
 })
 
 # target file size after MergeReducedEvents in MB
