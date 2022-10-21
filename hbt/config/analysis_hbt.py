@@ -228,6 +228,9 @@ cfg.x.btag_working_points = DotDict.wrap({
     },
 })
 
+# name of the btag_sf correction set
+cfg.x.btag_sf_correction_set = "deepJet_shape"
+
 # name of the deep tau tagger
 # (used in the tec calibrator)
 cfg.x.tau_tagger = "DeepTau2017v2p1"
@@ -309,6 +312,48 @@ cfg.x.jec = DotDict.wrap({
     ],
 })
 
+# JEC uncertainty sources propagated to btag scale factors
+# (names derived from contents in BTV correctionlib file)
+cfg.x.btag_sf_jec_sources = [
+    "",  # total
+    "Absolute",
+    "AbsoluteMPFBias",
+    "AbsoluteScale",
+    "AbsoluteStat",
+    "Absolute_2017",
+    "BBEC1",
+    "BBEC1_2017",
+    "EC2",
+    "EC2_2017",
+    "FlavorQCD",
+    "Fragmentation",
+    "HF",
+    "HF_2017",
+    "PileUpDataMC",
+    "PileUpPtBB",
+    "PileUpPtEC1",
+    "PileUpPtEC2",
+    "PileUpPtHF",
+    "PileUpPtRef",
+    "RelativeBal",
+    "RelativeFSR",
+    "RelativeJEREC1",
+    "RelativeJEREC2",
+    "RelativeJERHF",
+    "RelativePtBB",
+    "RelativePtEC1",
+    "RelativePtEC2",
+    "RelativePtHF",
+    "RelativeSample",
+    "RelativeSample_2017",
+    "RelativeStatEC",
+    "RelativeStatFSR",
+    "RelativeStatHF",
+    "SinglePionECAL",
+    "SinglePionHCAL",
+    "TimePtEta",
+]
+
 cfg.x.jer = DotDict.wrap({
     "source": "https://raw.githubusercontent.com/cms-jet/JRDatabase/master/textFiles",
     "campaign": "Summer19UL17",
@@ -351,8 +396,20 @@ cfg.add_shift(name="top_pt_down", id=10, type="shape")
 add_aliases("top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})
 for jec_source in cfg.x.jec["uncertainty_sources"]:
     idx = all_jec_sources.index(jec_source)
-    cfg.add_shift(name=f"jec_{jec_source}_up", id=5000 + 2 * idx, type="shape")
-    cfg.add_shift(name=f"jec_{jec_source}_down", id=5001 + 2 * idx, type="shape")
+    cfg.add_shift(
+        name=f"jec_{jec_source}_up",
+        id=5000 + 2 * idx,
+        type="shape",
+        tags={"jec"},
+        aux={"jec_source": jec_source},
+    )
+    cfg.add_shift(
+        name=f"jec_{jec_source}_down",
+        id=5001 + 2 * idx,
+        type="shape",
+        tags={"jec"},
+        aux={"jec_source": jec_source},
+    )
     add_aliases(
         f"jec_{jec_source}",
         {
@@ -495,6 +552,9 @@ cfg.x.external_files = DotDict.wrap({
     # hh-btag repository (lightweight) with TF saved model directories
     "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
 
+    # btag scale factor
+    "btag_sf_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/BTV/2017_UL/btagging.json.gz", "v1"),  # noqa
+
     # electron scale factors
     "electron_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/EGM/2017_UL/electron.json.gz", "v1"),  # noqa
 })
@@ -510,8 +570,10 @@ cfg.x.keep_columns = DotDict.wrap({
         # object info
         "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
         "Jet.hhbtag",
-        "BJet.pt", "BJet.eta", "BJet.phi", "BJet.mass", "BJet.btagDeepFlavB", "BJet.hadronFlavour",
-        "BJet.hhbtag",
+        "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
+        "HHBJet.hadronFlavour", "HHBJet.hhbtag",
+        "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
+        "NonHHBJet.btagDeepFlavB", "NonHHBJet.hadronFlavour", "NonHHBJet.hhbtag",
         "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
         "Electron.pfRelIso03_all",
         "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
@@ -519,9 +581,10 @@ cfg.x.keep_columns = DotDict.wrap({
         "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
         "Tau.decayMode",
         "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
+        "PV.npvs",
         # columns added during selection
-        "channel", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
-        "mc_weight", "PV.npvs", "category_ids", "deterministic_seed", "cutflow.*",
+        "channel", "process_id", "category_ids", "mc_weight", "leptons_os", "tau2_isolated",
+        "single_triggered", "cross_triggered", "deterministic_seed", "btag_weight*", "cutflow.*",
     },
     "cf.MergeSelectionMasks": {
         "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",

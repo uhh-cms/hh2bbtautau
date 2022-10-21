@@ -69,9 +69,9 @@ def jet_selection(
     # get the scores of the hhbtag and per event get the two indices corresponding to the best pick
     hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
-    # pad the indices to simplify creating the bjet mask
-    padded_bjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2][..., :2]
-    bjet_mask = ((li == padded_bjet_indices[..., [0]]) | (li == padded_bjet_indices[..., [1]]))
+    # pad the indices to simplify creating the hhbjet mask
+    padded_hhbjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2][..., :2]
+    hhbjet_mask = ((li == padded_hhbjet_indices[..., [0]]) | (li == padded_hhbjet_indices[..., [1]]))
     # get indices for actual book keeping only for events with both lepton candidates and where at
     # least two jets pass the default mask (bjet candidates)
     valid_score_mask = (
@@ -79,14 +79,14 @@ def jet_selection(
         (ak.sum(default_mask, axis=1) >= 2) &
         (ak.num(lepton_results.x.lepton_pair, axis=1) == 2)
     )
-    bjet_indices = score_indices[valid_score_mask[score_indices]][..., :2]
+    hhbjet_indices = score_indices[valid_score_mask[score_indices]][..., :2]
 
     # vbf jets
     vbf_mask = (
         ak4_mask &
         (events.Jet.pt > 30.0) &
         (abs(events.Jet.eta) < 4.7) &
-        (~bjet_mask)
+        (~hhbjet_mask)
     )
 
     # build vectors of vbf jets representing all combinations and apply selections
@@ -140,10 +140,10 @@ def jet_selection(
     )
 
     # unique subjet matching
-    metrics = events.FatJet.subjets.metric_table(events.Jet[bjet_indices])
+    metrics = events.FatJet.subjets.metric_table(events.Jet[hhbjet_indices])
     subjets_match = (
         ak.all(ak.sum(metrics < 0.4, axis=3) == 1, axis=2) &
-        (ak.num(bjet_indices, axis=1) == 2)
+        (ak.num(hhbjet_indices, axis=1) == 2)
     )
     fatjet_mask = fatjet_mask & subjets_match
 
@@ -162,23 +162,24 @@ def jet_selection(
     wp = self.config_inst.x.btag_working_points.deepcsv.loose
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
-    # for central jets ("bjetcandidates") remove bjets to avoid amiguities later on
-    # note: disabled for the moment, meaning that all bjets are contained in jets
-    # default_mask = default_mask & (~bjet_mask)
-
     # pt sorted indices to convert mask
     sorted_indices = ak.argsort(events.Jet.pt, axis=-1, ascending=False)
     jet_indices = sorted_indices[default_mask[sorted_indices]]
 
+    # keep indices of default jets that are explicitly not selected as hhbjets for easier handling
+    non_hhbjet_mask = default_mask & (~hhbjet_mask)
+    non_hhbjet_indices = sorted_indices[non_hhbjet_mask[sorted_indices]]
+
     # final event selection
     jet_sel = (
         (ak.sum(default_mask, axis=1) >= 2) &
-        ak.fill_none(subjets_btagged, True)  # was none for events with not matched fatjet
+        ak.fill_none(subjets_btagged, True)  # was none for events with no matched fatjet
     )
 
     # some final type conversions
     jet_indices = ak.values_astype(ak.fill_none(jet_indices, 0), np.int32)
-    bjet_indices = ak.values_astype(bjet_indices, np.int32)
+    hhbjet_indices = ak.values_astype(hhbjet_indices, np.int32)
+    non_hhbjet_indices = ak.values_astype(ak.fill_none(non_hhbjet_indices, 0), np.int32)
     fatjet_indices = ak.values_astype(fatjet_indices, np.int32)
     vbfjet_indices = ak.values_astype(ak.fill_none(vbfjet_indices, 0), np.int32)
 
@@ -189,11 +190,16 @@ def jet_selection(
     return events, SelectionResult(
         steps={
             "jet": jet_sel,
+            # the btag weight normalization requires a selection with everything but the bjet
+            # selection, so add this step here
+            # note: there is currently no b-tag discriminant cut at this point, so take jet_sel
+            "bjet": jet_sel,
         },
         objects={
             "Jet": {
                 "Jet": jet_indices,
-                "BJet": bjet_indices,
+                "HHBJet": hhbjet_indices,
+                "NonHHBJet": non_hhbjet_indices,
                 "FatJet": fatjet_indices,
                 "SubJet1": subjet_indices[..., 0],
                 "SubJet2": subjet_indices[..., 1],
@@ -201,9 +207,9 @@ def jet_selection(
             },
         },
         aux={
-            "n_central_jets": (
-                ak.num(jet_indices, axis=1) +
-                ak.num(bjet_indices, axis=1)
-            ),
+            # jet mask that lead to the jet_indices
+            "jet_mask": default_mask,
+            # used to determine sum of weights in increment_stats
+            "n_central_jets": ak.num(jet_indices, axis=1),
         },
     )
