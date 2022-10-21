@@ -184,6 +184,7 @@ def btag_weight_requires(self: Producer, reqs: dict) -> None:
 @btag_weight.setup
 def btag_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     if self.dataset_inst.is_data:
+        self.btag_sf_corrector = None
         return
 
     bundle = reqs["external_files"]
