@@ -10,6 +10,7 @@ from collections import defaultdict, OrderedDict
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.production.mc_weight import mc_weight
+from columnflow.production.pileup import pu_weight
 from columnflow.production.processes import process_ids
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import, dev_sandbox
@@ -26,7 +27,7 @@ ak = maybe_import("awkward")
 
 
 @selector(
-    uses={btag_weight},
+    uses={btag_weight, pu_weight},
 )
 def increment_stats(
     self: Selector,
@@ -62,6 +63,10 @@ def increment_stats(
         # mc weight for selected events
         weight_map["mc_weight_selected"] = (events.mc_weight, event_mask)
 
+        # mc weight times the pileup weight (with variations) without any selection
+        for name in sorted(self[pu_weight].produces):
+            weight_map[f"mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
+
         # mc weight for selected events, excluding the bjet selection
         weight_map["mc_weight_selected_no_bjet"] = (events.mc_weight, event_mask_no_bjet)
 
@@ -80,7 +85,7 @@ def increment_stats(
             weight_map[f"{name}_selected_no_bjet"] = (events[name], event_mask_no_bjet)
 
             # mc weight times btag weight for selected events, excluding the bjet selection
-            weight_map[f"mc_weight_{name}_selected_no_bjet"] = (events[name] * events.mc_weight, event_mask_no_bjet)
+            weight_map[f"mc_weight_{name}_selected_no_bjet"] = (events.mc_weight * events[name], event_mask_no_bjet)
 
     # get and store the weights
     for name, (weights, mask) in weight_map.items():
@@ -111,12 +116,12 @@ def increment_stats(
 @selector(
     uses={
         attach_coffea_behavior, mc_weight, met_filter_selection, trigger_selection,
-        lepton_selection, jet_selection, process_ids, btag_weight, cutflow_features,
+        lepton_selection, jet_selection, process_ids, pu_weight, btag_weight, cutflow_features,
         increment_stats,
     },
     produces={
         mc_weight, met_filter_selection, trigger_selection, lepton_selection, jet_selection,
-        process_ids, btag_weight, cutflow_features, increment_stats,
+        process_ids, pu_weight, btag_weight, cutflow_features, increment_stats,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -151,6 +156,9 @@ def default(
     # jet selection
     events, jet_results = self[jet_selection](events, trigger_results, lepton_results, **kwargs)
     results += jet_results
+
+    # produce pileup weights
+    events = self[pu_weight](events, **kwargs)
 
     # produce btag weights
     events = self[btag_weight](events, results.x.jet_mask, **kwargs)

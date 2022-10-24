@@ -588,7 +588,8 @@ cfg.x.keep_columns = DotDict.wrap({
         "PV.npvs",
         # columns added during selection
         "channel", "process_id", "category_ids", "mc_weight", "leptons_os", "tau2_isolated",
-        "single_triggered", "cross_triggered", "deterministic_seed", "btag_weight*", "cutflow.*",
+        "single_triggered", "cross_triggered", "deterministic_seed", "pu_weight*", "btag_weight*",
+        "cutflow.*",
     },
     "cf.MergeSelectionMasks": {
         "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",
@@ -599,7 +600,7 @@ cfg.x.keep_columns = DotDict.wrap({
 get_shifts = lambda *names: sum(([cfg.get_shift(f"{name}_up"), cfg.get_shift(f"{name}_down")] for name in names), [])
 cfg.x.event_weights = DotDict()
 cfg.x.event_weights["normalization_weight"] = []
-cfg.x.event_weights["pu_weight"] = get_shifts("minbias_xs")
+cfg.x.event_weights["normalized_pu_weight"] = get_shifts("minbias_xs")
 cfg.x.event_weights["normalized_njet_btag_weight"] = get_shifts(*(f"btag_{unc}" for unc in btag_uncs))
 
 # versions per task family and optionally also dataset and shift
