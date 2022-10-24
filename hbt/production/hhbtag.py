@@ -78,9 +78,10 @@ def hhbtag(
         jet_shape * ak.sum(leps.pt, axis=1),
     ]
 
-    # split into even and odd event numbers, cast to float 32, concatenate across new axis,
+    # helper to split events, cast to float 32, concatenate across new axis,
     # then pad with zeros for up to n_jets_max jets
     def split(where):
+        # when there are no events matched by the mask, ak.concatenate (unlike np) fails
         features = np.concatenate(
             [
                 ak.values_astype(f[where][..., None], np.float32)
@@ -88,24 +89,29 @@ def hhbtag(
             ],
             axis=2,
         )
-        return ak.fill_none(
+        # fill
+        features = ak.fill_none(
             ak.pad_none(features, n_jets_max, axis=1),
             np.zeros(len(input_features), dtype=np.float32),
             axis=1,
         )
+        # fix the dimension of the last axis to the known number of input features
+        features = features[..., list(range(len(input_features)))]
+        return features
 
+    # reserve an output score array
+    scores = np.ones((ak.sum(event_mask), n_jets_max), dtype=np.float32) * EMPTY_FLOAT
+
+    # fill even and odd events if there are any
     even_mask = (events[event_mask].event % 2) == 0
-    input_features_even = split(even_mask)
-    input_features_odd = split(~even_mask)
-
-    # evaluate the models and convert them to ragged arrays
-    scores_even = self.hhbtag_model_even(input_features_even)[0].numpy()
-    scores_odd = self.hhbtag_model_odd(input_features_odd)[0].numpy()
-
-    # zip back into one array according to even_mask
-    scores = np.ones((len(even_mask), n_jets_max), dtype=np.float32) * EMPTY_FLOAT
-    scores[even_mask] = scores_even
-    scores[~even_mask] = scores_odd
+    if ak.sum(even_mask):
+        input_features_even = split(even_mask)
+        scores_even = self.hhbtag_model_even(input_features_even)[0].numpy()
+        scores[even_mask] = scores_even
+    if ak.sum(~even_mask):
+        input_features_odd = split(~even_mask)
+        scores_odd = self.hhbtag_model_odd(input_features_odd)[0].numpy()
+        scores[~even_mask] = scores_odd
 
     # remove the scores of padded jets
     where = ak.from_regular(ak.local_index(scores) < n_jets_capped[..., None], axis=1)

@@ -605,7 +605,15 @@ cfg.x.event_weights["normalized_njet_btag_weight"] = get_shifts(*(f"btag_{unc}" 
 
 # versions per task family and optionally also dataset and shift
 # None can be used as a key to define a default value
-cfg.x.versions = {}
+cfg.x.versions = {
+    "cf.CalibrateEvents": "dev1",
+    "cf.MergeSelectionStats": "dev1",
+    "cf.MergeSelectionMasks": "dev1",
+    "cf.SelectEvents": "dev1",
+    "cf.ReduceEvents": "dev1",
+    "cf.MergeReductionStats": "dev1",
+    "cf.MergeReducedEvents": "dev1",
+}
 
 # cannels
 cfg.add_channel(name="mutau", id=1)

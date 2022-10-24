@@ -241,7 +241,6 @@ def normalized_btag_weight_init(self: Producer) -> None:
     if getattr(self, "dataset_inst", None) is None or self.dataset_inst.is_data:
         return
 
-    # for btag weight, declare that one normalized version of the weight is produced
     for weight_name in self[btag_weight].produces:
         if not weight_name.startswith("btag_weight"):
             continue

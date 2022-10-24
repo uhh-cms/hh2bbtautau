@@ -26,12 +26,6 @@ def add_variables(config: od.Config) -> None:
         x_title="Number of HH b-tags",
     )
     config.add_variable(
-        name="mc_weight",
-        expression="mc_weight",
-        binning=(200, -10, 10),
-        x_title="MC weight",
-    )
-    config.add_variable(
         name="ht",
         binning=[0, 80, 120, 160, 200, 240, 280, 320, 400, 500, 600, 800],
         unit="GeV",
@@ -51,6 +45,44 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(33, -3.3, 3.3),
         x_title=r"MET $\phi$",
+    )
+
+    # weights
+    config.add_variable(
+        name="mc_weight",
+        expression="mc_weight",
+        binning=(200, -10, 10),
+        x_title="MC weight",
+    )
+    config.add_variable(
+        name="pu_weight",
+        expression="pu_weight",
+        binning=(40, 0, 2),
+        x_title="Pileup weight",
+    )
+    config.add_variable(
+        name="normalized_pu_weight",
+        expression="normalized_pu_weight",
+        binning=(40, 0, 2),
+        x_title="Normalized pileup weight",
+    )
+    config.add_variable(
+        name="btag_weight",
+        expression="btag_weight",
+        binning=(60, 0, 3),
+        x_title="b-tag weight",
+    )
+    config.add_variable(
+        name="normalized_btag_weight",
+        expression="normalized_btag_weight",
+        binning=(60, 0, 3),
+        x_title="Normalized b-tag weight",
+    )
+    config.add_variable(
+        name="normalized_njet_btag_weight",
+        expression="normalized_njet_btag_weight",
+        binning=(60, 0, 3),
+        x_title="$N_{jet}$ normalized b-tag weight",
     )
 
     # cutflow variables
