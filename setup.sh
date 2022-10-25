@@ -131,7 +131,7 @@ setup_hbt() {
     export PYTHONPATH="${HBT_BASE}:${HBT_BASE}/modules/cmsdb:${PYTHONPATH}"
 
     # initialze submodules
-    if [ -d "${HBT_BASE}/.git" ]; then
+    if [ -e "${HBT_BASE}/.git" ]; then
         local m
         for m in $( ls -1q "${HBT_BASE}/modules" ); do
             cf_init_submodule "${HBT_BASE}" "modules/${m}"
