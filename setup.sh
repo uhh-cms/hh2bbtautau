@@ -24,6 +24,16 @@ setup_hbt() {
     # Variables defined by the setup and potentially required throughout the analysis:
     #   HBT_BASE
     #       The absolute analysis base directory. Used to infer file locations relative to it.
+    #   HBT_SETUP
+    #       A flag that is set to 1 after the setup was successful.
+
+    # prevent repeated setups
+    if [ "${HBT_SETUP}" = "1" ]; then
+        >&2 echo "the HH -> bbtautau analysis was already succesfully setup"
+        >&2 echo "re-running the setup requires a new shell"
+        return "1"
+    fi
+
 
     #
     # prepare local variables
@@ -121,7 +131,7 @@ setup_hbt() {
     export PYTHONPATH="${HBT_BASE}:${HBT_BASE}/modules/cmsdb:${PYTHONPATH}"
 
     # initialze submodules
-    if [ -d "${HBT_BASE}/.git" ]; then
+    if [ -e "${HBT_BASE}/.git" ]; then
         local m
         for m in $( ls -1q "${HBT_BASE}/modules" ); do
             cf_init_submodule "${HBT_BASE}" "modules/${m}"
@@ -143,6 +153,9 @@ setup_hbt() {
         # silently index
         law index -q
     fi
+
+    # finalize
+    export HBT_SETUP="1"
 }
 
 main() {
