@@ -243,6 +243,10 @@ cfg.x.met_phi_correction_set = "metphicorr_{variable}_pfmet_{data_source}_2017"
 # (used in the electron_sf producer)
 cfg.x.electron_sf_names = ("UL-Electron-ID-SF", "2017", "wp80iso")
 
+# names of muon correction sets and working points
+# (used in the muon producer)
+cfg.x.muon_sf_names = ("NUM_TightRelIso_DEN_TightIDandIPCut", "2017_UL")
+
 # location of JEC txt files
 cfg.x.jec = DotDict.wrap({
     "source": "https://raw.githubusercontent.com/cms-jet/JECDatabase/master/textFiles",
@@ -462,6 +466,7 @@ cfg.add_shift(name="mu_sf_up", id=50, type="shape")
 cfg.add_shift(name="mu_sf_down", id=51, type="shape")
 cfg.add_shift(name="mu_trig_sf_up", id=52, type="shape")
 cfg.add_shift(name="mu_trig_sf_down", id=53, type="shape")
+add_aliases("mu_sf", {"muon_weight": "muon_weight_{direction}"})
 
 # tau weight shifts go here, ids 60 to 99
 btag_uncs = [
@@ -561,6 +566,9 @@ cfg.x.external_files = DotDict.wrap({
 
     # electron scale factors
     "electron_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/EGM/2017_UL/electron.json.gz", "v1"),  # noqa
+
+    # muon scale factors
+    "muon_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/MUO/2017_UL/muon_z.json.gz", "v1"),  # noqa
 })
 
 # target file size after MergeReducedEvents in MB
@@ -602,6 +610,9 @@ cfg.x.event_weights = DotDict()
 cfg.x.event_weights["normalization_weight"] = []
 cfg.x.event_weights["normalized_pu_weight"] = get_shifts("minbias_xs")
 cfg.x.event_weights["normalized_njet_btag_weight"] = get_shifts(*(f"btag_{unc}" for unc in btag_uncs))
+cfg.x.event_weights["electron_weight"] = get_shifts("e_sf")
+cfg.x.event_weights["muon_weight"] = get_shifts("mu_sf")
+
 
 # versions per task family and optionally also dataset and shift
 # None can be used as a key to define a default value

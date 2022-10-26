@@ -12,6 +12,7 @@ from columnflow.util import maybe_import
 from hbt.production.features import features
 from hbt.production.weights import event_weights
 from hbt.production.btag import normalized_btag_weight
+from hbt.production.muon import muon_weights
 
 ak = maybe_import("awkward")
 
@@ -19,9 +20,11 @@ ak = maybe_import("awkward")
 @producer(
     uses={
         features, category_ids, event_weights, normalized_btag_weight, electron_weights,
+        muon_weights,
     },
     produces={
         features, category_ids, event_weights, normalized_btag_weight, electron_weights,
+        muon_weights,
     },
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -39,5 +42,8 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # electron sf weights
     events = self[electron_weights](events, **kwargs)
+
+    # muon sf weights
+    events = self[muon_weights](events, **kwargs)
 
     return events
