@@ -128,6 +128,11 @@ def muon_selection(
 ) -> tuple[ak.Array, ak.Array]:
     """
     Muon selection returning two sets of indidces for default and veto muons.
+
+    References:
+
+    - Isolation working point: https://twiki.cern.ch/twiki/bin/view/CMS/SWGuideMuonIdRun2?rev=59
+    - ID und ISO : https://twiki.cern.ch/twiki/bin/view/CMS/MuonUL2017?rev=15
     """
     is_single = trigger.has_tag("single_mu")
     is_cross = trigger.has_tag("cross_mu_tau")
