@@ -39,7 +39,6 @@ def muon_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
         cfg.x.muon_sf_names = ("NUM_TightRelIso_DEN_TightIDandIPCut", "2017_UL")
     """
-
     if self.dataset_inst.is_data:
         return events
 
