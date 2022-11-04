@@ -163,8 +163,6 @@ for dataset_name in dataset_names:
         dataset.x.has_top = True
     if dataset.name.startswith("tt"):
         dataset.x.is_ttbar = True
-        dataset.x.event_weights = ["top_pt_weight"]
-
 
 # default objects, such as calibrator, selector, producer, ml model, inference model, etc
 cfg.x.default_calibrator = "default"
@@ -198,7 +196,7 @@ cfg.x.shift_groups = {}
 # selector step groups for conveniently looping over certain steps
 # (used in cutflow tasks)
 cfg.x.selector_step_groups = {
-    "test": ["Jet"],
+    "default": ["met_filter", "trigger_fired", "leptons", "jet", "bjet"],
 }
 
 # 2017 luminosity with values in inverse pb and uncertainties taken from
@@ -613,6 +611,10 @@ cfg.x.event_weights["normalized_njet_btag_weight"] = get_shifts(*(f"btag_{unc}" 
 cfg.x.event_weights["electron_weight"] = get_shifts("e_sf")
 cfg.x.event_weights["muon_weight"] = get_shifts("mu_sf")
 
+# define per-dataset event weights
+for dataset in cfg.datasets:
+    if dataset.x("is_ttbar", False):
+        dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
 
 # versions per task family and optionally also dataset and shift
 # None can be used as a key to define a default value

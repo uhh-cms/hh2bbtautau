@@ -30,7 +30,7 @@ def add_met_filters(config: od.Config) -> None:
         # same filter for mc and data, but still separate
         filters = {
             "mc": filters,
-            "dc": filters,
+            "data": filters,
         }
     else:
         filters = [
@@ -48,7 +48,7 @@ def add_met_filters(config: od.Config) -> None:
         # same filter for mc and data, but still separate
         filters = {
             "mc": filters,
-            "dc": filters,
+            "data": filters,
         }
 
     config.x.met_filters = DotDict.wrap(filters)
