@@ -387,13 +387,23 @@ with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
 
 # register shifts
 cfg.add_shift(name="nominal", id=0)
+
 cfg.add_shift(name="tune_up", id=1, type="shape", tags={"disjoint_from_nominal"})
 cfg.add_shift(name="tune_down", id=2, type="shape", tags={"disjoint_from_nominal"})
+
 cfg.add_shift(name="hdamp_up", id=3, type="shape", tags={"disjoint_from_nominal"})
 cfg.add_shift(name="hdamp_down", id=4, type="shape", tags={"disjoint_from_nominal"})
+
 cfg.add_shift(name="minbias_xs_up", id=7, type="shape")
 cfg.add_shift(name="minbias_xs_down", id=8, type="shape")
-add_aliases("minbias_xs", {"pu_weight": "pu_weight_{name}"})
+add_aliases(
+    "minbias_xs",
+    {
+        "pu_weight": "pu_weight_{name}",
+        "normalized_pu_weight": "normalized_pu_weight_{name}",
+    },
+)
+
 cfg.add_shift(name="top_pt_up", id=9, type="shape")
 cfg.add_shift(name="top_pt_down", id=10, type="shape")
 add_aliases("top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})

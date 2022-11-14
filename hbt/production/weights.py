@@ -6,7 +6,6 @@ Column production methods related to generic event weights.
 
 from columnflow.production import Producer, producer
 from columnflow.production.pileup import pu_weight
-from columnflow.production.normalization import normalization_weights
 from columnflow.util import maybe_import, safe_div
 from columnflow.columnar_util import set_ak_column
 
@@ -40,6 +39,7 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
         norm_weight_per_pid = norm_weight_per_pid * events[weight_name]
 
         # store it
+        norm_weight_per_pid = ak.values_astype(norm_weight_per_pid, np.float32)
         events = set_ak_column(events, f"normalized_{weight_name}", norm_weight_per_pid)
 
     return events
@@ -105,21 +105,3 @@ def normalized_pu_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None
         for weight_name in self[pu_weight].produces
         if weight_name.startswith("pu_weight")
     }
-
-
-@producer(
-    uses={normalization_weights, normalized_pu_weight},
-    produces={normalization_weights, normalized_pu_weight},
-)
-def event_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    """
-    Opinionated wrapper of several event weight producers. It declares dependence all shifts that
-    might possibly change any of the weights.
-    """
-    # compute normalization weights
-    events = self[normalization_weights](events, **kwargs)
-
-    # compute normalized pu weights
-    events = self[normalized_pu_weight](events, **kwargs)
-
-    return events
