@@ -71,7 +71,7 @@ def increment_stats(
         weight_map["mc_weight_selected_no_bjet"] = (events.mc_weight, event_mask_no_bjet)
 
         # btag weights
-        for name in sorted(self[btag_weight].produces):
+        for name in sorted(self[btag_weights].produces):
             if not name.startswith("btag_weight"):
                 continue
 
