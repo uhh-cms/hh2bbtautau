@@ -8,24 +8,24 @@ from columnflow.production import Producer, producer
 from columnflow.production.normalization import normalization_weights
 from columnflow.production.categories import category_ids
 from columnflow.production.electron import electron_weights
+from columnflow.production.muon import muon_weights
 from columnflow.util import maybe_import
 
 from hbt.production.features import features
 from hbt.production.weights import normalized_pu_weight
-from hbt.production.btag import normalized_btag_weight
-from hbt.production.muon import muon_weights
+from hbt.production.btag import normalized_btag_weights
 
 ak = maybe_import("awkward")
 
 
 @producer(
     uses={
-        features, category_ids, normalization_weights, normalized_pu_weight, normalized_btag_weight,
-        electron_weights, muon_weights,
+        features, category_ids, normalization_weights, normalized_pu_weight,
+        normalized_btag_weights, electron_weights, muon_weights,
     },
     produces={
-        features, category_ids, normalization_weights, normalized_pu_weight, normalized_btag_weight,
-        electron_weights, muon_weights,
+        features, category_ids, normalization_weights, normalized_pu_weight,
+        normalized_btag_weights, electron_weights, muon_weights,
     },
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -42,7 +42,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[normalized_pu_weight](events, **kwargs)
 
     # btag weights
-    events = self[normalized_btag_weight](events, **kwargs)
+    events = self[normalized_btag_weights](events, **kwargs)
 
     # electron sf weights
     events = self[electron_weights](events, **kwargs)

@@ -12,6 +12,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.production.mc_weight import mc_weight
 from columnflow.production.pileup import pu_weight
 from columnflow.production.processes import process_ids
+from columnflow.production.btag import btag_weights
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import, dev_sandbox
 
@@ -19,7 +20,6 @@ from hbt.selection.met import met_filter_selection
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
-from hbt.production.btag import btag_weight
 from hbt.production.features import cutflow_features
 
 np = maybe_import("numpy")
@@ -27,7 +27,7 @@ ak = maybe_import("awkward")
 
 
 @selector(
-    uses={btag_weight, pu_weight},
+    uses={btag_weights, pu_weight},
 )
 def increment_stats(
     self: Selector,
@@ -116,12 +116,12 @@ def increment_stats(
 @selector(
     uses={
         attach_coffea_behavior, mc_weight, met_filter_selection, trigger_selection,
-        lepton_selection, jet_selection, process_ids, pu_weight, btag_weight, cutflow_features,
+        lepton_selection, jet_selection, process_ids, pu_weight, btag_weights, cutflow_features,
         increment_stats,
     },
     produces={
         mc_weight, met_filter_selection, trigger_selection, lepton_selection, jet_selection,
-        process_ids, pu_weight, btag_weight, cutflow_features, increment_stats,
+        process_ids, pu_weight, btag_weights, cutflow_features, increment_stats,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -161,7 +161,7 @@ def default(
     events = self[pu_weight](events, **kwargs)
 
     # produce btag weights
-    events = self[btag_weight](events, results.x.jet_mask, **kwargs)
+    events = self[btag_weights](events, results.x.jet_mask, **kwargs)
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())

@@ -235,7 +235,7 @@ cfg.x.tau_tagger = "DeepTau2017v2p1"
 
 # name of the MET phi correction set
 # (used in the met_phi calibrator)
-cfg.x.met_phi_correction_set = "metphicorr_{variable}_pfmet_{data_source}_2017"
+cfg.x.met_phi_correction_set = "{variable}_metphicorr_pfmet_{data_source}"
 
 # names of electron correction sets and working points
 # (used in the electron_sf producer)
@@ -561,22 +561,22 @@ cfg.x.external_files = DotDict.wrap({
     },
 
     # tau energy correction and scale factors
-    "tau": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
+    "tau": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
 
     # met phi corrector
-    "met_phi_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/cms-met/metphi_corrs_all.json.gz", "v1"),
+    "met_phi_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/JME/2017_UL/met.json.gz", "v1"),  # noqa
 
     # hh-btag repository (lightweight) with TF saved model directories
     "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
 
     # btag scale factor
-    "btag_sf_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/BTV/2017_UL/btagging.json.gz", "v1"),  # noqa
+    "btag_sf_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/BTV/2017_UL/btagging.json.gz", "v1"),  # noqa
 
     # electron scale factors
-    "electron_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/EGM/2017_UL/electron.json.gz", "v1"),  # noqa
+    "electron_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/EGM/2017_UL/electron.json.gz", "v1"),  # noqa
 
     # muon scale factors
-    "muon_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-d0a522ea/POG/MUO/2017_UL/muon_Z.json.gz", "v1"),  # noqa
+    "muon_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/MUO/2017_UL/muon_Z.json.gz", "v1"),  # noqa
 })
 
 # target file size after MergeReducedEvents in MB
