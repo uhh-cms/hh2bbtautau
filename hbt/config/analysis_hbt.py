@@ -245,16 +245,15 @@ cfg.x.electron_sf_names = ("UL-Electron-ID-SF", "2017", "wp80iso")
 # (used in the muon producer)
 cfg.x.muon_sf_names = ("NUM_TightRelIso_DEN_TightIDandIPCut", "2017_UL")
 
-# location of JEC txt files
+# jec configuration
 cfg.x.jec = DotDict.wrap({
-    "source": "https://raw.githubusercontent.com/cms-jet/JECDatabase/master/textFiles",
     "campaign": "Summer19UL17",
-    "version": "V6",
+    "version": "V5",
     "jet_type": "AK4PFchs",
+    # "levels": ["L1L2L3Res"],  # or individual correction levels
     "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
-    "data_eras": sorted(filter(None, {d.x("jec_era", None) for d in cfg.datasets if d.is_data})),
+    "levels_for_type1_met": ["L1FastJet"],
     "uncertainty_sources": [
-        # comment out most for now to prevent large file sizes
         # "AbsoluteStat",
         # "AbsoluteScale",
         # "AbsoluteSample",
@@ -314,6 +313,12 @@ cfg.x.jec = DotDict.wrap({
     ],
 })
 
+cfg.x.jer = DotDict.wrap({
+    "campaign": "Summer19UL17",
+    "version": "JRV2",
+    "jet_type": "AK4PFchs",
+})
+
 # JEC uncertainty sources propagated to btag scale factors
 # (names derived from contents in BTV correctionlib file)
 cfg.x.btag_sf_jec_sources = [
@@ -355,13 +360,6 @@ cfg.x.btag_sf_jec_sources = [
     "SinglePionHCAL",
     "TimePtEta",
 ]
-
-cfg.x.jer = DotDict.wrap({
-    "source": "https://raw.githubusercontent.com/cms-jet/JRDatabase/master/textFiles",
-    "campaign": "Summer19UL17",
-    "version": "JRV3",
-    "jet_type": "AK4PFchs",
-})
 
 
 # helper to add column aliases for both shifts of a source
@@ -527,38 +525,7 @@ cfg.x.external_files = DotDict.wrap({
     },
 
     # jet energy correction
-    "jec": {
-        "mc": OrderedDict([
-            (level, (make_jme_filename(cfg.x.jec, "mc", name=level), "v1"))
-            for level in cfg.x.jec.levels
-        ]),
-        "data": {
-            era: OrderedDict([
-                (level, (make_jme_filename(cfg.x.jec, "data", name=level, era=era), "v1"))
-                for level in cfg.x.jec.levels
-            ])
-            for era in cfg.x.jec.data_eras
-        },
-    },
-
-    # jec energy correction uncertainties
-    "junc": {
-        "mc": [(make_jme_filename(cfg.x.jec, "mc", name="UncertaintySources"), "v1")],
-        "data": {
-            era: [(make_jme_filename(cfg.x.jec, "data", name="UncertaintySources", era=era), "v1")]
-            for era in cfg.x.jec.data_eras
-        },
-    },
-
-    # jet energy resolution (pt resolution)
-    "jer": {
-        "mc": [(make_jme_filename(cfg.x.jer, "mc", name="PtResolution"), "v1")],
-    },
-
-    # jet energy resolution (data/mc scale factors)
-    "jersf": {
-        "mc": [(make_jme_filename(cfg.x.jer, "mc", name="SF"), "v1")],
-    },
+    "jet_jerc": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/JME/2017_UL/jet_jerc.json.gz", "v1"),  # noqa
 
     # tau energy correction and scale factors
     "tau": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa

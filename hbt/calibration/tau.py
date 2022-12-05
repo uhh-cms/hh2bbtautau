@@ -5,9 +5,9 @@ Tau energy correction methods.
 """
 
 from columnflow.calibration import Calibrator, calibrator
+from columnflow.calibration.util import propagate_met
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, flat_np_view
-from columnflow.calibration.jets import prop_met
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
@@ -84,7 +84,7 @@ def tec(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
             mass_view[mask] *= scales[mask]
 
             # propagate changes to MET
-            met_pt_varied, met_phi_varied = prop_met(
+            met_pt_varied, met_phi_varied = propagate_met(
                 events.Tau.pt,
                 events.Tau.phi,
                 pt_varied,
@@ -107,7 +107,7 @@ def tec(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     mass *= scales
 
     # propagate changes to MET
-    met_pt, met_phi = prop_met(
+    met_pt, met_phi = propagate_met(
         tau_sum_before.pt,
         tau_sum_before.phi,
         events.Tau.pt,
