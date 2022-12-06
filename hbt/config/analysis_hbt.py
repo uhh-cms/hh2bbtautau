@@ -6,7 +6,6 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 
 import os
 import re
-from collections import OrderedDict
 
 import yaml
 from scinum import Number
@@ -250,7 +249,6 @@ cfg.x.jec = DotDict.wrap({
     "campaign": "Summer19UL17",
     "version": "V5",
     "jet_type": "AK4PFchs",
-    # "levels": ["L1L2L3Res"],  # or individual correction levels
     "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
     "levels_for_type1_met": ["L1FastJet"],
     "uncertainty_sources": [
