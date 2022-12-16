@@ -38,7 +38,7 @@ def trigger_selection(
 
     for trigger in self.config_inst.x.triggers:
         # get bare decisions
-        fired = events.HLT[trigger.hlt_field]
+        fired = events.HLT[trigger.hlt_field] == 1
         any_fired = any_fired | fired
 
         # get trigger objects for fired events per leg
@@ -74,7 +74,7 @@ def trigger_selection(
 
     # store the fired trigger ids
     trigger_ids = ak.concatenate(trigger_ids, axis=1)
-    events = set_ak_column(events, "trigger_ids", trigger_ids)
+    events = set_ak_column(events, "trigger_ids", trigger_ids, value_type=np.int32)
 
     return events, SelectionResult(
         steps={

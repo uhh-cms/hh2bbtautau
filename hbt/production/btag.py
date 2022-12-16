@@ -6,6 +6,8 @@ Producers for phase-space normalized btag scale factor weights.
 
 from __future__ import annotations
 
+import functools
+
 from columnflow.production import Producer, producer
 from columnflow.production.btag import btag_weights
 from columnflow.util import maybe_import, safe_div
@@ -13,6 +15,10 @@ from columnflow.columnar_util import set_ak_column
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
+
+
+# helper
+set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
 @producer(
@@ -48,8 +54,8 @@ def normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
         norm_weight_per_pid_njet = norm_weight_per_pid_njet * events[weight_name]
 
         # store them
-        events = set_ak_column(events, f"normalized_{weight_name}", norm_weight_per_pid)
-        events = set_ak_column(events, f"normalized_njet_{weight_name}", norm_weight_per_pid_njet)
+        events = set_ak_column_f32(events, f"normalized_{weight_name}", norm_weight_per_pid)
+        events = set_ak_column_f32(events, f"normalized_njet_{weight_name}", norm_weight_per_pid_njet)
 
     return events
 

@@ -26,7 +26,7 @@ def met_filter_selection(
     # start with a true mask and iteratively apply filters
     mask = abs(events.event) >= 0
     for column in self.config_inst.x.met_filters[self.dataset_inst.data_source]:
-        mask = mask & Route(column).apply(events)
+        mask = mask & (Route(column).apply(events) == 1)
 
     return events, SelectionResult(
         steps={

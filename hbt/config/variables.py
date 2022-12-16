@@ -87,9 +87,34 @@ def add_variables(config: od.Config) -> None:
 
     # cutflow variables
     config.add_variable(
+        name="cf_njet",
+        expression="cutflow.n_jet",
+        binning=(17, -0.5, 16.5),
+        x_title="Jet multiplicity",
+    )
+    config.add_variable(
+        name="cf_ht",
+        expression="cutflow.ht",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"$H_{T}$",
+    )
+    config.add_variable(
         name="cf_jet1_pt",
         expression="cutflow.jet1_pt",
-        binning=(40, 0., 400.),
+        binning=(40, 0.0, 400.0),
         unit="GeV",
         x_title=r"Jet 1 $p_{T}$",
+    )
+    config.add_variable(
+        name="cf_jet1_eta",
+        expression="cutflow.jet1_eta",
+        binning=(40, -5.0, 5.0),
+        x_title=r"Jet 1 $\eta$",
+    )
+    config.add_variable(
+        name="cf_jet1_phi",
+        expression="cutflow.jet1_phi",
+        binning=(32, -3.2, 3.2),
+        x_title=r"Jet 1 $\phi$",
     )

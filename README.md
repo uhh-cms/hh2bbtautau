@@ -24,22 +24,22 @@ law index --verbose
 # (they are all shipped with columnflow and thus have the "cf." prefix)
 law run cf.ReduceEvents \
     --version v1 \
-    --dataset st_tchannel_t \
+    --dataset hh_ggf_bbtautau_madgraph \
     --branch 0
 
 # create a plot
-law run cf.PlotVariables \
+law run cf.PlotVariables1D \
     --version v1 \
-    --datasets st_tchannel_t \
-    --producers features \
+    --datasets hh_ggf_bbtautau_madgraph \
+    --producers default \
     --variables jet1_pt \
-    --categories 1e \
+    --categories incl \
     --branch 0
 
 # create a (test) datacard (CMS-style)
 law run cf.CreateDatacards \
     --version v1 \
-    --producers features \
+    --producers default \
     --inference-model test \
     --workers 3
 ```

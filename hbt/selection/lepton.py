@@ -83,7 +83,7 @@ def electron_selection(
     if is_single or is_cross:
         min_pt = 26.0 if is_2016 else (33.0 if is_single else 25.0)
         default_mask = (
-            events.Electron.mvaFall17V2Iso_WP80 &
+            (events.Electron.mvaFall17V2Iso_WP80 == 1) &
             (abs(events.Electron.eta) < 2.1) &
             (abs(events.Electron.dxy) < 0.045) &
             (abs(events.Electron.dz) < 0.2) &
@@ -97,8 +97,8 @@ def electron_selection(
     # veto electron mask
     veto_mask = (
         (
-            events.Electron.mvaFall17V2Iso_WP90 |
-            (events.Electron.mvaFall17V2noIso_WP90 & (events.Electron.pfRelIso03_all < 0.3))
+            (events.Electron.mvaFall17V2Iso_WP90 == 1) |
+            ((events.Electron.mvaFall17V2noIso_WP90 == 1) & (events.Electron.pfRelIso03_all < 0.3))
         ) &
         (abs(events.Electron.eta) < 2.5) &
         (abs(events.Electron.dxy) < 0.045) &
@@ -164,7 +164,7 @@ def muon_selection(
         else:
             min_pt = 33.0 if is_single else 25.0
         default_mask = (
-            events.Muon.tightId &
+            (events.Muon.tightId == 1) &
             (abs(events.Muon.eta) < 2.1) &
             (abs(events.Muon.dxy) < 0.045) &
             (abs(events.Muon.dz) < 0.2) &
@@ -178,7 +178,7 @@ def muon_selection(
 
     # veto muon mask
     veto_mask = (
-        events.Muon.mediumId &
+        (events.Muon.mediumId == 1) &
         (abs(events.Muon.eta) < 2.4) &
         (abs(events.Muon.dxy) < 0.045) &
         (abs(events.Muon.dz) < 0.2) &
@@ -460,6 +460,8 @@ def lepton_selection(
     # some final type conversions
     channel_id = ak.values_astype(channel_id, np.uint8)
     leptons_os = ak.fill_none(leptons_os, False)
+    sel_electron_indices = ak.values_astype(sel_electron_indices, np.int32)
+    sel_muon_indices = ak.values_astype(sel_muon_indices, np.int32)
     sel_tau_indices = ak.values_astype(sel_tau_indices, np.int32)
 
     # save new columns

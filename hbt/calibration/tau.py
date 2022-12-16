@@ -4,6 +4,8 @@
 Tau energy correction methods.
 """
 
+import functools
+
 from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.util import propagate_met
 from columnflow.util import maybe_import
@@ -11,6 +13,10 @@ from columnflow.columnar_util import set_ak_column, flat_np_view
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
+
+
+# helper
+set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
 @calibrator(
@@ -95,10 +101,10 @@ def tec(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
 
             # save columns
             postfix = f"tec_dm{_dm}_{direction}"
-            events = set_ak_column(events, f"Tau.pt_{postfix}", pt_varied)
-            events = set_ak_column(events, f"Tau.mass_{postfix}", mass_varied)
-            events = set_ak_column(events, f"MET.pt_{postfix}", met_pt_varied)
-            events = set_ak_column(events, f"MET.phi_{postfix}", met_phi_varied)
+            events = set_ak_column_f32(events, f"Tau.pt_{postfix}", pt_varied)
+            events = set_ak_column_f32(events, f"Tau.mass_{postfix}", mass_varied)
+            events = set_ak_column_f32(events, f"MET.pt_{postfix}", met_pt_varied)
+            events = set_ak_column_f32(events, f"MET.phi_{postfix}", met_phi_varied)
 
     # apply the nominal correction
     # note: changes are applied to the views and directly propagate to the original ak arrays
@@ -117,8 +123,8 @@ def tec(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     )
 
     # save columns
-    events = set_ak_column(events, "MET.pt", met_pt)
-    events = set_ak_column(events, "MET.phi", met_phi)
+    events = set_ak_column_f32(events, "MET.pt", met_pt)
+    events = set_ak_column_f32(events, "MET.phi", met_phi)
 
     return events
 
