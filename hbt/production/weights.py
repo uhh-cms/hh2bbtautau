@@ -40,7 +40,7 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
 
         # store it
         norm_weight_per_pid = ak.values_astype(norm_weight_per_pid, np.float32)
-        events = set_ak_column(events, f"normalized_{weight_name}", norm_weight_per_pid, value_Type=np.float32)
+        events = set_ak_column(events, f"normalized_{weight_name}", norm_weight_per_pid, value_type=np.float32)
 
     return events
 
