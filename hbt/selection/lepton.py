@@ -200,6 +200,7 @@ def muon_selection(
         "nElectron", "Electron.pt", "Electron.eta", "Electron.phi",
         "nMuon", "Muon.pt", "Muon.eta", "Muon.phi",
     },
+    # shifts are declared dynamically below in tau_selection_init
 )
 def tau_selection(
     self: Selector,
@@ -303,6 +304,16 @@ def tau_selection(
     iso_mask = events.Tau[base_indices].idDeepTau2017v2p1VSjet >= 16  # 16: Medium
 
     return base_indices, iso_mask
+
+
+@tau_selection.init
+def tau_selection_init(self: Selector) -> None:
+    # register tec shifts
+    self.shifts |= {
+        shift_inst.name
+        for shift_inst in self.config_inst.shifts
+        if shift_inst.has_tag("tec")
+    }
 
 
 @selector(

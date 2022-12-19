@@ -6,6 +6,7 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 
 import os
 import re
+import itertools
 
 import yaml
 from scinum import Number
@@ -210,6 +211,9 @@ cfg.x.luminosity = Number(41480, {
 # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=44#Pileup_JSON_Files_For_Run_II
 cfg.x.minbias_xs = Number(69.2, 0.046j)
 
+# whether to validate the number of obtained LFNs in GetDatasetLFNs
+cfg.x.validate_dataset_lfns = True
+
 # b-tag working points
 # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
 cfg.x.btag_working_points = DotDict.wrap({
@@ -320,7 +324,7 @@ cfg.x.jer = DotDict.wrap({
 # JEC uncertainty sources propagated to btag scale factors
 # (names derived from contents in BTV correctionlib file)
 cfg.x.btag_sf_jec_sources = [
-    "",  # total
+    "",  # same as "Total"
     "Absolute",
     "AbsoluteMPFBias",
     "AbsoluteScale",
@@ -404,7 +408,7 @@ cfg.add_shift(name="top_pt_up", id=9, type="shape")
 cfg.add_shift(name="top_pt_down", id=10, type="shape")
 add_aliases("top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})
 
-for jec_source in cfg.x.jec["uncertainty_sources"]:
+for jec_source in cfg.x.jec.uncertainty_sources:
     idx = all_jec_sources.index(jec_source)
     cfg.add_shift(
         name=f"jec_{jec_source}_up",
@@ -420,8 +424,7 @@ for jec_source in cfg.x.jec["uncertainty_sources"]:
         tags={"jec"},
         aux={"jec_source": jec_source},
     )
-    # TODO: btag weight aliases are missing but this can only be solved when the JEC de/correlation
-    # across years is properly integrated
+    # selection dependent aliases
     add_aliases(
         f"jec_{jec_source}",
         {
@@ -432,9 +435,19 @@ for jec_source in cfg.x.jec["uncertainty_sources"]:
         },
         selection_dependent=True,
     )
+    # selection independent aliases
+    # TODO: check the JEC de/correlation across years and the interplay with btag weights
+    if ("" if jec_source == "Total" else jec_source) in cfg.x.btag_sf_jec_sources:
+        add_aliases(
+            f"jec_{jec_source}",
+            {
+                "normalized_btag_weight": "normalized_btag_weight_{name}",
+                "normalized_njet_btag_weight": "normalized_njet_btag_weight_{name}",
+            },
+        )
 
-cfg.add_shift(name="jer_up", id=6000, type="shape")
-cfg.add_shift(name="jer_down", id=6001, type="shape")
+cfg.add_shift(name="jer_up", id=6000, type="shape", tags={"jer"})
+cfg.add_shift(name="jer_down", id=6001, type="shape", tags={"jer"})
 add_aliases(
     "jer",
     {
@@ -446,11 +459,11 @@ add_aliases(
     selection_dependent=True,
 )
 
-for i, dm in enumerate(["0", "1", "10", "11"]):
-    cfg.add_shift(name=f"tec_dm{dm}_up", id=20 + 2 * i, type="shape")
-    cfg.add_shift(name=f"tec_dm{dm}_down", id=21 + 2 * i, type="shape")
+for i, (match, dm) in enumerate(itertools.product(["jet", "e"], [0, 1, 10, 11])):
+    cfg.add_shift(name=f"tec_{match}_dm{dm}_up", id=20 + 2 * i, type="shape", tags={"tec"})
+    cfg.add_shift(name=f"tec_{match}_dm{dm}_down", id=21 + 2 * i, type="shape", tags={"tec"})
     add_aliases(
-        f"tec_dm{dm}",
+        f"tec_{match}_dm{dm}",
         {
             "Tau.pt": "Tau.pt_{name}",
             "Tau.mass": "Tau.mass_{name}",
@@ -460,26 +473,46 @@ for i, dm in enumerate(["0", "1", "10", "11"]):
         selection_dependent=True,
     )
 
-cfg.add_shift(name="e_sf_up", id=40, type="shape")
-cfg.add_shift(name="e_sf_down", id=41, type="shape")
-cfg.add_shift(name="e_trig_sf_up", id=42, type="shape")
-cfg.add_shift(name="e_trig_sf_down", id=43, type="shape")
-add_aliases("e_sf", {"electron_weight": "electron_weight_{direction}"})
+# start at id=50
+tau_uncs = [
+    "jet_dm0", "jet_dm1", "jet_dm10",
+    "e_barrel", "e_endcap",
+    "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
+]
+for i, unc in enumerate(tau_uncs):
+    cfg.add_shift(name=f"tau_{unc}_up", id=50 + 2 * i, type="shape")
+    cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape")
+    add_aliases(f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_" + "{direction}"})
 
-cfg.add_shift(name="mu_sf_up", id=50, type="shape")
-cfg.add_shift(name="mu_sf_down", id=51, type="shape")
-cfg.add_shift(name="mu_trig_sf_up", id=52, type="shape")
-cfg.add_shift(name="mu_trig_sf_down", id=53, type="shape")
-add_aliases("mu_sf", {"muon_weight": "muon_weight_{direction}"})
+cfg.add_shift(name="tautau_trigger_up", id=80, type="shape")
+cfg.add_shift(name="tautau_trigger_down", id=81, type="shape")
+add_aliases("tautau_trigger", {"tau_trigger_weight": "tau_trigger_weight_tautau_{direction}"})
+cfg.add_shift(name="etau_trigger_up", id=82, type="shape")
+cfg.add_shift(name="etau_trigger_down", id=83, type="shape")
+add_aliases("etau_trigger", {"tau_trigger_weight": "tau_trigger_weight_etau_{direction}"})
+cfg.add_shift(name="mutau_trigger_up", id=84, type="shape")
+cfg.add_shift(name="mutau_trigger_down", id=85, type="shape")
+add_aliases("mutau_trigger", {"tau_trigger_weight": "tau_trigger_weight_mutau_{direction}"})
+# no uncertainty for di-tau VBF trigger existing yet
+# cfg.add_shift(name="mutau_trigger_up", id=86, type="shape")
+# cfg.add_shift(name="tautauvbf_trigger_down", id=86, type="shape")
+# add_aliases("tautauvbf_trigger", {"tau_trigger_weight": "tau_trigger_weight_tautauvbf_{direction}"})
 
-# tau weight shifts go here, ids 60 to 99
+cfg.add_shift(name="e_up", id=90, type="shape")
+cfg.add_shift(name="e_down", id=91, type="shape")
+add_aliases("e", {"electron_weight": "electron_weight_{direction}"})
+
+cfg.add_shift(name="mu_up", id=100, type="shape")
+cfg.add_shift(name="mu_down", id=101, type="shape")
+add_aliases("mu", {"muon_weight": "muon_weight_{direction}"})
+
 btag_uncs = [
     "hf", "lf", "hfstats1_2017", "hfstats2_2017", "lfstats1_2017", "lfstats2_2017", "cferr1",
     "cferr2",
 ]
 for i, unc in enumerate(btag_uncs):
-    cfg.add_shift(name=f"btag_{unc}_up", id=100 + 2 * i, type="shape")
-    cfg.add_shift(name=f"btag_{unc}_down", id=101 + 2 * i, type="shape")
+    cfg.add_shift(name=f"btag_{unc}_up", id=110 + 2 * i, type="shape")
+    cfg.add_shift(name=f"btag_{unc}_down", id=111 + 2 * i, type="shape")
     add_aliases(
         f"btag_{unc}",
         {
@@ -487,21 +520,6 @@ for i, unc in enumerate(btag_uncs):
             "normalized_njet_btag_weight": f"normalized_njet_btag_weight_{unc}_" + "{direction}",
         },
     )
-
-
-def make_jme_filename(jme_aux, sample_type, name, era=None):
-    """
-    Convenience function to compute paths to JEC files.
-    """
-    # normalize and validate sample type
-    sample_type = sample_type.upper()
-    if sample_type not in ("DATA", "MC"):
-        raise ValueError(f"invalid sample type '{sample_type}', expected either 'DATA' or 'MC'")
-
-    jme_full_version = "_".join(s for s in (jme_aux.campaign, era, jme_aux.version, sample_type) if s)
-
-    return f"{jme_aux.source}/{jme_full_version}/{jme_full_version}_{name}_{jme_aux.jet_type}.txt"
-
 
 # external files
 cfg.x.external_files = DotDict.wrap({
@@ -526,22 +544,22 @@ cfg.x.external_files = DotDict.wrap({
     "jet_jerc": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/JME/2017_UL/jet_jerc.json.gz", "v1"),  # noqa
 
     # tau energy correction and scale factors
-    "tau": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
-
-    # met phi corrector
-    "met_phi_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/JME/2017_UL/met.json.gz", "v1"),  # noqa
-
-    # hh-btag repository (lightweight) with TF saved model directories
-    "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
-
-    # btag scale factor
-    "btag_sf_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/BTV/2017_UL/btagging.json.gz", "v1"),  # noqa
+    "tau_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
 
     # electron scale factors
     "electron_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/EGM/2017_UL/electron.json.gz", "v1"),  # noqa
 
     # muon scale factors
     "muon_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/MUO/2017_UL/muon_Z.json.gz", "v1"),  # noqa
+
+    # btag scale factor
+    "btag_sf_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/BTV/2017_UL/btagging.json.gz", "v1"),  # noqa
+
+    # met phi corrector
+    "met_phi_corr": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/JME/2017_UL/met.json.gz", "v1"),  # noqa
+
+    # hh-btag repository (lightweight) with TF saved model directories
+    "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
 })
 
 # target file size after MergeReducedEvents in MB
@@ -568,12 +586,15 @@ cfg.x.keep_columns = DotDict.wrap({
         "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
         "PV.npvs",
         # columns added during selection
-        "channel", "process_id", "category_ids", "mc_weight", "leptons_os", "tau2_isolated",
+        "channel_id", "process_id", "category_ids", "mc_weight", "leptons_os", "tau2_isolated",
         "single_triggered", "cross_triggered", "deterministic_seed", "pu_weight*", "btag_weight*",
         "cutflow.*",
     },
     "cf.MergeSelectionMasks": {
         "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",
+    },
+    "cf.CoalesceColumns": {
+        "*",
     },
 })
 
@@ -583,8 +604,10 @@ cfg.x.event_weights = DotDict()
 cfg.x.event_weights["normalization_weight"] = []
 cfg.x.event_weights["normalized_pu_weight"] = get_shifts("minbias_xs")
 cfg.x.event_weights["normalized_njet_btag_weight"] = get_shifts(*(f"btag_{unc}" for unc in btag_uncs))
-cfg.x.event_weights["electron_weight"] = get_shifts("e_sf")
-cfg.x.event_weights["muon_weight"] = get_shifts("mu_sf")
+cfg.x.event_weights["electron_weight"] = get_shifts("e")
+cfg.x.event_weights["muon_weight"] = get_shifts("mu")
+cfg.x.event_weights["tau_weight"] = get_shifts(*(f"tau_{unc}" for unc in tau_uncs))
+cfg.x.event_weights["tau_trigger_weight"] = get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger")
 
 # define per-dataset event weights
 for dataset in cfg.datasets:
@@ -594,13 +617,13 @@ for dataset in cfg.datasets:
 # versions per task family and optionally also dataset and shift
 # None can be used as a key to define a default value
 cfg.x.versions = {
-    "cf.CalibrateEvents": "dev1",
-    "cf.MergeSelectionStats": "dev1",
-    "cf.MergeSelectionMasks": "dev1",
-    "cf.SelectEvents": "dev1",
-    "cf.ReduceEvents": "dev1",
-    "cf.MergeReductionStats": "dev1",
-    "cf.MergeReducedEvents": "dev1",
+    # "cf.CalibrateEvents": "dev1",
+    # "cf.MergeSelectionStats": "dev1",
+    # "cf.MergeSelectionMasks": "dev1",
+    # "cf.SelectEvents": "dev1",
+    # "cf.ReduceEvents": "dev1",
+    # "cf.MergeReductionStats": "dev1",
+    # "cf.MergeReducedEvents": "dev1",
 }
 
 # cannels

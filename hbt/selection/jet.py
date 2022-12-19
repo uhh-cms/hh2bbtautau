@@ -30,6 +30,7 @@ ak = maybe_import("awkward")
     produces={
         "Jet.hhbtag",
     },
+    # shifts are declared dynamically below in tec_init
 )
 def jet_selection(
     self: Selector,
@@ -213,3 +214,13 @@ def jet_selection(
             "n_central_jets": ak.num(jet_indices, axis=1),
         },
     )
+
+
+@jet_selection.init
+def jet_selection_init(self: Selector) -> None:
+    # register shifts
+    self.shifts |= {
+        shift_inst.name
+        for shift_inst in self.config_inst.shifts
+        if shift_inst.has_tag(("jec", "jer"))
+    }

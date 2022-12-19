@@ -115,13 +115,12 @@ def increment_stats(
 
 @selector(
     uses={
-        attach_coffea_behavior, mc_weight, met_filter_selection, trigger_selection,
-        lepton_selection, jet_selection, process_ids, pu_weight, btag_weights, cutflow_features,
-        increment_stats,
+        met_filter_selection, trigger_selection, lepton_selection, jet_selection, process_ids,
+        cutflow_features, increment_stats, attach_coffea_behavior,
     },
     produces={
-        mc_weight, met_filter_selection, trigger_selection, lepton_selection, jet_selection,
-        process_ids, pu_weight, btag_weights, cutflow_features, increment_stats,
+        met_filter_selection, trigger_selection, lepton_selection, jet_selection, process_ids,
+        cutflow_features, increment_stats,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -136,7 +135,8 @@ def default(
     events = self[attach_coffea_behavior](events, **kwargs)
 
     # add corrected mc weights
-    events = self[mc_weight](events, **kwargs)
+    if self.dataset_inst.is_mc:
+        events = self[mc_weight](events, **kwargs)
 
     # prepare the selection results that are updated at every step
     results = SelectionResult()
@@ -158,10 +158,12 @@ def default(
     results += jet_results
 
     # produce pileup weights
-    events = self[pu_weight](events, **kwargs)
+    if self.dataset_inst.is_mc:
+        events = self[pu_weight](events, **kwargs)
 
     # produce btag weights
-    events = self[btag_weights](events, results.x.jet_mask, **kwargs)
+    if self.dataset_inst.is_mc:
+        events = self[btag_weights](events, results.x.jet_mask, **kwargs)
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
@@ -170,11 +172,7 @@ def default(
     # combined event seleciton after all but the bjet step
     results.steps.all_but_bjet = reduce(
         and_,
-        [
-            mask
-            for step_name, mask in results.steps.items()
-            if step_name != "bjet"
-        ],
+        [mask for step_name, mask in results.steps.items() if step_name != "bjet"],
     )
 
     # create process ids
@@ -187,3 +185,14 @@ def default(
     events = self[cutflow_features](events, **kwargs)
 
     return events, results
+
+
+@default.init
+def default_init(self: Selector) -> None:
+    if not getattr(self, "dataset_inst", None) or self.dataset_inst.is_data:
+        return
+
+    # mc only selectors
+    selectors = {mc_weight, pu_weight, btag_weights}
+    self.uses |= selectors
+    self.produces |= selectors

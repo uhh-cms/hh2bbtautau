@@ -64,15 +64,18 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        mc_weight, category_ids, "Jet.pt", "Jet.eta", "Jet.phi",
+        category_ids,
+        "Jet.pt", "Jet.eta", "Jet.phi",
     },
     produces={
-        mc_weight, category_ids,
+        category_ids,
         "cutflow.n_jet", "cutflow.ht", "cutflow.jet1_pt", "cutflow.jet1_eta", "cutflow.jet1_phi",
     },
 )
 def cutflow_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    events = self[mc_weight](events, **kwargs)
+    if self.dataset_inst.is_mc:
+        events = self[mc_weight](events, **kwargs)
+
     events = self[category_ids](events, **kwargs)
 
     events = set_ak_column_i32(events, "cutflow.n_jet", ak.num(events.Jet, axis=1))
@@ -82,3 +85,13 @@ def cutflow_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "cutflow.jet1_phi", Route("Jet.phi[:,0]").apply(events, EMPTY_FLOAT))
 
     return events
+
+
+@cutflow_features.init
+def cutflow_features_init(self: Producer) -> None:
+    if not getattr(self, "dataset_inst", None) or self.dataset_inst.is_data:
+        return
+
+    # mc only producers
+    self.uses |= {mc_weight}
+    self.produces |= {mc_weight}

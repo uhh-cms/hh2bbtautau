@@ -20,8 +20,9 @@ np = maybe_import("numpy")
     # produced columns are defined in the init function below
 )
 def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    # fail when running on data
     if self.dataset_inst.is_data:
-        return events
+        raise ValueError("attempt to compute normalized pileup weights in data")
 
     for weight_name in self[pu_weight].produces:
         if not weight_name.startswith("pu_weight"):
@@ -47,9 +48,6 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
 
 @normalized_pu_weight.init
 def normalized_pu_weight_init(self: Producer) -> None:
-    if getattr(self, "dataset_inst", None) is None or self.dataset_inst.is_data:
-        return
-
     for weight_name in self[pu_weight].produces:
         if not weight_name.startswith("pu_weight"):
             continue
@@ -59,10 +57,6 @@ def normalized_pu_weight_init(self: Producer) -> None:
 
 @normalized_pu_weight.requires
 def normalized_pu_weight_requires(self: Producer, reqs: dict) -> None:
-    # do nothing for data
-    if self.dataset_inst.is_data:
-        return
-
     from columnflow.tasks.selection import MergeSelectionStats
     reqs["selection_stats"] = MergeSelectionStats.req(
         self.task,
@@ -74,12 +68,6 @@ def normalized_pu_weight_requires(self: Producer, reqs: dict) -> None:
 
 @normalized_pu_weight.setup
 def normalized_pu_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
-    # set to None for data
-    if self.dataset_inst.is_data:
-        self.unique_process_ids = None
-        self.ratio_per_pid = None
-        return
-
     # load the selection stats
     stats = inputs["selection_stats"]["collection"][0].load(formatter="json")
 

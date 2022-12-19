@@ -53,14 +53,6 @@ setup_hbt() {
     # (HBT = hh2bbtautau, CF = columnflow)
     #
 
-    # lang defaults
-    export LANGUAGE="${LANGUAGE:-en_US.UTF-8}"
-    export LANG="${LANG:-en_US.UTF-8}"
-    export LC_ALL="${LC_ALL:-en_US.UTF-8}"
-
-    # proxy
-    export X509_USER_PROXY="${X509_USER_PROXY:-/tmp/x509up_u$( id -u )}"
-
     # start exporting variables
     export HBT_BASE="${this_dir}"
     export CF_BASE="${this_dir}/modules/columnflow"
@@ -85,7 +77,6 @@ setup_hbt() {
             query CF_SOFTWARE_BASE "Local directory for installing software" "\$CF_DATA/software"
             query CF_JOB_BASE "Local directory for storing job files" "\$CF_DATA/jobs"
             query CF_VOMS "Virtual-organization" "cms"
-            export_and_save CF_TASK_NAMESPACE "${CF_TASK_NAMESPACE:-cf}"
             query CF_LOCAL_SCHEDULER "Use a local scheduler for law tasks" "True"
             if [ "${CF_LOCAL_SCHEDULER}" != "True" ]; then
                 query CF_SCHEDULER_HOST "Address of a central scheduler for law tasks" "naf-cms15.desy.de"
@@ -105,19 +96,12 @@ setup_hbt() {
     export CF_CMSSW_BASE="${CF_CMSSW_BASE:-${CF_SOFTWARE_BASE}/cmssw}"
     export CF_CI_JOB="$( [ "${GITHUB_ACTIONS}" = "true" ] && echo 1 || echo 0 )"
 
-    # overwrite some variables in remote and CI jobs
-    if [ "${CF_REMOTE_JOB}" = "1" ]; then
-        export CF_WLCG_USE_CACHE="true"
-        export CF_WLCG_CACHE_CLEANUP="true"
-        export CF_WORKER_KEEP_ALIVE="false"
-    elif [ "${CF_CI_JOB}" = "1" ]; then
-        export CF_WORKER_KEEP_ALIVE="false"
-    fi
 
-    # some variable defaults
-    export CF_WORKER_KEEP_ALIVE="${CF_WORKER_KEEP_ALIVE:-false}"
-    export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-127.0.0.1}"
-    export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8082}"
+    #
+    # common variables
+    #
+
+    cf_setup_common_variables || return "$?"
 
 
     #
