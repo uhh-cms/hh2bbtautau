@@ -5,6 +5,7 @@ Tau energy correction methods.
 """
 
 import functools
+import itertools
 
 from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.util import propagate_met
@@ -22,30 +23,44 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 @calibrator(
     uses={
         "nTau", "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.charge", "Tau.genPartFlav",
-        "Tau.decayMode",
-        "MET.pt", "MET.phi",
+        "Tau.decayMode", "MET.pt", "MET.phi",
     },
     produces={
-        "Tau.pt", "Tau.mass",
-        "Tau.pt_tec_dm0_up", "Tau.pt_tec_dm0_down", "Tau.mass_tec_dm0_up", "Tau.mass_tec_dm0_down",
-        "Tau.pt_tec_dm1_up", "Tau.pt_tec_dm1_down", "Tau.mass_tec_dm1_up", "Tau.mass_tec_dm1_down",
-        "Tau.pt_tec_dm10_up", "Tau.pt_tec_dm10_down", "Tau.mass_tec_dm10_up", "Tau.mass_tec_dm10_down",
-        "Tau.pt_tec_dm11_up", "Tau.pt_tec_dm11_down", "Tau.mass_tec_dm11_up", "Tau.mass_tec_dm11_down",
-        "MET.pt", "MET.phi",
-        "MET.pt_dm0_up", "MET.pt_dm0_down", "MET.phi_dm0_up", "MET.phi_dm0_down",
-        "MET.pt_dm1_up", "MET.pt_dm1_down", "MET.phi_dm1_up", "MET.phi_dm1_down",
-        "MET.pt_dm10_up", "MET.pt_dm10_down", "MET.phi_dm10_up", "MET.phi_dm10_down",
-        "MET.pt_dm11_up", "MET.pt_dm11_down", "MET.phi_dm11_up", "MET.phi_dm11_down",
+        "Tau.pt", "Tau.mass", "MET.pt", "MET.phi",
+    } | {
+        f"{field}_tec_{match}_dm{dm}_{direction}"
+        for field, match, dm, direction in itertools.product(
+            ["Tau.pt", "Tau.mass", "MET.pt", "MET.phi"],
+            ["jet", "e"],
+            [0, 1, 10, 11],
+            ["up", "down"],
+        )
     },
+    only_nominal=False,
 )
-def tec(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
+def tec(
+    self: Calibrator,
+    events: ak.Array,
+    **kwargs,
+) -> ak.Array:
     """
-    Calibrator for tau energy.
+    Calibrator for tau energy. Requires an external file in the config as (e.g.)
+
+    .. code-block:: python
+
+        "tau_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
+
+    which should be a correctionlib-style json file from which a correction set named
+    "tau_energy_scale" is extracted.
 
     Resources:
-    https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=111
-    https://gitlab.cern.ch/cms-tau-pog/jsonpog-integration/-/blob/TauPOG_v2/POG/TAU/README.md
+    https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=113
+    https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration/-/blob/849c6a6efef907f4033715d52290d1a661b7e8f9/POG/TAU
     """
+    # fail when running on data
+    if self.dataset_inst.is_data:
+        raise ValueError("attempt to apply tau energy corrections in data")
+
     # the correction tool only supports flat arrays, so convert inputs to flat np view first
     pt = flat_np_view(events.Tau.pt, axis=1)
     mass = flat_np_view(events.Tau.mass, axis=1)
@@ -60,9 +75,9 @@ def tec(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     scales_down = np.ones_like(dm_mask, dtype=np.float32)
 
     args = (pt[dm_mask], eta[dm_mask], dm[dm_mask], match[dm_mask], self.config_inst.x.tau_tagger)
-    scales_nom[dm_mask] = self.tec_corrector.evaluate(*args, "nom")
-    scales_up[dm_mask] = self.tec_corrector.evaluate(*args, "up")
-    scales_down[dm_mask] = self.tec_corrector.evaluate(*args, "down")
+    scales_nom[dm_mask] = self.tec_corrector(*args, "nom")
+    scales_up[dm_mask] = self.tec_corrector(*args, "up")
+    scales_down[dm_mask] = self.tec_corrector(*args, "down")
 
     # custom adjustment 1: reset where the matching value is unhandled
     # custom adjustment 2: reset electrons faking taus where the pt is too small
@@ -76,41 +91,45 @@ def tec(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     scales_down[mask] = 1.0
 
     # create varied collections per decay mode
-    for _dm in [0, 1, 10, 11]:
-        for direction, scales in [("up", scales_up), ("down", scales_down)]:
-            # copy pt and mass
-            pt_varied = ak.copy(events.Tau.pt)
-            mass_varied = ak.copy(events.Tau.mass)
-            pt_view = flat_np_view(pt_varied, axis=1)
-            mass_view = flat_np_view(mass_varied, axis=1)
+    for (match_mask, match_name), _dm, (direction, scales) in itertools.product(
+        [(match == 5, "jet"), ((match == 1) | (match == 3), "e")],
+        [0, 1, 10, 11],
+        [("up", scales_up), ("down", scales_down)],
+    ):
+        # copy pt and mass
+        pt_varied = ak.copy(events.Tau.pt)
+        mass_varied = ak.copy(events.Tau.mass)
+        pt_view = flat_np_view(pt_varied, axis=1)
+        mass_view = flat_np_view(mass_varied, axis=1)
 
-            # correct pt and mass for taus with that decay mode
-            mask = dm == _dm
-            pt_view[mask] *= scales[mask]
-            mass_view[mask] *= scales[mask]
+        # correct pt and mass for taus with that gen match and decay mode
+        mask = match_mask & (dm == _dm)
+        pt_view[mask] *= scales[mask]
+        mass_view[mask] *= scales[mask]
 
-            # propagate changes to MET
-            met_pt_varied, met_phi_varied = propagate_met(
-                events.Tau.pt,
-                events.Tau.phi,
-                pt_varied,
-                events.Tau.phi,
-                events.MET.pt,
-                events.MET.phi,
-            )
+        # propagate changes to MET
+        met_pt_varied, met_phi_varied = propagate_met(
+            events.Tau.pt,
+            events.Tau.phi,
+            pt_varied,
+            events.Tau.phi,
+            events.MET.pt,
+            events.MET.phi,
+        )
 
-            # save columns
-            postfix = f"tec_dm{_dm}_{direction}"
-            events = set_ak_column_f32(events, f"Tau.pt_{postfix}", pt_varied)
-            events = set_ak_column_f32(events, f"Tau.mass_{postfix}", mass_varied)
-            events = set_ak_column_f32(events, f"MET.pt_{postfix}", met_pt_varied)
-            events = set_ak_column_f32(events, f"MET.phi_{postfix}", met_phi_varied)
+        # save columns
+        postfix = f"tec_{match_name}_dm{_dm}_{direction}"
+        events = set_ak_column_f32(events, f"Tau.pt_{postfix}", pt_varied)
+        events = set_ak_column_f32(events, f"Tau.mass_{postfix}", mass_varied)
+        events = set_ak_column_f32(events, f"MET.pt_{postfix}", met_pt_varied)
+        events = set_ak_column_f32(events, f"MET.phi_{postfix}", met_phi_varied)
 
     # apply the nominal correction
     # note: changes are applied to the views and directly propagate to the original ak arrays
+    # and do not need to be inserted into the events chunk again
     tau_sum_before = events.Tau.sum(axis=1)
-    pt *= scales
-    mass *= scales
+    pt *= scales_nom
+    mass *= scales_nom
 
     # propagate changes to MET
     met_pt, met_phi = propagate_met(
@@ -144,7 +163,12 @@ def tec_setup(self: Calibrator, reqs: dict, inputs: dict) -> None:
 
     # create the tec corrector
     import correctionlib
+    correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
     correction_set = correctionlib.CorrectionSet.from_string(
-        bundle.files.tau.load(formatter="gzip").decode("utf-8"),
+        bundle.files.tau_sf.load(formatter="gzip").decode("utf-8"),
     )
     self.tec_corrector = correction_set["tau_energy_scale"]
+
+
+# custom tec calibrator that only runs nominal correction
+tec_nominal = tec.derive("tec_nominal", cls_dict={"only_nominal": True})
