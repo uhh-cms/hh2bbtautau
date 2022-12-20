@@ -39,10 +39,11 @@ def trigger_object_matching(
 
 @selector(
     uses={
-        "nElectron", "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mvaFall17V2Iso_WP80",
-        "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90", "Electron.pfRelIso03_all",
-        "Electron.dxy", "Electron.dz",
+        "nElectron", "Electron.pt", "Electron.eta", "Electron.phi", "Electron.dxy", "Electron.dz",
+        "Electron.pfRelIso03_all", "Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90",
         "nTrigObj", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
+        # <= nano v9 names
+        "Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90",
     },
 )
 def electron_selection(
@@ -77,13 +78,25 @@ def electron_selection(
     # pt sorted indices for converting masks to indices
     sorted_indices = ak.argsort(events.Electron.pt, axis=-1, ascending=False)
 
+    # obtain mva flags, which might be located at different routes, depending on the nano version
+    if "mvaFall17V2Iso_WP90" in events.fields:
+        # <= nano v9
+        mva_iso_wp80 = events.Electron.mvaFall17V2Iso_WP80
+        mva_iso_wp90 = events.Electron.mvaFall17V2Iso_WP90
+        mva_noniso_wp90 = events.Electron.mvaFall17V2noIso_WP90
+    else:
+        # >= nano v10
+        mva_iso_wp80 = events.Electron.mvaIso_WP80
+        mva_iso_wp90 = events.Electron.mvaIso_WP90
+        mva_noniso_wp90 = events.Electron.mvaNoIso_WP90
+
     # default electron mask, only required for single and cross triggers with electron leg
     default_mask = None
     default_indices = None
     if is_single or is_cross:
         min_pt = 26.0 if is_2016 else (33.0 if is_single else 25.0)
         default_mask = (
-            (events.Electron.mvaFall17V2Iso_WP80 == 1) &
+            (mva_iso_wp80 == 1) &
             (abs(events.Electron.eta) < 2.1) &
             (abs(events.Electron.dxy) < 0.045) &
             (abs(events.Electron.dz) < 0.2) &
@@ -97,8 +110,8 @@ def electron_selection(
     # veto electron mask
     veto_mask = (
         (
-            (events.Electron.mvaFall17V2Iso_WP90 == 1) |
-            ((events.Electron.mvaFall17V2noIso_WP90 == 1) & (events.Electron.pfRelIso03_all < 0.3))
+            (mva_iso_wp90 == 1) |
+            ((mva_noniso_wp90 == 1) & (events.Electron.pfRelIso03_all < 0.3))
         ) &
         (abs(events.Electron.eta) < 2.5) &
         (abs(events.Electron.dxy) < 0.045) &
