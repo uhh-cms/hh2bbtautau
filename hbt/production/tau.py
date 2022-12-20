@@ -84,8 +84,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # compute nominal ID weights
     #
 
-    # systematics are evaluated only in some phase space, so comute them iteratively,
-    # starting with the nominal ones
+    # start with ones
     sf_nom = np.ones_like(pt, dtype=np.float32)
 
     # helpers to create corrector arguments
@@ -100,7 +99,6 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     e_mask = ((events.Tau.genPartFlav == 1) | (events.Tau.genPartFlav == 3))
     e_single_mask = flat_np_view((e_mask & single_triggered), axis=1)
     e_cross_mask = flat_np_view((e_mask & cross_triggered), axis=1)
-    # eta masks needed only for syst shapes
     sf_nom[e_single_mask] = self.id_vs_e_corrector(*emu_args(e_single_mask, "VLoose", "nom"))
     sf_nom[e_cross_mask] = self.id_vs_e_corrector(*emu_args(e_cross_mask, "VVLoose", "nom"))
 
@@ -108,7 +106,6 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     mu_mask = ((events.Tau.genPartFlav == 2) | (events.Tau.genPartFlav == 4))
     mu_single_mask = flat_np_view((mu_mask & single_triggered), axis=1)
     mu_cross_mask = flat_np_view((mu_mask & cross_triggered), axis=1)
-    # eta masks needed only for syst shapes
     sf_nom[mu_single_mask] = self.id_vs_mu_corrector(*emu_args(mu_single_mask, "Tight", "nom"))
     sf_nom[mu_cross_mask] = self.id_vs_mu_corrector(*emu_args(mu_cross_mask, "VLoose", "nom"))
 
