@@ -79,16 +79,16 @@ def electron_selection(
     sorted_indices = ak.argsort(events.Electron.pt, axis=-1, ascending=False)
 
     # obtain mva flags, which might be located at different routes, depending on the nano version
-    if "mvaFall17V2Iso_WP90" in events.fields:
-        # <= nano v9
-        mva_iso_wp80 = events.Electron.mvaFall17V2Iso_WP80
-        mva_iso_wp90 = events.Electron.mvaFall17V2Iso_WP90
-        mva_noniso_wp90 = events.Electron.mvaFall17V2noIso_WP90
-    else:
+    if "mvaIso_WP80" in events.fields:
         # >= nano v10
         mva_iso_wp80 = events.Electron.mvaIso_WP80
         mva_iso_wp90 = events.Electron.mvaIso_WP90
         mva_noniso_wp90 = events.Electron.mvaNoIso_WP90
+    else:
+        # <= nano v9
+        mva_iso_wp80 = events.Electron.mvaFall17V2Iso_WP80
+        mva_iso_wp90 = events.Electron.mvaFall17V2Iso_WP90
+        mva_noniso_wp90 = events.Electron.mvaFall17V2noIso_WP90
 
     # default electron mask, only required for single and cross triggers with electron leg
     default_mask = None
