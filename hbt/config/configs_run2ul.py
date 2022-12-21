@@ -4,6 +4,8 @@
 Configuration of the HH → bb𝜏𝜏 analysis.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import itertools
@@ -18,7 +20,13 @@ from columnflow.util import DotDict, get_root_processes_from_campaign
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
 
-def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
+def add_config(
+    analysis: od.Analysis,
+    campaign: od.Campaign,
+    config_name: str | None = None,
+    config_id: int | None = None,
+    limit_dataset_files: int | None = None,
+) -> od.Config:
     # some validations
     assert campaign.x.year in [2016, 2017, 2018]
     if campaign.x.year == 2016:
@@ -33,7 +41,7 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
     procs = get_root_processes_from_campaign(campaign)
 
     # create a config by passing the campaign, so id and name will be identical
-    cfg = analysis.add_config(campaign)
+    cfg = analysis.add_config(campaign, name=config_name, id=config_id)
 
     # add processes we are interested in
     cfg.add_process(procs.n.data)
@@ -126,6 +134,11 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
         if dataset.name.startswith("tt"):
             dataset.x.is_ttbar = True
 
+        # apply an optional limit on the number of files
+        if limit_dataset_files:
+            for info in dataset.info.values():
+                info.n_files = limit_dataset_files
+
     # default objects, such as calibrator, selector, producer, ml model, inference model, etc
     cfg.x.default_calibrator = "default"
     cfg.x.default_selector = "default"
@@ -189,7 +202,7 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
     cfg.x.minbias_xs = Number(69.2, 0.046j)
 
     # whether to validate the number of obtained LFNs in GetDatasetLFNs
-    cfg.x.validate_dataset_lfns = True
+    cfg.x.validate_dataset_lfns = limit_dataset_files is None
 
     # b-tag working points
     if year == 2016:
@@ -684,7 +697,8 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
 
     # versions per task family and optionally also dataset and shift
     # None can be used as a key to define a default value
-    if cfg.name == "run2_2017_nano_v9":
+    # TODO: all configs use the same versioning right now, which needs to be a bit smarter
+    if cfg.name == "run2_2017_nano_v9" or True:
         cfg.x.versions = {
             # "cf.CalibrateEvents": "dev1",
             # "cf.MergeSelectionStats": "dev1",

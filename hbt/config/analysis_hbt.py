@@ -52,8 +52,22 @@ analysis_hbt.x.config_groups = {}
 # 2017
 from hbt.config.configs_run2ul import add_config as add_config_run2ul
 import cmsdb.campaigns.run2_2017_nano_v9
-campaign_run2_2017_nano_v9 = cmsdb.campaigns.run2_2017_nano_v9.campaign_run2_2017_nano_v9.copy()
+
+campaign_run2_2017_nano_v9 = cmsdb.campaigns.run2_2017_nano_v9.campaign_run2_2017_nano_v9
+
+# default config
 add_config_run2ul(
     analysis_hbt,
-    campaign_run2_2017_nano_v9,
+    campaign_run2_2017_nano_v9.copy(),
+    config_name=campaign_run2_2017_nano_v9.name,
+    config_id=2,
+)
+
+# config with limited number of files
+add_config_run2ul(
+    analysis_hbt,
+    campaign_run2_2017_nano_v9.copy(),
+    config_name=f"{campaign_run2_2017_nano_v9.name}_limited",
+    config_id=12,
+    limit_dataset_files=2,
 )
