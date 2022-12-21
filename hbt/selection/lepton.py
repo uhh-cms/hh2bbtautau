@@ -79,7 +79,7 @@ def electron_selection(
     sorted_indices = ak.argsort(events.Electron.pt, axis=-1, ascending=False)
 
     # obtain mva flags, which might be located at different routes, depending on the nano version
-    if "mvaIso_WP80" in events.fields:
+    if "mvaIso_WP80" in events.Electron.fields:
         # >= nano v10
         mva_iso_wp80 = events.Electron.mvaIso_WP80
         mva_iso_wp90 = events.Electron.mvaIso_WP90
