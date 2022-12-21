@@ -205,63 +205,23 @@ def add_config(
     cfg.x.validate_dataset_lfns = limit_dataset_files is None
 
     # b-tag working points
-    if year == 2016:
-        if campaign.x.vfp == "pre":
-            # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16preVFP?rev=6
-            cfg.x.btag_working_points = DotDict.wrap({
-                "deepjet": {
-                    "loose": 0.0508,
-                    "medium": 0.2598,
-                    "tight": 0.6502,
-                },
-                "deepcsv": {
-                    "loose": 0.2027,
-                    "medium": 0.6001,
-                    "tight": 0.8819,
-                },
-            })
-        else:  # post
-            # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16postVFP?rev=8
-            cfg.x.btag_working_points = DotDict.wrap({
-                "deepjet": {
-                    "loose": 0.0480,
-                    "medium": 0.2489,
-                    "tight": 0.6377,
-                },
-                "deepcsv": {
-                    "loose": 0.1918,
-                    "medium": 0.5847,
-                    "tight": 0.8767,
-                },
-            })
-    elif year == 2017:
-        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
-        cfg.x.btag_working_points = DotDict.wrap({
-            "deepjet": {
-                "loose": 0.0532,
-                "medium": 0.3040,
-                "tight": 0.7476,
-            },
-            "deepcsv": {
-                "loose": 0.1355,
-                "medium": 0.4506,
-                "tight": 0.7738,
-            },
-        })
-    else:  # 2018
-        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=17
-        cfg.x.btag_working_points = DotDict.wrap({
-            "deepjet": {
-                "loose": 0.0490,
-                "medium": 0.2783,
-                "tight": 0.7100,
-            },
-            "deepcsv": {
-                "loose": 0.1208,
-                "medium": 0.4168,
-                "tight": 0.7665,
-            },
-        })
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16preVFP?rev=6
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16postVFP?rev=8
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=17
+    btag_key = f"2016{campaign.x.vfp}" if year == 2016 else year
+    cfg.x.btag_working_points = DotDict.wrap({
+        "deepjet": {
+            "loose": {"2016pre": 0.0508, "2016post": 0.0480, 2017: 0.0532, 2018: 0.0490}[btag_key],
+            "medium": {"2016pre": 0.2598, "2016post": 0.2489, 2017: 0.3040, 2018: 0.2783}[btag_key],
+            "tight": {"2016pre": 0.6502, "2016post": 0.6377, 2017: 0.7476, 2018: 0.7100}[btag_key],
+        },
+        "deepcsv": {
+            "loose": {"2016pre": 0.2027, "2016post": 0.1918, 2017: 0.1355, 2018: 0.1208}[btag_key],
+            "medium": {"2016pre": 0.6001, "2016post": 0.5847, 2017: 0.4506, 2018: 0.4168}[btag_key],
+            "tight": {"2016pre": 0.8819, "2016post": 0.8767, 2017: 0.7738, 2018: 0.7665}[btag_key],
+        },
+    })
 
     # name of the btag_sf correction set
     cfg.x.btag_sf_correction_set = "deepJet_shape"
@@ -560,25 +520,25 @@ def add_config(
         )
 
     # external files
-    corrlib_base = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-849c6a6e"
+    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-849c6a6e"
     cfg.x.external_files = DotDict.wrap({
         # jet energy correction
-        "jet_jerc": (f"{corrlib_base}/POG/JME/{year}{corr_postfix}_UL/jet_jerc.json.gz", "v1"),
+        "jet_jerc": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/jet_jerc.json.gz", "v1"),
 
         # tau energy correction and scale factors
-        "tau_sf": (f"{corrlib_base}/POG/TAU/{year}{corr_postfix}_UL/tau.json.gz", "v1"),
+        "tau_sf": (f"{json_mirror}/POG/TAU/{year}{corr_postfix}_UL/tau.json.gz", "v1"),
 
         # electron scale factors
-        "electron_sf": (f"{corrlib_base}/POG/EGM/{year}{corr_postfix}_UL/electron.json.gz", "v1"),
+        "electron_sf": (f"{json_mirror}/POG/EGM/{year}{corr_postfix}_UL/electron.json.gz", "v1"),
 
         # muon scale factors
-        "muon_sf": (f"{corrlib_base}/POG/MUO/{year}{corr_postfix}_UL/muon_Z.json.gz", "v1"),
+        "muon_sf": (f"{json_mirror}/POG/MUO/{year}{corr_postfix}_UL/muon_Z.json.gz", "v1"),
 
         # btag scale factor
-        "btag_sf_corr": (f"{corrlib_base}/POG/BTV/{year}{corr_postfix}_UL/btagging.json.gz", "v1"),
+        "btag_sf_corr": (f"{json_mirror}/POG/BTV/{year}{corr_postfix}_UL/btagging.json.gz", "v1"),
 
         # met phi corrector
-        "met_phi_corr": (f"{corrlib_base}/POG/JME/{year}{corr_postfix}_UL/met.json.gz", "v1"),
+        "met_phi_corr": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/met.json.gz", "v1"),
 
         # hh-btag repository (lightweight) with TF saved model directories
         "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
