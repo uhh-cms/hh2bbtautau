@@ -63,7 +63,7 @@ add_config_run2ul(
     config_id=2,
 )
 
-# config with limited number of files
+# config with limited number of files for faster prototyping
 add_config_run2ul(
     analysis_hbt,
     campaign_run2_2017_nano_v9.copy(),

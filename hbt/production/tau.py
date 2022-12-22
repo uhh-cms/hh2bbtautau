@@ -5,7 +5,6 @@ Tau scale factor production.
 """
 
 import functools
-import itertools
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
@@ -28,13 +27,11 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "tau_weight",
     } | {
         f"tau_weight_{unc}_{direction}"
-        for unc, direction in itertools.product(
-            [
-                "jet_dm0", "jet_dm1", "jet_dm10", "e_barrel", "e_endcap",
-                "mu_0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7ToInf",
-            ],
-            ["up", "down"],
-        )
+        for direction in ["up", "down"]
+        for unc in [
+            "jet_dm0", "jet_dm1", "jet_dm10", "e_barrel", "e_endcap",
+            "mu_0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7ToInf",
+        ]
     },
 )
 def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -192,9 +189,10 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     },
     produces={
         "tau_trigger_weight",
-        "tau_trigger_weight_tautau_up", "tau_trigger_weight_tautau_down",
-        "tau_trigger_weight_etau_up", "tau_trigger_weight_etau_down",
-        "tau_trigger_weight_mutau_up", "tau_trigger_weight_mutau_down",
+    } | {
+        f"tau_trigger_weight_{ch}_{direction}"
+        for direction in ["up", "down"]
+        for ch in ["etau", "mutau", "tautau"]  # TODO: add tautauvbf when existing
     },
 )
 def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -272,25 +270,15 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     #
 
     for direction in ["up", "down"]:
-        # tautau
-        sf_tautau = sf_nom.copy()
-        sf_tautau[tautau_mask] = self.trigger_corrector(*eval_args(tautau_mask, "ditau", direction))
-        events = set_ak_column_f32(events, f"tau_trigger_weight_tautau_{direction}", reduce_mul(sf_tautau))
-
-        # tautauvbf
-        # sf_tautauvbf = sf_nom.copy()
-        # sf_tautauvbf[tautauvbf_mask] = self.trigger_corrector(*eval_args(tautauvbf_mask, "ditauvbf", direction))
-        # events = set_ak_column_f32(events, f"tau_trigger_weight_tautauvbf_{direction}", reduce_mul(sf_tautauvbf))
-
-        # etau
-        sf_etau = sf_nom.copy()
-        sf_etau[etau_mask] = self.trigger_corrector(*eval_args(etau_mask, "etau", direction))
-        events = set_ak_column_f32(events, f"tau_trigger_weight_etau_{direction}", reduce_mul(sf_etau))
-
-        # mutau
-        sf_mutau = sf_nom.copy()
-        sf_mutau[mutau_mask] = self.trigger_corrector(*eval_args(mutau_mask, "mutau", direction))
-        events = set_ak_column_f32(events, f"tau_trigger_weight_mutau_{direction}", reduce_mul(sf_mutau))
+        for ch, ch_corr, mask in [
+            ("etau", "etau", etau_mask),
+            ("mutau", "mutau", mutau_mask),
+            ("tautau", "ditau", tautau_mask),
+            # ("tautauvbf", "ditauvbf", tautauvbf_mask),
+        ]:
+            sf_unc = sf_nom.copy()
+            sf_unc[mask] = self.trigger_corrector(*eval_args(mask, ch_corr, direction))
+            events = set_ak_column_f32(events, f"tau_trigger_weight_{ch}_{direction}", reduce_mul(sf_unc))
 
     return events
 

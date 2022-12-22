@@ -174,8 +174,9 @@ def add_config(
         "default": ["met_filter", "trigger_fired", "leptons", "jet", "bjet"],
     }
 
-    # custom method for determining dataset lfns
-    cfg.x.determine_dataset_lfns = None
+    # custom method and sandbox for determining dataset lfns
+    cfg.x.get_dataset_lfns = None
+    cfg.x.get_dataset_lfns_sandbox = None
 
     # lumi values in inverse pb
     # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2?rev=2#Combination_and_correlations
