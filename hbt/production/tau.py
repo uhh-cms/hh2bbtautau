@@ -20,7 +20,9 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 @producer(
     uses={
+        # custom columns created upstream, probably by a selector
         "single_triggered", "cross_triggered",
+        # nano columns
         "nTau", "Tau.pt", "Tau.eta", "Tau.genPartFlav", "Tau.decayMode",
     },
     produces={

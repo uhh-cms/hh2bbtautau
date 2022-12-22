@@ -22,7 +22,13 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
 @producer(
-    uses={btag_weights.PRODUCES, "process_id", "Jet.pt"},
+    uses={
+        btag_weights.PRODUCES,
+        # custom columns created upstream, probably by a producer
+        "process_id",
+        # nano columns
+        "Jet.pt",
+    },
     # produced columns are defined in the init function below
 )
 def normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:

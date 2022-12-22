@@ -22,6 +22,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 @calibrator(
     uses={
+        # nano columns
         "nTau", "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.charge", "Tau.genPartFlav",
         "Tau.decayMode", "MET.pt", "MET.phi",
     },
