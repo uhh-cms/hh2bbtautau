@@ -658,19 +658,20 @@ def add_config(
 
     # versions per task family and optionally also dataset and shift
     # None can be used as a key to define a default value
-    # TODO: all configs use the same versioning right now, which needs to be a bit smarter
-    if cfg.name == "run2_2017_nano_v9" or True:
-        cfg.x.versions = {
-            # "cf.CalibrateEvents": "dev1",
-            # "cf.MergeSelectionStats": "dev1",
-            # "cf.MergeSelectionMasks": "dev1",
-            # "cf.SelectEvents": "dev1",
-            # "cf.ReduceEvents": "dev1",
-            # "cf.MergeReductionStats": "dev1",
-            # "cf.MergeReducedEvents": "dev1",
-        }
-    else:
-        raise NotImplementedError(f"config versions not implemented for {cfg.name}")
+    # TODO: versioning is disabled for now and will be enabled once needed
+    cfg.x.versions = {}
+    # if cfg.name == "run2_2017_nano_v9":
+    #     cfg.x.versions = {
+    #         "cf.CalibrateEvents": "dev1",
+    #         "cf.MergeSelectionStats": "dev1",
+    #         "cf.MergeSelectionMasks": "dev1",
+    #         "cf.SelectEvents": "dev1",
+    #         "cf.ReduceEvents": "dev1",
+    #         "cf.MergeReductionStats": "dev1",
+    #         "cf.MergeReducedEvents": "dev1",
+    #     }
+    # else:
+    #     raise NotImplementedError(f"config versions not implemented for {cfg.name}")
 
     # cannels
     cfg.add_channel(name="mutau", id=1)
