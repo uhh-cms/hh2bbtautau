@@ -15,7 +15,9 @@ np = maybe_import("numpy")
 
 @producer(
     uses={
-        pu_weight.PRODUCES, "process_id",
+        pu_weight.PRODUCES,
+        # custom columns created upstream, probably by a producer
+        "process_id",
     },
     # produced columns are defined in the init function below
 )

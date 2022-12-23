@@ -43,9 +43,11 @@ def jet_energy_shifts_init(self: Producer) -> None:
 
 @producer(
     uses={
+        # nano columns
         "Electron.pt", "Muon.pt", "Jet.pt", "BJet.pt",
     },
     produces={
+        # new columns
         "ht", "n_jet", "n_hhbtag", "n_electron", "n_muon",
     },
     shifts={
@@ -65,10 +67,12 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 @producer(
     uses={
         category_ids,
+        # nano columns
         "Jet.pt", "Jet.eta", "Jet.phi",
     },
     produces={
         category_ids,
+        # new columns
         "cutflow.n_jet", "cutflow.ht", "cutflow.jet1_pt", "cutflow.jet1_eta", "cutflow.jet1_phi",
     },
 )

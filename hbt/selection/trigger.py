@@ -14,9 +14,11 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
+        # nano columns
         "nTrigObj", "TrigObj.id", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi", "TrigObj.filterBits",
     },
     produces={
+        # new columns
         "trigger_ids",
     },
     exposed=True,

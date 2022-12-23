@@ -4,6 +4,8 @@
 Configuration of the HH → bb𝜏𝜏 analysis.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import itertools
@@ -18,7 +20,13 @@ from columnflow.util import DotDict, get_root_processes_from_campaign
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
 
-def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
+def add_config(
+    analysis: od.Analysis,
+    campaign: od.Campaign,
+    config_name: str | None = None,
+    config_id: int | None = None,
+    limit_dataset_files: int | None = None,
+) -> od.Config:
     # some validations
     assert campaign.x.year in [2016, 2017, 2018]
     if campaign.x.year == 2016:
@@ -33,7 +41,7 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
     procs = get_root_processes_from_campaign(campaign)
 
     # create a config by passing the campaign, so id and name will be identical
-    cfg = analysis.add_config(campaign)
+    cfg = analysis.add_config(campaign, name=config_name, id=config_id)
 
     # add processes we are interested in
     cfg.add_process(procs.n.data)
@@ -126,6 +134,11 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
         if dataset.name.startswith("tt"):
             dataset.x.is_ttbar = True
 
+        # apply an optional limit on the number of files
+        if limit_dataset_files:
+            for info in dataset.info.values():
+                info.n_files = limit_dataset_files
+
     # default objects, such as calibrator, selector, producer, ml model, inference model, etc
     cfg.x.default_calibrator = "default"
     cfg.x.default_selector = "default"
@@ -161,8 +174,9 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
         "default": ["met_filter", "trigger_fired", "leptons", "jet", "bjet"],
     }
 
-    # custom method for determining dataset lfns
-    cfg.x.determine_dataset_lfns = None
+    # custom method and sandbox for determining dataset lfns
+    cfg.x.get_dataset_lfns = None
+    cfg.x.get_dataset_lfns_sandbox = None
 
     # lumi values in inverse pb
     # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2?rev=2#Combination_and_correlations
@@ -189,66 +203,26 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
     cfg.x.minbias_xs = Number(69.2, 0.046j)
 
     # whether to validate the number of obtained LFNs in GetDatasetLFNs
-    cfg.x.validate_dataset_lfns = True
+    cfg.x.validate_dataset_lfns = limit_dataset_files is None
 
     # b-tag working points
-    if year == 2016:
-        if campaign.x.vfp == "pre":
-            # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16preVFP?rev=6
-            cfg.x.btag_working_points = DotDict.wrap({
-                "deepjet": {
-                    "loose": 0.0508,
-                    "medium": 0.2598,
-                    "tight": 0.6502,
-                },
-                "deepcsv": {
-                    "loose": 0.2027,
-                    "medium": 0.6001,
-                    "tight": 0.8819,
-                },
-            })
-        else:  # post
-            # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16postVFP?rev=8
-            cfg.x.btag_working_points = DotDict.wrap({
-                "deepjet": {
-                    "loose": 0.0480,
-                    "medium": 0.2489,
-                    "tight": 0.6377,
-                },
-                "deepcsv": {
-                    "loose": 0.1918,
-                    "medium": 0.5847,
-                    "tight": 0.8767,
-                },
-            })
-    elif year == 2017:
-        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
-        cfg.x.btag_working_points = DotDict.wrap({
-            "deepjet": {
-                "loose": 0.0532,
-                "medium": 0.3040,
-                "tight": 0.7476,
-            },
-            "deepcsv": {
-                "loose": 0.1355,
-                "medium": 0.4506,
-                "tight": 0.7738,
-            },
-        })
-    else:  # 2018
-        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=17
-        cfg.x.btag_working_points = DotDict.wrap({
-            "deepjet": {
-                "loose": 0.0490,
-                "medium": 0.2783,
-                "tight": 0.7100,
-            },
-            "deepcsv": {
-                "loose": 0.1208,
-                "medium": 0.4168,
-                "tight": 0.7665,
-            },
-        })
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16preVFP?rev=6
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16postVFP?rev=8
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=17
+    btag_key = f"2016{campaign.x.vfp}" if year == 2016 else year
+    cfg.x.btag_working_points = DotDict.wrap({
+        "deepjet": {
+            "loose": {"2016pre": 0.0508, "2016post": 0.0480, 2017: 0.0532, 2018: 0.0490}[btag_key],
+            "medium": {"2016pre": 0.2598, "2016post": 0.2489, 2017: 0.3040, 2018: 0.2783}[btag_key],
+            "tight": {"2016pre": 0.6502, "2016post": 0.6377, 2017: 0.7476, 2018: 0.7100}[btag_key],
+        },
+        "deepcsv": {
+            "loose": {"2016pre": 0.2027, "2016post": 0.1918, 2017: 0.1355, 2018: 0.1208}[btag_key],
+            "medium": {"2016pre": 0.6001, "2016post": 0.5847, 2017: 0.4506, 2018: 0.4168}[btag_key],
+            "tight": {"2016pre": 0.8819, "2016post": 0.8767, 2017: 0.7738, 2018: 0.7665}[btag_key],
+        },
+    })
 
     # name of the btag_sf correction set
     cfg.x.btag_sf_correction_set = "deepJet_shape"
@@ -547,25 +521,25 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
         )
 
     # external files
-    corrlib_base = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-849c6a6e"
+    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-849c6a6e"
     cfg.x.external_files = DotDict.wrap({
         # jet energy correction
-        "jet_jerc": (f"{corrlib_base}/POG/JME/{year}{corr_postfix}_UL/jet_jerc.json.gz", "v1"),
+        "jet_jerc": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/jet_jerc.json.gz", "v1"),
 
         # tau energy correction and scale factors
-        "tau_sf": (f"{corrlib_base}/POG/TAU/{year}{corr_postfix}_UL/tau.json.gz", "v1"),
+        "tau_sf": (f"{json_mirror}/POG/TAU/{year}{corr_postfix}_UL/tau.json.gz", "v1"),
 
         # electron scale factors
-        "electron_sf": (f"{corrlib_base}/POG/EGM/{year}{corr_postfix}_UL/electron.json.gz", "v1"),
+        "electron_sf": (f"{json_mirror}/POG/EGM/{year}{corr_postfix}_UL/electron.json.gz", "v1"),
 
         # muon scale factors
-        "muon_sf": (f"{corrlib_base}/POG/MUO/{year}{corr_postfix}_UL/muon_Z.json.gz", "v1"),
+        "muon_sf": (f"{json_mirror}/POG/MUO/{year}{corr_postfix}_UL/muon_Z.json.gz", "v1"),
 
         # btag scale factor
-        "btag_sf_corr": (f"{corrlib_base}/POG/BTV/{year}{corr_postfix}_UL/btagging.json.gz", "v1"),
+        "btag_sf_corr": (f"{json_mirror}/POG/BTV/{year}{corr_postfix}_UL/btagging.json.gz", "v1"),
 
         # met phi corrector
-        "met_phi_corr": (f"{corrlib_base}/POG/JME/{year}{corr_postfix}_UL/met.json.gz", "v1"),
+        "met_phi_corr": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/met.json.gz", "v1"),
 
         # hh-btag repository (lightweight) with TF saved model directories
         "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
@@ -684,18 +658,20 @@ def add_config(analysis: od.Analysis, campaign: od.Campaign) -> od.Config:
 
     # versions per task family and optionally also dataset and shift
     # None can be used as a key to define a default value
-    if cfg.name == "run2_2017_nano_v9":
-        cfg.x.versions = {
-            # "cf.CalibrateEvents": "dev1",
-            # "cf.MergeSelectionStats": "dev1",
-            # "cf.MergeSelectionMasks": "dev1",
-            # "cf.SelectEvents": "dev1",
-            # "cf.ReduceEvents": "dev1",
-            # "cf.MergeReductionStats": "dev1",
-            # "cf.MergeReducedEvents": "dev1",
-        }
-    else:
-        raise NotImplementedError(f"config versions not implemented for {cfg.name}")
+    # TODO: versioning is disabled for now and will be enabled once needed
+    cfg.x.versions = {}
+    # if cfg.name == "run2_2017_nano_v9":
+    #     cfg.x.versions = {
+    #         "cf.CalibrateEvents": "dev1",
+    #         "cf.MergeSelectionStats": "dev1",
+    #         "cf.MergeSelectionMasks": "dev1",
+    #         "cf.SelectEvents": "dev1",
+    #         "cf.ReduceEvents": "dev1",
+    #         "cf.MergeReductionStats": "dev1",
+    #         "cf.MergeReducedEvents": "dev1",
+    #     }
+    # else:
+    #     raise NotImplementedError(f"config versions not implemented for {cfg.name}")
 
     # cannels
     cfg.add_channel(name="mutau", id=1)

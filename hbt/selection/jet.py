@@ -20,7 +20,9 @@ ak = maybe_import("awkward")
 @selector(
     uses={
         hhbtag,
+        # custom columns created upstream, probably by a selector
         "trigger_ids",
+        # nano columns
         "nJet", "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
         "Jet.btagDeepFlavB",
         "nFatJet", "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
@@ -28,6 +30,7 @@ ak = maybe_import("awkward")
         "nSubJet", "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
     },
     produces={
+        # new columns
         "Jet.hhbtag",
     },
     # shifts are declared dynamically below in tec_init

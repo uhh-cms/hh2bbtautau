@@ -20,7 +20,10 @@ logger = law.logger.get_logger(__name__)
 
 @producer(
     uses={
-        "event", "channel_id",
+        # custom columns created upstream, probably by a selector
+        "channel_id",
+        # nano columns
+        "event",
         "nJet", "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
         "Jet.btagDeepFlavB",
         "MET.pt", "MET.phi",
