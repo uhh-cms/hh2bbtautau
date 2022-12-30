@@ -9,7 +9,7 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox
-from columnflow.columnar_util import EMPTY_FLOAT
+from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -50,13 +50,8 @@ def hhbtag(
     # prepare objects
     n_jets_max = 10
     jets = events.Jet[jet_mask][event_mask][..., :n_jets_max]
-    leps = lepton_pair[event_mask][..., :2]
-    htt = ak.sum(leps, axis=1)
-    htt = ak.zip(
-        {f: htt[f] for f in htt.fields},
-        with_name="PtEtaPhiMLorentzVector",
-        behavior=events.behavior,
-    )
+    leps = lepton_pair[event_mask][..., [0, 1]]
+    htt = leps[..., 0] + leps[..., 1]
     met = events[event_mask].MET
     jet_shape = abs(jets.pt) >= 0
     n_jets_sel = ak.sum(jet_mask[event_mask], axis=1)
@@ -122,11 +117,8 @@ def hhbtag(
 
     # add scores to events that had more than n_jets_max selected jets
     # (use zero here as this is also what the hhbtag model does for missing jets)
-    n_ext = np.array(n_jets_sel - n_jets_capped)
-    scores_ext = ak.Array(ak.layout.ListOffsetArray32(
-        ak.layout.Index32(np.pad(np.cumsum(n_ext), (1, 0), mode="constant", constant_values=0.0)),
-        ak.layout.NumpyArray([0.0] * sum(n_ext)),
-    ))
+    layout_ext = events.Jet.pt[jet_mask][event_mask][..., n_jets_max:]
+    scores_ext = layout_ak_array(np.zeros(len(ak.flatten(layout_ext)), dtype=np.int32), layout_ext)
     scores = ak.concatenate([scores, scores_ext], axis=1)
 
     # insert scores into an array with same shape as input jets (without jet_mask and event_mask)

@@ -10,7 +10,7 @@ import itertools
 from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.util import propagate_met
 from columnflow.util import maybe_import
-from columnflow.columnar_util import set_ak_column, flat_np_view
+from columnflow.columnar_util import set_ak_column, flat_np_view, ak_copy
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
@@ -98,8 +98,8 @@ def tec(
         [("up", scales_up), ("down", scales_down)],
     ):
         # copy pt and mass
-        pt_varied = ak.copy(events.Tau.pt)
-        mass_varied = ak.copy(events.Tau.mass)
+        pt_varied = ak_copy(events.Tau.pt)
+        mass_varied = ak_copy(events.Tau.mass)
         pt_view = flat_np_view(pt_varied, axis=1)
         mass_view = flat_np_view(mass_varied, axis=1)
 
