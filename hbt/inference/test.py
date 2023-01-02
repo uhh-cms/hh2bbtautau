@@ -16,18 +16,18 @@ def test(self):
 
     self.add_category(
         "cat1",
-        category="incl",
-        variable="ht",
+        config_category="incl",
+        config_variable="ht",
+        config_data_datasets=["data_mu_b"],
         mc_stats=True,
-        data_datasets=["data_mu_b"],
     )
     self.add_category(
         "cat2",
-        category="2j",
-        variable="jet1_pt",
-        mc_stats=True,
+        config_category="2j",
+        config_variable="jet1_pt",
         # fake data from TT
         data_from_processes=["TT"],
+        mc_stats=True,
     )
 
     #
@@ -36,15 +36,14 @@ def test(self):
 
     self.add_process(
         "HH",
-        process="hh_ggf_bbtautau",
-        signal=True,
-        mc_datasets=["hh_ggf_bbtautau_madgraph"],
+        is_signal=True,
+        config_process="hh_ggf_bbtautau",
+        config_mc_datasets=["hh_ggf_bbtautau_madgraph"],
     )
     self.add_process(
         "TT",
-        process="tt",
-        mc_datasets=["tt_sl_powheg"],
-
+        config_process="tt",
+        config_mc_datasets=["tt_sl_powheg"],
     )
 
     #
@@ -69,7 +68,7 @@ def test(self):
     self.add_parameter(
         "CMS_pileup",
         type=ParameterType.shape,
-        shift_source="minbias_xs",
+        config_shift_source="minbias_xs",
     )
     self.add_parameter_to_group("CMS_pileup", "experiment")
 
@@ -78,7 +77,7 @@ def test(self):
         "CMS_pileup2",
         type=ParameterType.rate_uniform,
         transformations=[ParameterTransformation.effect_from_shape, ParameterTransformation.symmetrize],
-        shift_source="minbias_xs",
+        config_shift_source="minbias_xs",
     )
     self.add_parameter_to_group("CMS_pileup2", "experiment")
 
@@ -118,11 +117,11 @@ def test_no_shifts(self):
     test.init_func.__get__(self, self.__class__)()
 
     #
-    # remove all parameters that require a shift_source
+    # remove all parameters that require a shift source
     #
 
     for category_name, process_name, parameter in self.iter_parameters():
-        if parameter.shift_source:
+        if parameter.config_shift_source:
             self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
     #
