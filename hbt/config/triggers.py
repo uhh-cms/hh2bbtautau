@@ -18,7 +18,6 @@ def add_triggers_2017(config: od.Config) -> None:
         #
         # single electron
         #
-        # in data only available starting 2017D
         Trigger(
             name="HLT_Ele32_WPTight_Gsf",
             id=201,
@@ -31,6 +30,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
             tags={"single_trigger", "single_e", "channel_e_tau"},
         ),
         Trigger(
@@ -101,7 +101,6 @@ def add_triggers_2017(config: od.Config) -> None:
         Trigger(
             name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseChargedIsoPFTau30_eta2p1_CrossL1",
             id=401,
-            is_data=True,  # the non-HPS path existed only for data and is fully covered in MC below
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -120,6 +119,8 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=1024 + 256,
                 ),
             ],
+            # the non-HPS path existed only for data and is fully covered in MC below
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
             tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
         ),
         Trigger(
@@ -152,7 +153,6 @@ def add_triggers_2017(config: od.Config) -> None:
         Trigger(
             name="HLT_IsoMu20_eta2p1_LooseChargedIsoPFTau27_eta2p1_CrossL1",
             id=301,
-            is_data=True,  # the non-HPS path existed only for data and is fully covered in MC below
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -171,6 +171,8 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=1024 + 512,
                 ),
             ],
+            # the non-HPS path existed only for data and is fully covered in MC below
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
             tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
         ),
         Trigger(
@@ -221,11 +223,9 @@ def add_triggers_2017(config: od.Config) -> None:
             ],
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
-        # TODO: run dependence for data??
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau35_Trk1_TightID_eta2p1_Reg",
             id=502,
-            is_data=True,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -242,12 +242,12 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=64,
                 ),
             ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleMediumChargedIsoPFTau40_Trk1_TightID_eta2p1_Reg",
             id=503,
-            is_data=True,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -264,12 +264,12 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=64,
                 ),
             ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau40_Trk1_eta2p1_Reg",
             id=504,
-            is_data=True,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -286,13 +286,13 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=64,
                 ),
             ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
 
         #
         # vbf
         #
-        # in data only available starting 2017D
         Trigger(
             name="HLT_VBF_DoubleLooseChargedIsoPFTau20_Trk1_eta2p1_Reg",
             id=601,
@@ -325,6 +325,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=1,
                 ),
             ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
     ])

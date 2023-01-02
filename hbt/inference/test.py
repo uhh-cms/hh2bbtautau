@@ -19,17 +19,14 @@ def test(self):
         category="incl",
         variable="ht",
         mc_stats=True,
-        # issue with electron trigger in data, meanwhile use fake data from TT
-        # data_datasets=["data_mu_b"],
-        data_from_processes=["TT"],
+        data_datasets=["data_mu_b"],
     )
     self.add_category(
         "cat2",
-        category="sel_2j",
+        category="2j",
         variable="jet1_pt",
         mc_stats=True,
-        # issue with electron trigger in data, meanwhile use fake data from TT
-        # data_datasets=["data_mu_b"],
+        # fake data from TT
         data_from_processes=["TT"],
     )
 

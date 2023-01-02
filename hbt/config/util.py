@@ -6,7 +6,9 @@ Config-related object definitions and utils.
 
 from __future__ import annotations
 
-from order import UniqueObject, TagMixin, DataSourceMixin
+from typing import Callable, Any
+
+from order import UniqueObject, TagMixin
 from order.util import typed
 
 
@@ -88,7 +90,7 @@ class TriggerLeg(object):
         return trigger_bits
 
 
-class Trigger(UniqueObject, TagMixin, DataSourceMixin):
+class Trigger(UniqueObject, TagMixin):
     """
     Container class storing information about triggers:
 
@@ -98,31 +100,32 @@ class Trigger(UniqueObject, TagMixin, DataSourceMixin):
           (usually only defined by data).
         - *legs*: A list of :py:class:`TriggerLeg` objects contraining additional information and
           constraints of particular trigger legs.
+        - *applies_to_dataset*: A function that obtains an ``order.Dataset`` instance to decide
+          whether the trigger applies to that dataset. Defaults to *True*.
 
     For accepted types and conversions, see the *typed* setters implemented in this class.
 
-    In addition, two base classes from *order* provide additional functionality via mixins:
+    In addition, a base class from *order* provides additional functionality via mixins:
 
         - *tags*: Trigger objects can be assigned *tags* that can be checked later on, e.g. to
           describe the type of the trigger ("single_mu", "cross", ...).
-        - *is_data*: A flag denoting whether the trigger is only meant to be applied on data
-          (*True*), mc (*False*) or on both (*None*).
     """
 
     allow_undefined_data_source = True
 
-    def __init__(self, name, id, run_range=None, legs=None, tags=None, is_data=None):
+    def __init__(self, name, id, run_range=None, legs=None, applies_to_dataset=True, tags=None):
         UniqueObject.__init__(self, name, id)
         TagMixin.__init__(self, tags=tags)
-        DataSourceMixin.__init__(self, is_data=is_data)
 
         # instance members
         self._run_range = None
         self._leg = None
+        self._applies_to_dataset = None
 
         # set initial values
         self.run_range = run_range
         self.legs = legs
+        self.applies_to_dataset = applies_to_dataset
 
     def __repr__(self):
         data_source = "" if self.data_source is None else f", {self.data_source}-only"
@@ -194,6 +197,14 @@ class Trigger(UniqueObject, TagMixin, DataSourceMixin):
             _legs.append(leg)
 
         return _legs or None
+
+    @typed
+    def applies_to_dataset(self, func: Callable | bool | Any) -> Callable:
+        if not callable(func):
+            decision = True if func is None else bool(func)
+            func = lambda dataset_inst: decision
+
+        return func
 
     @property
     def has_legs(self):

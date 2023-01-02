@@ -39,6 +39,10 @@ def trigger_selection(
     index = ak.local_index(events.TrigObj)
 
     for trigger in self.config_inst.x.triggers:
+        # skip the trigger if it does not apply to the dataset
+        if not trigger.applies_to_dataset(self.dataset_inst):
+            continue
+
         # get bare decisions
         fired = events.HLT[trigger.hlt_field] == 1
         any_fired = any_fired | fired
@@ -90,5 +94,12 @@ def trigger_selection(
 
 @trigger_selection.init
 def trigger_selection_init(self: Selector) -> None:
+    if getattr(self, "dataset_inst", None) is None:
+        return
+
     # full used columns
-    self.uses |= set(trigger.name for trigger in self.config_inst.x.triggers)
+    self.uses |= {
+        trigger.name
+        for trigger in self.config_inst.x.triggers
+        if trigger.applies_to_dataset(self.dataset_inst)
+    }
