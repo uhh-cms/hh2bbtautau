@@ -144,7 +144,7 @@ def add_config(
     cfg.x.default_selector = "default"
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
-    cfg.x.default_inference_model = "test"
+    cfg.x.default_inference_model = "test_no_shifts"
     cfg.x.default_categories = ("incl",)
     cfg.x.default_variables = ("n_jet", "n_btag")
 

@@ -16,17 +16,21 @@ def test(self):
 
     self.add_category(
         "cat1",
-        category="1e",
+        category="incl",
         variable="ht",
         mc_stats=True,
-        data_datasets=["data_mu_a"],
+        # issue with electron trigger in data, meanwhile use fake data from TT
+        # data_datasets=["data_mu_b"],
+        data_from_processes=["TT"],
     )
     self.add_category(
         "cat2",
-        category="1mu",
-        variable="muon1_pt",
+        category="sel_2j",
+        variable="jet1_pt",
         mc_stats=True,
-        data_datasets=["data_mu_a"],
+        # issue with electron trigger in data, meanwhile use fake data from TT
+        # data_datasets=["data_mu_b"],
+        data_from_processes=["TT"],
     )
 
     #
@@ -34,15 +38,15 @@ def test(self):
     #
 
     self.add_process(
-        "ST",
-        process="st_tchannel",
+        "HH",
+        process="hh_ggf_bbtautau",
         signal=True,
-        mc_datasets=["st_tchannel_t", "st_tchannel_tbar"],
+        mc_datasets=["hh_ggf_bbtautau_madgraph"],
     )
     self.add_process(
         "TT",
-        process="tt_sl",
-        mc_datasets=["tt_sl"],
+        process="tt",
+        mc_datasets=["tt_sl_powheg"],
 
     )
 
@@ -72,7 +76,7 @@ def test(self):
     )
     self.add_parameter_to_group("CMS_pileup", "experiment")
 
-    # and again minbias xs, but encoded as symmetrized rate
+    # and again minbias xs, but encoded as a symmetrized rate
     self.add_parameter(
         "CMS_pileup2",
         type=ParameterType.rate_uniform,
@@ -83,8 +87,8 @@ def test(self):
 
     # a custom asymmetric uncertainty that is converted from rate to shape
     self.add_parameter(
-        "QCDscale_ST",
-        process="ST",
+        "QCDscale_ttbar",
+        process="TT",
         type=ParameterType.shape,
         transformations=[ParameterTransformation.effect_from_rate],
         effect=(0.5, 1.1),
@@ -92,17 +96,37 @@ def test(self):
 
     # test
     self.add_parameter(
-        "QCDscale_ttbar",
+        "QCDscale_ttbar_uniform",
         category="cat1",
         process="TT",
         type=ParameterType.rate_uniform,
     )
     self.add_parameter(
-        "QCDscale_ttbar_norm",
-        category="cat1",
+        "QCDscale_ttbar_unconstrained",
+        category="cat2",
         process="TT",
         type=ParameterType.rate_unconstrained,
     )
+
+    #
+    # post-processing
+    #
+
+    self.cleanup()
+
+
+@inference_model
+def test_no_shifts(self):
+    # same initialization as "test" above
+    test.init_func.__get__(self, self.__class__)()
+
+    #
+    # remove all parameters that require a shift_source
+    #
+
+    for category_name, process_name, parameter in self.iter_parameters():
+        if parameter.shift_source:
+            self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
     #
     # post-processing

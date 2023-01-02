@@ -54,7 +54,6 @@ def hhbtag(
     htt = leps[..., 0] + leps[..., 1]
     met = events[event_mask].MET
     jet_shape = abs(jets.pt) >= 0
-    n_jets_sel = ak.sum(jet_mask[event_mask], axis=1)
     n_jets_capped = ak.num(jets, axis=1)
 
     # get input features
