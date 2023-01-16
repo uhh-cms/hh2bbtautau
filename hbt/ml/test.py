@@ -23,7 +23,6 @@ class TestModel(MLModel):
 
     def __init__(self, *args, folds: int | None = None, **kwargs):
         super().__init__(*args, **kwargs)
-
         # class-to-instance-level attributes
         # (before being set, self.folds refers to a class-level attribute)
         self.folds = folds or self.folds
