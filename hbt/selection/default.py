@@ -12,6 +12,8 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.production.mc_weight import mc_weight
 from columnflow.production.pileup import pu_weight
 from columnflow.production.processes import process_ids
+from columnflow.production.pdf import pdf_weights
+from columnflow.production.scale import murmuf_weights
 from columnflow.production.btag import btag_weights
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import, dev_sandbox
@@ -69,6 +71,20 @@ def increment_stats(
 
         # mc weight for selected events, excluding the bjet selection
         weight_map["mc_weight_selected_no_bjet"] = (events.mc_weight, event_mask_no_bjet)
+
+        # weights that include standard systematic variations
+        for postfix in ["", "_up", "_down"]:
+            # pdf weight for all events
+            weight_map[f"pdf_weight{postfix}"] = (events[f"pdf_weight{postfix}"], Ellipsis)
+
+            # pdf weight for selected events
+            weight_map[f"pdf_weight{postfix}_selected"] = (events[f"pdf_weight{postfix}"], event_mask)
+
+            # scale weight for all events
+            weight_map[f"murmuf_weight{postfix}"] = (events[f"murmuf_weight{postfix}"], Ellipsis)
+
+            # scale weight for selected events
+            weight_map[f"murmuf_weight{postfix}_selected"] = (events[f"murmuf_weight{postfix}"], event_mask)
 
         # btag weights
         for name in sorted(self[btag_weights].produces):
@@ -157,12 +173,18 @@ def default(
     events, jet_results = self[jet_selection](events, trigger_results, lepton_results, **kwargs)
     results += jet_results
 
-    # produce pileup weights
+    # mc-only functions
     if self.dataset_inst.is_mc:
+        # pdf weights
+        events = self[pdf_weights](events, **kwargs)
+
+        # renormalization/factorization scale weights
+        events = self[murmuf_weights](events, **kwargs)
+
+        # pileup weights
         events = self[pu_weight](events, **kwargs)
 
-    # produce btag weights
-    if self.dataset_inst.is_mc:
+        # btag weights
         events = self[btag_weights](events, results.x.jet_mask, **kwargs)
 
     # combined event selection after all steps
@@ -193,6 +215,6 @@ def default_init(self: Selector) -> None:
         return
 
     # mc only selectors
-    selectors = {mc_weight, pu_weight, btag_weights}
+    selectors = {mc_weight, pdf_weights, murmuf_weights, pu_weight, btag_weights}
     self.uses |= selectors
     self.produces |= selectors

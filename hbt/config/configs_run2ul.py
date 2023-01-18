@@ -520,6 +520,26 @@ def add_config(
             },
         )
 
+    cfg.add_shift(name="pdf_up", id=130, type="shape")
+    cfg.add_shift(name="pdf_down", id=131, type="shape")
+    add_aliases(
+        "pdf",
+        {
+            "pdf_weight": "pdf_weight_{direction}",
+            "normalized_pdf_weight": "normalized_pdf_weight_{direction}",
+        },
+    )
+
+    cfg.add_shift(name="murmuf_up", id=140, type="shape")
+    cfg.add_shift(name="murmuf_down", id=141, type="shape")
+    add_aliases(
+        "murmuf",
+        {
+            "murmuf_weight": "murmuf_weight_{direction}",
+            "normalized_murmuf_weight": "normalized_murmuf_weight_{direction}",
+        },
+    )
+
     # external files
     json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-849c6a6e"
     cfg.x.external_files = DotDict.wrap({
@@ -628,9 +648,9 @@ def add_config(
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
             # columns added during selection
-            "channel_id", "process_id", "category_ids", "mc_weight", "leptons_os", "tau2_isolated",
-            "single_triggered", "cross_triggered", "deterministic_seed", "pu_weight*", "btag_weight*",
-            "cutflow.*",
+            "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
+            "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
+            "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
         },
         "cf.MergeSelectionMasks": {
             "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",
@@ -644,6 +664,8 @@ def add_config(
     get_shifts = lambda *keys: sum(([cfg.get_shift(f"{k}_up"), cfg.get_shift(f"{k}_down")] for k in keys), [])
     cfg.x.event_weights = DotDict()
     cfg.x.event_weights["normalization_weight"] = []
+    cfg.x.event_weights["pdf_weight"] = get_shifts("pdf")
+    cfg.x.event_weights["murmuf_weight"] = get_shifts("murmuf")
     cfg.x.event_weights["normalized_pu_weight"] = get_shifts("minbias_xs")
     cfg.x.event_weights["normalized_njet_btag_weight"] = get_shifts(*(f"btag_{unc}" for unc in btag_uncs))
     cfg.x.event_weights["electron_weight"] = get_shifts("e")

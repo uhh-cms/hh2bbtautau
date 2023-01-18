@@ -44,7 +44,7 @@ def jet_energy_shifts_init(self: Producer) -> None:
 @producer(
     uses={
         # nano columns
-        "Electron.pt", "Muon.pt", "Jet.pt", "BJet.pt",
+        "Electron.pt", "Muon.pt", "Jet.pt", "HHBJet.pt", "BJet.pt",
     },
     produces={
         # new columns
