@@ -13,6 +13,7 @@ from columnflow.columnar_util import set_ak_column
 
 from hbt.production.hhbtag import hhbtag
 
+
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 

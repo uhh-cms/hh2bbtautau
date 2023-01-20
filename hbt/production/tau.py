@@ -10,9 +10,9 @@ from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
 
+
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
-
 
 # helper
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)

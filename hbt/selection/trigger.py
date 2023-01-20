@@ -8,6 +8,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 
+
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 

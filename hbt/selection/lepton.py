@@ -13,6 +13,7 @@ from columnflow.util import DotDict
 
 from hbt.config.util import Trigger
 
+
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 

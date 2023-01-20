@@ -11,6 +11,7 @@ from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox
 from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
 
+
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 tf = maybe_import("tensorflow")

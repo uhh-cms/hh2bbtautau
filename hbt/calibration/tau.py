@@ -12,9 +12,9 @@ from columnflow.calibration.util import propagate_met
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, flat_np_view, ak_copy
 
+
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
-
 
 # helper
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
