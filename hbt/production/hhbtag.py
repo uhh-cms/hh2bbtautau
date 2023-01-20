@@ -117,7 +117,11 @@ def hhbtag(
     # add scores to events that had more than n_jets_max selected jets
     # (use zero here as this is also what the hhbtag model does for missing jets)
     layout_ext = events.Jet.pt[jet_mask][event_mask][..., n_jets_max:]
-    scores_ext = layout_ak_array(np.zeros(len(ak.flatten(layout_ext)), dtype=np.int32), layout_ext)
+    # when there are no selected events, we can reuse layout_ext and consider it to be scores_ext
+    if len(layout_ext) == 0:
+        scores_ext = layout_ext
+    else:
+        scores_ext = layout_ak_array(np.zeros(len(ak.flatten(layout_ext)), dtype=np.int32), layout_ext)
     scores = ak.concatenate([scores, scores_ext], axis=1)
 
     # insert scores into an array with same shape as input jets (without jet_mask and event_mask)

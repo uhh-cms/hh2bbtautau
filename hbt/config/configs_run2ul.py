@@ -59,6 +59,7 @@ def add_config(
         "qcd",
         "h",
         "hh_ggf_bbtautau",
+        "graviton_hh_ggf_bbtautau_m1250",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -153,7 +154,7 @@ def add_config(
         # apply an optional limit on the number of files
         if limit_dataset_files:
             for info in dataset.info.values():
-                info.n_files = limit_dataset_files
+                info.n_files = min(info.n_files, limit_dataset_files)
 
     # default objects, such as calibrator, selector, producer, ml model, inference model, etc
     cfg.x.default_calibrator = "default"
@@ -187,7 +188,7 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["met_filter", "trigger_fired", "leptons", "jet", "bjet"],
+        "default": ["met_filter", "trigger", "lepton", "jet", "bjet"],
     }
 
     # custom method and sandbox for determining dataset lfns

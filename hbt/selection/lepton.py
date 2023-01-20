@@ -9,6 +9,7 @@ from __future__ import annotations
 from columnflow.util import maybe_import
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
+from columnflow.util import DotDict
 
 from hbt.config.util import Trigger
 
@@ -242,6 +243,17 @@ def tau_selection(
     is_cross_tau_vbf = trigger.has_tag("cross_tau_tau_vbf")
     is_any_cross_tau = is_cross_tau or is_cross_tau_vbf
     is_2016 = self.config_inst.campaign.x.year == 2016
+    # tau id v2.1 working points (binary to int transition after nano v10)
+    if self.config_inst.campaign.x.version < 10:
+        # https://cms-nanoaod-integration.web.cern.ch/integration/master/mc94X_doc.html
+        tau_vs_e = DotDict(vvloose=2, vloose=4)
+        tau_vs_mu = DotDict(vloose=1, tight=8)
+        tau_vs_jet = DotDict(vvloose=2, medium=16)
+    else:
+        # https://cms-nanoaod-integration.web.cern.ch/integration/cms-swmaster/data106Xul17v2_v10_doc.html#Tau
+        tau_vs_e = DotDict(vvloose=2, vloose=3)
+        tau_vs_mu = DotDict(vloose=1, tight=4)
+        tau_vs_jet = DotDict(vvloose=2, medium=5)
 
     # start per-tau mask with trigger object matching per leg
     if is_cross_e or is_cross_mu:
@@ -283,9 +295,9 @@ def tau_selection(
         (abs(events.Tau.eta) < max_eta) &
         (events.Tau.pt > min_pt) &
         (abs(events.Tau.dz) < 0.2) &
-        (events.Tau.idDeepTau2017v2p1VSe >= (2 if is_any_cross_tau else 4)) &  # 2: VVLoose, 4: VLoose
-        (events.Tau.idDeepTau2017v2p1VSmu >= (1 if is_any_cross_tau else 8)) &  # 1: VLoose, 8: Tight
-        (events.Tau.idDeepTau2017v2p1VSjet >= 2)  # 2: VVLoose
+        (events.Tau.idDeepTau2017v2p1VSe >= (tau_vs_e.vvloose if is_any_cross_tau else tau_vs_e.vloose)) &
+        (events.Tau.idDeepTau2017v2p1VSmu >= (tau_vs_mu.vloose if is_any_cross_tau else tau_vs_mu.tight)) &
+        (events.Tau.idDeepTau2017v2p1VSjet >= tau_vs_jet.vvloose)
     )
 
     # remove taus with too close spatial separation to previously selected leptons
@@ -317,7 +329,7 @@ def tau_selection(
     base_indices = ak.values_astype(base_indices, np.int32)
 
     # additional mask to select final, Medium isolated taus
-    iso_mask = events.Tau[base_indices].idDeepTau2017v2p1VSjet >= 16  # 16: Medium
+    iso_mask = events.Tau[base_indices].idDeepTau2017v2p1VSjet >= tau_vs_jet.medium
 
     return base_indices, iso_mask
 
@@ -502,7 +514,7 @@ def lepton_selection(
 
     return events, SelectionResult(
         steps={
-            "leptons": channel_id != 0,
+            "lepton": channel_id != 0,
         },
         objects={
             "Electron": {

@@ -84,7 +84,7 @@ def trigger_selection(
 
     return events, SelectionResult(
         steps={
-            "trigger_fired": any_fired,
+            "trigger": any_fired,
         },
         aux={
             "trigger_data": trigger_data,
