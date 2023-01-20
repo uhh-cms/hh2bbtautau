@@ -51,11 +51,11 @@ analysis_hbt.x.config_groups = {}
 
 # 2017
 from hbt.config.configs_run2ul import add_config as add_config_run2ul
-import cmsdb.campaigns.run2_2017_nano_v9
+from cmsdb.campaigns.run2_2017_nano_v9 import campaign_run2_2017_nano_v9
+from cmsdb.campaigns.run2_2017_nano_uhh_v11 import campaign_run2_2017_nano_uhh_v11
 
-campaign_run2_2017_nano_v9 = cmsdb.campaigns.run2_2017_nano_v9.campaign_run2_2017_nano_v9
 
-# default config
+# default v9 config
 add_config_run2ul(
     analysis_hbt,
     campaign_run2_2017_nano_v9.copy(),
@@ -63,11 +63,20 @@ add_config_run2ul(
     config_id=2,
 )
 
-# config with limited number of files for faster prototyping
+# v9 config with limited number of files for faster prototyping
 add_config_run2ul(
     analysis_hbt,
     campaign_run2_2017_nano_v9.copy(),
     config_name=f"{campaign_run2_2017_nano_v9.name}_limited",
     config_id=12,
+    limit_dataset_files=2,
+)
+
+# v11 uhh config with limited number of files for faster prototyping
+add_config_run2ul(
+    analysis_hbt,
+    campaign_run2_2017_nano_uhh_v11.copy(),
+    config_name=f"{campaign_run2_2017_nano_uhh_v11.name}_limited",
+    config_id=32,
     limit_dataset_files=2,
 )
