@@ -9,7 +9,7 @@ from collections import OrderedDict
 import luigi
 import law
 
-from columnflow.tasks.framework.base import DatasetTask
+from columnflow.tasks.framework.base import Requirements, DatasetTask
 from columnflow.tasks.framework.mixins import DatasetsProcessesMixin
 from columnflow.tasks.external import GetDatasetLFNs
 from columnflow.util import ensure_proxy, dev_sandbox
@@ -30,11 +30,13 @@ class PrintTriggersInFile(HBTTask, DatasetTask, law.tasks.RunOnceTask):
 
     version = None
 
-    # default upstream dependency task classes
-    dep_GetDatasetLFNs = GetDatasetLFNs
+    # upstream requirements
+    reqs = Requirements(
+        GetDatasetLFNs=GetDatasetLFNs,
+    )
 
     def requires(self):
-        return self.dep_GetDatasetLFNs.req(self)
+        return self.reqs.GetDatasetLFNs.req(self)
 
     @law.decorator.log
     @ensure_proxy
@@ -83,12 +85,14 @@ class PrintExistingConfigTriggers(HBTTask, DatasetsProcessesMixin, law.tasks.Run
     processes = None
     allow_empty_processes = True
 
-    # default upstream dependency task classes
-    dep_GetDatasetLFNs = GetDatasetLFNs
+    # upstream requirements
+    reqs = Requirements(
+        GetDatasetLFNs=GetDatasetLFNs,
+    )
 
     def requires(self):
         return OrderedDict([
-            (dataset, self.dep_GetDatasetLFNs.req(self, dataset=dataset))
+            (dataset, self.reqs.GetDatasetLFNs.req(self, dataset=dataset))
             for dataset in self.datasets
         ])
 
