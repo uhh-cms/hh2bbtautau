@@ -9,12 +9,12 @@ from functools import reduce
 from collections import defaultdict, OrderedDict
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.production.mc_weight import mc_weight
-from columnflow.production.pileup import pu_weight
+from columnflow.production.cms.mc_weight import mc_weight
+from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.processes import process_ids
-from columnflow.production.pdf import pdf_weights
-from columnflow.production.scale import murmuf_weights
-from columnflow.production.btag import btag_weights
+from columnflow.production.cms.pdf import pdf_weights
+from columnflow.production.cms.scale import murmuf_weights
+from columnflow.production.cms.btag import btag_weights
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import, dev_sandbox
 

@@ -6,10 +6,9 @@ Lepton selection methods.
 
 from __future__ import annotations
 
-from columnflow.util import maybe_import
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
-from columnflow.util import DotDict
+from columnflow.util import DotDict, maybe_import
 
 from hbt.config.util import Trigger
 

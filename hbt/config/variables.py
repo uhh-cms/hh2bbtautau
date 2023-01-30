@@ -18,12 +18,14 @@ def add_variables(config: od.Config) -> None:
         expression="n_jet",
         binning=(11, -0.5, 10.5),
         x_title="Number of jets",
+        discrete_x=True,
     )
     config.add_variable(
         name="n_hhbtag",
         expression="n_hhbtag",
         binning=(4, -0.5, 3.5),
         x_title="Number of HH b-tags",
+        discrete_x=True,
     )
     config.add_variable(
         name="ht",
@@ -98,6 +100,7 @@ def add_variables(config: od.Config) -> None:
         expression="cutflow.n_jet",
         binning=(17, -0.5, 16.5),
         x_title="Jet multiplicity",
+        discrete_x=True,
     )
     config.add_variable(
         name="cf_ht",
