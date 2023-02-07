@@ -21,15 +21,23 @@ ak = maybe_import("awkward")
 
 
 @producer(
-    uses={features, category_ids},
-    produces={features, category_ids},
+    uses={
+        category_ids, features, normalization_weights, normalized_pdf_weight,
+        normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
+        tau_weights, electron_weights, muon_weights, trigger_weights,
+    },
+    produces={
+        category_ids, features, normalization_weights, normalized_pdf_weight,
+        normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
+        tau_weights, electron_weights, muon_weights, trigger_weights,
+    },
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    # features
-    events = self[features](events, **kwargs)
-
     # category ids
     events = self[category_ids](events, **kwargs)
+
+    # features
+    events = self[features](events, **kwargs)
 
     # mc-only weights
     if self.dataset_inst.is_mc:
@@ -61,17 +69,3 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         events = self[trigger_weights](events, **kwargs)
 
     return events
-
-
-@default.init
-def default_init(self: Producer) -> None:
-    if not getattr(self, "dataset_inst", None) or self.dataset_inst.is_data:
-        return
-
-    # my only producers
-    producers = {
-        normalization_weights, normalized_pdf_weight, normalized_murmuf_weight, normalized_pu_weight,
-        normalized_btag_weights, tau_weights, electron_weights, muon_weights, trigger_weights,
-    }
-    self.uses |= producers
-    self.produces |= producers

@@ -35,6 +35,8 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
             "mu_0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7ToInf",
         ]
     },
+    # only run on mc
+    mc_only=True,
 )
 def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
@@ -56,10 +58,6 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=113
     https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration/-/blob/849c6a6efef907f4033715d52290d1a661b7e8f9/POG/TAU
     """
-    # fail when running on data
-    if self.dataset_inst.is_data:
-        raise ValueError("attempt to compute tau weights in data")
-
     # helper to bring a flat sf array into the shape of taus, and multiply across the tau axis
     reduce_mul = lambda sf: ak.prod(layout_ak_array(sf, events.Tau.pt), axis=1, mask_identity=False)
 
@@ -196,6 +194,8 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
         for direction in ["up", "down"]
         for ch in ["etau", "mutau", "tautau"]  # TODO: add tautauvbf when existing
     },
+    # only run on mc
+    mc_only=True,
 )
 def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
@@ -213,10 +213,6 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=113
     https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration/-/blob/849c6a6efef907f4033715d52290d1a661b7e8f9/POG/TAU
     """
-    # fail when running on data
-    if self.dataset_inst.is_data:
-        raise ValueError("attempt to compute trigger weights in data")
-
     # get channels from the config
     ch_etau = self.config_inst.get_channel("etau")
     ch_mutau = self.config_inst.get_channel("mutau")

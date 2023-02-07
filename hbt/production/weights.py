@@ -20,13 +20,10 @@ np = maybe_import("numpy")
         # custom columns created upstream, probably by a producer
         "process_id",
     },
-    # produced columns are defined in the init function below
+    # only run on mc
+    mc_only=True,
 )
 def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    # fail when running on data
-    if self.dataset_inst.is_data:
-        raise ValueError("attempt to compute normalized pileup weights in data")
-
     for weight_name in self[pu_weight].produces:
         if not weight_name.startswith("pu_weight"):
             continue
@@ -105,12 +102,10 @@ def normalized_pu_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None
     produces={
         "normalized_pdf_weight", "normalized_pdf_weight_up", "normalized_pdf_weight_down",
     },
+    # only run on mc
+    mc_only=True,
 )
 def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    # fail when running on data
-    if self.dataset_inst.is_data:
-        raise ValueError("attempt to compute normalized pdf weights in data")
-
     for postfix in ["", "_up", "_down"]:
         # create the normalized weight
         avg = self.average_pdf_weights[postfix]
@@ -152,12 +147,10 @@ def normalized_pdf_weight_setup(self: Producer, reqs: dict, inputs: dict) -> Non
     produces={
         "normalized_murmuf_weight", "normalized_murmuf_weight_up", "normalized_murmuf_weight_down",
     },
+    # only run on mc
+    mc_only=True,
 )
 def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    # fail when running on data
-    if self.dataset_inst.is_data:
-        raise ValueError("attempt to compute normalized mur/muf weights in data")
-
     for postfix in ["", "_up", "_down"]:
         # create the normalized weight
         avg = self.average_murmuf_weights[postfix]

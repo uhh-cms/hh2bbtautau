@@ -29,13 +29,10 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         # nano columns
         "Jet.pt",
     },
-    # produced columns are defined in the init function below
+    # only run on mc
+    mc_only=True,
 )
 def normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    # fail when running on data
-    if self.dataset_inst.is_data:
-        raise ValueError("attempt to compute normalized btag weights in data")
-
     for weight_name in self[btag_weights].produces:
         if not weight_name.startswith("btag_weight"):
             continue
@@ -74,8 +71,7 @@ def normalized_btag_weights_init(self: Producer) -> None:
         if not weight_name.startswith("btag_weight"):
             continue
 
-        self.produces.add(f"normalized_{weight_name}")
-        self.produces.add(f"normalized_njet_{weight_name}")
+        self.produces |= {f"normalized_{weight_name}", f"normalized_njet_{weight_name}"}
 
 
 @normalized_btag_weights.requires

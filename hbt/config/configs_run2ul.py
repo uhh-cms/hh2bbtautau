@@ -672,7 +672,7 @@ def add_config(
         "cf.MergeSelectionMasks": {
             "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",
         },
-        "cf.CoalesceColumns": {
+        "cf.UniteColumns": {
             "*",
         },
     })
@@ -712,7 +712,7 @@ def add_config(
     # else:
     #     raise NotImplementedError(f"config versions not implemented for {cfg.name}")
 
-    # cannels
+    # channels
     cfg.add_channel(name="mutau", id=1)
     cfg.add_channel(name="etau", id=2)
     cfg.add_channel(name="tautau", id=3)
