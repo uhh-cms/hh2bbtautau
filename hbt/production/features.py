@@ -21,26 +21,6 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
 
 
-@producer
-def jet_energy_shifts(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    """
-    Pseudo-producer that registers jet energy shifts.
-    """
-    return events
-
-
-@jet_energy_shifts.init
-def jet_energy_shifts_init(self: Producer) -> None:
-    """
-    Register shifts.
-    """
-    self.shifts |= {
-        f"jec_{junc_name}_{junc_dir}"
-        for junc_name in self.config_inst.x.jec.uncertainty_sources
-        for junc_dir in ("up", "down")
-    } | {"jer_up", "jer_down"}
-
-
 @producer(
     uses={
         # nano columns
@@ -49,9 +29,6 @@ def jet_energy_shifts_init(self: Producer) -> None:
     produces={
         # new columns
         "ht", "n_jet", "n_hhbtag", "n_electron", "n_muon",
-    },
-    shifts={
-        jet_energy_shifts,
     },
 )
 def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
