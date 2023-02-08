@@ -674,16 +674,17 @@ def add_config(
 
     # event weight columns as keys in an OrderedDict, mapped to shift instances they depend on
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
-    cfg.x.event_weights = DotDict()
-    cfg.x.event_weights["normalization_weight"] = []
-    cfg.x.event_weights["pdf_weight"] = get_shifts("pdf")
-    cfg.x.event_weights["murmuf_weight"] = get_shifts("murmuf")
-    cfg.x.event_weights["normalized_pu_weight"] = get_shifts("minbias_xs")
-    cfg.x.event_weights["normalized_njet_btag_weight"] = get_shifts(*(f"btag_{unc}" for unc in btag_uncs))
-    cfg.x.event_weights["electron_weight"] = get_shifts("e")
-    cfg.x.event_weights["muon_weight"] = get_shifts("mu")
-    cfg.x.event_weights["tau_weight"] = get_shifts(*(f"tau_{unc}" for unc in tau_uncs))
-    cfg.x.event_weights["tau_trigger_weight"] = get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger")
+    cfg.x.event_weights = DotDict({
+        "normalization_weight": [],
+        "pdf_weight": get_shifts("pdf"),
+        "murmuf_weight": get_shifts("murmuf"),
+        "normalized_pu_weight": get_shifts("minbias_xs"),
+        "normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in btag_uncs)),
+        "electron_weight": get_shifts("e"),
+        "muon_weight": get_shifts("mu"),
+        "tau_weight": get_shifts(*(f"tau_{unc}" for unc in tau_uncs)),
+        "tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
+    })
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
