@@ -117,6 +117,10 @@ class Trigger(UniqueObject, TagMixin):
         UniqueObject.__init__(self, name, id)
         TagMixin.__init__(self, tags=tags)
 
+        # force the id to be positive
+        if self.id < 0:
+            raise ValueError(f"trigger id must be positive, but found {self.id}")
+
         # instance members
         self._run_range = None
         self._leg = None

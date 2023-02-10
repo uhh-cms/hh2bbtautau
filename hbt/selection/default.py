@@ -132,12 +132,14 @@ def increment_stats(
 
 @selector(
     uses={
-        met_filter_selection, trigger_selection, lepton_selection, jet_selection, process_ids,
-        cutflow_features, increment_stats, attach_coffea_behavior,
+        met_filter_selection, trigger_selection, lepton_selection, jet_selection, mc_weight,
+        pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
+        increment_stats, attach_coffea_behavior,
     },
     produces={
-        met_filter_selection, trigger_selection, lepton_selection, jet_selection, process_ids,
-        cutflow_features, increment_stats,
+        met_filter_selection, trigger_selection, lepton_selection, jet_selection, mc_weight,
+        pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
+        increment_stats,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -208,14 +210,3 @@ def default(
     events = self[cutflow_features](events, **kwargs)
 
     return events, results
-
-
-@default.init
-def default_init(self: Selector) -> None:
-    if not getattr(self, "dataset_inst", None) or self.dataset_inst.is_data:
-        return
-
-    # mc only selectors
-    selectors = {mc_weight, pdf_weights, murmuf_weights, pu_weight, btag_weights}
-    self.uses |= selectors
-    self.produces |= selectors

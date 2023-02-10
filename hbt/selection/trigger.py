@@ -76,8 +76,8 @@ def trigger_selection(
         trigger_data.append((trigger, fired_and_all_legs_match, leg_masks))
 
         # store the trigger id
-        ids = np.where(np.asarray(fired_and_all_legs_match), np.float32(trigger.id), None)
-        trigger_ids.append(ak.singletons(ak.Array(ids)))
+        ids = ak.where(fired_and_all_legs_match, np.float32(trigger.id), np.float32(np.nan))
+        trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
 
     # store the fired trigger ids
     trigger_ids = ak.concatenate(trigger_ids, axis=1)

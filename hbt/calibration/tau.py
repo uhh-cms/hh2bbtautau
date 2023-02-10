@@ -37,7 +37,8 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
             ["up", "down"],
         )
     },
-    only_nominal=False,
+    # only run on mc
+    mc_only=True,
 )
 def tec(
     self: Calibrator,
@@ -169,7 +170,3 @@ def tec_setup(self: Calibrator, reqs: dict, inputs: dict) -> None:
         bundle.files.tau_sf.load(formatter="gzip").decode("utf-8"),
     )
     self.tec_corrector = correction_set["tau_energy_scale"]
-
-
-# custom tec calibrator that only runs nominal correction
-tec_nominal = tec.derive("tec_nominal", cls_dict={"only_nominal": True})

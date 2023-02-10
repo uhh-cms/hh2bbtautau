@@ -553,7 +553,7 @@ def add_config(
     )
 
     # external files
-    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-849c6a6e"
+    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-878881a8"
     cfg.x.external_files = DotDict.wrap({
         # jet energy correction
         "jet_jerc": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/jet_jerc.json.gz", "v1"),
