@@ -426,7 +426,6 @@ def add_config(
             tags={"jec"},
             aux={"jec_source": jec_source},
         )
-        # selection dependent aliases
         add_shift_aliases(
             cfg,
             f"jec_{jec_source}",
@@ -436,9 +435,7 @@ def add_config(
                 "MET.pt": "MET.pt_{name}",
                 "MET.phi": "MET.phi_{name}",
             },
-            selection_dependent=True,
         )
-        # selection independent aliases
         # TODO: check the JEC de/correlation across years and the interplay with btag weights
         if ("" if jec_source == "Total" else jec_source) in cfg.x.btag_sf_jec_sources:
             add_shift_aliases(
@@ -461,7 +458,6 @@ def add_config(
             "MET.pt": "MET.pt_{name}",
             "MET.phi": "MET.phi_{name}",
         },
-        selection_dependent=True,
     )
 
     for i, (match, dm) in enumerate(itertools.product(["jet", "e"], [0, 1, 10, 11])):
@@ -476,7 +472,6 @@ def add_config(
                 "MET.pt": "MET.pt_{name}",
                 "MET.phi": "MET.phi_{name}",
             },
-            selection_dependent=True,
         )
 
     # start at id=50
