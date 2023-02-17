@@ -34,7 +34,7 @@ ak = maybe_import("awkward")
         # new columns
         "Jet.hhbtag",
     },
-    # shifts are declared dynamically below in tec_init
+    # shifts are declared dynamically below in jet_selection_init
 )
 def jet_selection(
     self: Selector,
