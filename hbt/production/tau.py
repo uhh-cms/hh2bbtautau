@@ -37,22 +37,32 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     },
     # only run on mc
     mc_only=True,
+    # function to determine the correction file
+    get_tau_file=(lambda self, external_files: external_files.tau_sf),
+    # function to determine the tau tagger name
+    get_tau_tagger=(lambda self: self.config_inst.x.tau_tagger),
 )
 def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
-    Producer for tau ID weights. Requires an external file in the config as (e.g.)
+    Producer for tau ID weights. Requires an external file in the config under ``tau_sf``:
 
     .. code-block:: python
 
-        "tau_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
+        cfg.x.external_files = DotDict.wrap({
+            "tau_sf": "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz",  # noqa
+        })
 
-    as well as an auxiliary entry in the config to refer to tau tagger name,
+    *get_tau_file* can be adapted in a subclass in case it is stored differently in the external
+    files.
+
+    The name of the tagger should be given as an auxiliary entry in the config:
 
     .. code-block:: python
 
         cfg.x.tau_tagger = "DeepTau2017v2p1"
 
-    that is used to extract correction sets such as "DeepTau2017v2p1VSjet" from the json file.
+    It is used to extract correction set names such as "DeepTau2017v2p1VSjet". *get_tau_tagger* can
+    be adapted in a subclass in case it is stored differently in the config.
 
     Resources:
     https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=113
@@ -175,11 +185,12 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     import correctionlib
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
     correction_set = correctionlib.CorrectionSet.from_string(
-        bundle.files.tau_sf.load(formatter="gzip").decode("utf-8"),
+        self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
     )
-    self.id_vs_jet_corrector = correction_set[f"{self.config_inst.x.tau_tagger}VSjet"]
-    self.id_vs_e_corrector = correction_set[f"{self.config_inst.x.tau_tagger}VSe"]
-    self.id_vs_mu_corrector = correction_set[f"{self.config_inst.x.tau_tagger}VSmu"]
+    tagger_name = self.get_tau_tagger()
+    self.id_vs_jet_corrector = correction_set[f"{tagger_name}VSjet"]
+    self.id_vs_e_corrector = correction_set[f"{tagger_name}VSe"]
+    self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
 
 
 @producer(
@@ -196,18 +207,22 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     },
     # only run on mc
     mc_only=True,
+    # function to determine the correction file
+    get_tau_file=(lambda self, external_files: external_files.tau_sf),
 )
 def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
     Producer for trigger scale factors derived by the TAU POG. Requires an external file in the
-    config as (e.g.):
+    config under ``tau_sf``:
 
     .. code-block:: python
 
-        "tau_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
+        cfg.x.external_files = DotDict.wrap({
+            "tau_sf": "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz",  # noqa
+        })
 
-    which should be a correctionlib-style json file from which a correction set named "tau_trigger"
-    is extracted.
+    *get_tau_file* can be adapted in a subclass in case it is stored differently in the external
+    files. A correction set named ``"tau_trigger"`` is extracted from it.
 
     Resources:
     https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=113
@@ -298,6 +313,6 @@ def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     import correctionlib
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
     correction_set = correctionlib.CorrectionSet.from_string(
-        bundle.files.tau_sf.load(formatter="gzip").decode("utf-8"),
+        self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
     )
     self.trigger_corrector = correction_set["tau_trigger"]

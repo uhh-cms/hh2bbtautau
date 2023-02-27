@@ -244,25 +244,6 @@ def add_config(
         },
     })
 
-    # name of the btag_sf correction set
-    cfg.x.btag_sf_correction_set = "deepJet_shape"
-
-    # name of the deep tau tagger
-    # (used in the tec calibrator)
-    cfg.x.tau_tagger = "DeepTau2017v2p1"
-
-    # name of the MET phi correction set
-    # (used in the met_phi calibrator)
-    cfg.x.met_phi_correction_set = "{variable}_metphicorr_pfmet_{data_source}"
-
-    # names of electron correction sets and working points
-    # (used in the electron_sf producer)
-    cfg.x.electron_sf_names = ("UL-Electron-ID-SF", f"{year}{corr_postfix}", "wp80iso")
-
-    # names of muon correction sets and working points
-    # (used in the muon producer)
-    cfg.x.muon_sf_names = ("NUM_TightRelIso_DEN_TightIDandIPCut", f"{year}{corr_postfix}_UL")
-
     # jec configuration
     # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201
     jerc_postfix = "APV" if year == 2016 and campaign.x.vfp == "post" else ""
@@ -381,6 +362,25 @@ def add_config(
         "SinglePionHCAL",
         "TimePtEta",
     ]
+
+    # name of the btag_sf correction set and jec uncertainties to propagate through
+    cfg.x.btag_sf = ("deepJet_shape", cfg.x.btag_sf_jec_sources)
+
+    # name of the deep tau tagger
+    # (used in the tec calibrator)
+    cfg.x.tau_tagger = "DeepTau2017v2p1"
+
+    # name of the MET phi correction set
+    # (used in the met_phi calibrator)
+    cfg.x.met_phi_correction_set = "{variable}_metphicorr_pfmet_{data_source}"
+
+    # names of electron correction sets and working points
+    # (used in the electron_sf producer)
+    cfg.x.electron_sf_names = ("UL-Electron-ID-SF", f"{year}{corr_postfix}", "wp80iso")
+
+    # names of muon correction sets and working points
+    # (used in the muon producer)
+    cfg.x.muon_sf_names = ("NUM_TightRelIso_DEN_TightIDandIPCut", f"{year}{corr_postfix}_UL")
 
     # load jec sources
     with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:

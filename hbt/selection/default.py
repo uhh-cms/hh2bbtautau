@@ -9,6 +9,8 @@ from functools import reduce
 from collections import defaultdict, OrderedDict
 
 from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.selection.cms.json_filter import json_filter
+from columnflow.selection.cms.met_filters import met_filters
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
@@ -18,7 +20,6 @@ from columnflow.production.cms.btag import btag_weights
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import, dev_sandbox
 
-from hbt.selection.met import met_filter_selection
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
@@ -132,12 +133,12 @@ def increment_stats(
 
 @selector(
     uses={
-        met_filter_selection, trigger_selection, lepton_selection, jet_selection, mc_weight,
+        json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
         pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
         increment_stats, attach_coffea_behavior,
     },
     produces={
-        met_filter_selection, trigger_selection, lepton_selection, jet_selection, mc_weight,
+        json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
         pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
         increment_stats,
     },
@@ -160,9 +161,12 @@ def default(
     # prepare the selection results that are updated at every step
     results = SelectionResult()
 
+    # filter bad data events according to golden lumi mask
+    if self.dataset_inst.is_data:
+        results.steps["golden"] = self[json_filter](events, **kwargs)
+
     # met filter selection
-    events, met_filter_results = self[met_filter_selection](events, **kwargs)
-    results += met_filter_results
+    results.steps["met_filter"] = self[met_filters](events, **kwargs)
 
     # trigger selection
     events, trigger_results = self[trigger_selection](events, **kwargs)

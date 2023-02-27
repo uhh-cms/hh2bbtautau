@@ -39,6 +39,8 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     },
     # only run on mc
     mc_only=True,
+    # function to determine the correction file
+    get_tau_file=(lambda self, external_files: external_files.tau_sf),
 )
 def tec(
     self: Calibrator,
@@ -46,14 +48,16 @@ def tec(
     **kwargs,
 ) -> ak.Array:
     """
-    Calibrator for tau energy. Requires an external file in the config as (e.g.)
+    Calibrator for tau energy. Requires an external file in the config under ``tau_sf``:
 
     .. code-block:: python
 
-        "tau_sf": ("/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz", "v1"),  # noqa
+        cfg.x.external_files = DotDict.wrap({
+            "tau_sf": "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz",  # noqa
+        })
 
-    which should be a correctionlib-style json file from which a correction set named
-    "tau_energy_scale" is extracted.
+    *get_tau_file* can be adapted in a subclass in case it is stored differently in the external
+    files. A correction set named ``"tau_energy_scale"`` is extracted from it.
 
     Resources:
     https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=113
@@ -167,6 +171,6 @@ def tec_setup(self: Calibrator, reqs: dict, inputs: dict) -> None:
     import correctionlib
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
     correction_set = correctionlib.CorrectionSet.from_string(
-        bundle.files.tau_sf.load(formatter="gzip").decode("utf-8"),
+        self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
     )
     self.tec_corrector = correction_set["tau_energy_scale"]
