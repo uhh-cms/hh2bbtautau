@@ -615,7 +615,7 @@ def add_config(
         cfg.x.external_files.update(DotDict.wrap({
             # lumi files
             "lumi": {
-                "golden": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions1/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt", "v1"),  # noqa
+                "golden": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt", "v1"),  # noqa
                 "normtag": ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             },
 
@@ -660,7 +660,7 @@ def add_config(
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
         },
         "cf.MergeSelectionMasks": {
-            "mc_weight", "normalization_weight", "process_id", "category_ids", "cutflow.*",
+            "event", "normalization_weight", "process_id", "category_ids", "cutflow.*",
         },
         "cf.UniteColumns": {
             "*",

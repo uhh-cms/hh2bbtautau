@@ -14,6 +14,27 @@ def add_variables(config: od.Config) -> None:
     Adds all variables to a *config*.
     """
     config.add_variable(
+        name="event",
+        expression="event",
+        binning=(1, 0.0, 1.0e9),
+        x_title="Event number",
+        discrete_x=True,
+    )
+    config.add_variable(
+        name="run",
+        expression="run",
+        binning=(1, 100000.0, 500000.0),
+        x_title="Run number",
+        discrete_x=True,
+    )
+    config.add_variable(
+        name="lumi",
+        expression="luminosityBlock",
+        binning=(1, 0.0, 5000.0),
+        x_title="Luminosity block",
+        discrete_x=True,
+    )
+    config.add_variable(
         name="n_jet",
         expression="n_jet",
         binning=(11, -0.5, 10.5),
