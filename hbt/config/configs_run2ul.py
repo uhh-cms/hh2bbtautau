@@ -63,6 +63,7 @@ def add_config(
         "h",
         "hh_ggf_bbtautau",
         "graviton_hh_ggf_bbtautau_m1250",
+        "graviton_hh_ggf_bbtautau_m400_madgraph",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -139,6 +140,7 @@ def add_config(
         # signals
         "hh_ggf_bbtautau_madgraph",
         "graviton_hh_ggf_bbtautau_m1250_madgraph",
+        "graviton_hh_ggf_bbtautau_m400_madgraph",
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there
