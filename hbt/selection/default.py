@@ -138,7 +138,7 @@ def increment_stats(
         increment_stats, attach_coffea_behavior,
     },
     produces={
-        json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
+        trigger_selection, lepton_selection, jet_selection, mc_weight,
         pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
         increment_stats,
     },
