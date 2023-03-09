@@ -63,7 +63,7 @@ def add_config(
         "h",
         "hh_ggf_bbtautau",
         "graviton_hh_ggf_bbtautau_m1250",
-        "graviton_hh_ggf_bbtautau_m400_madgraph",
+        "graviton_hh_ggf_bbtautau_m400",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
