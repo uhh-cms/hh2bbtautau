@@ -141,7 +141,6 @@ def add_config(
         "hh_ggf_bbtautau_madgraph",
         "graviton_hh_ggf_bbtautau_m400_madgraph",
         "graviton_hh_ggf_bbtautau_m1250_madgraph",
-        "graviton_hh_ggf_bbtautau_m400_madgraph",
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there
