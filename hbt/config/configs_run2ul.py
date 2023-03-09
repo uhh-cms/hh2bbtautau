@@ -62,6 +62,7 @@ def add_config(
         "qcd",
         "h",
         "hh_ggf_bbtautau",
+        "graviton_hh_ggf_bbtautau_m400",
         "graviton_hh_ggf_bbtautau_m1250",
         "graviton_hh_ggf_bbtautau_m400",
     ]
@@ -139,6 +140,7 @@ def add_config(
         "tth_nonbb_powheg",
         # signals
         "hh_ggf_bbtautau_madgraph",
+        "graviton_hh_ggf_bbtautau_m400_madgraph",
         "graviton_hh_ggf_bbtautau_m1250_madgraph",
         "graviton_hh_ggf_bbtautau_m400_madgraph",
     ]
@@ -662,7 +664,7 @@ def add_config(
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
         },
         "cf.MergeSelectionMasks": {
-            "event", "normalization_weight", "process_id", "category_ids", "cutflow.*",
+            "normalization_weight", "process_id", "category_ids", "cutflow.*",
         },
         "cf.UniteColumns": {
             "*",

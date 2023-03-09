@@ -7,7 +7,7 @@ Collection of patches of underlying columnflow tasks.
 import os
 
 import law
-from columnflow.util import memoize
+from columnflow.util import memoize, dev_sandbox
 
 
 logger = law.logger.get_logger(__name__)
@@ -15,6 +15,10 @@ logger = law.logger.get_logger(__name__)
 
 @memoize
 def patch_bundle_repo_exclude_files():
+    """
+    Patches the exclude_files attribute of the existing BundleRepo task to exclude files
+    specific to _this_ analysis project.
+    """
     from columnflow.tasks.framework.remote import BundleRepo
 
     # get the relative path to CF_BASE
@@ -31,9 +35,22 @@ def patch_bundle_repo_exclude_files():
     # overwrite them
     BundleRepo.exclude_files[:] = exclude_files
 
-    logger.debug("patched exclude_files of cf.BundleRepo")
+    logger.debug(f"patched exclude_files of {BundleRepo.task_family}")
+
+
+@memoize
+def patch_create_pileup_weights_sandbox():
+    """
+    Patches the sandox attribute of the existing CreatePileupWeights task to use a different one.
+    """
+    from columnflow.tasks.cms.external import CreatePileupWeights
+
+    CreatePileupWeights.sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/cmssw_default.sh")
+
+    logger.debug(f"patched sandbox of {CreatePileupWeights.task_family}")
 
 
 @memoize
 def patch_all():
     patch_bundle_repo_exclude_files()
+    patch_create_pileup_weights_sandbox()
