@@ -50,8 +50,9 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     produces={
         mc_weight, category_ids,
         # new columns
-        "cutflow.n_jet", "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt",
-        "cutflow.jet1_eta", "cutflow.jet1_phi", "cutflow.jet2_pt",
+        "cutflow.n_jet", , "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt",
+        "cutflow.jet1_eta", "cutflow.jet1_phi", "cutflow.jet2_pt", "cutflow.jet2_eta",
+        "cutflow.jet3_pt", "cutflow.jet4_pt", "cutflow.jet5_pt", "cutflow.jet6_pt",
     },
 )
 def cutflow_features(
@@ -71,10 +72,15 @@ def cutflow_features(
     # add feature columns
     events = set_ak_column_i32(events, "cutflow.n_jet", ak.num(events.Jet, axis=1))
     events = set_ak_column_i32(events, "cutflow.n_jet_selected", ak.num(selected_jet, axis=1))
-    events = set_ak_column_f32(events, "cutflow.ht", ak.sum(selected_jet.pt, axis=1))
-    events = set_ak_column_f32(events, "cutflow.jet1_pt", Route("pt[:,0]").apply(selected_jet, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "cutflow.jet1_eta", Route("eta[:,0]").apply(selected_jet, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "cutflow.jet1_phi", Route("phi[:,0]").apply(selected_jet, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "cutflow.jet2_pt", Route("pt[:,1]").apply(selected_jet, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.ht", ak.sum(events.Jet.pt, axis=1))
+    events = set_ak_column_f32(events, "cutflow.jet1_pt", Route("Jet.pt[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet1_eta", Route("Jet.eta[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet1_phi", Route("Jet.phi[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet2_pt", Route("Jet.pt[:,1]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet2_eta", Route("Jet.eta[:,1]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet3_pt", Route("Jet.pt[:,2]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet4_pt", Route("Jet.pt[:,3]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet5_pt", Route("Jet.pt[:,4]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet6_pt", Route("Jet.pt[:,5]").apply(events, EMPTY_FLOAT))
 
     return events
