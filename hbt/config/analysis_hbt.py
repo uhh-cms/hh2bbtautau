@@ -33,7 +33,7 @@ analysis_hbt.x.bash_sandboxes = [
 # files of cmssw sandboxes that might be required by remote tasks
 # (used in cf.HTCondorWorkflow)
 analysis_hbt.x.cmssw_sandboxes = [
-    # "$CF_BASE/sandboxes/cmssw_default.sh",
+    # "$HBT_BASE/sandboxes/cmssw_default.sh",
 ]
 
 # clear the list when cmssw bundling is disabled

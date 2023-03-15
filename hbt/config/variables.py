@@ -70,6 +70,14 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Jet 1 $\eta$",
     )
     config.add_variable(
+        name="jet2_pt",
+        expression="Jet.pt[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Jet 2 $p_{T}$",
+    )
+    config.add_variable(
         name="met_phi",
         expression="MET.phi",
         null_value=EMPTY_FLOAT,
@@ -148,4 +156,11 @@ def add_variables(config: od.Config) -> None:
         expression="cutflow.jet1_phi",
         binning=(32, -3.2, 3.2),
         x_title=r"Jet 1 $\phi$",
+    )
+    config.add_variable(
+        name="cf_jet2_pt",
+        expression="cutflow.jet2_pt",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Jet 2 $p_{T}$",
     )
