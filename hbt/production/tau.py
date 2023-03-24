@@ -95,7 +95,14 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     sf_nom = np.ones_like(pt, dtype=np.float32)
 
     # helpers to create corrector arguments
-    tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "VVLoose", syst, "dm")
+    if self.id_vs_jet_corrector.version == 0:
+        # pt, dm, genmatch, jet wp, syst, sf type
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "VVLoose", syst, "dm")
+    elif self.id_vs_jet_corrector.version == 1:
+        # pt, dm, genmatch, jet wp, e wp, syst, sf type
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "Loose", "VVLoose", syst, "dm")
+    else:
+        raise NotImplementedError
     emu_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
 
     # genuine taus
