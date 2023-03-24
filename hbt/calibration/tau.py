@@ -174,3 +174,6 @@ def tec_setup(self: Calibrator, reqs: dict, inputs: dict) -> None:
         self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
     )
     self.tec_corrector = correction_set["tau_energy_scale"]
+
+    # check versions
+    assert self.tec_corrector.version in [0]

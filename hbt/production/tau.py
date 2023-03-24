@@ -192,6 +192,11 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     self.id_vs_e_corrector = correction_set[f"{tagger_name}VSe"]
     self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
 
+    # check versions
+    assert self.id_vs_jet_corrector.version in [0, 1]
+    assert self.id_vs_e_corrector.version in [0, 1]
+    assert self.id_vs_mu_corrector.version in [0, 1]
+
 
 @producer(
     uses={
@@ -316,3 +321,6 @@ def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
         self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
     )
     self.trigger_corrector = correction_set["tau_trigger"]
+
+    # check versions
+    assert self.trigger_corrector.version in [0]
