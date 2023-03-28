@@ -248,12 +248,12 @@ def tau_selection(
         # https://cms-nanoaod-integration.web.cern.ch/integration/master/mc94X_doc.html
         tau_vs_e = DotDict(vvloose=2, vloose=4)
         tau_vs_mu = DotDict(vloose=1, tight=8)
-        tau_vs_jet = DotDict(vvloose=2, medium=16)
+        tau_vs_jet = DotDict(vvloose=2, loose=8, medium=16)
     else:
         # https://cms-nanoaod-integration.web.cern.ch/integration/cms-swmaster/data106Xul17v2_v10_doc.html#Tau
         tau_vs_e = DotDict(vvloose=2, vloose=3)
         tau_vs_mu = DotDict(vloose=1, tight=4)
-        tau_vs_jet = DotDict(vvloose=2, medium=5)
+        tau_vs_jet = DotDict(vvloose=2, loose=4, medium=5)
 
     # start per-tau mask with trigger object matching per leg
     if is_cross_e or is_cross_mu:
@@ -297,7 +297,7 @@ def tau_selection(
         (abs(events.Tau.dz) < 0.2) &
         (events.Tau.idDeepTau2017v2p1VSe >= (tau_vs_e.vvloose if is_any_cross_tau else tau_vs_e.vloose)) &
         (events.Tau.idDeepTau2017v2p1VSmu >= (tau_vs_mu.vloose if is_any_cross_tau else tau_vs_mu.tight)) &
-        (events.Tau.idDeepTau2017v2p1VSjet >= tau_vs_jet.vvloose)
+        (events.Tau.idDeepTau2017v2p1VSjet >= tau_vs_jet.loose)
     )
 
     # remove taus with too close spatial separation to previously selected leptons

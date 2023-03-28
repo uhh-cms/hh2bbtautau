@@ -50,19 +50,31 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     produces={
         mc_weight, category_ids,
         # new columns
-        "cutflow.n_jet", "cutflow.ht", "cutflow.jet1_pt", "cutflow.jet1_eta", "cutflow.jet1_phi",
+        "cutflow.n_jet", "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt",
+        "cutflow.jet1_eta", "cutflow.jet1_phi", "cutflow.jet2_pt",
     },
 )
-def cutflow_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+def cutflow_features(
+    self: Producer,
+    events: ak.Array,
+    object_masks: dict[str, dict[str, ak.Array]],
+    **kwargs,
+) -> ak.Array:
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
     events = self[category_ids](events, **kwargs)
 
+    # apply per-object selections
+    selected_jet = events.Jet[object_masks["Jet"]["Jet"]]
+
+    # add feature columns
     events = set_ak_column_i32(events, "cutflow.n_jet", ak.num(events.Jet, axis=1))
-    events = set_ak_column_f32(events, "cutflow.ht", ak.sum(events.Jet.pt, axis=1))
-    events = set_ak_column_f32(events, "cutflow.jet1_pt", Route("Jet.pt[:,0]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "cutflow.jet1_eta", Route("Jet.eta[:,0]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "cutflow.jet1_phi", Route("Jet.phi[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_i32(events, "cutflow.n_jet_selected", ak.num(selected_jet, axis=1))
+    events = set_ak_column_f32(events, "cutflow.ht", ak.sum(selected_jet.pt, axis=1))
+    events = set_ak_column_f32(events, "cutflow.jet1_pt", Route("pt[:,0]").apply(selected_jet, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet1_eta", Route("eta[:,0]").apply(selected_jet, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet1_phi", Route("phi[:,0]").apply(selected_jet, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet2_pt", Route("pt[:,1]").apply(selected_jet, EMPTY_FLOAT))
 
     return events

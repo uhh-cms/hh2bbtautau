@@ -211,6 +211,6 @@ def default(
     events = self[increment_stats](events, results, stats, **kwargs)
 
     # some cutflow features
-    events = self[cutflow_features](events, **kwargs)
+    events = self[cutflow_features](events, results.objects, **kwargs)
 
     return events, results

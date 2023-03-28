@@ -95,7 +95,14 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     sf_nom = np.ones_like(pt, dtype=np.float32)
 
     # helpers to create corrector arguments
-    tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "VVLoose", syst, "dm")
+    if self.id_vs_jet_corrector.version == 0:
+        # pt, dm, genmatch, jet wp, syst, sf type
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "VVLoose", syst, "dm")
+    elif self.id_vs_jet_corrector.version == 1:
+        # pt, dm, genmatch, jet wp, e wp, syst, sf type
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "Loose", "VVLoose", syst, "dm")
+    else:
+        raise NotImplementedError
     emu_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
 
     # genuine taus
@@ -191,6 +198,11 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     self.id_vs_jet_corrector = correction_set[f"{tagger_name}VSjet"]
     self.id_vs_e_corrector = correction_set[f"{tagger_name}VSe"]
     self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
+
+    # check versions
+    assert self.id_vs_jet_corrector.version in [0, 1]
+    assert self.id_vs_e_corrector.version in [0, 1]
+    assert self.id_vs_mu_corrector.version in [0, 1]
 
 
 @producer(
@@ -316,3 +328,6 @@ def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
         self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
     )
     self.trigger_corrector = correction_set["tau_trigger"]
+
+    # check versions
+    assert self.trigger_corrector.version in [0]
