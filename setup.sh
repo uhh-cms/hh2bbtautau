@@ -129,7 +129,7 @@ setup_hbt() {
     #
 
     export LAW_HOME="${HBT_BASE}/.law"
-    export LAW_CONFIG_FILE="${HBT_BASE}/law.nocert.cfg"
+    export LAW_CONFIG_FILE="${HBT_BASE}/law.cfg"
 
     if which law &> /dev/null; then
         # source law's bash completion scipt
