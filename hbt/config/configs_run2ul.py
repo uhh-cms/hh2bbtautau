@@ -152,11 +152,11 @@ def add_config(
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
-        # add aux info to datasets
-        if dataset.name.startswith(("st", "tt")):
-            dataset.x.has_top = True
+        # add tags to datasets
         if dataset.name.startswith("tt"):
-            dataset.x.is_ttbar = True
+            dataset.add_tag(("has_top", "is_ttbar"))
+        elif dataset.name.startswith("st"):
+            dataset.add_tag(("has_top", "is_single_top"))
 
         # apply an optional limit on the number of files
         if limit_dataset_files:

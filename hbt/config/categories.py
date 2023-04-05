@@ -6,18 +6,22 @@ Definition of categories.
 
 import order as od
 
+from columnflow.config_util import add_category
+
 
 def add_categories(config: od.Config) -> None:
     """
     Adds all categories to a *config*.
     """
-    config.add_category(
+    add_category(
+        config,
         name="incl",
         id=1,
         selection="sel_incl",
         label="inclusive",
     )
-    config.add_category(
+    add_category(
+        config,
         name="2j",
         id=100,
         selection="sel_2j",
