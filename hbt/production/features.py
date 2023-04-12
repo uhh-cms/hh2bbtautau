@@ -50,7 +50,7 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     produces={
         mc_weight, category_ids,
         # new columns
-        "cutflow.n_jet", , "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt",
+        "cutflow.n_jet", "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt",
         "cutflow.jet1_eta", "cutflow.jet1_phi", "cutflow.jet2_pt", "cutflow.jet2_eta",
         "cutflow.jet3_pt", "cutflow.jet4_pt", "cutflow.jet5_pt", "cutflow.jet6_pt",
     },
