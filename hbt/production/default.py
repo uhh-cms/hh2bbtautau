@@ -15,6 +15,7 @@ from hbt.production.features import features
 from hbt.production.weights import normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight
 from hbt.production.btag import normalized_btag_weights
 from hbt.production.tau import tau_weights, trigger_weights
+from hbt.production.invariant_mass import invariant_mass
 
 
 ak = maybe_import("awkward")
@@ -24,12 +25,12 @@ ak = maybe_import("awkward")
     uses={
         category_ids, features, normalization_weights, normalized_pdf_weight,
         normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
-        tau_weights, electron_weights, muon_weights, trigger_weights,
+        tau_weights, electron_weights, muon_weights, trigger_weights, invariant_mass
     },
     produces={
         category_ids, features, normalization_weights, normalized_pdf_weight,
         normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
-        tau_weights, electron_weights, muon_weights, trigger_weights,
+        tau_weights, electron_weights, muon_weights, trigger_weights, invariant_mass
     },
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -67,5 +68,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
         # trigger weights
         events = self[trigger_weights](events, **kwargs)
+
+        events = self[invariant_mass](events, **kwargs)
 
     return events

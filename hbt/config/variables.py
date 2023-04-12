@@ -55,6 +55,14 @@ def add_variables(config: od.Config) -> None:
         x_title="HT",
     )
     config.add_variable(
+        name="jet1_mass",
+        expression="Jet.mass[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Jet 1 mass",
+    )
+    config.add_variable(
         name="jet1_pt",
         expression="Jet.pt[:,0]",
         null_value=EMPTY_FLOAT,
@@ -75,6 +83,22 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(30, -3.0, 3.0),
         x_title=r"Jet 1 $\phi$",
+    )
+    config.add_variable(
+        name="jet2_mass",
+        expression="Jet.mass[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Jet 2 mass",
+    )
+    config.add_variable(
+        name="hardest_jet_pair_mass",
+        expression="mjj",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Hardest Jet Pair Mass",
     )
     config.add_variable(
         name="jet2_pt",
@@ -127,6 +151,13 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Jet 6 $p_{T}$",
     )
     config.add_variable(
+        name="jet6_eta",
+        expression="Jet.eta[:,5]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        x_title=r"Jet 6 $\eta$",
+    )
+    config.add_variable(
         name="tau1_pt",
         expression="Tau.pt[:,0]",
         null_value=EMPTY_FLOAT,
@@ -176,6 +207,14 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(33, -3.3, 3.3),
         x_title=r"MET $\phi$",
+    )
+    config.add_variable(
+        name="hardest_jet_pair_pt",
+        expression="(Jet[:, 0] + Jet[:, 1]).pt",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Sum(0,1) $p_{T}$",
     )
 
     # weights

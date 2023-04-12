@@ -643,8 +643,9 @@ def add_config(
         "cf.ReduceEvents": {
             # general event info
             "run", "luminosityBlock", "event",
-            # object info
+            # object info,
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
+            "Jet.nJet", "Jet.e",
             "Jet.hhbtag",
             "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
             "HHBJet.hadronFlavour", "HHBJet.hhbtag",
