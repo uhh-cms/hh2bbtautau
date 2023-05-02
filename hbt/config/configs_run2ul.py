@@ -66,6 +66,7 @@ def add_config(
         "hh_ggf_bbtautau",
         "graviton_hh_ggf_bbtautau_m400",
         "graviton_hh_ggf_bbtautau_m1250",
+        "graviton_hh_vbf_bbtautau_m400",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -143,6 +144,7 @@ def add_config(
         "hh_ggf_bbtautau_madgraph",
         "graviton_hh_ggf_bbtautau_m400_madgraph",
         "graviton_hh_ggf_bbtautau_m1250_madgraph",
+        "graviton_hh_vbf_bbtautau_m400_madgraph",
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there
@@ -199,6 +201,8 @@ def add_config(
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
         "default": ["met_filter", "trigger", "lepton", "jet", "bjet"],
+        "new_selection_example": ["selection_example_not_exposed"],
+        "boosted": ["trigger", "lepton", "boosted_jet"],
     }
 
     # custom method and sandbox for determining dataset lfns
