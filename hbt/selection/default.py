@@ -26,8 +26,6 @@ from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
 
-from IPython import embed
-
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -53,7 +51,6 @@ def default(
     stats: defaultdict,
     **kwargs,
 ) -> tuple[ak.Array, SelectionResult]:
-    embed()
     # ensure coffea behavior
     events = self[attach_coffea_behavior](events, **kwargs)
 
