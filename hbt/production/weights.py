@@ -69,7 +69,6 @@ def normalized_pu_weight_requires(self: Producer, reqs: dict) -> None:
 @normalized_pu_weight.setup
 def normalized_pu_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     # load the selection stats
-    from IPython import embed; embed()
     stats = inputs["selection_stats"]["collection"].load(formatter="json")
 
     # get the unique process ids in that dataset
