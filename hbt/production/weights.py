@@ -69,7 +69,8 @@ def normalized_pu_weight_requires(self: Producer, reqs: dict) -> None:
 @normalized_pu_weight.setup
 def normalized_pu_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     # load the selection stats
-    stats = inputs["selection_stats"]["collection"][0].load(formatter="json")
+    from IPython import embed; embed()
+    stats = inputs["selection_stats"]["collection"].load(formatter="json")
 
     # get the unique process ids in that dataset
     key = "sum_mc_weight_pu_weight_per_process"
@@ -131,7 +132,7 @@ def normalized_pdf_weight_requires(self: Producer, reqs: dict) -> None:
 @normalized_pdf_weight.setup
 def normalized_pdf_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     # load the selection stats
-    stats = inputs["selection_stats"]["collection"][0].load(formatter="json")
+    stats = inputs["selection_stats"]["collection"].load(formatter="json")
 
     # save average weights
     self.average_pdf_weights = {
@@ -176,7 +177,7 @@ def normalized_murmuf_weight_requires(self: Producer, reqs: dict) -> None:
 @normalized_murmuf_weight.setup
 def normalized_murmuf_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
     # load the selection stats
-    stats = inputs["selection_stats"]["collection"][0].load(formatter="json")
+    stats = inputs["selection_stats"]["collection"].load(formatter="json")
 
     # save average weights
     self.average_murmuf_weights = {
