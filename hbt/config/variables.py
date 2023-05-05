@@ -158,6 +158,22 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Jet 6 $\eta$",
     )
     config.add_variable(
+        name="tau_pair_mass",
+        expression="mtautau",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Tau Pair Mass",
+    )
+    config.add_variable(
+        name="tau1_mass",
+        expression="Tau.mass[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 5.0),
+        unit="GeV",
+        x_title=r"Tau 1 mass",
+    )
+    config.add_variable(
         name="tau1_pt",
         expression="Tau.pt[:,0]",
         null_value=EMPTY_FLOAT,
@@ -178,6 +194,14 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(30, -3.0, 3.0),
         x_title=r"Tau 1 $\phi$",
+    )
+    config.add_variable(
+        name="tau2_mass",
+        expression="Tau.mass[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 5.0),
+        unit="GeV",
+        x_title=r"Tau 2 mass",
     )
     config.add_variable(
         name="tau2_pt",
@@ -202,6 +226,22 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Tau 2 $\phi$",
     )
     config.add_variable(
+        name="bjet_pair_mass",
+        expression="mbjetbjet",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"BJet Pair Mass",
+    )
+    config.add_variable(
+        name="HH_pair_mass",
+        expression="mHH",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"HH Pair Mass",
+    )
+    config.add_variable(
         name="met_phi",
         expression="MET.phi",
         null_value=EMPTY_FLOAT,
@@ -215,6 +255,66 @@ def add_variables(config: od.Config) -> None:
         binning=(40, 0.0, 400.0),
         unit="GeV",
         x_title=r"Sum(0,1) $p_{T}$",
+    )
+    config.add_variable(
+        name="bjet1_mass",
+        expression="BJet.mass[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"BJet 1 mass",
+    )
+    config.add_variable(
+        name="bjet1_pt",
+        expression="BJet.pt[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"BJet 1 $p_{T}$",
+    )
+    config.add_variable(
+        name="bjet1_eta",
+        expression="BJet.eta[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"BJet 1 $\eta$",
+    )
+    config.add_variable(
+        name="bjet1_phi",
+        expression="BJet.phi[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"BJet 1 $\phi$",
+    )
+    config.add_variable(
+        name="bjet2_mass",
+        expression="BJet.mass[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"BJet 2 mass",
+    )
+    config.add_variable(
+        name="bjet2_pt",
+        expression="BJet.pt[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"BJet 2 $p_{T}$",
+    )
+    config.add_variable(
+        name="bjet2_eta",
+        expression="BJet.eta[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"BJet 2 $\eta$",
+    )
+    config.add_variable(
+        name="bjet2_phi",
+        expression="BJet.phi[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"BJet 2 $\phi$",
     )
 
     # weights

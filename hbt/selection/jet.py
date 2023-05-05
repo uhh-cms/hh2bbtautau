@@ -169,6 +169,9 @@ def jet_selection(
 
     # pt sorted indices to convert mask
     sorted_indices = ak.argsort(events.Jet.pt, axis=-1, ascending=False)
+    ak4_btag_wp = self.config_inst.x.btag_working_points.deepjet.medium
+    bjet_indices = sorted_indices[events.Jet[sorted_indices].btagDeepFlavB > ak4_btag_wp]
+    bjet_indices = bjet_indices[default_mask[bjet_indices]]
     jet_indices = sorted_indices[default_mask[sorted_indices]]
 
     # keep indices of default jets that are explicitly not selected as hhbjets for easier handling
@@ -203,6 +206,7 @@ def jet_selection(
         objects={
             "Jet": {
                 "Jet": jet_indices,
+                "BJet": bjet_indices,
                 "HHBJet": hhbjet_indices,
                 "NonHHBJet": non_hhbjet_indices,
                 "FatJet": fatjet_indices,
