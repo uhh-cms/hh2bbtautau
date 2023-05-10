@@ -18,60 +18,76 @@ class sum_layer(tf.keras.layers.Layer):
 
 class max_layer(keras.layers.Layer):
     def call(self, inputs):
-        return tf.math.reduce_max(inputs, axis=1, keepdims=True)
+        max_inputs = tf.math.reduce_max(inputs, axis=1, keepdims=True)
+        return max_inputs
 
 
 class min_layer(keras.layers.Layer):
     def call(self, inputs):
-        return tf.math.reduce_min(inputs, axis=1, keepdims=True)
+        max_inputs = tf.math.reduce_min(inputs, axis=1, keepdims=True)
+        return max_inputs
 
 
 class mean_layer(keras.layers.Layer):
     def call(self, inputs):
-        return tf.math.reduce_max(inputs, axis=1, keepdims=True)/inputs.shape[1]
+        return tf.math.reduce_sum(inputs, axis=1, keepdims=True) / inputs.shape[1]
 
 
 class concat_layer(keras.layers.Layer):
     def call(self, inputs):
-        return tf.conact(inputs, axis=0, keepdims=True)
+        return tf.concat(inputs, axis=-1)
 
 
 # create custom model
 class CustomModel(keras.models.Model):
-    def __init__(self):
-        super().__init__()
-        self.flatten = tf.keras.layers.Flatten()
+    def __init__(self, custom_layer_str):
+        super().__init__(self)
+        self.custom_layer_str = custom_layer_str
+        # self.flatten = tf.keras.layers.Flatten()
+        self.batch_norm = tf.keras.layers.BatchNormalization(axis=-1)
         self.hidden1 = tf.keras.layers.Dense(256, "selu")
         self.hidden2 = tf.keras.layers.Dense(256, "selu")
         self.sum_layer = sum_layer()
         self.max_layer = max_layer()
         self.min_layer = min_layer()
         self.mean_layer = mean_layer()
+        self.concat_layer = concat_layer()
         self.hidden3 = tf.keras.layers.Dense(256, "selu")
         self.op = tf.keras.layers.Dense(2, activation="softmax")
 
-    def call(self, inputs, custom_layer_str):
-        flatten = self.flatten(inputs)
-        hidden1 = self.hidden1(flatten)
+    def call(self, inputs):
+        # flatten = self.flatten(inputs)
+        # batch_norm = self.batch_norm(inputs)
+        print('Inputs', inputs.shape)
+        hidden1 = self.hidden1(inputs)
+        print('Hidden1', hidden1.shape)
         hidden2 = self.hidden2(hidden1)
-        if custom_layer_str == "Sum":
+        print('Hidden2', hidden2.shape)
+        if self.custom_layer_str == "Sum":
             custom_layer = self.sum_layer(hidden2)
-        elif custom_layer_str == "Max":
+        elif self.custom_layer_str == "Max":
             custom_layer = self.max_layer(hidden2)
-        elif custom_layer_str == "Min":
+        elif self.custom_layer_str == "Min":
             custom_layer = self.min_layer(hidden2)
-        elif custom_layer_str == "Mean":
+        elif self.custom_layer_str == "Mean":
             custom_layer = self.mean_layer(hidden2)
-        elif custom_layer_str == "Conact":
+        elif self.custom_layer_str == "Concat":
             custom_layer_sum = self.sum_layer(hidden2)
             custom_layer_max = self.max_layer(hidden2)
             custom_layer_min = self.min_layer(hidden2)
             custom_layer_mean = self.mean_layer(hidden2)
-            custom_layer = self.conact_layer([custom_layer_sum, custom_layer_max,
+            custom_layer = self.concat_layer([custom_layer_sum, custom_layer_max,
             custom_layer_min, custom_layer_mean])
+        print(f'{self.custom_layer_str} Layer', custom_layer.shape)
         hidden3 = self.hidden3(custom_layer)
+        print('Hidden3', hidden3.shape)
         op = self.op(hidden3)
+        print('Output', op.shape)
         return op
+
+    def model(self):
+        x = tf.keras.layers.Input(shape=(None, 1, 2, 4))
+        return tf.keras.Model(inputs=[x], outputs=self.call(x))
 
     @tf.function
     def train_step(self, data):

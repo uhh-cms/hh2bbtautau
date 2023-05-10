@@ -26,7 +26,6 @@ keras = maybe_import("tensorflow.keras")
 
 logger = law.logger.get_logger(__name__)
 
-# from hbt.ml.DNN_columnflow import CustomModel
 
 class SimpleDNN(MLModel):
 
@@ -315,6 +314,11 @@ class SimpleDNN(MLModel):
             validation[k] = DNN_inputs[k][:N_validation_events]
             train[k] = DNN_inputs[k][N_validation_events:]
 
+        # reshape train['inputs'] for DeepSets: [#events, #jets, -1]
+        train['inputs'] = tf.reshape(train['inputs'], [train['inputs'].shape[0], 2, -1])
+        train['target'] = tf.reshape(train['target'], [train['target'].shape[0], 1, -1])
+        validation['inputs'] = tf.reshape(validation['inputs'], [validation['inputs'].shape[0], 2, -1])
+        validation['target'] = tf.reshape(validation['target'], [validation['target'].shape[0], 1, -1])
         return train, validation
 
     def train(
@@ -324,6 +328,9 @@ class SimpleDNN(MLModel):
         output: law.LocalDirectoryTarget,
     ) -> ak.Array:
         # np.random.seed(1337)  # for reproducibility
+
+        # Load Custom Model
+        from hbt.ml.DNN_columnflow import CustomModel
 
         physical_devices = tf.config.list_physical_devices("GPU")
         try:
@@ -360,7 +367,7 @@ class SimpleDNN(MLModel):
 
         # define the DNN model
         # TODO: do this Funcional instead of Sequential
-        model = CustomModel(custom_layer_str="Sum")
+        model = CustomModel(custom_layer_str="Concat")
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -391,36 +398,54 @@ class SimpleDNN(MLModel):
             monitor="val_loss",
             min_delta=0,
             patience=int(self.epochs / 4),
-            verbose=0,
+            verbose=1,
             mode="auto",
             baseline=None,
             restore_best_weights=True,
             start_from_epoch=0,
         )
 
+        reduceLR = tf.keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss",
+            factor=0.1,
+            patience=int(self.epochs / 6),
+            verbose=1,
+            mode="auto",
+            min_lr=0.01 * self.learningrate,
+        )
+
         logger.info("input to tf Dataset")
         # .shuffle(buffer_size=len(train["inputs"], reshuffle_each_iteration=True).repeat(self.epochs).batch(self.batchsize)
-        with tf.device("CPU"):
-            tf_train = tf.data.Dataset.from_tensor_slices(
-                (train["inputs"], train["target"], train["weights"]),
-            ).batch(self.batchsize)
-            tf_validate = tf.data.Dataset.from_tensor_slices(
-                (validation["inputs"], validation["target"], validation["weights"]),
-            ).batch(self.batchsize)
+        # with tf.device("CPU"):
+        #     tf_train = tf.data.Dataset.from_tensor_slices(
+        #         (train["inputs"], train["target"]),
+        #     ).batch(self.batchsize)
+        #     tf_validate = tf.data.Dataset.from_tensor_slices(
+        #         (validation["inputs"], validation["target"]),
+        #     ).batch(self.batchsize)
+
+        # tf_train = tf.data.Dataset.from_tensor_slices((train["inputs"], train["target"]))
+        # tf_validate = tf.data.Dataset.from_tensor_slices((validation["inputs"], validation["target"]))
+        tf_train = [train['inputs'], train['target']]
+        tf_validation = [validation['inputs'], validation['target']]
 
         fit_kwargs = {
             "epochs": self.epochs,
-            "callbacks": [early_stopping],
+            "callbacks": [early_stopping, reduceLR],
             "verbose": 2,
         }
 
         # train the model
         logger.info("Start training...")
         model.fit(
-            tf_train,
-            validation_data=tf_validate,
+            tf_train[0], tf_train[1],
+            validation_data=tf_validation,
+            batch_size=self.batchsize,
             **fit_kwargs,
         )
+        from IPython import embed; embed()
+        for layer in model.layers:
+            print(layer.output_shape)
 
         # save the model and history; TODO: use formatter
         # output.dump(model, formatter="tf_keras_model")
@@ -509,102 +534,3 @@ class SimpleDNN(MLModel):
         )
         events = set_ak_column(events, "category_ids", category_ids)
         return events
-
-
-    class sum_layer(tf.keras.layers.Layer):
-        def call(self, inputs):
-            return tf.math.reduce_sum(inputs, axis=1, keepdims=True)
-
-
-    class max_layer(keras.layers.Layer):
-        def call(self, inputs):
-            return tf.math.reduce_max(inputs, axis=1, keepdims=True)
-
-
-    class min_layer(keras.layers.Layer):
-        def call(self, inputs):
-            return tf.math.reduce_min(inputs, axis=1, keepdims=True)
-
-
-    class mean_layer(keras.layers.Layer):
-        def call(self, inputs):
-            return tf.math.reduce_max(inputs, axis=1, keepdims=True)/inputs.shape[1]
-
-
-    class concat_layer(keras.layers.Layer):
-        def call(self, inputs):
-            return tf.conact(inputs, axis=0, keepdims=True)
-
-
-    # create custom model
-    class CustomModel(keras.models.Model):
-        def __init__(self):
-            super().__init__()
-            self.flatten = tf.keras.layers.Flatten()
-            self.hidden1 = tf.keras.layers.Dense(256, "selu")
-            self.hidden2 = tf.keras.layers.Dense(256, "selu")
-            self.sum_layer = sum_layer()
-            self.max_layer = max_layer()
-            self.min_layer = min_layer()
-            self.mean_layer = mean_layer()
-            self.hidden3 = tf.keras.layers.Dense(256, "selu")
-            self.op = tf.keras.layers.Dense(2, activation="softmax")
-
-        def call(self, inputs, custom_layer_str):
-            flatten = self.flatten(inputs)
-            hidden1 = self.hidden1(flatten)
-            hidden2 = self.hidden2(hidden1)
-            if custom_layer_str == "Sum":
-                custom_layer = self.sum_layer(hidden2)
-            elif custom_layer_str == "Max":
-                custom_layer = self.max_layer(hidden2)
-            elif custom_layer_str == "Min":
-                custom_layer = self.min_layer(hidden2)
-            elif custom_layer_str == "Mean":
-                custom_layer = self.mean_layer(hidden2)
-            elif custom_layer_str == "Conact":
-                custom_layer_sum = self.sum_layer(hidden2)
-                custom_layer_max = self.max_layer(hidden2)
-                custom_layer_min = self.min_layer(hidden2)
-                custom_layer_mean = self.mean_layer(hidden2)
-                custom_layer = self.conact_layer([custom_layer_sum, custom_layer_max,
-                custom_layer_min, custom_layer_mean])
-            hidden3 = self.hidden3(custom_layer)
-            op = self.op(hidden3)
-            return op
-
-        @tf.function
-        def train_step(self, data):
-            # Unpack the data. Its structure depends on your model and
-            # on what you pass to `fit()`.
-            x, y = data
-
-            with tf.GradientTape() as tape:
-                y_pred = self(x, training=True)  # Forward pass
-                # Compute the loss value
-                # (the loss function is configured in `compile()`)
-                loss = self.compiled_loss(y, y_pred)
-
-            # Compute gradients
-            trainable_vars = self.trainable_variables
-            gradients = tape.gradient(loss, trainable_vars)
-            # Update weights
-            self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-            # Update metrics (includes the metric that tracks the loss)
-            self.compiled_metrics.update_state(y, y_pred)
-            # Return a dict mapping metric names to current value
-            return {m.name: m.result() for m in self.metrics}
-
-        def test_step(self, data):
-            # Unpack the data
-            x, y = data
-            # Compute predictions
-            y_pred = self(x, training=False)
-            # Updates the metrics tracking the loss
-            self.compiled_loss(y, y_pred)
-            # Update the metrics.
-            self.compiled_metrics.update_state(y, y_pred)
-            # Return a dict mapping metric names to current value.
-            # Note that it will include the loss (tracked in self.metrics).
-            return {m.name: m.result() for m in self.metrics}
-

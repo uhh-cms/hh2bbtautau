@@ -5,7 +5,7 @@ ML models derived from the *SimpleDNN* class
 """
 
 
-from hbt.ml.first_nn_untouched import SimpleDNN
+from hbt.ml.first_nn import SimpleDNN
 
 
 processes = [
@@ -55,17 +55,22 @@ dataset_names = {
 
 input_features = [
     f"{obj}_{var}"
-    # for obj in ["bjet1", "bjet2", "jet1", "jet2", "tau1", "tau2"]
-    for obj in ["jet1", "jet2", "tau1", "tau2", "bjet1", "bjet2"]
-    for var in ["pt", "eta", "phi", "mass"]
-] + ["mtautau", "mjj", "mbjetbjet", "mHH"]
+    for obj in ["jet1", "jet2"]
+    for var in ["pt", "eta", "phi", "mass", "e"]] # + ["mtautau", "mjj", "mbjetbjet", "mHH"]
+    # + [
+    # f"{obj}_{var}"
+    # for obj in ["jet1", "jet2"]
+    # for var in ["area", "nConstituents", "hadronFlavour"]] + [
+    # f"{obj}_{var}"
+    # for obj in ["bjet1", "bjet2"]
+    # for var in ["area", "nConstituents", "btag"]] + ["jets_nJets", "bjets_nJets"]
 
 default_cls_dict = {
     "folds": 5,
     # "max_events": 10**6,  # TODO
     "layers": [512, 512, 512],
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
-    "learningrate": 0.00050,
+    "learningrate": 0.001,
     "batchsize": 131072,
     "epochs": 200,
     "eqweight": True,
@@ -82,7 +87,7 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["epochs"] = 6
+cls_dict["epochs"] = 50
 cls_dict["batchsize"] = 2048
 cls_dict["processes"] = [
     "graviton_hh_ggf_bbtautau_m400",
