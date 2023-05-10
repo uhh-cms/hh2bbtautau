@@ -85,9 +85,9 @@ class CustomModel(keras.models.Model):
         print('Output', op.shape)
         return op
 
-    def model(self):
-        x = tf.keras.layers.Input(shape=(None, 1, 2, 4))
-        return tf.keras.Model(inputs=[x], outputs=self.call(x))
+    # def model(self):
+    #     x = tf.keras.layers.Input(shape=(None, 1, 2, 4))
+    #     return tf.keras.Model(inputs=[x], outputs=self.call(x))
 
     @tf.function
     def train_step(self, data):

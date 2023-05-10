@@ -28,6 +28,7 @@ ak = maybe_import("awkward")
 
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
+
 # Invariant Mass Producers
 @producer(
     uses={
@@ -38,7 +39,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "mjj",
     },
 )
-def invariant_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+def invariant_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # category ids
     # invariant mass of two hardest jets
     events = self[attach_coffea_behavior](events, collections=["Jet"], **kwargs)
@@ -122,7 +123,8 @@ def invariant_mass_HH(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 # Producers for the columns of the kinetmatic variables of the jets, bjets and taus
 @producer(
     uses={
-        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.E",
+        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.E", "Jet.area",
+        "Jet.nConstituents", "Jet.jetID",
         attach_coffea_behavior,
     },
     produces={
@@ -135,17 +137,34 @@ def kinetamic_vars_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # Jet 1 and 2 kinematic variables
     # Jet 1
     events = self[attach_coffea_behavior](events, collections=["Jet"], **kwargs)
-
+    from IPython import embed; embed()
     events = set_ak_column_f32(events, "jet1_mass", Route("Jet.mass[:,0]").apply(events, EMPTY_FLOAT))
+    # events = set_ak_column_f32(events, "jet1_e", Route("Jet.energy[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "jet1_pt", Route("Jet.pt[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "jet1_eta", Route("Jet.eta[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "jet1_phi", Route("Jet.phi[:,0]").apply(events, EMPTY_FLOAT))
 
     # Jet 2
-    events = set_ak_column_f32(events, "jet2_mass", Route("Jet.mass[:,0]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet2_pt", Route("Jet.pt[:,0]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet2_eta", Route("Jet.eta[:,0]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet2_phi", Route("Jet.phi[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "jet2_mass", Route("Jet.mass[:,1]").apply(events, EMPTY_FLOAT))
+    # events = set_ak_column_f32(events, "jet2_e", Route("Jet.energy[:,1]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "jet2_pt", Route("Jet.pt[:,1]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "jet2_eta", Route("Jet.eta[:,1]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "jet2_phi", Route("Jet.phi[:,1]").apply(events, EMPTY_FLOAT))
+    jet1_e = events.Jet.E[:, 0]
+    jet1_mask = ak.num(events.Jet, axis=1) >= 1
+    jet2_e = events.Jet.E[:, 1]
+    jet2_mask = ak.num(events.Jet, axis=1) >= 2
+    events = set_ak_column_f32(
+        events,
+        "jet1_e",
+        ak.where(jet1_mask, jet1_e, EMPTY_FLOAT),
+    )
+    events = set_ak_column_f32(
+        events,
+        "jet2_e",
+        ak.where(jet2_mask, jet2_e, EMPTY_FLOAT),
+    )
+    from IPython import embed; embed()
     return events
 
 
@@ -165,12 +184,14 @@ def kinetamic_vars_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array
     # BJet 1
     events = self[attach_coffea_behavior](events, collections={"BJet": {"type_name": "Jet"}}, **kwargs)
     events = set_ak_column_f32(events, "bjet1_mass", Route("BJet.mass[:,0]").apply(events, EMPTY_FLOAT))
+    #events = set_ak_column_f32(events, "bjet1_e", Route("BJet.E[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet1_pt", Route("BJet.pt[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet1_eta", Route("BJet.eta[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet1_phi", Route("BJet.phi[:,0]").apply(events, EMPTY_FLOAT))
 
     # BJet 2
     events = set_ak_column_f32(events, "bjet2_mass", Route("BJet.mass[:,1]").apply(events, EMPTY_FLOAT))
+    #events = set_ak_column_f32(events, "bjet2_e", Route("BJet.E[:,1]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet2_pt", Route("BJet.pt[:,1]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet2_eta", Route("BJet.eta[:,1]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet2_phi", Route("BJet.phi[:,1]").apply(events, EMPTY_FLOAT))
@@ -194,12 +215,14 @@ def kinetamic_vars_taus(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # Tau 1
     events = self[attach_coffea_behavior](events, collections=["Tau"], **kwargs)
     events = set_ak_column_f32(events, "tau1_mass", Route("Tau.mass[:,0]").apply(events, EMPTY_FLOAT))
+  #  events = set_ak_column_f32(events, "tau1_e", Route("Tau.E[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau1_pt", Route("Tau.pt[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau1_eta", Route("Tau.eta[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau1_phi", Route("Tau.phi[:,0]").apply(events, EMPTY_FLOAT))
 
     # Tau 2
     events = set_ak_column_f32(events, "tau2_mass", Route("Tau.mass[:,1]").apply(events, EMPTY_FLOAT))
+  #  events = set_ak_column_f32(events, "tau2_e", Route("Tau.E[:,1]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau2_pt", Route("Tau.pt[:,1]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau2_eta", Route("Tau.eta[:,1]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau2_phi", Route("Tau.phi[:,1]").apply(events, EMPTY_FLOAT))
@@ -209,22 +232,26 @@ def kinetamic_vars_taus(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 # Producers for additional event information on the Jets
 @producer(
     uses={
-        "Jet.area", "Jet.nConstituents", "Jet.nJet",
+        "Jet.area", "Jet.nConstituents", "nJet", "Jet.hadronFlavour",
         attach_coffea_behavior,
     },
     produces={
         *[f"{obj}_{var}"
         for obj in ["jet1", "jet2"]
-        for var in ["area", "nConstituents"]], "jets_nJets"
+        for var in ["area", "nConstituents", "hadronFlavour"]], "jets_nJets"
     },
 )
 def jet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[attach_coffea_behavior](events, collections=["Jet"], **kwargs)
+    from IPython import embed; embed()
     events = set_ak_column_f32(events, "jet1_area", Route("Jet.area[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "jet2_area", Route("Jet.area[:,1]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "jet1_nConstituents", Route("Jet.nConstituents[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "jet2_nConstituents", Route("Jet.nConstituents[:,1]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jets_nJets", Route("Jet.nJets").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "jet1_hadronFlavour", Route("Jet.hadronFlavour[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "jet2_hadronFlavour", Route("Jet.hadronFlavour[:,1]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "jets_nJets", Route("Jet.nJet").apply(events, EMPTY_FLOAT))
+    return events
 
 
 # Producers for additional event information on the BJets
@@ -234,9 +261,9 @@ def jet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         attach_coffea_behavior,
     },
     produces={
-        f"{obj}_{var}"
+        *[f"{obj}_{var}"
         for obj in ["bjet1", "bjet2"]
-        for var in ["area", "nConstituents", "btag"]
+        for var in ["area", "nConstituents", "btag"]], "bjets_nJets"
     },
 )
 def bjet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -247,21 +274,5 @@ def bjet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "bjet2_nConstituents", Route("BJet.nConstituents[:,1]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet1_btag", Route("BJet.btagDeepFlavB[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet2_btag", Route("BJet.btagDeepFlavB[:,1]").apply(events, EMPTY_FLOAT))
-
-
-# Producers for additional information on the Taus/Leptons in the event
-@producer(
-    uses={
-        "BJet.area", "BJet.nConstituents", "BJet.btagDeepFlavB", "BJet.nJets",
-        attach_coffea_behavior,
-    },
-    produces={
-        *[f"{obj}_{var}"
-        for obj in ["bjet1", "bjet2"]
-        for var in ["area", "nConstituents", "btag"]], "bjets_nJets",
-    },
-)
-def lepton_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    events = self[attach_coffea_behavior](events, collections=["Tau"], **kwargs)
-
-
+    events = set_ak_column_f32(events, "bjets_nJets", Route("BJet.nJet").apply(events, EMPTY_FLOAT))
+    return events

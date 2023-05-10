@@ -61,6 +61,7 @@ class SimpleDNN(MLModel):
 
     def setup(self):
         # dynamically add variables for the quantities produced by this model
+        from IPython import embed; embed()
         for proc in self.processes:
             if f"{self.cls_name}.score_{proc}" not in self.config_inst.variables:
                 self.config_inst.add_variable(
