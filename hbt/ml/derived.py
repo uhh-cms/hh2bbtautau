@@ -54,19 +54,20 @@ dataset_names = {
 }
 
 input_features = [
-    f"{obj}_{var}"
-    for obj in ["jet1", "jet2"]
-    for var in ["pt", "eta", "phi", "mass", "e"]] # + ["mtautau", "mjj", "mbjetbjet", "mHH"]
-    # + [
-    # f"{obj}_{var}"
-    # for obj in ["jet1", "jet2"]
-    # for var in ["area", "nConstituents", "hadronFlavour"]] + [
-    # f"{obj}_{var}"
-    # for obj in ["bjet1", "bjet2"]
-    # for var in ["area", "nConstituents", "btag"]] + ["jets_nJets", "bjets_nJets"]
+    [f"{obj}_{var}"
+    for obj in ["jet1", "jet2", "bjet1", "bjet2", "tau1", "tau2"]
+    for var in ["pt", "eta", "phi", "mass", "e", "btag", "DeepTau_e", "jet_oneHot",
+                "bjet_oneHot", "tau_oneHot"]],
+    ["mjj", "mbjetbjet", "mtautau", "mHH"]]
+
+# Decide on dummy or proper btag of jets: If proper chose cooment out 4 lines below
+for i, name in enumerate(input_features[0]):
+    if name == 'jet1_btag' or name == 'jet2_btag':
+        name += "_dummy"
+        input_features[0][i] = name
 
 default_cls_dict = {
-    "folds": 5,
+    "folds": 1,
     # "max_events": 10**6,  # TODO
     "layers": [512, 512, 512],
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax

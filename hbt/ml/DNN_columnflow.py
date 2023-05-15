@@ -43,8 +43,8 @@ class CustomModel(keras.models.Model):
     def __init__(self, custom_layer_str):
         super().__init__(self)
         self.custom_layer_str = custom_layer_str
-        # self.flatten = tf.keras.layers.Flatten()
-        self.batch_norm = tf.keras.layers.BatchNormalization(axis=-1)
+        self.batch_norm_deepSets = tf.keras.layers.BatchNormalization(axis=-1)
+        self.batch_norm_2 = tf.keras.layers.BatchNormalization(axis=-1)
         self.hidden1 = tf.keras.layers.Dense(256, "selu")
         self.hidden2 = tf.keras.layers.Dense(256, "selu")
         self.sum_layer = sum_layer()
@@ -56,13 +56,10 @@ class CustomModel(keras.models.Model):
         self.op = tf.keras.layers.Dense(2, activation="softmax")
 
     def call(self, inputs):
-        # flatten = self.flatten(inputs)
-        # batch_norm = self.batch_norm(inputs)
-        print('Inputs', inputs.shape)
-        hidden1 = self.hidden1(inputs)
-        print('Hidden1', hidden1.shape)
+        inputs_deepSets, inputs_2 = inputs
+        batch_norm_deepSets = self.batch_norm_deepSets(inputs_deepSets)
+        hidden1 = self.hidden1(batch_norm_deepSets)
         hidden2 = self.hidden2(hidden1)
-        print('Hidden2', hidden2.shape)
         if self.custom_layer_str == "Sum":
             custom_layer = self.sum_layer(hidden2)
         elif self.custom_layer_str == "Max":
@@ -78,16 +75,26 @@ class CustomModel(keras.models.Model):
             custom_layer_mean = self.mean_layer(hidden2)
             custom_layer = self.concat_layer([custom_layer_sum, custom_layer_max,
             custom_layer_min, custom_layer_mean])
-        print(f'{self.custom_layer_str} Layer', custom_layer.shape)
-        hidden3 = self.hidden3(custom_layer)
-        print('Hidden3', hidden3.shape)
+        concat_next_nn = self.concat_layer([custom_layer, inputs_2])
+        batch_norm_2 = self.batch_norm_2(concat_next_nn)
+        hidden3 = self.hidden3(batch_norm_2)
         op = self.op(hidden3)
+
+        # print output shapes of all layers
+        print('Inputs Deep Sets', inputs_deepSets.shape, ', Inputs 2', inputs_2.shape)
+        # print('Batch Norm Deep Sets', batch_norm_deepSets.shape)
+        print('Hidden1', hidden1.shape)
+        print('Hidden2', hidden2.shape)
+        print(f'{self.custom_layer_str} Layer', custom_layer.shape)
+        print('Concat for next NN', concat_next_nn.shape)
+        # print('Batch Norm 2', batch_norm_2.shape)
+        print('Hidden3', hidden3.shape)
         print('Output', op.shape)
         return op
 
-    # def model(self):
-    #     x = tf.keras.layers.Input(shape=(None, 1, 2, 4))
-    #     return tf.keras.Model(inputs=[x], outputs=self.call(x))
+    def model_deepsets(self):
+        x = tf.keras.layers.Input(shape=(None, 1, 2, 4))
+        return tf.keras.Model(inputs=[x], outputs=self.call(x))
 
     @tf.function
     def train_step(self, data):
