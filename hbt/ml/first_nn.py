@@ -61,7 +61,6 @@ class SimpleDNN(MLModel):
 
     def setup(self):
         # dynamically add variables for the quantities produced by this model
-        from IPython import embed; embed()
         for proc in self.processes:
             if f"{self.cls_name}.score_{proc}" not in self.config_inst.variables:
                 self.config_inst.add_variable(
@@ -118,7 +117,7 @@ class SimpleDNN(MLModel):
     def uses(self, config_inst: od.Config) -> set[Route | str]:
         # print("HERE")
         # from IPython import embed; embed()
-        return {"normalization_weight", "category_ids"} | set(self.input_features)
+        return {"normalization_weight", "category_ids"} | set(self.input_features[0]) | set(self.input_features[1])
 
     def produces(self, config_inst: od.Config) -> set[Route | str]:
         produced = set()
@@ -219,6 +218,7 @@ class SimpleDNN(MLModel):
         DNN_inputs = {
             "weights": None,
             "inputs": None,
+            "inputs2": None,
             "target": None,
         }
 
@@ -236,6 +236,7 @@ class SimpleDNN(MLModel):
                 f"\n  Sum Eventweights: {sum_eventweights_proc}",
             )
             sum_nnweights = 0
+            from IPython import embed; embed()
 
             for inp in files:
                 events = ak.from_parquet(inp["mlevents"].path)
@@ -256,7 +257,7 @@ class SimpleDNN(MLModel):
 
                 # remove columns not used in training
                 for var in events.fields:
-                    if var not in self.input_features:
+                    if var not in self.input_features[0] and var not in self.input_features[1]:
                         print(f"removing column {var}")
                         events = remove_ak_column(events, var)
 
@@ -264,13 +265,20 @@ class SimpleDNN(MLModel):
                 # TODO: at this point we should save the order of our input variables
                 #       to ensure that they will be loaded in the correct order when
                 #       doing the evaluation
+                from IPython import embed; embed()
                 events = ak.to_numpy(events)
+                events2 = events.copy()
+                events2 = events2[self.input_features[1]]
+                events = events[self.input_features[0]]
 
                 events = events.astype(
                     [(name, np.float32) for name in events.dtype.names], copy=False,
                 ).view(np.float32).reshape((-1, len(events.dtype)))
+                events2 = events2.astype(
+                    [(name, np.float32) for name in events2.dtype.names], copy=False,
+                ).view(np.float32).reshape((-1, len(events2.dtype)))
 
-                if np.any(~np.isfinite(events)):
+                if np.any(~np.isfinite(events)) or np.any(~np.isfinite(events2)):
                     raise Exception(f"Infinite values found in inputs from dataset {dataset}")
 
                 # create the truth values for the output layer
@@ -282,12 +290,13 @@ class SimpleDNN(MLModel):
                 if DNN_inputs["weights"] is None:
                     DNN_inputs["weights"] = weights
                     DNN_inputs["inputs"] = events
+                    DNN_inputs["inputs2"] = events2
                     DNN_inputs["target"] = target
                 else:
                     DNN_inputs["weights"] = np.concatenate([DNN_inputs["weights"], weights])
                     DNN_inputs["inputs"] = np.concatenate([DNN_inputs["inputs"], events])
+                    DNN_inputs["inputs2"] = np.concatenate([DNN_inputs["inputs2"], events2])
                     DNN_inputs["target"] = np.concatenate([DNN_inputs["target"], target])
-
             logger.debug(f"   weights: {weights[:5]}")
             logger.debug(f"   Sum NN weights: {sum_nnweights}")
 
@@ -298,7 +307,6 @@ class SimpleDNN(MLModel):
         #
         # shuffle events and split into train and validation fold
         #
-
         inputs_size = sum([arr.size * arr.itemsize for arr in DNN_inputs.values()])
         logger.info(f"inputs size is {inputs_size / 1024**3} GB")
 
@@ -316,9 +324,12 @@ class SimpleDNN(MLModel):
             train[k] = DNN_inputs[k][N_validation_events:]
 
         # reshape train['inputs'] for DeepSets: [#events, #jets, -1]
-        train['inputs'] = tf.reshape(train['inputs'], [train['inputs'].shape[0], 2, -1])
+        n_objects = 6
+        train['inputs'] = tf.reshape(train['inputs'], [train['inputs'].shape[0], n_objects, -1])
+        train['inputs2'] = tf.reshape(train['inputs2'], [train['inputs2'].shape[0], 1, train['inputs2'].shape[1]])
         train['target'] = tf.reshape(train['target'], [train['target'].shape[0], 1, -1])
-        validation['inputs'] = tf.reshape(validation['inputs'], [validation['inputs'].shape[0], 2, -1])
+        validation['inputs'] = tf.reshape(validation['inputs'], [validation['inputs'].shape[0], n_objects, -1])
+        validation['inputs2'] = tf.reshape(validation['inputs2'], [validation['inputs2'].shape[0], 1, validation['inputs2'].shape[1]])
         validation['target'] = tf.reshape(validation['target'], [validation['target'].shape[0], 1, -1])
         return train, validation
 
@@ -368,7 +379,7 @@ class SimpleDNN(MLModel):
 
         # define the DNN model
         # TODO: do this Funcional instead of Sequential
-        model = CustomModel(custom_layer_str="Concat")
+        model = CustomModel(custom_layer_str="Sum")
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -427,8 +438,8 @@ class SimpleDNN(MLModel):
 
         # tf_train = tf.data.Dataset.from_tensor_slices((train["inputs"], train["target"]))
         # tf_validate = tf.data.Dataset.from_tensor_slices((validation["inputs"], validation["target"]))
-        tf_train = [train['inputs'], train['target']]
-        tf_validation = [validation['inputs'], validation['target']]
+        tf_train = [[train['inputs'], train['inputs2']], train['target']]
+        tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
 
         fit_kwargs = {
             "epochs": self.epochs,
@@ -444,9 +455,6 @@ class SimpleDNN(MLModel):
             batch_size=self.batchsize,
             **fit_kwargs,
         )
-        from IPython import embed; embed()
-        for layer in model.layers:
-            print(layer.output_shape)
 
         # save the model and history; TODO: use formatter
         # output.dump(model, formatter="tf_keras_model")
@@ -464,7 +472,6 @@ class SimpleDNN(MLModel):
         events_used_in_training: bool = True,
     ) -> None:
         logger.info(f"Evaluation of dataset {task.dataset}")
-
         models, history = zip(*models)
         # TODO: use history for loss+acc plotting
 
