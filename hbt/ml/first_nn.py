@@ -349,7 +349,9 @@ class SimpleDNN(MLModel):
         train['target'] = tf.reshape(train['target'], [train['target'].shape[0], 1, -1])
         validation['inputs2'] = tf.reshape(validation['inputs2'], [validation['inputs2'].shape[0], 1, validation['inputs2'].shape[1]])
         validation['target'] = tf.reshape(validation['target'], [validation['target'].shape[0], 1, -1])
+        print('------------------\n')
         print('train shape: ', train['inputs'].shape, 'validation shape: ', validation["inputs"].shape)
+        print('------------------\n')
         return train, validation
 
     def train(

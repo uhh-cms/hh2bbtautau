@@ -43,6 +43,7 @@ class CustomModel(keras.models.Model):
     def __init__(self, custom_layer_str):
         super().__init__(self)
         self.custom_layer_str = custom_layer_str
+        self.batch_norm_deepSets = tf.keras.layers.BatchNormalization(axis=-1)
         self.hidden1 = tf.keras.layers.Dense(256, "selu")
         self.hidden2 = tf.keras.layers.Dense(256, "selu")
         self.sum_layer = sum_layer()
@@ -50,12 +51,14 @@ class CustomModel(keras.models.Model):
         self.min_layer = min_layer()
         self.mean_layer = mean_layer()
         self.concat_layer = concat_layer()
+        self.batch_norm_2 = tf.keras.layers.BatchNormalization(axis=-1)
         self.hidden3 = tf.keras.layers.Dense(256, "selu")
         self.op = tf.keras.layers.Dense(2, activation="softmax")
 
     def call(self, inputs):
-        inputs_deepSets, inputs_2 = inputs
-        hidden1 = self.hidden1(inputs_deepSets)
+        inp_deepSets, inputs_2 = inputs
+        # normalized_inp_deepSets = tf.keras.layers.BatchNormalization(inp_deepSets)
+        hidden1 = self.hidden1(inp_deepSets)
         hidden2 = self.hidden2(hidden1)
         if self.custom_layer_str == "Sum":
             custom_layer = self.sum_layer(hidden2)
@@ -72,16 +75,19 @@ class CustomModel(keras.models.Model):
             custom_layer_mean = self.mean_layer(hidden2)
             custom_layer = self.concat_layer([custom_layer_sum, custom_layer_max,
             custom_layer_min, custom_layer_mean])
-        concat_next_nn = self.concat_layer([custom_layer, inputs_2])
-        hidden3 = self.hidden3(concat_next_nn)
+        concat = self.concat_layer([custom_layer, inputs_2])
+        # normalized_concat = self.batch_norm_2(concat_next_nn)
+        hidden3 = self.hidden3(concat)
         op = self.op(hidden3)
 
         # print output shapes of all layers
-        print('Inputs Deep Sets: ', inputs_deepSets.shape)
+        print('Inputs Deep Sets: ', inp_deepSets.shape)
+        # print('Batch Norm Deep Sets Inp: ', normalized_inp_deepSets.shape)
         print('Hidden1: ', hidden1.shape)
         print('Hidden2: ', hidden2.shape)
         print(f'{self.custom_layer_str} Layer: ', custom_layer.shape)
-        print('Concat for next NN: ', concat_next_nn.shape)
+        print('Concat for next NN: ', concat.shape)
+        # print('Batch Norm Conat: ', # normalized_concat.shape)
         print('Hidden3: ', hidden3.shape)
         print('Output: ', op.shape)
         return op
