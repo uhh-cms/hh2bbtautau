@@ -82,7 +82,7 @@ default_cls_dict = {
     "dataset_names": dataset_names,
     "input_features": input_features,
     "store_name": "inputs1",
-    "n_features": len(feature_list),
+    "n_features": len(feature_list[0] + feature_list[1]),
 }
 
 # derived model, usable on command line
@@ -90,7 +90,7 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["epochs"] = 50
+cls_dict["epochs"] = 5
 cls_dict["batchsize"] = 2048
 cls_dict["processes"] = [
     "graviton_hh_ggf_bbtautau_m400",

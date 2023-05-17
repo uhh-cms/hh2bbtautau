@@ -43,7 +43,7 @@ class CustomModel(keras.models.Model):
     def __init__(self, custom_layer_str):
         super().__init__(self)
         self.custom_layer_str = custom_layer_str
-        self.batch_norm_deepSets = tf.keras.layers.BatchNormalization(axis=-1)
+        self.batch_norm_deepSets = tf.keras.layers.BatchNormalization(axis=0)
         self.hidden1 = tf.keras.layers.Dense(256, "selu")
         self.hidden2 = tf.keras.layers.Dense(256, "selu")
         self.sum_layer = sum_layer()
@@ -57,7 +57,7 @@ class CustomModel(keras.models.Model):
 
     def call(self, inputs):
         inp_deepSets, inputs_2 = inputs
-        # normalized_inp_deepSets = tf.keras.layers.BatchNormalization(inp_deepSets)
+        # normalized_inp_deepSets = self.batch_norm_deepSets(inp_deepSets)
         hidden1 = self.hidden1(inp_deepSets)
         hidden2 = self.hidden2(hidden1)
         if self.custom_layer_str == "Sum":
@@ -76,7 +76,7 @@ class CustomModel(keras.models.Model):
             custom_layer = self.concat_layer([custom_layer_sum, custom_layer_max,
             custom_layer_min, custom_layer_mean])
         concat = self.concat_layer([custom_layer, inputs_2])
-        # normalized_concat = self.batch_norm_2(concat_next_nn)
+        # normalized_concat = self.batch_norm_2(concat)
         hidden3 = self.hidden3(concat)
         op = self.op(hidden3)
 

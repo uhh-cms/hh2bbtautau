@@ -267,11 +267,11 @@ class SimpleDNN(MLModel):
                 # TODO: at this point we should save the order of our input variables
                 #       to ensure that they will be loaded in the correct order when
                 #       doing the evaluation
+                from IPython import embed; embed()
                 events = ak.to_numpy(events)
                 events2 = events.copy()
                 events2 = events2[self.input_features[1]]
                 events = events[self.input_features[0]]
-
                 events = events.astype(
                     [(name, np.float32) for name in events.dtype.names], copy=False,
                 ).view(np.float32).reshape((-1, len(events.dtype)))
@@ -490,7 +490,7 @@ class SimpleDNN(MLModel):
         events: ak.Array,
         models: list(Any),
         fold_indices: ak.Array,
-        events_used_in_training: bool = True,
+        events_used_in_training: bool = False,
     ) -> None:
         logger.info(f"Evaluation of dataset {task.dataset}")
         models, history = zip(*models)
@@ -501,7 +501,7 @@ class SimpleDNN(MLModel):
 
         # remove columns not used in training
         for var in inputs.fields:
-            if var not in self.input_features:
+            if var not in self.input_features[0] and var not in self.input_features[1]:
                 inputs = remove_ak_column(inputs, var)
 
         # transform inputs into numpy ndarray
@@ -513,7 +513,7 @@ class SimpleDNN(MLModel):
         # do prediction for all models and all inputs
         predictions = []
         for i, model in enumerate(models):
-            pred = ak.from_numpy(model.predict_on_batch(inputs))
+            pred = ak.from_numpy(model.predict(inputs))
             if len(pred[0]) != len(self.processes):
                 raise Exception("Number of output nodes should be equal to number of processes")
             predictions.append(pred)
