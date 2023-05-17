@@ -128,29 +128,27 @@ def invariant_mass_HH(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         attach_coffea_behavior,
     },
     produces={
-        f"{obj}_{var}"
-        for obj in ["jet1", "jet2"]
-        for var in ["pt", "eta", "phi", "mass", "e"]
+        *[f"{obj}_{var}"
+        for obj in [f"jet{n}" for n in range(1, 7, 1)]
+        for var in ["pt", "eta", "phi", "mass", "e"]], "nJets"
     },
 )
 def kinematic_vars_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    # Jet 1 and 2 kinematic variables
-    # Jet 1
     events = self[attach_coffea_behavior](events, collections=["Jet"], **kwargs)
-    events = set_ak_column_f32(events, "jet1_mass", Route("Jet.mass[:,0]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet1_pt", Route("Jet.pt[:,0]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet1_eta", Route("Jet.eta[:,0]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet1_phi", Route("Jet.phi[:,0]").apply(events, EMPTY_FLOAT))
+    from IPython import embed; embed()
+    events = set_ak_column_f32(events, "nJets", ak.fill_none(events.n_jet, EMPTY_FLOAT))
+    jets_mass = ak.pad_none(events.Jet.mass, 6, axis=1)
+    jets_e = ak.pad_none(events.Jet.E, 6, axis=1)
+    jets_pt = ak.pad_none(events.Jet.pt, 6, axis=1)
+    jets_eta = ak.pad_none(events.Jet.eta, 6, axis=1)
+    jets_phi = ak.pad_none(events.Jet.phi, 6, axis=1)
+    for i in range(0, 6, 1):
+        events = set_ak_column_f32(events, f"jet{i+1}_mass", ak.fill_none(jets_mass[:, i], EMPTY_FLOAT))
+        events = set_ak_column_f32(events, f"jet{i+1}_e", ak.fill_none(jets_e[:, i], EMPTY_FLOAT))
+        events = set_ak_column_f32(events, f"jet{i+1}_pt", ak.fill_none(jets_pt[:, i], EMPTY_FLOAT))
+        events = set_ak_column_f32(events, f"jet{i+1}_eta", ak.fill_none(jets_eta[:, i], EMPTY_FLOAT))
+        events = set_ak_column_f32(events, f"jet{i+1}_phi", ak.fill_none(jets_phi[:, i], EMPTY_FLOAT))
 
-    # Jet 2
-    events = set_ak_column_f32(events, "jet2_mass", Route("Jet.mass[:,1]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet2_pt", Route("Jet.pt[:,1]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet2_eta", Route("Jet.eta[:,1]").apply(events, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet2_phi", Route("Jet.phi[:,1]").apply(events, EMPTY_FLOAT))
-    # get energy seperately
-    jets_e = ak.pad_none(events.Jet.E, 2, axis=1)
-    events = set_ak_column_f32(events, "jet1_e", ak.fill_none(jets_e[:, 0], EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "jet2_e", ak.fill_none(jets_e[:, 1], EMPTY_FLOAT))
     return events
 
 
@@ -229,7 +227,7 @@ def kinematic_vars_taus(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         *[f"{obj}_{var}"
         for obj in ["jet1", "jet2"]
         for var in ["hadronFlavour", "btag", "DeepTau_e", "btag_dummy", "jet_oneHot", "bjet_oneHot",
-        "tau_oneHot"]]
+        "tau_oneHot", "object_type"]]
     },
 )
 def jet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -258,6 +256,11 @@ def jet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "jet1_jet_oneHot", ak.fill_none(oneHot_fill_1, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "jet2_jet_oneHot", ak.fill_none(oneHot_fill_1, EMPTY_FLOAT))
 
+    # Alternateively use integer to define object type (Jet:1, BJet:2, Tau:3) and apply embendding
+    # layer in network
+    events = set_ak_column_f32(events, "jet1_object_type", ak.fill_none(oneHot_fill_1, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "jet2_object_type", ak.fill_none(oneHot_fill_1, EMPTY_FLOAT))
+
     return events
 
 
@@ -270,7 +273,7 @@ def jet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     produces={
         *[f"{obj}_{var}"
         for obj in ["bjet1", "bjet2"]
-        for var in ["btag", "DeepTau_e", "jet_oneHot", "bjet_oneHot", "tau_oneHot"]]
+        for var in ["btag", "DeepTau_e", "jet_oneHot", "bjet_oneHot", "tau_oneHot", "object_type"]]
     },
 )
 def bjet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -296,6 +299,12 @@ def bjet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "bjet1_bjet_oneHot", ak.fill_none(oneHot_fill_1, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "bjet2_bjet_oneHot", ak.fill_none(oneHot_fill_1, EMPTY_FLOAT))
 
+    # Create object type integer
+    object_type_1 = ak.full_like(padded_mass[:, 0], 2)
+    object_type_2 = ak.full_like(padded_mass[:, 1], 2)
+    events = set_ak_column_f32(events, "bjet1_object_type", ak.fill_none(object_type_1, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "bjet2_object_type", ak.fill_none(object_type_2, EMPTY_FLOAT))
+
     return events
 
 
@@ -310,7 +319,7 @@ def bjet_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         *[f"{obj}_{var}"
         for obj in ["tau1", "tau2"]
         for var in ["DeepTau_e", "DeepTau_mu", "DeepTau_jet", "decayMode", "btag", "jet_oneHot",
-        "bjet_oneHot", "tau_oneHot"]]
+        "bjet_oneHot", "tau_oneHot", "object_type"]]
     },
 )
 def tau_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -341,5 +350,11 @@ def tau_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "tau2_bjet_oneHot", ak.fill_none(oneHot_fill_0, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau1_tau_oneHot", ak.fill_none(oneHot_fill_1, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau2_tau_oneHot", ak.fill_none(oneHot_fill_1, EMPTY_FLOAT))
+
+    # Create object type integer
+    object_type_1 = ak.full_like(padded_mass[:, 0], 3)
+    object_type_2 = ak.full_like(padded_mass[:, 1], 3)
+    events = set_ak_column_f32(events, "tau1_object_type", ak.fill_none(object_type_1, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "tau2_object_type", ak.fill_none(object_type_2, EMPTY_FLOAT))
 
     return events

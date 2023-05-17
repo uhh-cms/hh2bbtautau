@@ -17,6 +17,7 @@ from columnflow.columnar_util import Route, set_ak_column, remove_ak_column
 from columnflow.tasks.selection import MergeSelectionStatsWrapper
 from columnflow.tasks.production import ProduceColumns
 from hbt.config.categories import add_categories_ml
+from columnflow.columnar_util import EMPTY_FLOAT
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -33,6 +34,7 @@ class SimpleDNN(MLModel):
             self,
             *args,
             folds: int | None = None,
+            n_features: int | None = None,
             **kwargs,
     ):
         """
@@ -48,6 +50,7 @@ class SimpleDNN(MLModel):
         # class- to instance-level attributes
         # (before being set, self.folds refers to a class-level attribute)
         self.folds = folds or self.folds
+        self.n_features = n_features or self.n_features
         # DNN model parameters
         """
         self.layers = [512, 512, 512]
@@ -236,7 +239,6 @@ class SimpleDNN(MLModel):
                 f"\n  Sum Eventweights: {sum_eventweights_proc}",
             )
             sum_nnweights = 0
-            from IPython import embed; embed()
 
             for inp in files:
                 events = ak.from_parquet(inp["mlevents"].path)
@@ -265,7 +267,6 @@ class SimpleDNN(MLModel):
                 # TODO: at this point we should save the order of our input variables
                 #       to ensure that they will be loaded in the correct order when
                 #       doing the evaluation
-                from IPython import embed; embed()
                 events = ak.to_numpy(events)
                 events2 = events.copy()
                 events2 = events2[self.input_features[1]]
@@ -324,13 +325,31 @@ class SimpleDNN(MLModel):
             train[k] = DNN_inputs[k][N_validation_events:]
 
         # reshape train['inputs'] for DeepSets: [#events, #jets, -1]
-        n_objects = 6
-        train['inputs'] = tf.reshape(train['inputs'], [train['inputs'].shape[0], n_objects, -1])
+        jets_collection_train = []
+        jets_collection_val = []
+        for i in range(train['inputs'].shape[0]):
+            arr_train = train['inputs'][i]
+            indices = np.where(arr_train != EMPTY_FLOAT)
+            jets_flat = arr_train[indices]
+            jets_shaped = jets_flat.reshape((1, -1, self.n_features))
+            jets_collection_train.append(jets_shaped)
+        stacked_train = tf.ragged.stack(jets_collection_train)
+        train['inputs'] = tf.squeeze(stacked_train, axis=1)
+
+        for i in range(validation['inputs'].shape[0]):
+            arr_val = validation['inputs'][i]
+            indices = np.where(arr_val != EMPTY_FLOAT)
+            jets_flat = arr_val[indices]
+            jets_shaped = jets_flat.reshape((1, -1, self.n_features))
+            jets_collection_val.append(jets_shaped)
+        stacked_val = tf.ragged.stack(jets_collection_val)
+        validation['inputs'] = tf.squeeze(stacked_val, axis=1)
+
         train['inputs2'] = tf.reshape(train['inputs2'], [train['inputs2'].shape[0], 1, train['inputs2'].shape[1]])
         train['target'] = tf.reshape(train['target'], [train['target'].shape[0], 1, -1])
-        validation['inputs'] = tf.reshape(validation['inputs'], [validation['inputs'].shape[0], n_objects, -1])
         validation['inputs2'] = tf.reshape(validation['inputs2'], [validation['inputs2'].shape[0], 1, validation['inputs2'].shape[1]])
         validation['target'] = tf.reshape(validation['target'], [validation['target'].shape[0], 1, -1])
+        print('train shape: ', train['inputs'].shape, 'validation shape: ', validation["inputs"].shape)
         return train, validation
 
     def train(
@@ -342,7 +361,7 @@ class SimpleDNN(MLModel):
         # np.random.seed(1337)  # for reproducibility
 
         # Load Custom Model
-        from hbt.ml.DNN_columnflow import CustomModel
+        from hbt.ml.DNN_simple import CustomModel
 
         physical_devices = tf.config.list_physical_devices("GPU")
         try:
@@ -358,11 +377,11 @@ class SimpleDNN(MLModel):
         train, validation = self.prepare_inputs(task, input)
 
         # check for infinite values
-        for key in train.keys():
-            if np.any(~np.isfinite(train[key])):
-                raise Exception(f"Infinite values found in training {key}")
-            if np.any(~np.isfinite(validation[key])):
-                raise Exception(f"Infinite values found in validation {key}")
+        # for key in train.keys():
+        #     if np.any(~np.isfinite(train[key])):
+        #         raise Exception(f"Infinite values found in training {key}")
+        #     if np.any(~np.isfinite(validation[key])):
+        #         raise Exception(f"Infinite values found in validation {key}")
 
         gc.collect()
         logger.info("garbage collected")

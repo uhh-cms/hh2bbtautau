@@ -43,6 +43,7 @@ class CustomModel(keras.models.Model):
     def __init__(self, custom_layer_str):
         super().__init__(self)
         self.custom_layer_str = custom_layer_str
+        self.embedding = tf.keras.layers.Embedding(input_dim=3, output_dim=3, input_length=6)
         self.batch_norm_deepSets = tf.keras.layers.BatchNormalization(axis=-1)
         self.batch_norm_2 = tf.keras.layers.BatchNormalization(axis=-1)
         self.hidden1 = tf.keras.layers.Dense(256, "selu")
@@ -56,7 +57,10 @@ class CustomModel(keras.models.Model):
         self.op = tf.keras.layers.Dense(2, activation="softmax")
 
     def call(self, inputs):
-        inputs_deepSets, inputs_2 = inputs
+        inputs1, inputs_2 = inputs
+        object_category = inputs1[:,:,-1]
+        embedding = self.embedding(object_category)
+        inputs_deepSets = tf.concat([inputs1[:,:,:-1], embedding], axis=2)
         batch_norm_deepSets = self.batch_norm_deepSets(inputs_deepSets)
         hidden1 = self.hidden1(batch_norm_deepSets)
         hidden2 = self.hidden2(hidden1)
@@ -81,8 +85,11 @@ class CustomModel(keras.models.Model):
         op = self.op(hidden3)
 
         # print output shapes of all layers
-        print('Inputs Deep Sets', inputs_deepSets.shape, ', Inputs 2', inputs_2.shape)
         # print('Batch Norm Deep Sets', batch_norm_deepSets.shape)
+        print('Inputs1: ', inputs1.shape, ', Inputs 2: ', inputs_2.shape)
+        print('object: ', object_category.shape)
+        print('embedding: ', embedding.shape)
+        print('Inputs Deep Sets: ', inputs_deepSets)
         print('Hidden1', hidden1.shape)
         print('Hidden2', hidden2.shape)
         print(f'{self.custom_layer_str} Layer', custom_layer.shape)

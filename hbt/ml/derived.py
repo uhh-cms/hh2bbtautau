@@ -53,11 +53,12 @@ dataset_names = {
     "graviton_hh_vbf_bbtautau_m400_madgraph",
 }
 
+feature_list = ["pt", "eta", "phi", "mass", "e"]
+
 input_features = [
     [f"{obj}_{var}"
-    for obj in ["jet1", "jet2", "bjet1", "bjet2", "tau1", "tau2"]
-    for var in ["pt", "eta", "phi", "mass", "e", "btag", "DeepTau_e", "jet_oneHot",
-                "bjet_oneHot", "tau_oneHot"]],
+    for obj in [f"jet{i}" for i in range(1, 7, 1)]
+    for var in feature_list],
     ["mjj", "mbjetbjet", "mtautau", "mHH"]]
 
 # Decide on dummy or proper btag of jets: If proper chose cooment out 4 lines below
@@ -81,6 +82,7 @@ default_cls_dict = {
     "dataset_names": dataset_names,
     "input_features": input_features,
     "store_name": "inputs1",
+    "n_features": len(feature_list),
 }
 
 # derived model, usable on command line

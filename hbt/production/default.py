@@ -59,16 +59,16 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # kinetmatatic vars for jets, bjets, taus
     events = self[kinematic_vars_jets](events, **kwargs)
 
-    events = self[kinematic_vars_bjets](events, **kwargs)
+    # events = self[kinematic_vars_bjets](events, **kwargs)
 
-    events = self[kinematic_vars_taus](events, **kwargs)
+    # events = self[kinematic_vars_taus](events, **kwargs)
 
     # additional information on the jets and bjets
-    events = self[jet_information](events, **kwargs)
+    # events = self[jet_information](events, **kwargs)
 
-    events = self[bjet_information](events, **kwargs)
+    # events = self[bjet_information](events, **kwargs)
 
-    events = self[tau_information](events, **kwargs)
+    # events = self[tau_information](events, **kwargs)
 
     # mc-only weights
     if self.dataset_inst.is_mc:
