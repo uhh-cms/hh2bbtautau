@@ -7,7 +7,7 @@ Tau scale factor production.
 import functools
 
 from columnflow.production import Producer, producer
-from columnflow.util import maybe_import
+from columnflow.util import maybe_import, InsertableDict
 from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
 
 
@@ -185,7 +185,7 @@ def tau_weights_requires(self: Producer, reqs: dict) -> None:
 
 
 @tau_weights.setup
-def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors
@@ -318,7 +318,7 @@ def trigger_weights_requires(self: Producer, reqs: dict) -> None:
 
 
 @trigger_weights.setup
-def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors

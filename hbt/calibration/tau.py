@@ -9,7 +9,7 @@ import itertools
 
 from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.util import propagate_met
-from columnflow.util import maybe_import
+from columnflow.util import maybe_import, InsertableDict
 from columnflow.columnar_util import set_ak_column, flat_np_view, ak_copy
 
 
@@ -164,7 +164,7 @@ def tec_requires(self: Calibrator, reqs: dict) -> None:
 
 
 @tec.setup
-def tec_setup(self: Calibrator, reqs: dict, inputs: dict) -> None:
+def tec_setup(self: Calibrator, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     bundle = reqs["external_files"]
 
     # create the tec corrector

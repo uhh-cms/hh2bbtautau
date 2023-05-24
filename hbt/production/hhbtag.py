@@ -8,7 +8,7 @@ See https://github.com/hh-italian-group/HHbtag.
 import law
 
 from columnflow.production import Producer, producer
-from columnflow.util import maybe_import, dev_sandbox
+from columnflow.util import maybe_import, dev_sandbox, InsertableDict
 from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
 
 
@@ -145,7 +145,7 @@ def hhbtag_requires(self: Producer, reqs: dict) -> None:
 
 
 @hhbtag.setup
-def hhbtag_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     """
     Sets up the two HHBtag TF models.
     """
