@@ -205,10 +205,14 @@ def jet_selection(
                 "Jet": jet_indices,
                 "HHBJet": hhbjet_indices,
                 "NonHHBJet": non_hhbjet_indices,
-                "FatJet": fatjet_indices,
+                "VBFJet": vbfjet_indices,
+            },
+            "FatJet": {
+                "FatJet": fatjet_indices,  # updated: not from Jet column anymore
+            },
+            "SubJet": {
                 "SubJet1": subjet_indices[..., 0],
                 "SubJet2": subjet_indices[..., 1],
-                "VBFJet": vbfjet_indices,
             },
         },
         aux={
