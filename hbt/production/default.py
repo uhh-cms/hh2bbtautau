@@ -63,7 +63,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # events = self[kinematic_vars_taus](events, **kwargs)
 
-    # additional information on the jets and bjets
+    # information on the jets and bjets
     # events = self[jet_information](events, **kwargs)
 
     # events = self[bjet_information](events, **kwargs)

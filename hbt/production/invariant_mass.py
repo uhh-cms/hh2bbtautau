@@ -124,30 +124,62 @@ def invariant_mass_HH(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 @producer(
     uses={
         "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.E", "Jet.area",
-        "Jet.nConstituents", "Jet.jetID",
+        "Jet.nConstituents", "Jet.jetID", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
         attach_coffea_behavior,
     },
     produces={
-        *[f"{obj}_{var}"
-        for obj in [f"jet{n}" for n in range(1, 7, 1)]
-        for var in ["pt", "eta", "phi", "mass", "e"]], "nJets"
+        # *[f"{obj}_{var}"
+        # for obj in [f"jet{n}" for n in range(1, 7, 1)]
+        # for var in ["pt", "eta", "phi", "mass", "e", "btag", "hadronFlavour"]], "nJets", "nConstituents", "jets_pt",
+        "nJets", "jets_pt", "jets_e", "jets_eta", "jets_phi", "jets_mass", "jets_btag", "jets_hadFlav",
     },
 )
 def kinematic_vars_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[attach_coffea_behavior](events, collections=["Jet"], **kwargs)
-    from IPython import embed; embed()
     events = set_ak_column_f32(events, "nJets", ak.fill_none(events.n_jet, EMPTY_FLOAT))
-    jets_mass = ak.pad_none(events.Jet.mass, 6, axis=1)
-    jets_e = ak.pad_none(events.Jet.E, 6, axis=1)
-    jets_pt = ak.pad_none(events.Jet.pt, 6, axis=1)
-    jets_eta = ak.pad_none(events.Jet.eta, 6, axis=1)
-    jets_phi = ak.pad_none(events.Jet.phi, 6, axis=1)
-    for i in range(0, 6, 1):
-        events = set_ak_column_f32(events, f"jet{i+1}_mass", ak.fill_none(jets_mass[:, i], EMPTY_FLOAT))
-        events = set_ak_column_f32(events, f"jet{i+1}_e", ak.fill_none(jets_e[:, i], EMPTY_FLOAT))
-        events = set_ak_column_f32(events, f"jet{i+1}_pt", ak.fill_none(jets_pt[:, i], EMPTY_FLOAT))
-        events = set_ak_column_f32(events, f"jet{i+1}_eta", ak.fill_none(jets_eta[:, i], EMPTY_FLOAT))
-        events = set_ak_column_f32(events, f"jet{i+1}_phi", ak.fill_none(jets_phi[:, i], EMPTY_FLOAT))
+    # jets_mass = ak.pad_none(events.Jet.mass, 6, axis=1)
+    # jets_e = ak.pad_none(events.Jet.E, 6, axis=1)
+    # jets_pt = ak.pad_none(events.Jet.pt, 6, axis=1)
+    # jets_eta = ak.pad_none(events.Jet.eta, 6, axis=1)
+    # jets_phi = ak.pad_none(events.Jet.phi, 6, axis=1)
+    # jets_btag = ak.pad_none(events.Jet.btagDeepFlavB, 6, axis=1)
+    # jets_hadFlav = ak.pad_none(events.Jet.hadronFlavour, 6, axis=1)
+    jets_pt = ak.pad_none(events.Jet.pt, max(events.n_jet))
+    jets_pt = ak.to_regular(jets_pt, axis=1)
+    jets_pt = ak.fill_none(jets_pt, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "jets_pt", jets_pt)
+    jets_eta = ak.pad_none(events.Jet.eta, max(events.n_jet))
+    jets_eta = ak.to_regular(jets_eta, axis=1)
+    jets_eta = ak.fill_none(jets_eta, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "jets_eta", jets_eta)
+    jets_phi = ak.pad_none(events.Jet.phi, max(events.n_jet))
+    jets_phi = ak.to_regular(jets_phi, axis=1)
+    jets_phi = ak.fill_none(jets_phi, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "jets_phi", jets_phi)
+    jets_mass = ak.pad_none(events.Jet.mass, max(events.n_jet))
+    jets_mass = ak.to_regular(jets_mass, axis=1)
+    jets_mass = ak.fill_none(jets_mass, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "jets_mass", jets_mass)
+    jets_e = ak.pad_none(events.Jet.E, max(events.n_jet))
+    jets_e = ak.to_regular(jets_e, axis=1)
+    jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "jets_e", jets_e)
+    jets_btag = ak.pad_none(events.Jet.btagDeepFlavB, max(events.n_jet))
+    jets_btag = ak.to_regular(jets_btag, axis=1)
+    jets_btag = ak.fill_none(jets_btag, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "jets_btag", jets_btag)
+    jets_hadFlav = ak.pad_none(events.Jet.hadronFlavour, max(events.n_jet))
+    jets_hadFlav = ak.to_regular(jets_hadFlav, axis=1)
+    jets_hadFlav = ak.fill_none(jets_hadFlav, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "jets_hadFlav", jets_hadFlav)
+    # for i in range(0, 6, 1):
+    #     events = set_ak_column_f32(events, f"jet{i+1}_mass", ak.fill_none(jets_mass[:, i], EMPTY_FLOAT))
+    #     events = set_ak_column_f32(events, f"jet{i+1}_e", ak.fill_none(jets_e[:, i], EMPTY_FLOAT))
+    #     events = set_ak_column_f32(events, f"jet{i+1}_pt", ak.fill_none(jets_pt[:, i], EMPTY_FLOAT))
+    #     events = set_ak_column_f32(events, f"jet{i+1}_eta", ak.fill_none(jets_eta[:, i], EMPTY_FLOAT))
+    #     events = set_ak_column_f32(events, f"jet{i+1}_phi", ak.fill_none(jets_phi[:, i], EMPTY_FLOAT))
+    #     events = set_ak_column_f32(events, f"jet{i+1}_btag", ak.fill_none(jets_btag[:, i], EMPTY_FLOAT))
+    #     events = set_ak_column_f32(events, f"jet{i+1}_hadronFlavour", ak.fill_none(jets_hadFlav[:, i], EMPTY_FLOAT))
 
     return events
 

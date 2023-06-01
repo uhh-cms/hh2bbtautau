@@ -46,13 +46,16 @@ class CustomModel(keras.models.Model):
         self.batch_norm_deepSets = tf.keras.layers.BatchNormalization(axis=0)
         self.hidden1 = tf.keras.layers.Dense(256, "selu")
         self.hidden2 = tf.keras.layers.Dense(256, "selu")
+        self.hidden3 = tf.keras.layers.Dense(256, "selu")
         self.sum_layer = sum_layer()
         self.max_layer = max_layer()
         self.min_layer = min_layer()
         self.mean_layer = mean_layer()
         self.concat_layer = concat_layer()
         self.batch_norm_2 = tf.keras.layers.BatchNormalization(axis=-1)
-        self.hidden3 = tf.keras.layers.Dense(256, "selu")
+        self.hidden4 = tf.keras.layers.Dense(256, "selu")
+        self.hidden5 = tf.keras.layers.Dense(256, "selu")
+        self.hidden6 = tf.keras.layers.Dense(256, "selu")
         self.op = tf.keras.layers.Dense(2, activation="softmax")
 
     def call(self, inputs):
@@ -60,25 +63,28 @@ class CustomModel(keras.models.Model):
         # normalized_inp_deepSets = self.batch_norm_deepSets(inp_deepSets)
         hidden1 = self.hidden1(inp_deepSets)
         hidden2 = self.hidden2(hidden1)
+        hidden3 = self.hidden3(hidden2)
         if self.custom_layer_str == "Sum":
-            custom_layer = self.sum_layer(hidden2)
+            custom_layer = self.sum_layer(hidden3)
         elif self.custom_layer_str == "Max":
-            custom_layer = self.max_layer(hidden2)
+            custom_layer = self.max_layer(hidden3)
         elif self.custom_layer_str == "Min":
-            custom_layer = self.min_layer(hidden2)
+            custom_layer = self.min_layer(hidden3)
         elif self.custom_layer_str == "Mean":
-            custom_layer = self.mean_layer(hidden2)
+            custom_layer = self.mean_layer(hidden3)
         elif self.custom_layer_str == "Concat":
-            custom_layer_sum = self.sum_layer(hidden2)
-            custom_layer_max = self.max_layer(hidden2)
-            custom_layer_min = self.min_layer(hidden2)
-            custom_layer_mean = self.mean_layer(hidden2)
+            custom_layer_sum = self.sum_layer(hidden3)
+            custom_layer_max = self.max_layer(hidden3)
+            custom_layer_min = self.min_layer(hidden3)
+            custom_layer_mean = self.mean_layer(hidden3)
             custom_layer = self.concat_layer([custom_layer_sum, custom_layer_max,
             custom_layer_min, custom_layer_mean])
         concat = self.concat_layer([custom_layer, inputs_2])
         # normalized_concat = self.batch_norm_2(concat)
-        hidden3 = self.hidden3(concat)
-        op = self.op(hidden3)
+        hidden4 = self.hidden4(concat)
+        hidden5 = self.hidden5(hidden4)
+        hidden6 = self.hidden6(hidden5)
+        op = self.op(hidden6)
 
         # print output shapes of all layers
         print('Inputs Deep Sets: ', inp_deepSets.shape)

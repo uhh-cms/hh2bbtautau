@@ -13,7 +13,7 @@ processes = [
     "graviton_hh_vbf_bbtautau_m400",
 ]
 
-custom_procweights = {
+ml_process_weights = {
     "graviton_hh_ggf_bbtautau_m400": 1,
     "graviton_hh_vbf_bbtautau_m400": 1,
 }
@@ -53,19 +53,22 @@ dataset_names = {
     "graviton_hh_vbf_bbtautau_m400_madgraph",
 }
 
-feature_list = ["pt", "eta", "phi", "mass", "e"]
+# feature_list = ["pt", "eta", "phi", "mass", "e", "btag", "hadronFlavour"]
 
-input_features = [
-    [f"{obj}_{var}"
-    for obj in [f"jet{i}" for i in range(1, 7, 1)]
-    for var in feature_list],
-    ["mjj", "mbjetbjet", "mtautau", "mHH"]]
+# input_features = [
+#     [f"{obj}_{var}"
+#     for obj in [f"jet{i}" for i in range(1, 7, 1)]
+#     for var in feature_list],
+#     ["mjj", "mbjetbjet", "mtautau", "mHH"]]
 
-# Decide on dummy or proper btag of jets: If proper chose cooment out 4 lines below
-for i, name in enumerate(input_features[0]):
-    if name == 'jet1_btag' or name == 'jet2_btag':
-        name += "_dummy"
-        input_features[0][i] = name
+input_features = [["jets_pt", "jets_e", "jets_mass", "jets_eta", "jets_phi", "jets_btag"],
+                  ["mjj", "mbjetbjet", "mtautau", "mHH"]]
+
+# Decide on dummy or proper btag of jets: If proper chosen coment out 4 lines below
+# for i, name in enumerate(input_features[0]):
+#     if name == 'jet1_btag' or name == 'jet2_btag':
+#         name += "_dummy"
+#         input_features[0][i] = name
 
 default_cls_dict = {
     "folds": 3,
@@ -78,11 +81,11 @@ default_cls_dict = {
     "eqweight": True,
     "dropout": 0.50,
     "processes": processes,
-    "custom_procweights": custom_procweights,
+    "ml_process_weights": ml_process_weights,
     "dataset_names": dataset_names,
     "input_features": input_features,
     "store_name": "inputs1",
-    "n_features": len(feature_list[0] + feature_list[1]),
+    "n_features": len(input_features[0]),
 }
 
 # derived model, usable on command line
@@ -100,5 +103,6 @@ cls_dict["dataset_names"] = {
     "graviton_hh_ggf_bbtautau_m400_madgraph",
     "graviton_hh_vbf_bbtautau_m400_madgraph",
 }
+cls_dict["model_name"] = "test_run"
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
