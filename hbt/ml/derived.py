@@ -93,7 +93,7 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["epochs"] = 5
+cls_dict["epochs"] = 100
 cls_dict["batchsize"] = 2048
 cls_dict["processes"] = [
     "graviton_hh_ggf_bbtautau_m400",

@@ -46,6 +46,7 @@ def reshape_raw_inputs1(events, n_features, input_features):
 
 
 def reshape_raw_inputs2(events):
+    events = ak.to_numpy(events)
     events = events.astype(
         [(name, np.float32) for name in events.dtype.names], copy=False,
     ).view(np.float32).reshape((-1, len(events.dtype)))
@@ -56,6 +57,7 @@ def reshape_raw_inputs2(events):
     return events
 
 
+# returns a dict containg the normed and correctly shaped inputs1 and 2
 def reshape_norm_inputs(events_dict, n_features):
     # reshape train['inputs'] for DeepSets: [#events, #jets, -1] and apply standardization (z-score)
     # calculate mean and std for normalization
@@ -344,7 +346,6 @@ class SimpleDNN(MLModel):
                         events = remove_ak_column(events, var)
 
                 events2 = events[self.input_features[1]]
-                events2 = ak.to_numpy(events2)
                 events = events[self.input_features[0]]
 
                 # reshape raw inputs
@@ -595,47 +596,35 @@ class SimpleDNN(MLModel):
         events_used_in_training: bool = True,
     ) -> None:
 
-        self.process_insts = []
-        for i, proc in enumerate(self.processes):
-            proc_inst = self.config_insts[0].get_process(proc)
-            proc_inst.x.ml_id = i
-            proc_inst.x.ml_process_weight = self.ml_process_weights.get(proc, 1)
-
-            self.process_insts.append(proc_inst)
-
-        weights = events.normalization_weight
-        weights = ak.to_numpy(weights)
         # output = task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}", dir=True)
-        output_all_folds = task.target(f"mlmodel_all_folds_{self.model_name}", dir=True)
-        # law.LocalDirectoryTarget(path=os.path.join("MLEvaluate", "results_batch_size_{}.csv".format(self.batch_size)))
+        # output_all_folds = task.target(f"mlmodel_all_folds_{self.model_name}", dir=True)
         logger.info(f"Evaluation of dataset {task.dataset}")
         models, history = zip(*models)
-        # TODO: use history for loss+acc plotting
-        # create a copy of the inputs to use for evaluation
 
+        # create a copy of the inputs to use for evaluation
         inputs = ak.copy(events)
         events2 = events[self.input_features[1]]
-        events2 = ak.to_numpy(events2)
         events1 = events[self.input_features[0]]
 
-        events1 = reshape_raw_inputs1(events1, self.n_features, self.input_features)
+        events1 = reshape_raw_inputs1(events1, self.n_features, self.input_features[0])
         events2 = reshape_raw_inputs2(events2)
 
         target_dict = {'graviton_hh_ggf_bbtautau_m400_madgraph': 0,
             'graviton_hh_vbf_bbtautau_m400_madgraph': 1}
-        target = np.zeros((events.shape[0], 2))
+
+        # create target and add to test dict
+        target = np.zeros((events1.shape[0], 2))
         target[:, target_dict[task.dataset]] = 1
 
-        test = {'inputs1': events1,
+        test = {'inputs': events1,
                 'inputs2': events2,
                 'target': target,
-                'weights': weights,
                 }
 
         test = reshape_norm_inputs(test, self.n_features)
 
-        inputs = [test["inputs1"], test["inputs2"]]
-        # from IPython import embed; embed()
+        # inputs to feed to the model
+        inputs = [test["inputs"], test["inputs2"]]
 
         # do prediction for all models and all inputs
         predictions = []
@@ -646,15 +635,6 @@ class SimpleDNN(MLModel):
             if len(pred[0]) != len(self.processes):
                 raise Exception("Number of output nodes should be equal to number of processes")
             predictions.append(pred)
-
-            # Save predictions for each model
-            # TODO: create train/val/test plots (confusion, ROC, nodes) using these predictions?
-            """
-            for j, proc in enumerate(self.processes):
-                events = set_ak_column(
-                    events, f"{self.cls_name}.fold{i}_score_{proc}", pred[:, j],
-                )
-            """
 
         '''In pred, each model sees the complete set of data, this includes data used for training
         and validation. For each model, keep only the predictions on inputs that were not yet seen
@@ -676,8 +656,7 @@ class SimpleDNN(MLModel):
             override the entries at these indices in outputs with the prediction of the model.'''
             idx = ak.to_regular(ak.concatenate([ak.singletons(fold_indices == i)] * len(self.processes), axis=1))
             outputs = ak.where(idx, predictions[i], outputs)
-            test[f'pred_model_{i}'] = np.squeeze(predictions[i])
-            # plot_roc_ovr(test, output, "test_set_mlmodel_{i}", self.process_insts, f"pred_model_{i}")
+            events = set_ak_column(events, f"pred_model_{i}", np.squeeze(predictions[i]))
 
         test['prediction'] = np.squeeze(outputs)
 
@@ -689,7 +668,9 @@ class SimpleDNN(MLModel):
             events = set_ak_column(
                 events, f"{self.cls_name}.score_{proc}", outputs[:, i],
             )
-        # plot_roc_ovr(test, output_all_folds, "test_set_complete_set", self.process_insts)
+
+        events = set_ak_column(events, "predictions", test["prediction"])
+        events = set_ak_column(events, f"{self.cls_name}.ml_truth_label", np.squeeze(test['target']))
 
         # ML categorization on top of existing categories
         # ml_categories = [cat for cat in self.config_inst.categories if "ml_" in cat.name]
@@ -699,8 +680,6 @@ class SimpleDNN(MLModel):
         #     f.replace("score_", ""): events[self.cls_name, f]
         #     for f in events[self.cls_name].fields if f.startswith("score_")
         # })
-
-        # from IPython import embed; embed()
 
         # ml_category_ids = max_score = ak.Array(np.zeros(len(events)))
         # for proc in scores.fields:
@@ -713,6 +692,5 @@ class SimpleDNN(MLModel):
         #     events.category_ids,
         # )
         # events = set_ak_column(events, "category_ids", category_ids)
-        events = set_ak_column(inputs_raw, f"{self.cls_name}.ml_truth_label", ak.full_like(outputs[:, 0], target_dict[task.dataset]))
 
         return events
