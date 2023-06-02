@@ -18,6 +18,7 @@ from scinum import Number
 from columnflow.util import DotDict, dev_sandbox
 from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
+    verify_config_processes,
 )
 
 
@@ -160,6 +161,9 @@ def add_config(
         if limit_dataset_files:
             for info in dataset.info.values():
                 info.n_files = min(info.n_files, limit_dataset_files)
+
+    # verify that the root process of all datasets is part of any of the registered processes
+    verify_config_processes(cfg, warn=True)
 
     # default objects, such as calibrator, selector, producer, ml model, inference model, etc
     cfg.x.default_calibrator = "default"
