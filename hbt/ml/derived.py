@@ -10,11 +10,13 @@ from hbt.ml.first_nn import SimpleDNN
 
 processes = [
     "graviton_hh_ggf_bbtautau_m400",
+    "hh_ggf_bbtautau",
     "graviton_hh_vbf_bbtautau_m400",
 ]
 
 ml_process_weights = {
     "graviton_hh_ggf_bbtautau_m400": 1,
+    "hh_ggf_bbtautau": 1,
     "graviton_hh_vbf_bbtautau_m400": 1,
 }
 
@@ -50,6 +52,7 @@ dataset_names = {
     "dy_lep_m50_ht1200to2500_madgraph",
     "dy_lep_m50_ht2500_madgraph",
     "graviton_hh_ggf_bbtautau_m400_madgraph",
+    "hh_ggf_bbtautau_madgraph",
     "graviton_hh_vbf_bbtautau_m400_madgraph",
 }
 
@@ -93,16 +96,18 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["epochs"] = 100
+cls_dict["epochs"] = 150
 cls_dict["batchsize"] = 2048
 cls_dict["processes"] = [
     "graviton_hh_ggf_bbtautau_m400",
+    "hh_ggf_bbtautau",
     "graviton_hh_vbf_bbtautau_m400",
 ]
 cls_dict["dataset_names"] = {
     "graviton_hh_ggf_bbtautau_m400_madgraph",
+    "hh_ggf_bbtautau_madgraph",
     "graviton_hh_vbf_bbtautau_m400_madgraph",
 }
-cls_dict["model_name"] = "test_run"
+cls_dict["model_name"] = "3classes"
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
