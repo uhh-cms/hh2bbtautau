@@ -48,13 +48,13 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # invariant masses
 
-    events = self[invariant_mass_jets](events, **kwargs)
+    # events = self[invariant_mass_jets](events, **kwargs)
 
-    events = self[invariant_mass_bjets](events, **kwargs)
+    # events = self[invariant_mass_bjets](events, **kwargs)
 
-    events = self[invariant_mass_tau](events, **kwargs)
+    # events = self[invariant_mass_tau](events, **kwargs)
 
-    events = self[invariant_mass_HH](events, **kwargs)
+    # events = self[invariant_mass_HH](events, **kwargs)
 
     # kinetmatatic vars for jets, bjets, taus
     events = self[kinematic_vars_jets](events, **kwargs)
