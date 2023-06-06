@@ -15,7 +15,7 @@ hist = maybe_import("hist")
 tf = maybe_import("tensorflow")
 
 
-def plot_loss(history, output) -> None:
+def plot_loss(history, output, classification="categorical") -> None:
     """
     Simple function to create and store a loss plot
     """
@@ -35,7 +35,7 @@ def plot_loss(history, output) -> None:
     output.child("Loss.pdf", type="f").dump(fig, formatter="mpl")
 
 
-def plot_accuracy(history, output) -> None:
+def plot_accuracy(history, output, classification="categorical") -> None:
     """
     Simple function to create and store an accuracy plot
     """
@@ -43,8 +43,8 @@ def plot_accuracy(history, output) -> None:
     plt.style.use(mplhep.style.CMS)
 
     fig, ax = plt.subplots()
-    ax.plot(history["categorical_accuracy"])
-    ax.plot(history["val_categorical_accuracy"])
+    ax.plot(history[f"{classification}_accuracy"])
+    ax.plot(history[f"val_{classification}_accuracy"])
     ax.set(**{
         "ylabel": "Accuracy",
         "xlabel": "Epoch",
@@ -138,6 +138,50 @@ def plot_roc_ovr(
     output.child(f"ROC_ovr_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
 
 
+def plot_roc_ovr_binary(
+        inputs: DotDict,
+        output: law.FileSystemDirectoryTarget,
+        input_type: str,
+        process_insts: tuple[od.Process],
+) -> None:
+    """
+    Simple function to create and store some ROC plots;
+    mode: OvR (one versus rest)
+    """
+    from sklearn.metrics import roc_curve, roc_auc_score
+
+    auc_scores = []
+
+    fig, ax = plt.subplots()
+    fpr, tpr, thresholds = roc_curve(
+        y_true=inputs['target_binary'],
+        y_score=inputs['prediction_binary'],
+        sample_weight=inputs['weights'],
+    )
+
+    auc_scores.append(roc_auc_score(
+        inputs['target_binary'], inputs['prediction_binary'],
+        average="macro", multi_class="ovr",
+    ))
+
+    # create the plot
+    ax.plot(fpr, tpr)
+
+    ax.set_title(f"ROC OvR, {input_type} set")
+    ax.set_xlabel("Background selection efficiency (FPR)")
+    ax.set_ylabel("Signal selection efficiency (TPR)")
+
+    # legend
+    # labels = [proc_inst.label for proc_inst in process_insts] if process_insts else range(n_classes)
+    ax.legend(
+        [f"(AUC: {auc_scores[0]:.4f})"],
+        loc="best",
+    )
+    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
+
+    output.child(f"ROC_ovr_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
+
+
 def plot_output_nodes(
         model: tf.keras.models.Model,
         train: DotDict,
@@ -198,7 +242,7 @@ def plot_output_nodes(
             "ylabel": "Entries",
             "ylim": (0.00001, ax.get_ylim()[1]),
             "xlim": (0, 1),
-            "yscale": 'log',
+            # "yscale": 'log',
         })
 
         # plot validation scores, scaled to train dataset
@@ -207,3 +251,50 @@ def plot_output_nodes(
 
         mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
         output.child(f"Node_{process_insts[i].name}.pdf", type="f").dump(fig, formatter="mpl")
+
+
+def plot_significance(
+        model: tf.keras.models.Model,
+        train: DotDict,
+        validation: DotDict,
+        output: law.FileSystemDirectoryTarget,
+        process_insts: tuple[od.Process],
+) -> None:
+    plt.style.use(mplhep.style.CMS)
+
+    n_classes = len(train['target'][0])
+
+    store_dict = {}
+
+    for i in range(n_classes):
+        fig, ax = plt.subplots()
+
+        for input_type, inputs in (("train", train), ("validation", validation)):
+            for j in range(2):
+                mask = inputs['target'][:, i] == j
+                store_dict[f'node_{process_insts[i].name}_{j}_{input_type}'] = inputs['prediction'][:, i][mask]
+
+        n_bins = 10
+        step_size = 1.0 / n_bins
+        stop_val = 1.0 + step_size
+        bins = np.arange(0.0, stop_val, step_size)
+        x_vals = bins[:-1] + step_size / 2
+        train_counts_0, train_bins_0 = np.histogram(store_dict[f'node_{process_insts[i].name}_0_train'], bins=bins)
+        train_counts_1, train_bins_1 = np.histogram(store_dict[f'node_{process_insts[i].name}_1_train'], bins=bins)
+        validation_counts_0, validation_bins_0 = np.histogram(store_dict[f'node_{process_insts[i].name}_0_validation'], bins=bins)
+        validation_counts_1, validation_bins_1 = np.histogram(store_dict[f'node_{process_insts[i].name}_1_validation'], bins=bins)
+
+        ax.scatter(x_vals, train_counts_1 / np.sqrt(train_counts_0), label="train", color="r")
+        ax.scatter(x_vals, validation_counts_1 / np.sqrt(validation_counts_0), label="validation", color="b")
+        # title = "$" + process_insts[i].label.split(" ")[2]
+        # ax.set_title(f"Significance Node {title}")
+        ax.set_ylabel(r"S/sqrt(B)")
+        ax.set_xlabel(f"Significance Node {process_insts[i].label}")
+        ax.legend()
+
+        mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+        output.child(f"Significance_Node_{process_insts[i].name}.pdf", type="f").dump(fig, formatter="mpl")
+
+
+
+
