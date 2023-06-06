@@ -20,7 +20,7 @@ from columnflow.tasks.production import ProduceColumns
 from hbt.config.categories import add_categories_ml
 from columnflow.columnar_util import EMPTY_FLOAT
 from hbt.ml.plotting import (
-    plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes,
+    plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance
 )
 
 np = maybe_import("numpy")
@@ -309,6 +309,8 @@ class SimpleDNN(MLModel):
 
         sum_nnweights_processes = {}
 
+        target_dict = {}
+
         for dataset, files in input["events"][self.config_inst.name].items():
             t0 = time.time()
             this_proc_idx = dataset_proc_idx[dataset]
@@ -321,6 +323,8 @@ class SimpleDNN(MLModel):
                 f"\n  Sum Eventweights: {sum_eventweights_proc}",
             )
             sum_nnweights = 0
+
+            target_dict[f'{proc_name}'] = this_proc_idx
 
             for inp in files:
                 events = ak.from_parquet(inp["mlevents"].path)
@@ -449,6 +453,7 @@ class SimpleDNN(MLModel):
         train['target'] = np.reshape(train['target'], [len(train['target']), len(train['target'][0][0])])
         validation['target'] = np.reshape(validation['target'], [len(validation['target']), len(validation['target'][0][0])])
 
+        call_func_safe(plot_significance, model, train, validation, output, self.process_insts)
         # create some confusion matrices
         call_func_safe(plot_confusion, model, train, output, "train", self.process_insts)
         call_func_safe(plot_confusion, model, validation, output, "validation", self.process_insts)
