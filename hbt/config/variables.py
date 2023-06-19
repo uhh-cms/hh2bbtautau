@@ -234,6 +234,21 @@ def add_variables(config: od.Config) -> None:
         x_title=r"BJet Pair Mass",
     )
     config.add_variable(
+        name="max_d_eta",
+        expression="jets_max_d_eta",
+        null_value=EMPTY_FLOAT,
+        binning=(30, 0.0, 8.0),
+        x_title=r"Maximum $\Delta \eta$ of Jets",
+    )
+    config.add_variable(
+        name="inv_mass_d_eta",
+        expression="jets_d_eta_inv_mass",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Invariant Mass of Jets with maximum $\Delta \eta$",
+    )
+    config.add_variable(
         name="HH_pair_mass",
         expression="mHH",
         null_value=EMPTY_FLOAT,
