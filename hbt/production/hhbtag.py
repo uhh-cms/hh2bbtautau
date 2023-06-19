@@ -14,7 +14,6 @@ from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
-tf = maybe_import("tensorflow")
 
 logger = law.logger.get_logger(__name__)
 
@@ -149,6 +148,8 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     """
     Sets up the two HHBtag TF models.
     """
+    tf = maybe_import("tensorflow")
+
     # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
     bundle = reqs["external_files"]
     arc = bundle.files.hh_btag_repo

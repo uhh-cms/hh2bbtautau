@@ -17,7 +17,6 @@ from columnflow.columnar_util import Route, set_ak_column
 
 
 ak = maybe_import("awkward")
-tf = maybe_import("tensorflow")
 
 law.contrib.load("tensorflow")
 
@@ -62,7 +61,7 @@ class TestModel(MLModel):
     def output(self, task: law.Task) -> law.FileSystemDirectoryTarget:
         return task.target(f"mlmodel_f{task.fold}of{self.folds}", dir=True)
 
-    def open_model(self, target: law.FileSystemDirectoryTarget) -> tf.keras.models.Model:
+    def open_model(self, target: law.FileSystemDirectoryTarget):
         return target.load(formatter="tf_keras_model")
 
     def train(
@@ -71,6 +70,8 @@ class TestModel(MLModel):
         input: dict[str, list[law.FileSystemFileTarget]],
         output: law.FileSystemDirectoryTarget,
     ) -> None:
+        tf = maybe_import("tensorflow")
+
         # define a dummy NN
         x = tf.keras.Input(shape=(2,))
         a1 = tf.keras.layers.Dense(10, activation="elu")(x)
