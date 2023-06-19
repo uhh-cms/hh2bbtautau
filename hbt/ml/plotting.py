@@ -13,6 +13,7 @@ plt = maybe_import("matplotlib.pyplot")
 mplhep = maybe_import("mplhep")
 hist = maybe_import("hist")
 tf = maybe_import("tensorflow")
+shap = maybe_import("shap")
 
 
 def plot_loss(history, output, classification="categorical") -> None:
@@ -79,14 +80,17 @@ def plot_confusion(
     )
 
     labels_ext = [proc_inst.label for proc_inst in process_insts] if process_insts else None
-    labels = [label.split(" ")[2] for label in labels_ext]
-    labels = ["$" + label for label in labels]
+    labels = [label.split("HH_{")[1].split("}")[0] for label in labels_ext]
+    labels = ["$HH_{" + label for label in labels]
+    labels = [label + "}$" for label in labels]
 
     # Create a plot of the confusion matrix
     fig, ax = plt.subplots(figsize=(15, 10))
     ConfusionMatrixDisplay(confusion, display_labels=labels).plot(ax=ax)
 
-    ax.set_title(f"Confusion matrix for {input_type} set, rows normalized", fontsize=21, loc="left")
+    ax.set_title(f"Confusion matrix {input_type} set, rows normalized", fontsize=22, loc="left")
+    # plt.imshow(confusion)
+    # plt.clim(0, 1)
     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
 
     output.child(f"Confusion_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
@@ -198,6 +202,8 @@ def plot_output_nodes(
 
     n_classes = len(train['target'][0])
 
+    colors = ['red', 'blue', 'green', 'orange', 'cyan', 'purple', 'yellow', 'magenta']
+
     for i in range(n_classes):
         fig, ax = plt.subplots()
 
@@ -225,7 +231,7 @@ def plot_output_nodes(
         plot_kwargs = {
             "ax": ax,
             "label": [proc_inst.label for proc_inst in process_insts],
-            "color": ['red', 'blue'],
+            "color": colors[:n_classes],
         }
 
         # dummy legend entries
@@ -272,29 +278,104 @@ def plot_significance(
         for input_type, inputs in (("train", train), ("validation", validation)):
             for j in range(2):
                 mask = inputs['target'][:, i] == j
-                store_dict[f'node_{process_insts[i].name}_{j}_{input_type}'] = inputs['prediction'][:, i][mask]
+                store_dict[f'node_{process_insts[i].name}_{j}_{input_type}_pred'] = inputs['prediction'][:, i][mask]
+                store_dict[f'node_{process_insts[i].name}_{j}_{input_type}_weight'] = inputs['weights'][mask]
 
         n_bins = 10
         step_size = 1.0 / n_bins
         stop_val = 1.0 + step_size
         bins = np.arange(0.0, stop_val, step_size)
         x_vals = bins[:-1] + step_size / 2
-        train_counts_0, train_bins_0 = np.histogram(store_dict[f'node_{process_insts[i].name}_0_train'], bins=bins)
-        train_counts_1, train_bins_1 = np.histogram(store_dict[f'node_{process_insts[i].name}_1_train'], bins=bins)
-        validation_counts_0, validation_bins_0 = np.histogram(store_dict[f'node_{process_insts[i].name}_0_validation'], bins=bins)
-        validation_counts_1, validation_bins_1 = np.histogram(store_dict[f'node_{process_insts[i].name}_1_validation'], bins=bins)
+        train_counts_0, train_bins_0 = np.histogram(store_dict[f'node_{process_insts[i].name}_0_train_pred'],
+            bins=bins, weights=store_dict[f'node_{process_insts[i].name}_0_train_weight'])
+        train_counts_1, train_bins_1 = np.histogram(store_dict[f'node_{process_insts[i].name}_1_train_pred'],
+            bins=bins, weights=store_dict[f'node_{process_insts[i].name}_1_train_weight'])
+        validation_counts_0, validation_bins_0 = np.histogram(store_dict[f'node_{process_insts[i].name}_0_validation_pred'],
+            bins=bins, weights=store_dict[f'node_{process_insts[i].name}_0_validation_weight'])
+        validation_counts_1, validation_bins_1 = np.histogram(store_dict[f'node_{process_insts[i].name}_1_validation_pred'],
+            bins=bins, weights=store_dict[f'node_{process_insts[i].name}_1_validation_weight'])
 
         ax.scatter(x_vals, train_counts_1 / np.sqrt(train_counts_0), label="train", color="r")
         ax.scatter(x_vals, validation_counts_1 / np.sqrt(validation_counts_0), label="validation", color="b")
         # title = "$" + process_insts[i].label.split(" ")[2]
         # ax.set_title(f"Significance Node {title}")
-        ax.set_ylabel(r"S/sqrt(B)")
+        ax.set_ylabel(r"$S/\sqrt{B}$")
         ax.set_xlabel(f"Significance Node {process_insts[i].label}")
-        ax.legend()
+        ax.legend(frameon=True)
 
         mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
         output.child(f"Significance_Node_{process_insts[i].name}.pdf", type="f").dump(fig, formatter="mpl")
 
 
+def plot_shap_values_simple_nn(
+        model: tf.keras.models.Model,
+        train: DotDict,
+        output: law.FileSystemDirectoryTarget,
+        process_insts: tuple[od.Process],
+        target_dict,
+        feature_names
+) -> None:
+
+    feature_dict = {
+        "mjj": r"$m_{jj}$",
+        "mbjetbjet": r"$m_{bb}$",
+        "mHH": r"$m_{HH}$",
+        "mtautau": r"$m_{\tau\tau}$",
+        "jets_max_d_eta": r"max $\Delta \eta$",
+        "jets_d_eta_inv_mass": r"$m_{jj, \Delta \eta}$",
+    }
+
+    # names of features and classes
+    feature_list = [feature_dict[feature] for feature in feature_names[1]]
+
+    # make sure class names are sorted correctly in correspondence to their target index
+    classes = sorted(target_dict.items(), key=lambda x: x[1])
+    class_sorted = np.array(classes)[:, 0]
+    class_list = ['empty' for i in range(len(process_insts))]
+    for proc in process_insts:
+        idx = np.where(class_sorted == proc.name)
+        class_list[idx[0][0]] = proc.label
+
+    # calculate shap values
+    inp = tf.squeeze(train['inputs2'], axis=1).numpy()
+    explainer = shap.KernelExplainer(model, inp[:500])
+    shap_values = explainer.shap_values(inp[-100:])
+
+    # Feature Ranking
+    fig1 = plt.figure()
+    shap.summary_plot(shap_values, inp[:100], plot_type="bar",
+        feature_names=feature_list, class_names=class_list)
+    output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+
+    # Violin Plots
+    for i, node in enumerate(class_list):
+        fig2 = plt.figure()
+        shap.summary_plot(shap_values[i], inp[:100], plot_type="violin",
+            feature_names=feature_list, class_names=node)
+        output.child(f"Violin_{class_sorted[i]}.pdf", type="f").dump(fig2, formatter="mpl")
 
 
+def plot_shap_values_deep_sets(
+        model: tf.keras.models.Model,
+        train: DotDict,
+        output: law.FileSystemDirectoryTarget,
+        process_insts: tuple[od.Process],
+        target_dict,
+        feature_names
+) -> None:
+
+    # names of the features
+    feature_list = feature_names
+
+    # make sure class names are sorted correctly in correspondence to their target index
+    classes = sorted(target_dict.items(), key=lambda x: x[1])
+    class_sorted = np.array(classes)[:, 0]
+    class_list = ['empty' for i in range(len(process_insts))]
+    for proc in process_insts:
+        idx = np.where(class_sorted == proc.name)
+        class_list[idx[0][0]] = proc.label
+
+    # calculate shap values
+    inp = tf.squeeze(train['inputs2'], axis=1).numpy()
+    explainer = shap.DeepExplainer(model, inp[:500])
+    shap_values = explainer.shap_values(inp[-100:])

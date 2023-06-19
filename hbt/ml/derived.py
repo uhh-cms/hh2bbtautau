@@ -21,36 +21,6 @@ ml_process_weights = {
 }
 
 dataset_names = {
-    "ggHH_kl_1_kt_1_sl_hbbhww_powheg",
-    # TTbar
-    "tt_sl_powheg",
-    "tt_dl_powheg",
-    "tt_fh_powheg",
-    # SingleTop
-    "st_tchannel_t_powheg",
-    "st_tchannel_tbar_powheg",
-    "st_twchannel_t_powheg",
-    "st_twchannel_tbar_powheg",
-    "st_schannel_lep_amcatnlo",
-    # "st_schannel_had_amcatnlo",
-    # WJets
-    "w_lnu_ht70To100_madgraph",
-    "w_lnu_ht100To200_madgraph",
-    "w_lnu_ht200To400_madgraph",
-    "w_lnu_ht400To600_madgraph",
-    "w_lnu_ht600To800_madgraph",
-    "w_lnu_ht800To1200_madgraph",
-    "w_lnu_ht1200To2500_madgraph",
-    "w_lnu_ht2500_madgraph",
-    # DY
-    "dy_lep_m50_ht70to100_madgraph",
-    "dy_lep_m50_ht100to200_madgraph",
-    "dy_lep_m50_ht200to400_madgraph",
-    "dy_lep_m50_ht400to600_madgraph",
-    "dy_lep_m50_ht600to800_madgraph",
-    "dy_lep_m50_ht800to1200_madgraph",
-    "dy_lep_m50_ht1200to2500_madgraph",
-    "dy_lep_m50_ht2500_madgraph",
     "graviton_hh_ggf_bbtautau_m400_madgraph",
     "hh_ggf_bbtautau_madgraph",
     "graviton_hh_vbf_bbtautau_m400_madgraph",
@@ -65,7 +35,7 @@ dataset_names = {
 #     ["mjj", "mbjetbjet", "mtautau", "mHH"]]
 
 input_features = [["jets_pt", "jets_e", "jets_mass", "jets_eta", "jets_phi", "jets_btag"],
-                  ["mjj", "mbjetbjet", "mtautau", "mHH"]]
+                  ["mjj", "mbjetbjet", "mtautau", "mHH", "jets_max_d_eta", "jets_d_eta_inv_mass"]]
 
 # Decide on dummy or proper btag of jets: If proper chosen coment out 4 lines below
 # for i, name in enumerate(input_features[0]):
@@ -89,6 +59,7 @@ default_cls_dict = {
     "input_features": input_features,
     "store_name": "inputs1",
     "n_features": len(input_features[0]),
+    "n_output_nodes": len(processes),
 }
 
 # derived model, usable on command line
@@ -98,16 +69,12 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 cls_dict = default_cls_dict
 cls_dict["epochs"] = 150
 cls_dict["batchsize"] = 2048
-cls_dict["processes"] = [
-    "graviton_hh_ggf_bbtautau_m400",
-    "hh_ggf_bbtautau",
-    "graviton_hh_vbf_bbtautau_m400",
-]
-cls_dict["dataset_names"] = {
-    "graviton_hh_ggf_bbtautau_m400_madgraph",
-    "hh_ggf_bbtautau_madgraph",
-    "graviton_hh_vbf_bbtautau_m400_madgraph",
-}
-cls_dict["model_name"] = "3classes"
+cls_dict["model_name"] = f"{len(processes)}classes_shap_plots_deep_sets"
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
+
+# 2classes_vbfjets_dr_inv_mass
+# 2classes_vbfjets
+# 3classes_vbfjets
+# 3classes_vbfjets_dr_inv_mass
+# 3classes_no_vbf

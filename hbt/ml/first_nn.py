@@ -20,7 +20,8 @@ from columnflow.tasks.production import ProduceColumns
 from hbt.config.categories import add_categories_ml
 from columnflow.columnar_util import EMPTY_FLOAT
 from hbt.ml.plotting import (
-    plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance
+    plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance,
+    plot_shap_values
 )
 
 np = maybe_import("numpy")
@@ -36,7 +37,7 @@ logger = law.logger.get_logger(__name__)
 # Define functions to normalize and shape inputs1 and 2
 def reshape_raw_inputs1(events, n_features, input_features):
     column_counter = 0
-    num_events, max_jets = ak.to_numpy(events.jets_pt).shape
+    num_events, max_jets = ak.to_numpy(events[input_features[0]]).shape
     zeros = np.zeros((num_events, max_jets * n_features))
     for i in range(max_jets):
         for jet_features in input_features:
@@ -106,6 +107,7 @@ class SimpleDNN(MLModel):
             n_features: int | None = None,
             ml_process_weights: dict | None = None,
             model_name: str | None = None,
+            n_output_nodes: int | None = None,
             **kwargs,
     ):
         """
@@ -124,6 +126,7 @@ class SimpleDNN(MLModel):
         self.n_features = n_features or self.n_features
         self.ml_process_weights = ml_process_weights or self.ml_process_weights
         self.model_name = model_name or self.model_name
+        self.n_output_nodes = n_output_nodes or self.n_output_nodes
         # DNN model parameters
         """
         self.layers = [512, 512, 512]
@@ -309,7 +312,7 @@ class SimpleDNN(MLModel):
 
         sum_nnweights_processes = {}
 
-        target_dict = {}
+        self.target_dict = {}
 
         for dataset, files in input["events"][self.config_inst.name].items():
             t0 = time.time()
@@ -324,7 +327,7 @@ class SimpleDNN(MLModel):
             )
             sum_nnweights = 0
 
-            target_dict[f'{proc_name}'] = this_proc_idx
+            self.target_dict[f'{proc_name}'] = this_proc_idx
 
             for inp in files:
                 events = ak.from_parquet(inp["mlevents"].path)
@@ -348,13 +351,13 @@ class SimpleDNN(MLModel):
                     if var not in self.input_features[0] and var not in self.input_features[1]:
                         print(f"removing column {var}")
                         events = remove_ak_column(events, var)
-
                 events2 = events[self.input_features[1]]
                 events = events[self.input_features[0]]
 
                 # reshape raw inputs
                 events = reshape_raw_inputs1(events, self.n_features, self.input_features[0])
                 events2 = reshape_raw_inputs2(events2)
+
 
                 # create the truth values for the output layer
                 target = np.zeros((len(events), len(self.processes)))
@@ -417,6 +420,8 @@ class SimpleDNN(MLModel):
         self,
         task: law.Task,
         model,
+        feature_names,
+        class_names,
         train: tf.data.Dataset,
         validation: tf.data.Dataset,
         output: law.LocalDirectoryTarget,
@@ -453,17 +458,20 @@ class SimpleDNN(MLModel):
         train['target'] = np.reshape(train['target'], [len(train['target']), len(train['target'][0][0])])
         validation['target'] = np.reshape(validation['target'], [len(validation['target']), len(validation['target'][0][0])])
 
-        call_func_safe(plot_significance, model, train, validation, output, self.process_insts)
         # create some confusion matrices
         call_func_safe(plot_confusion, model, train, output, "train", self.process_insts)
         call_func_safe(plot_confusion, model, validation, output, "validation", self.process_insts)
 
-        # # create some ROC curves
+        # create some ROC curves
         call_func_safe(plot_roc_ovr, train, output, "train", self.process_insts)
         call_func_safe(plot_roc_ovr, validation, output, "validation", self.process_insts)
 
-        # # create plots for all output nodes
+        # create plots for all output nodes + Significance for each node
         call_func_safe(plot_output_nodes, model, train, validation, output, self.process_insts)
+        call_func_safe(plot_significance, model, train, validation, output, self.process_insts)
+
+        # create shap feature ranking
+        # call_func_safe(plot_shap_values, model, train, output, self.process_insts, self.target_dict, feature_names)
 
     def train(
         self,
@@ -507,7 +515,7 @@ class SimpleDNN(MLModel):
 
         # define the DNN model
         # TODO: do this Funcional instead of Sequential
-        model = CustomModel(custom_layer_str="Sum")
+        model = CustomModel(custom_layer_str="Sum", n_output_nodes=self.n_output_nodes)
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -569,6 +577,10 @@ class SimpleDNN(MLModel):
         tf_train = [[train['inputs'], train['inputs2']], train['target']]
         tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
 
+        # for no deep sets
+        # tf_train = [tf.squeeze(train['inputs2'], axis=1), tf.squeeze(train['target'], axis=1)]
+        # tf_validation = [tf.squeeze(validation['inputs2'], axis=1), tf.squeeze(validation['target'], axis=1)]
+
         fit_kwargs = {
             "epochs": self.epochs,
             "callbacks": [early_stopping, reduceLR],
@@ -588,9 +600,8 @@ class SimpleDNN(MLModel):
         # output.dump(model, formatter="tf_keras_model")
         output.parent.touch()
         model.save(output.path)
-
         # plotting of loss, acc, roc, nodes, confusion for each fold
-        self.instant_evaluate(task, model, train, validation, output)
+        self.instant_evaluate(task, model, self.input_features, self.processes, train, validation, output)
 
     def evaluate(
         self,
