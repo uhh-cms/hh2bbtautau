@@ -184,12 +184,19 @@ def jet_selection(
         ak.fill_none(subjets_btagged, True)  # was none for events with no matched fatjet
     )
 
+    colljet_indices = ak.concatenate((jet_indices, vbfjet_indices), axis=1)
+    unique_colljet_indices = []
+    for i in colljet_indices:
+        unique_colljet_indices.append(np.unique(i))
+    colljet_indices = ak.Array(unique_colljet_indices)
+
     # some final type conversions
     jet_indices = ak.values_astype(ak.fill_none(jet_indices, 0), np.int32)
     hhbjet_indices = ak.values_astype(hhbjet_indices, np.int32)
     non_hhbjet_indices = ak.values_astype(ak.fill_none(non_hhbjet_indices, 0), np.int32)
     fatjet_indices = ak.values_astype(fatjet_indices, np.int32)
     vbfjet_indices = ak.values_astype(ak.fill_none(vbfjet_indices, 0), np.int32)
+    colljet_indices = ak.values_astype(ak.fill_none(colljet_indices, 0), np.int32)
 
     # store some columns
     events = set_ak_column(events, "Jet.hhbtag", hhbtag_scores)
@@ -213,6 +220,7 @@ def jet_selection(
                 "SubJet1": subjet_indices[..., 0],
                 "SubJet2": subjet_indices[..., 1],
                 "VBFJet": vbfjet_indices,
+                "CollJet": colljet_indices,
             },
         },
         aux={
