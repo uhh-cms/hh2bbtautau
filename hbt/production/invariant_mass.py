@@ -120,6 +120,98 @@ def invariant_mass_HH(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     return events
 
 
+# functions for usage in .metric_table
+def delta_eta(obj1, obj2):
+    obj_eta = abs(obj1.eta - obj2.eta)
+
+    return obj_eta
+
+
+def inv_mass(obj1, obj2):
+    obj_mass = (obj1 + obj2).mass
+
+    return obj_mass
+
+
+@producer(
+    uses={
+        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        attach_coffea_behavior,
+    },
+    produces={
+        "jets_max_dr", "jets_dr_inv_mass",
+    },
+)
+def dr_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"CollJet": {"type_name": "Jet"}}, **kwargs)
+    n_jets = events.n_jet
+    dr_table = events.CollJet.metric_table(events.CollJet, axis=1)
+    inv_mass_table = events.CollJet.metric_table(events.CollJet, axis=1, metric=inv_mass)
+    n_events = len(dr_table)
+    max_dr_vals = np.zeros(n_events)
+    inv_mass_vals = np.zeros(n_events)
+    for i, dr_matrix in enumerate(dr_table):
+        if n_jets[i] < 2:
+            max_dr_vals[i] = EMPTY_FLOAT
+            inv_mass_vals[i] = EMPTY_FLOAT
+        else:
+            max_ax0 = ak.max(dr_matrix, axis=0)
+            argmax_ax0 = ak.argmax(dr_matrix, axis=0)
+            max_idx1 = ak.argmax(max_ax0)
+            max_idx0 = argmax_ax0[max_idx1]
+            max_dr = dr_matrix[max_idx0, max_idx1]
+            inv_mass_val = inv_mass_table[i][max_idx0, max_idx1]
+            max_dr_vals[i] = max_dr
+            inv_mass_vals[i] = inv_mass_val
+    max_delta_r_vals = ak.from_numpy(max_dr_vals)
+    inv_mass_vals = ak.from_numpy(inv_mass_vals)
+    events = set_ak_column_f32(events, "jets_max_dr", max_delta_r_vals)
+    events = set_ak_column_f32(events, "jets_dr_inv_mass", inv_mass_vals)
+
+    return events
+
+
+@producer(
+    uses={
+        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        attach_coffea_behavior,
+    },
+    produces={
+        "jets_max_d_eta", "jets_d_eta_inv_mass",
+    },
+)
+def d_eta_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"CollJet": {"type_name": "Jet"}}, **kwargs)
+    n_jets = events.n_jet
+    deta_table = events.CollJet.metric_table(events.CollJet, axis=1, metric=delta_eta)
+    inv_mass_table = events.CollJet.metric_table(events.CollJet, axis=1, metric=inv_mass)
+    n_events = len(deta_table)
+    max_deta_vals = np.zeros(n_events)
+    inv_mass_vals = np.zeros(n_events)
+    for i, deta_matrix in enumerate(deta_table):
+        if n_jets[i] < 2:
+            max_deta_vals[i] = EMPTY_FLOAT
+            inv_mass_vals[i] = EMPTY_FLOAT
+        else:
+            max_ax0 = ak.max(deta_matrix, axis=0)
+            argmax_ax0 = ak.argmax(deta_matrix, axis=0)
+            max_idx1 = ak.argmax(max_ax0)
+            max_idx0 = argmax_ax0[max_idx1]
+            max_dr = deta_matrix[max_idx0, max_idx1]
+            inv_mass_val = inv_mass_table[i][max_idx0, max_idx1]
+            max_deta_vals[i] = max_dr
+            inv_mass_vals[i] = inv_mass_val
+    max_delta_r_vals = ak.from_numpy(max_deta_vals)
+    inv_mass_vals = ak.from_numpy(inv_mass_vals)
+    events = set_ak_column_f32(events, "jets_max_d_eta", max_delta_r_vals)
+    events = set_ak_column_f32(events, "jets_d_eta_inv_mass", inv_mass_vals)
+
+    return events
+
+# jets_dr_inv_mass: invariant mass calculated for the jet pair with largest dr
+# jets_deta_inv_mass: invariant mass calculated for the jet pair with largest d eta
+
+
 # Producers for the columns of the kinetmatic variables (four vectors) of the jets, bjets and taus
 @producer(
     uses={
@@ -180,6 +272,55 @@ def kinematic_vars_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     #     events = set_ak_column_f32(events, f"jet{i+1}_phi", ak.fill_none(jets_phi[:, i], EMPTY_FLOAT))
     #     events = set_ak_column_f32(events, f"jet{i+1}_btag", ak.fill_none(jets_btag[:, i], EMPTY_FLOAT))
     #     events = set_ak_column_f32(events, f"jet{i+1}_hadronFlavour", ak.fill_none(jets_hadFlav[:, i], EMPTY_FLOAT))
+
+    return events
+
+
+# kinematic vars for coollection of jets and cbf jets
+@producer(
+    uses={
+        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        "CollJet.btagDeepFlavB", "CollJet.hadronFlavour",
+        attach_coffea_behavior,
+    },
+    produces={
+        # *[f"{obj}_{var}"
+        # for obj in [f"jet{n}" for n in range(1, 7, 1)]
+        # for var in ["pt", "eta", "phi", "mass", "e", "btag", "hadronFlavour"]], "nJets", "nConstituents", "jets_pt",
+        "nCollJets", "Colljets_pt", "Colljets_e", "Colljets_eta", "Colljets_phi", "Colljets_mass", "Colljets_btag", "Colljets_hadFlav",
+    },
+)
+def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"CollJet": {"type_name": "Jet"}}, **kwargs)
+    events = set_ak_column_f32(events, "nCollJets", ak.fill_none(events.n_jet, EMPTY_FLOAT))
+    jets_pt = ak.pad_none(events.CollJet.pt, max(events.n_jet) + 2)
+    jets_pt = ak.to_regular(jets_pt, axis=1)
+    jets_pt = ak.fill_none(jets_pt, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_pt", jets_pt)
+    jets_eta = ak.pad_none(events.CollJet.eta, max(events.n_jet) + 2)
+    jets_eta = ak.to_regular(jets_eta, axis=1)
+    jets_eta = ak.fill_none(jets_eta, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_eta", jets_eta)
+    jets_phi = ak.pad_none(events.CollJet.phi, max(events.n_jet) + 2)
+    jets_phi = ak.to_regular(jets_phi, axis=1)
+    jets_phi = ak.fill_none(jets_phi, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_phi", jets_phi)
+    jets_mass = ak.pad_none(events.CollJet.mass, max(events.n_jet) + 2)
+    jets_mass = ak.to_regular(jets_mass, axis=1)
+    jets_mass = ak.fill_none(jets_mass, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_mass", jets_mass)
+    jets_e = ak.pad_none(events.CollJet.E, max(events.n_jet) + 2)
+    jets_e = ak.to_regular(jets_e, axis=1)
+    jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_e", jets_e)
+    jets_btag = ak.pad_none(events.CollJet.btagDeepFlavB, max(events.n_jet) + 2)
+    jets_btag = ak.to_regular(jets_btag, axis=1)
+    jets_btag = ak.fill_none(jets_btag, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_btag", jets_btag)
+    jets_hadFlav = ak.pad_none(events.CollJet.hadronFlavour, max(events.n_jet) + 2)
+    jets_hadFlav = ak.to_regular(jets_hadFlav, axis=1)
+    jets_hadFlav = ak.fill_none(jets_hadFlav, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_hadFlav", jets_hadFlav)
 
     return events
 
