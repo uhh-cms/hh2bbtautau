@@ -244,7 +244,7 @@ def add_variables(config: od.Config) -> None:
         name="inv_mass_d_eta",
         expression="jets_d_eta_inv_mass",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
+        binning=(40, 0.0, 5000.0),
         unit="GeV",
         x_title=r"Invariant Mass of Jets with maximum $\Delta \eta$",
     )
