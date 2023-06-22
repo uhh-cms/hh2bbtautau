@@ -21,7 +21,7 @@ from hbt.config.categories import add_categories_ml
 from columnflow.columnar_util import EMPTY_FLOAT
 from hbt.ml.plotting import (
     plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance,
-    plot_shap_values
+    plot_shap_values_simple_nn, write_info_file
 )
 
 np = maybe_import("numpy")
@@ -59,23 +59,36 @@ def reshape_raw_inputs2(events):
 
 
 # returns a dict containg the normed and correctly shaped inputs1 and 2
-def reshape_norm_inputs(events_dict, n_features):
+def reshape_norm_inputs(events_dict, n_features, norm_features, input_features):
     # reshape train['inputs'] for DeepSets: [#events, #jets, -1] and apply standardization (z-score)
     # calculate mean and std for normalization
     events_shaped = events_dict["inputs"].reshape((-1, n_features))
     mean_feature = np.zeros(n_features)
     std_feature = np.zeros(n_features)
+    delete_standardization = []
+
+    for i, feature in enumerate(input_features[0]):
+        if feature not in norm_features:
+            delete_standardization.append(i)
+
     for i in range(n_features):
         mask_empty_floats = events_shaped[:, i] != EMPTY_FLOAT
         mean_feature[i] = np.mean(events_shaped[:, i][mask_empty_floats])
         std_feature[i] = np.std(events_shaped[:, i][mask_empty_floats])
+
+    mean_feature[delete_standardization] = 0
+    std_feature[delete_standardization] = 1
 
     jets_collection = []
     for i in range(events_dict['inputs'].shape[0]):
         arr_events = events_dict['inputs'][i]
         indices = np.where(arr_events != EMPTY_FLOAT)
         jets_flat = arr_events[indices]
-        jets_shaped = jets_flat.reshape((-1, n_features))
+        try:
+            jets_shaped = jets_flat.reshape((-1, n_features))
+        except:
+            print('---?---')
+            from IPython import embed; embed()
         jets_normalized = (jets_shaped - mean_feature) / std_feature
         jets_normalized = jets_normalized.flatten()
         jets_shaped = jets_normalized.reshape((1, -1, n_features))
@@ -108,6 +121,15 @@ class SimpleDNN(MLModel):
             ml_process_weights: dict | None = None,
             model_name: str | None = None,
             n_output_nodes: int | None = None,
+            activation_func_deepSets: str | None = None,
+            activation_func_ff: str | None = None,
+            batch_norm_deepSets: bool | None = None,
+            batch_norm_ff: bool | None = None,
+            nodes_deepSets: list | None = None,
+            nodes_ff: list | None = None,
+            custom_layers: list | None = None,
+            L2: bool | None = None,
+            norm_features: list | None = None,
             **kwargs,
     ):
         """
@@ -127,6 +149,15 @@ class SimpleDNN(MLModel):
         self.ml_process_weights = ml_process_weights or self.ml_process_weights
         self.model_name = model_name or self.model_name
         self.n_output_nodes = n_output_nodes or self.n_output_nodes
+        self.custom_layers = custom_layers or self.custom_layers
+        self.batch_norm_ff = batch_norm_ff or self.batch_norm_ff
+        self.batch_norm_deepSets = batch_norm_deepSets or self.batch_norm_deepSets
+        self.activation_func_deepSets = activation_func_deepSets or self.activation_func_deepSets
+        self.activation_func_ff = activation_func_ff or self.activation_func_ff
+        self.nodes_deepSets = nodes_deepSets or self.nodes_deepSets
+        self.nodes_ff = nodes_ff or self.nodes_ff
+        self.L2 = L2 or self.L2
+        self.norm_features = norm_features or self.norm_features
         # DNN model parameters
         """
         self.layers = [512, 512, 512]
@@ -351,13 +382,13 @@ class SimpleDNN(MLModel):
                     if var not in self.input_features[0] and var not in self.input_features[1]:
                         print(f"removing column {var}")
                         events = remove_ak_column(events, var)
+
                 events2 = events[self.input_features[1]]
                 events = events[self.input_features[0]]
 
                 # reshape raw inputs
                 events = reshape_raw_inputs1(events, self.n_features, self.input_features[0])
                 events2 = reshape_raw_inputs2(events2)
-
 
                 # create the truth values for the output layer
                 target = np.zeros((len(events), len(self.processes)))
@@ -397,6 +428,8 @@ class SimpleDNN(MLModel):
         inputs_size = sum([arr.size * arr.itemsize for arr in DNN_inputs.values()])
         logger.info(f"inputs size is {inputs_size / 1024**3} GB")
 
+        # from IPython import embed; embed()
+
         shuffle_indices = np.array(range(len(DNN_inputs["weights"])))
         np.random.shuffle(shuffle_indices)
 
@@ -411,8 +444,9 @@ class SimpleDNN(MLModel):
             train[k] = DNN_inputs[k][N_validation_events:]
 
         # reshape and normalize inputs
-        train = reshape_norm_inputs(train, self.n_features)
-        validation = reshape_norm_inputs(validation, self.n_features)
+        train = reshape_norm_inputs(train, self.n_features, self.norm_features, self.input_features)
+        validation = reshape_norm_inputs(validation, self.n_features, self.norm_features, self.input_features)
+        from IPython import embed; embed()
 
         return train, validation
 
@@ -515,7 +549,13 @@ class SimpleDNN(MLModel):
 
         # define the DNN model
         # TODO: do this Funcional instead of Sequential
-        model = CustomModel(custom_layer_str="Sum", n_output_nodes=self.n_output_nodes)
+        # string to call custom layers: Sum, Max, Min, Mean, Var, Std
+        # give list of strs to choose layers
+        model = CustomModel(layer_strs=self.custom_layers, n_output_nodes=self.n_output_nodes,
+                            batch_norm_deepSets=self.batch_norm_deepSets, batch_norm_ff=self.batch_norm_ff,
+                            nodes_deepSets=self.nodes_deepSets, nodes_ff=self.nodes_ff,
+                            activation_func_deepSets=self.activation_func_deepSets,
+                            activation_func_ff=self.activation_func_ff)
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -600,8 +640,13 @@ class SimpleDNN(MLModel):
         # output.dump(model, formatter="tf_keras_model")
         output.parent.touch()
         model.save(output.path)
+
         # plotting of loss, acc, roc, nodes, confusion for each fold
         self.instant_evaluate(task, model, self.input_features, self.processes, train, validation, output)
+
+        write_info_file(output, self.custom_layers, self.nodes_deepSets, self.nodes_ff,
+            self.n_output_nodes, self.batch_norm_deepSets, self.batch_norm_ff, self.input_features,
+            self.process_insts, self.activation_func_deepSets, self.activation_func_ff)
 
     def evaluate(
         self,
@@ -637,7 +682,7 @@ class SimpleDNN(MLModel):
                 'target': target,
                 }
 
-        test = reshape_norm_inputs(test, self.n_features)
+        test = reshape_norm_inputs(test, self.n_features, )
 
         # inputs to feed to the model
         inputs = [test["inputs"], test["inputs2"]]

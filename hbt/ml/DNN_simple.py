@@ -33,6 +33,18 @@ class mean_layer(keras.layers.Layer):
         return tf.math.reduce_sum(inputs, axis=1, keepdims=True) / inputs.shape[1]
 
 
+class var_layer(keras.layers.Layer):
+    def call(self, inputs):
+        variance_inputs = tf.math.reduce_variance(inputs, axis=1, keepdims=True)
+        return variance_inputs
+
+
+class std_layer(keras.layers.Layer):
+    def call(self, inputs):
+        std_inputs = tf.math.reduce_std(inputs, axis=1, keepdims=True)
+        return std_inputs
+
+
 class concat_layer(keras.layers.Layer):
     def call(self, inputs):
         return tf.concat(inputs, axis=-1)
@@ -40,53 +52,64 @@ class concat_layer(keras.layers.Layer):
 
 # create custom model
 class CustomModel(keras.models.Model):
-    def __init__(self, custom_layer_str, n_output_nodes):
+    def __init__(self, layer_strs, n_output_nodes, batch_norm_deepSets, batch_norm_ff,
+                 nodes_deepSets, nodes_ff, activation_func_deepSets, activation_func_ff):
         super().__init__(self)
-        # Deep Sets Layers
-        self.custom_layer_str = custom_layer_str
-        self.n_output_nodes = n_output_nodes
 
-        self.hidden1_deep = tf.keras.layers.Dense(64, "selu")
+        # Set Parameters for the Model
+        self.layer_strs = layer_strs
+        self.n_output_nodes = n_output_nodes
+        self.batch_norm_deepSets = batch_norm_deepSets
+        self.batch_norm_ff = batch_norm_ff
+        self.nodes_deepSets = nodes_deepSets
+        self.nodes_ff = nodes_ff
+        self.activation_func_deepSets = activation_func_deepSets
+        self.activation_func_ff = activation_func_ff
+
+        # Layers for the Model
+        self.hidden1_deep = tf.keras.layers.Dense(nodes_deepSets[0], activation_func_deepSets)
         self.batch_hidden1_deep = tf.keras.layers.TimeDistributed(tf.keras.layers.BatchNormalization())
 
-        self.hidden2_deep = tf.keras.layers.Dense(64, "selu")
+        self.hidden2_deep = tf.keras.layers.Dense(nodes_deepSets[1], activation_func_deepSets)
         self.batch_hidden2_deep = tf.keras.layers.TimeDistributed(tf.keras.layers.BatchNormalization())
 
-        self.hidden3_deep = tf.keras.layers.Dense(64, "selu")
+        self.hidden3_deep = tf.keras.layers.Dense(nodes_deepSets[2], activation_func_deepSets)
         self.batch_hidden3_deep = tf.keras.layers.TimeDistributed(tf.keras.layers.BatchNormalization())
 
-        self.hidden4_deep = tf.keras.layers.Dense(64, "selu")
+        self.hidden4_deep = tf.keras.layers.Dense(nodes_deepSets[3], activation_func_deepSets)
         self.batch_hidden4_deep = tf.keras.layers.TimeDistributed(tf.keras.layers.BatchNormalization())
 
-        self.hidden5_deep = tf.keras.layers.Dense(64, "selu")
+        self.hidden5_deep = tf.keras.layers.Dense(nodes_deepSets[4], activation_func_deepSets)
         self.batch_hidden5_deep = tf.keras.layers.TimeDistributed(tf.keras.layers.BatchNormalization())
 
-        self.hidden6_deep = tf.keras.layers.Dense(64, "selu")
+        self.hidden6_deep = tf.keras.layers.Dense(nodes_deepSets[5], activation_func_deepSets)
 
         # Deep Sets permuation invariant custom layers and concat Layer
         self.sum_layer = sum_layer()
         self.max_layer = max_layer()
         self.min_layer = min_layer()
         self.mean_layer = mean_layer()
+        self.var_layer = var_layer()
+        self.std_layer = std_layer()
         self.concat_layer = concat_layer()
 
         # Layers for the second half of the Network
-        self.hidden1 = tf.keras.layers.Dense(256, "selu")
+        self.hidden1 = tf.keras.layers.Dense(nodes_ff[0], activation_func_ff)
         self.batch_hidden1 = tf.keras.layers.BatchNormalization(axis=-1)
 
-        self.hidden2 = tf.keras.layers.Dense(256, "selu")
+        self.hidden2 = tf.keras.layers.Dense(nodes_ff[1], activation_func_ff)
         self.batch_hidden2 = tf.keras.layers.BatchNormalization(axis=-1)
 
-        self.hidden3 = tf.keras.layers.Dense(256, "selu")
+        self.hidden3 = tf.keras.layers.Dense(nodes_ff[2], activation_func_ff)
         self.batch_hidden3 = tf.keras.layers.BatchNormalization(axis=-1)
 
-        self.hidden4 = tf.keras.layers.Dense(256, "selu")
+        self.hidden4 = tf.keras.layers.Dense(nodes_ff[3], activation_func_ff)
         self.batch_hidden4 = tf.keras.layers.BatchNormalization(axis=-1)
 
-        self.hidden5 = tf.keras.layers.Dense(256, "selu")
+        self.hidden5 = tf.keras.layers.Dense(nodes_ff[4], activation_func_ff)
         self.batch_hidden5 = tf.keras.layers.BatchNormalization(axis=-1)
 
-        self.hidden6 = tf.keras.layers.Dense(256, "selu")
+        self.hidden6 = tf.keras.layers.Dense(nodes_ff[5], activation_func_ff)
 
         self.op = tf.keras.layers.Dense(n_output_nodes, activation="softmax")
 
@@ -95,68 +118,86 @@ class CustomModel(keras.models.Model):
 
         # Deep Sets Arcitecture
         hidden1_deep = self.hidden1_deep(inp_deepSets)
-        batch_hidden1_deep = self.batch_hidden1_deep(hidden1_deep)
+        print('Hidden1 Deep Sets: ', hidden1_deep.shape)
+        if self.batch_norm_deepSets:
+            hidden1_deep = self.batch_hidden1_deep(hidden1_deep)
+            print('Inputs Deep Sets: ', inp_deepSets.shape)
 
-        hidden2_deep = self.hidden2_deep(batch_hidden1_deep)
-        batch_hidden2_deep = self.batch_hidden2_deep(hidden2_deep)
+        hidden2_deep = self.hidden2_deep(hidden1_deep)
+        if self.batch_norm_deepSets:
+            hidden2_deep = self.batch_hidden2_deep(hidden2_deep)
 
-        hidden3_deep = self.hidden3_deep(batch_hidden2_deep)
-        batch_hidden3_deep = self.batch_hidden3_deep(hidden3_deep)
+        hidden3_deep = self.hidden3_deep(hidden2_deep)
+        if self.batch_norm_deepSets:
+            hidden3_deep = self.batch_hidden3_deep(hidden3_deep)
 
-        hidden4_deep = self.hidden4_deep(batch_hidden3_deep)
-        batch_hidden4_deep = self.batch_hidden4_deep(hidden4_deep)
+        hidden4_deep = self.hidden4_deep(hidden3_deep)
+        if self.batch_norm_deepSets:
+            hidden4_deep = self.batch_hidden4_deep(hidden4_deep)
 
-        hidden5_deep = self.hidden5_deep(batch_hidden4_deep)
-        batch_hidden5_deep = self.batch_hidden5_deep(hidden5_deep)
+        hidden5_deep = self.hidden5_deep(hidden4_deep)
+        if self.batch_norm_deepSets:
+            hidden5_deep = self.batch_hidden5_deep(hidden5_deep)
 
-        hidden6_deep = self.hidden6_deep(batch_hidden5_deep)
+        hidden6_deep = self.hidden6_deep(hidden5_deep)
 
-        # chosse permuation invariant function for deep sets and concatenate
-        if self.custom_layer_str == "Sum":
-            custom_layer = self.sum_layer(hidden6_deep)
-        elif self.custom_layer_str == "Max":
-            custom_layer = self.max_layer(hidden6_deep)
-        elif self.custom_layer_str == "Min":
-            custom_layer = self.min_layer(hidden6_deep)
-        elif self.custom_layer_str == "Mean":
-            custom_layer = self.mean_layer(hidden6_deep)
-        elif self.custom_layer_str == "Concat":
-            custom_layer_sum = self.sum_layer(hidden6_deep)
-            custom_layer_max = self.max_layer(hidden6_deep)
-            custom_layer_min = self.min_layer(hidden6_deep)
-            custom_layer_mean = self.mean_layer(hidden6_deep)
-            custom_layer = self.concat_layer([custom_layer_sum, custom_layer_max,
-            custom_layer_min, custom_layer_mean])
-        concat = self.concat_layer([custom_layer, inp2])
+        # choose permuation invariant function for deep sets and concatenate
+        layer_list = []
+        for layer_str in self.layer_strs:
+            if layer_str == "Sum":
+                sum_layer = self.sum_layer(hidden6_deep)
+                layer_list.append(sum_layer)
+            elif layer_str == "Max":
+                max_layer = self.max_layer(hidden6_deep)
+                layer_list.append(max_layer)
+            elif layer_str == "Min":
+                min_layer = self.min_layer(hidden6_deep)
+                layer_list.append(min_layer)
+            elif layer_str == "Mean":
+                mean_layer = self.mean_layer(hidden6_deep)
+                layer_list.append(mean_layer)
+            elif layer_str == "Var":
+                var_layer = self.var_layer(hidden6_deep)
+                layer_list.append(var_layer)
+            elif layer_str == "Std":
+                std_layer = self.std_layer(hidden6_deep)
+                layer_list.append(std_layer)
+
+        # Concatenation of layers and inp2 for FF
+        layer_list.append(inp2)
+        concat = self.concat_layer(layer_list)
 
         # second half of the network using Deep Sets output and event information
         hidden1 = self.hidden1(concat)
-        batch_hidden1 = self.batch_hidden1(hidden1)
+        print('Hidden1 Deep Sets Norm: ', hidden1.shape)
+        if self.batch_norm_ff:
+            hidden1 = self.batch_hidden1(hidden1)
+            print('Hidden1 Batch: ', hidden1.shape)
 
-        hidden2 = self.hidden2(batch_hidden1)
-        batch_hidden2 = self.batch_hidden2(hidden2)
+        hidden2 = self.hidden2(hidden1)
+        if self.batch_norm_ff:
+            hidden2 = self.batch_hidden2(hidden2)
 
-        hidden3 = self.hidden3(batch_hidden2)
-        batch_hidden3 = self.batch_hidden3(hidden3)
+        hidden3 = self.hidden3(hidden2)
+        if self.batch_norm_ff:
+            hidden3 = self.batch_hidden3(hidden3)
 
-        hidden4 = self.hidden4(batch_hidden3)
-        batch_hidden4 = self.batch_hidden4(hidden4)
+        hidden4 = self.hidden4(hidden3)
+        if self.batch_norm_ff:
+            hidden4 = self.batch_hidden4(hidden4)
 
-        hidden5 = self.hidden5(batch_hidden4)
-        batch_hidden5 = self.batch_hidden5(hidden5)
+        hidden5 = self.hidden5(hidden4)
+        if self.batch_norm_ff:
+            hidden5 = self.batch_hidden5(hidden5)
 
-        hidden6 = self.hidden6(batch_hidden5)
+        hidden6 = self.hidden6(hidden5)
 
         op = self.op(hidden6)
 
         # print output shapes of all layers
-        print('Inputs Deep Sets: ', inp_deepSets.shape)
-        print('Hidden1 Deep Sets: ', hidden1_deep.shape)
-        print('Hidden1 Deep Sets Norm: ', batch_hidden1_deep.shape)
-        print(f'{self.custom_layer_str} Layer: ', custom_layer.shape)
+
         print('Concat for next NN: ', concat.shape)
-        print('Hidden1: ', hidden1.shape)
-        print('Hidden1 Batch: ', batch_hidden1.shape)
+        print('Inputs 2: ', inp2.shape)
         print('Output: ', op.shape)
 
         return op

@@ -88,7 +88,7 @@ def plot_confusion(
     fig, ax = plt.subplots(figsize=(15, 10))
     ConfusionMatrixDisplay(confusion, display_labels=labels).plot(ax=ax)
 
-    ax.set_title(f"Confusion matrix {input_type} set, rows normalized", fontsize=22, loc="left")
+    ax.set_title(f"{input_type} set, rows normalized", fontsize=25, loc="left")
     # plt.imshow(confusion)
     # plt.clim(0, 1)
     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
@@ -313,7 +313,7 @@ def plot_shap_values_simple_nn(
         output: law.FileSystemDirectoryTarget,
         process_insts: tuple[od.Process],
         target_dict,
-        feature_names
+        feature_names,
 ) -> None:
 
     feature_dict = {
@@ -379,3 +379,31 @@ def plot_shap_values_deep_sets(
     inp = tf.squeeze(train['inputs2'], axis=1).numpy()
     explainer = shap.DeepExplainer(model, inp[:500])
     shap_values = explainer.shap_values(inp[-100:])
+
+
+def write_info_file(
+        output: law.FileSystemDirectoryTarget,
+        agg_funcs,
+        nodes_deepSets,
+        nodes_ff,
+        n_output_nodes,
+        batch_norm_deepSets,
+        batch_norm_ff,
+        feature_names,
+        process_insts,
+        activation_func_deepSets,
+        activation_func_ff
+) -> None:
+
+    # write info on model for the txt file
+    txt_input = f'Processes: {[process_insts[i].name for i in range(len(process_insts))]}\n'
+    txt_input += 'Input Handling: Standardization Z-Score \n'
+    txt_input += f'Input Features Deep Sets: {feature_names[0]}\n'
+    txt_input += f'Input Features FF: {feature_names[1]}\n'
+    txt_input += f'Aggregation Functions: {agg_funcs} \n'
+    txt_input += 'Deep Sets Architecture:\n'
+    txt_input += f'Layers: {len(nodes_deepSets)}, Nodes: {nodes_deepSets}, Activation Function: {activation_func_deepSets}, Batch Norm: {batch_norm_deepSets}\n'
+    txt_input += 'FF Architecture:\n'
+    txt_input += f'Layers: {len(nodes_ff)}, Nodes: {nodes_ff}, Activation Function: {activation_func_ff}, Batch Norm: {batch_norm_ff}\n'
+
+    output.child('model_specifications.txt', type="d").dump(txt_input, formatter="text")

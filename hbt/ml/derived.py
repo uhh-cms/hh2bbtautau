@@ -34,9 +34,13 @@ dataset_names = {
 #     for var in feature_list],
 #     ["mjj", "mbjetbjet", "mtautau", "mHH"]]
 
-input_features = [["jets_pt", "jets_e", "jets_mass", "jets_eta", "jets_phi", "jets_btag"],
-                  ["mjj", "mbjetbjet", "mtautau", "mHH", "jets_max_d_eta", "jets_d_eta_inv_mass"]]
+input_features = [["Colljets_pt", "Colljets_e", "Colljets_mass", "Colljets_eta", "Colljets_phi", "Colljets_btag", "ones_count_ds"],
+                  ["mjj", "mbjetbjet", "mtautau", "mHH", "jets_max_d_eta", "jets_d_eta_inv_mass",
+                   "ht", "n_jets"]]
 
+norm_features = [["Colljets_pt", "Colljets_e", "Colljets_mass", "Colljets_eta", "Colljets_phi", "Colljets_btag"],
+                  ["mjj", "mbjetbjet", "mtautau", "mHH", "jets_max_d_eta", "jets_d_eta_inv_mass",
+                   "ht", "n_jets"]]
 # Decide on dummy or proper btag of jets: If proper chosen coment out 4 lines below
 # for i, name in enumerate(input_features[0]):
 #     if name == 'jet1_btag' or name == 'jet2_btag':
@@ -60,6 +64,16 @@ default_cls_dict = {
     "store_name": "inputs1",
     "n_features": len(input_features[0]),
     "n_output_nodes": len(processes),
+    "nodes_deepSets": [256, 256, 256, 256, 256, 256],
+    "nodes_ff": [256, 256, 256, 256, 256, 256],
+    "batch_norm_deepSets": True,
+    "batch_norm_ff": True,
+    "activation_func_deepSets": "selu",
+    "activation_func_ff": "selu",
+    "custom_layers": ["Sum", "Max", "Min"],
+    "L2": False,
+    "norm_features": norm_features
+
 }
 
 # derived model, usable on command line
@@ -69,7 +83,7 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 cls_dict = default_cls_dict
 cls_dict["epochs"] = 150
 cls_dict["batchsize"] = 2048
-cls_dict["model_name"] = f"{len(processes)}classes_shap_plots_deep_sets"
+cls_dict["model_name"] = f"{len(processes)}classes_testing"
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
 
