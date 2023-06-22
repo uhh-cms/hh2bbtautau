@@ -132,6 +132,11 @@ def inv_mass(obj1, obj2):
 
     return obj_mass
 
+def pt_product(obj1, obj2):
+    obj_product = abs(obj1.pt * obj2.pt)
+
+    return obj_product
+
 
 @producer(
     uses={
@@ -180,9 +185,11 @@ def dr_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         "jets_max_d_eta", "jets_d_eta_inv_mass",
     },
 )
+# jets_dr_inv_mass: invariant mass calculated for the jet pair with largest dr
+# jets_deta_inv_mass: invariant mass calculated for the jet pair with largest d eta
 def d_eta_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[attach_coffea_behavior](events, collections={"CollJet": {"type_name": "Jet"}}, **kwargs)
-    n_jets = events.n_jet
+    n_jets = ak.count(events.CollJet.pt, axis=1)
     deta_table = events.CollJet.metric_table(events.CollJet, axis=1, metric=delta_eta)
     inv_mass_table = events.CollJet.metric_table(events.CollJet, axis=1, metric=inv_mass)
     n_events = len(deta_table)
@@ -205,11 +212,32 @@ def d_eta_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     inv_mass_vals = ak.from_numpy(inv_mass_vals)
     events = set_ak_column_f32(events, "jets_max_d_eta", max_delta_r_vals)
     events = set_ak_column_f32(events, "jets_d_eta_inv_mass", inv_mass_vals)
-
     return events
 
-# jets_dr_inv_mass: invariant mass calculated for the jet pair with largest dr
-# jets_deta_inv_mass: invariant mass calculated for the jet pair with largest d eta
+
+@producer(
+    uses={
+        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        attach_coffea_behavior,
+    },
+    produces={
+        "energy_corr",
+    },
+)
+def energy_correlation(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"CollJet": {"type_name": "Jet"}}, **kwargs)
+    dr_table = events.CollJet.metric_table(events.CollJet, axis=1)
+    pt_table = events.CollJet.metric_table(events.CollJet, axis=1, metric=pt_product)
+    n_events = len(pt_table)
+    energy_corr = np.zeros(n_events)
+    for i, (pt, dr) in enumerate(zip(pt_table, dr_table)):
+        prod = pt * dr
+        corr = ak.sum(prod) / 2
+        energy_corr[i] = corr
+    energy_corr = ak.from_numpy(energy_corr)
+    events = set_ak_column_f32(events, "energy_corr", energy_corr)
+
+    return events
 
 
 # Producers for the columns of the kinetmatic variables (four vectors) of the jets, bjets and taus
@@ -287,40 +315,62 @@ def kinematic_vars_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         # *[f"{obj}_{var}"
         # for obj in [f"jet{n}" for n in range(1, 7, 1)]
         # for var in ["pt", "eta", "phi", "mass", "e", "btag", "hadronFlavour"]], "nJets", "nConstituents", "jets_pt",
-        "nCollJets", "Colljets_pt", "Colljets_e", "Colljets_eta", "Colljets_phi", "Colljets_mass", "Colljets_btag", "Colljets_hadFlav",
+        "nCollJets", "Colljets_pt", "Colljets_e", "Colljets_eta", "Colljets_phi", "Colljets_mass",
+        "Colljets_btag", "Colljets_hadFlav", "n_jets", "ones_count_ds",
     },
 )
 def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[attach_coffea_behavior](events, collections={"CollJet": {"type_name": "Jet"}}, **kwargs)
     events = set_ak_column_f32(events, "nCollJets", ak.fill_none(events.n_jet, EMPTY_FLOAT))
-    jets_pt = ak.pad_none(events.CollJet.pt, max(events.n_jet) + 2)
+
+    n_jets = ak.count(events.CollJet.pt, axis=1)
+    events = set_ak_column_f32(events, "n_jets", n_jets)
+
+    ht = ak.sum(abs(events.CollJet.pt), axis=1)
+    events = set_ak_column_f32(events, "ht", ht)
+
+    jets_pt = ak.pad_none(events.CollJet.pt, max(n_jets))
     jets_pt = ak.to_regular(jets_pt, axis=1)
     jets_pt = ak.fill_none(jets_pt, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_pt", jets_pt)
-    jets_eta = ak.pad_none(events.CollJet.eta, max(events.n_jet) + 2)
+
+    jets_eta = ak.pad_none(events.CollJet.eta, max(n_jets))
     jets_eta = ak.to_regular(jets_eta, axis=1)
     jets_eta = ak.fill_none(jets_eta, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_eta", jets_eta)
-    jets_phi = ak.pad_none(events.CollJet.phi, max(events.n_jet) + 2)
+
+    jets_phi = ak.pad_none(events.CollJet.phi, max(n_jets))
     jets_phi = ak.to_regular(jets_phi, axis=1)
     jets_phi = ak.fill_none(jets_phi, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_phi", jets_phi)
-    jets_mass = ak.pad_none(events.CollJet.mass, max(events.n_jet) + 2)
+
+    jets_mass = ak.pad_none(events.CollJet.mass, max(n_jets))
     jets_mass = ak.to_regular(jets_mass, axis=1)
     jets_mass = ak.fill_none(jets_mass, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_mass", jets_mass)
-    jets_e = ak.pad_none(events.CollJet.E, max(events.n_jet) + 2)
+
+    jets_e = ak.pad_none(events.CollJet.E, max(n_jets))
     jets_e = ak.to_regular(jets_e, axis=1)
     jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_e", jets_e)
-    jets_btag = ak.pad_none(events.CollJet.btagDeepFlavB, max(events.n_jet) + 2)
+
+    jets_btag = ak.pad_none(events.CollJet.btagDeepFlavB, max(n_jets))
     jets_btag = ak.to_regular(jets_btag, axis=1)
     jets_btag = ak.fill_none(jets_btag, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_btag", jets_btag)
-    jets_hadFlav = ak.pad_none(events.CollJet.hadronFlavour, max(events.n_jet) + 2)
+
+    jets_hadFlav = ak.pad_none(events.CollJet.hadronFlavour, max(n_jets))
     jets_hadFlav = ak.to_regular(jets_hadFlav, axis=1)
     jets_hadFlav = ak.fill_none(jets_hadFlav, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_hadFlav", jets_hadFlav)
+
+    ones_count_ds = ak.ones_like(events.CollJet.pt)
+    ones_count_ds = ak.pad_none(ones_count_ds, max(n_jets))
+    ones_count_ds = ak.to_regular(ones_count_ds, axis=1)
+    ones_count_ds = ak.fill_none(ones_count_ds, EMPTY_FLOAT)
+    print('invariant mass')
+    from IPython import embed; embed()
+    events = set_ak_column_f32(events, "ones_count_ds", ones_count_ds)
 
     return events
 
