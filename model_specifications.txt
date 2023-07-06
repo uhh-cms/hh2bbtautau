@@ -1,0 +1,8 @@
+Processes: ['Graviton $\\rightarrow HH_{ggf,m400}$ $\\rightarrow bb\\tau\\tau$', '$HH_{ggf} \\rightarrow bb\\tau\\tau$', 'Graviton $\\rightarrow HH_{vbf,m400}$ $\\rightarrow bb\\tau\\tau$']Input Features Deep Sets: ['jets_pt', 'jets_e', 'jets_mass', 'jets_eta', 'jets_phi', 'jets_btag']
+Input Features FF: ['mjj', 'mbjetbjet', 'mtautau', 'mHH', 'jets_max_d_eta', 'jets_d_eta_inv_mass']
+Aggregation Functions: ['Sum', 'Max', 'Min'] 
+Input Handling: Standardization Z-Score 
+Deep Sets Architecture:
+Layers: 6, Nodes: [256, 256, 256, 256, 256, 256], Activation Function: selu, Batch Norm: True
+FF Architecture:
+Layers: 6, Nodes: [256, 256, 256, 256, 256, 256], Activation Function: selu, Batch Norm: True
