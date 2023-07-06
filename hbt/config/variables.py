@@ -35,136 +35,293 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
     config.add_variable(
-        name="n_jet",
-        expression="n_jet",
-        binning=(11, -0.5, 10.5),
-        x_title="Number of jets",
-        discrete_x=True,
-    )
-    config.add_variable(
         name="n_hhbtag",
         expression="n_hhbtag",
         binning=(4, -0.5, 3.5),
         x_title="Number of HH b-tags",
         discrete_x=True,
     )
+
+    # Jet Plots
+    # jet 1
     config.add_variable(
-        name="ht",
-        binning=[0, 80, 120, 160, 200, 240, 280, 320, 400, 500, 600, 800],
+        name="jet1_energy",
+        expression="CollJet.E[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title="HT",
+        x_title=r"Colljet 1 energy",
     )
     config.add_variable(
         name="jet1_mass",
-        expression="Jet.mass[:,0]",
+        expression="CollJet.mass[:,0]",
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Jet 1 mass",
+        x_title=r"Colljet 1 mass",
     )
     config.add_variable(
         name="jet1_pt",
-        expression="Jet.pt[:,0]",
+        expression="CollJet.pt[:,0]",
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Jet 1 $p_{T}$",
+        x_title=r"Colljet 1 $p_{T}$",
     )
     config.add_variable(
         name="jet1_eta",
-        expression="Jet.eta[:,0]",
+        expression="CollJet.eta[:,0]",
         null_value=EMPTY_FLOAT,
         binning=(30, -3.0, 3.0),
-        x_title=r"Jet 1 $\eta$",
+        x_title=r"Colljet 1 $\eta$",
     )
     config.add_variable(
         name="jet1_phi",
-        expression="Jet.phi[:,0]",
+        expression="CollJet.phi[:,0]",
         null_value=EMPTY_FLOAT,
         binning=(30, -3.0, 3.0),
-        x_title=r"Jet 1 $\phi$",
+        x_title=r"Colljet 1 $\phi$",
+    )
+    config.add_variable(
+        name="jet1_btag",
+        expression="CollJet.btagDeepFlavB[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(0.1, 0.0, 1.0),
+        x_title=r"Colljet 1 b-tag",
+    )
+
+    # Jet 2
+    config.add_variable(
+        name="jet2_energy",
+        expression="CollJet.E[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 2 energy",
     )
     config.add_variable(
         name="jet2_mass",
-        expression="Jet.mass[:,1]",
+        expression="CollJet.mass[:,1]",
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Jet 2 mass",
-    )
-    config.add_variable(
-        name="hardest_jet_pair_mass",
-        expression="mjj",
-        null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
-        unit="GeV",
-        x_title=r"Hardest Jet Pair Mass",
+        x_title=r"Colljet 2 mass",
     )
     config.add_variable(
         name="jet2_pt",
-        expression="Jet.pt[:,1]",
+        expression="CollJet.pt[:,1]",
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Jet 2 $p_{T}$",
+        x_title=r"Colljet 2 $p_{T}$",
     )
     config.add_variable(
         name="jet2_eta",
-        expression="Jet.eta[:,1]",
+        expression="CollJet.eta[:,1]",
         null_value=EMPTY_FLOAT,
         binning=(30, -3.0, 3.0),
-        x_title=r"Jet 2 $\eta$",
+        x_title=r"Colljet 2 $\eta$",
     )
     config.add_variable(
         name="jet2_phi",
-        expression="Jet.phi[:,1]",
+        expression="CollJet.phi[:,1]",
         null_value=EMPTY_FLOAT,
         binning=(30, -3.0, 3.0),
-        x_title=r"Jet 2 $\phi$",
+        x_title=r"Colljet 2 $\phi$",
     )
     config.add_variable(
-        name="jet3_pt",
-        expression="Jet.pt[:,2]",
+        name="jet2_btag",
+        expression="CollJet.btagDeepFlavB[:,1]",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
-        x_title=r"Jet 3 $p_{T}$",
+        binning=(0.1, 0.0, 1.0),
+        x_title=r"Colljet 2 b-tag",
     )
+    # Jet 3
     config.add_variable(
-        name="jet4_pt",
-        expression="Jet.pt[:,3]",
-        null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
-        x_title=r"Jet 4 $p_{T}$",
-    )
-    config.add_variable(
-        name="jet5_pt",
-        expression="Jet.pt[:,4]",
-        null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
-        x_title=r"Jet 5 $p_{T}$",
-    )
-    config.add_variable(
-        name="jet6_pt",
-        expression="Jet.pt[:,5]",
-        null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
-        x_title=r"Jet 6 $p_{T}$",
-    )
-    config.add_variable(
-        name="jet6_eta",
-        expression="Jet.eta[:,5]",
-        null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
-        x_title=r"Jet 6 $\eta$",
-    )
-    config.add_variable(
-        name="tau_pair_mass",
-        expression="mtautau",
+        name="jet3_energy",
+        expression="CollJet.E[:,2]",
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Tau Pair Mass",
+        x_title=r"Colljet 3 energy",
     )
+    config.add_variable(
+        name="jet3_mass",
+        expression="CollJet.mass[:,2]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 3 mass",
+    )
+    config.add_variable(
+        name="jet3_pt",
+        expression="CollJet.pt[:,2]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 3 $p_{T}$",
+    )
+    config.add_variable(
+        name="jet3_eta",
+        expression="CollJet.eta[:,2]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Colljet 3 $\eta$",
+    )
+    config.add_variable(
+        name="jet3_phi",
+        expression="CollJet.phi[:,2]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Colljet 3 $\phi$",
+    )
+    config.add_variable(
+        name="jet3_btag",
+        expression="CollJet.btagDeepFlavB[:,2]",
+        null_value=EMPTY_FLOAT,
+        binning=(0.1, 0.0, 1.0),
+        x_title=r"Colljet 3 b-tag",
+    )
+    # Jet 4
+    config.add_variable(
+        name="jet4_energy",
+        expression="CollJet.E[:,3]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 4 energy",
+    )
+    config.add_variable(
+        name="jet4_mass",
+        expression="CollJet.mass[:,3]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 4 mass",
+    )
+    config.add_variable(
+        name="jet4_pt",
+        expression="CollJet.pt[:,3]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 4 $p_{T}$",
+    )
+    config.add_variable(
+        name="jet4_eta",
+        expression="CollJet.eta[:,3]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Colljet 4 $\eta$",
+    )
+    config.add_variable(
+        name="jet4_phi",
+        expression="CollJet.phi[:,3]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Colljet 4 $\phi$",
+    )
+    config.add_variable(
+        name="jet4_btag",
+        expression="CollJet.btagDeepFlavB[:,3]",
+        null_value=EMPTY_FLOAT,
+        binning=(0.1, 0.0, 1.0),
+        x_title=r"Colljet 4 b-tag",
+    )
+    # Jet 5
+    config.add_variable(
+        name="jet5_energy",
+        expression="CollJet.E[:,4]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 5 energy",
+    )
+    config.add_variable(
+        name="jet5_mass",
+        expression="CollJet.mass[:,4]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 5 mass",
+    )
+    config.add_variable(
+        name="jet5_pt",
+        expression="CollJet.pt[:,4]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 5 $p_{T}$",
+    )
+    config.add_variable(
+        name="jet5_eta",
+        expression="CollJet.eta[:,4]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Colljet 5 $\eta$",
+    )
+    config.add_variable(
+        name="jet5_phi",
+        expression="CollJet.phi[:,4]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Colljet 5 $\phi$",
+    )
+    config.add_variable(
+        name="jet5_btag",
+        expression="CollJet.btagDeepFlavB[:,4]",
+        null_value=EMPTY_FLOAT,
+        binning=(0.1, 0.0, 1.0),
+        x_title=r"Colljet 5 b-tag",
+    )
+    # Jet 6
+    config.add_variable(
+        name="jet6_energy",
+        expression="CollJet.E[:,5]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 6 energy",
+    )
+    config.add_variable(
+        name="jet6_mass",
+        expression="CollJet.mass[:,5]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 6 mass",
+    )
+    config.add_variable(
+        name="jet6_pt",
+        expression="CollJet.pt[:,5]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet 6 $p_{T}$",
+    )
+    config.add_variable(
+        name="jet6_eta",
+        expression="CollJet.eta[:,5]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Colljet 6 $\eta$",
+    )
+    config.add_variable(
+        name="jet6_phi",
+        expression="CollJet.phi[:,5]",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Colljet 6 $\phi$",
+    )
+    config.add_variable(
+        name="jet6_btag",
+        expression="CollJet.btagDeepFlavB[:,5]",
+        null_value=EMPTY_FLOAT,
+        binning=(0.1, 0.0, 1.0),
+        x_title=r"Colljet 6 b-tag",
+    )
+
+    # Tau Plots
     config.add_variable(
         name="tau1_mass",
         expression="Tau.mass[:,0]",
@@ -225,6 +382,8 @@ def add_variables(config: od.Config) -> None:
         binning=(30, -3.0, 3.0),
         x_title=r"Tau 2 $\phi$",
     )
+
+    # Invariant mass Plots
     config.add_variable(
         name="bjet_pair_mass",
         expression="mbjetbjet",
@@ -234,11 +393,20 @@ def add_variables(config: od.Config) -> None:
         x_title=r"BJet Pair Mass",
     )
     config.add_variable(
-        name="max_d_eta",
-        expression="jets_max_d_eta",
+        name="HH_pair_mass",
+        expression="mHH",
         null_value=EMPTY_FLOAT,
-        binning=(30, 0.0, 8.0),
-        x_title=r"Maximum $\Delta \eta$ of Jets",
+        binning=(50, 0.0, 1000.0),
+        unit="GeV",
+        x_title=r"HH Pair Mass",
+    )
+    config.add_variable(
+        name="tau_pair_mass",
+        expression="mtautau",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Tau Pair Mass",
     )
     config.add_variable(
         name="inv_mass_d_eta",
@@ -249,12 +417,49 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Invariant Mass of Jets with maximum $\Delta \eta$",
     )
     config.add_variable(
-        name="HH_pair_mass",
-        expression="mHH",
+        name="hardest_jet_pair_mass",
+        expression="mjj",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
+        binning=(50, 0.0, 800.0),
         unit="GeV",
-        x_title=r"HH Pair Mass",
+        x_title=r"Hardest Jet Pair Mass",
+    )
+
+    # Others
+    config.add_variable(
+        name="max_d_eta",
+        expression="jets_max_d_eta",
+        null_value=EMPTY_FLOAT,
+        binning=(30, 0.0, 8.0),
+        x_title=r"Maximum $\Delta \eta$ of Jets",
+    )
+    config.add_variable(
+        name="hardest_jet_pair_pt",
+        expression="hardest_jet_pair_pt",
+        null_value=EMPTY_FLOAT,
+        binning=(50, 0.0, 900.0),
+        unit="GeV",
+        x_title=r"$p_{T}$ of hardest Jets",
+    )
+    config.add_variable(
+        name="ht",
+        binning=(50, 0.0, 1200.0),
+        unit="GeV",
+        x_title="HT",
+    )
+    config.add_variable(
+        name="n_jet",
+        expression="n_jets",
+        binning=(11, -0.5, 10.5),
+        x_title="Number of jets",
+        discrete_x=True,
+    )
+    config.add_variable(
+        name="energy_corr",
+        expression="energy_corr",
+        binning=(100, 700, 2000000),
+        unit=r"$GeV^{2}$",
+        x_title="Energy Correlation",
     )
     config.add_variable(
         name="met_phi",
@@ -263,14 +468,8 @@ def add_variables(config: od.Config) -> None:
         binning=(33, -3.3, 3.3),
         x_title=r"MET $\phi$",
     )
-    config.add_variable(
-        name="hardest_jet_pair_pt",
-        expression="(Jet[:, 0] + Jet[:, 1]).pt",
-        null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
-        unit="GeV",
-        x_title=r"Sum(0,1) $p_{T}$",
-    )
+
+    # B Jets
     config.add_variable(
         name="bjet1_mass",
         expression="BJet.mass[:,0]",
