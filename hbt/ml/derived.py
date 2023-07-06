@@ -15,7 +15,7 @@ processes = [
 ]
 
 ml_process_weights = {
-    "graviton_hh_ggf_bbtautau_m400": 1,
+    "graviton_hh_ggf_bbtautau_m400": 1.5,
     "hh_ggf_bbtautau": 1,
     "graviton_hh_vbf_bbtautau_m400": 1,
 }
@@ -47,14 +47,18 @@ norm_features = [["Colljets_pt", "Colljets_e", "Colljets_mass", "Colljets_eta", 
 #         name += "_dummy"
 #         input_features[0][i] = name
 
+nodes_deepSets = [128, 128, 128, 128, 128, 128]
+nodes_ff = [256, 256, 256, 256, 256, 256]
+
+# empty_overwrite options: "1": -1, "3sig": 3 sigma padding as replacement of EMPTY FLOAT values
 default_cls_dict = {
     "folds": 3,
     # "max_events": 10**6,  # TODO
     "layers": [512, 512, 512],
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
-    "learningrate": 0.001,
-    "batchsize": 131072,
-    "epochs": 200,
+    "learningrate": 0.01,
+    "batchsize": 256,
+    "epochs": 150,
     "eqweight": True,
     "dropout": 0.50,
     "processes": processes,
@@ -64,15 +68,18 @@ default_cls_dict = {
     "store_name": "inputs1",
     "n_features": len(input_features[0]),
     "n_output_nodes": len(processes),
-    "nodes_deepSets": [256, 256, 256, 256, 256, 256],
-    "nodes_ff": [256, 256, 256, 256, 256, 256],
+    "nodes_deepSets": nodes_deepSets,
+    "nodes_ff": nodes_ff,
     "batch_norm_deepSets": True,
     "batch_norm_ff": True,
-    "activation_func_deepSets": "selu",
-    "activation_func_ff": "selu",
-    "custom_layers": ["Sum", "Max", "Min"],
+    "activation_func_deepSets": ["selu" for i in range(len(nodes_deepSets))],
+    "activation_func_ff": ["selu" for i in range(len(nodes_ff))],
+    "aggregations": ["Sum", "Max", "Min"],
     "L2": False,
-    "norm_features": norm_features
+    "norm_features": norm_features,
+    "empty_overwrite": "1",
+    "quantity_weighting": True,
+    "jet_num_cut": 3
 
 }
 
@@ -81,9 +88,7 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["epochs"] = 150
-cls_dict["batchsize"] = 2048
-cls_dict["model_name"] = f"{len(processes)}classes_testing"
+cls_dict["model_name"] = f"{len(processes)}classes_4jets_quantity_weighting"
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
 

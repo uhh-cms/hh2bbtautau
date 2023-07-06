@@ -86,13 +86,12 @@ def plot_confusion(
 
     # Create a plot of the confusion matrix
     fig, ax = plt.subplots(figsize=(15, 10))
-    ConfusionMatrixDisplay(confusion, display_labels=labels).plot(ax=ax)
+    matrix_display = ConfusionMatrixDisplay(confusion, display_labels=labels)
+    matrix_display.plot(ax=ax)
+    matrix_display.im_.set_clim(0, 1)
 
-    ax.set_title(f"{input_type} set, rows normalized", fontsize=25, loc="left")
-    # plt.imshow(confusion)
-    # plt.clim(0, 1)
+    ax.set_title(f"{input_type} set, rows normalized", fontsize=32, loc="left")
     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
-
     output.child(f"Confusion_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
 
 
@@ -307,7 +306,7 @@ def plot_significance(
         output.child(f"Significance_Node_{process_insts[i].name}.pdf", type="f").dump(fig, formatter="mpl")
 
 
-def plot_shap_values_simple_nn(
+def plot_shap_values(
         model: tf.keras.models.Model,
         train: DotDict,
         output: law.FileSystemDirectoryTarget,
@@ -323,10 +322,13 @@ def plot_shap_values_simple_nn(
         "mtautau": r"$m_{\tau\tau}$",
         "jets_max_d_eta": r"max $\Delta \eta$",
         "jets_d_eta_inv_mass": r"$m_{jj, \Delta \eta}$",
+        "ht": r"$h_{t}$",
+        "n_jets": r"$n_{jets}$"
     }
 
     # names of features and classes
     feature_list = [feature_dict[feature] for feature in feature_names[1]]
+    feature_list.insert(0, 'Deep Sets')
 
     # make sure class names are sorted correctly in correspondence to their target index
     classes = sorted(target_dict.items(), key=lambda x: x[1])
@@ -337,13 +339,15 @@ def plot_shap_values_simple_nn(
         class_list[idx[0][0]] = proc.label
 
     # calculate shap values
-    inp = tf.squeeze(train['inputs2'], axis=1).numpy()
-    explainer = shap.KernelExplainer(model, inp[:500])
-    shap_values = explainer.shap_values(inp[-100:])
+    inp_deepSets = train['prediction_deepSets'].numpy()
+    inp_ff = train['inputs2'].numpy()
+    inp = np.concatenate((inp_deepSets, inp_ff), axis=1)
+    explainer = shap.KernelExplainer(model, inp[:50])
+    shap_values = explainer.shap_values(inp[-50:])
 
     # Feature Ranking
     fig1 = plt.figure()
-    shap.summary_plot(shap_values, inp[:100], plot_type="bar",
+    shap.summary_plot(shap_values, inp[:500], plot_type="bar",
         feature_names=feature_list, class_names=class_list)
     output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
@@ -377,8 +381,8 @@ def plot_shap_values_deep_sets(
 
     # calculate shap values
     inp = tf.squeeze(train['inputs2'], axis=1).numpy()
-    explainer = shap.DeepExplainer(model, inp[:500])
-    shap_values = explainer.shap_values(inp[-100:])
+    explainer = shap.DeepExplainer(model, inp[:50])
+    shap_values = explainer.shap_values(inp[-50:])
 
 
 def write_info_file(
@@ -392,15 +396,24 @@ def write_info_file(
         feature_names,
         process_insts,
         activation_func_deepSets,
-        activation_func_ff
+        activation_func_ff,
+        learningrate,
+        empty_overwrite,
+        ml_proc_weights,
+        min_jet_num,
+        loss_weights,
 ) -> None:
 
     # write info on model for the txt file
     txt_input = f'Processes: {[process_insts[i].name for i in range(len(process_insts))]}\n'
-    txt_input += 'Input Handling: Standardization Z-Score \n'
+    txt_input += f'Initial Learning Rate: {learningrate}, Input Handling: Standardization Z-Score \n'
+    txt_input += f'Required number of Jets per Event: {min_jet_num + 1}'
+    txt_input += f'Weights used in Loss: {loss_weights.items()}\n'
     txt_input += f'Input Features Deep Sets: {feature_names[0]}\n'
     txt_input += f'Input Features FF: {feature_names[1]}\n'
     txt_input += f'Aggregation Functions: {agg_funcs} \n'
+    txt_input += f'EMPTY_FLOAT overwrite: {empty_overwrite}\n'
+    txt_input += f'{ml_proc_weights}'
     txt_input += 'Deep Sets Architecture:\n'
     txt_input += f'Layers: {len(nodes_deepSets)}, Nodes: {nodes_deepSets}, Activation Function: {activation_func_deepSets}, Batch Norm: {batch_norm_deepSets}\n'
     txt_input += 'FF Architecture:\n'
