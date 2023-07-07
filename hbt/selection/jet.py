@@ -8,6 +8,7 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.selection.util import sorted_indices_from_mask
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 
@@ -24,11 +25,11 @@ ak = maybe_import("awkward")
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
-        "nJet", "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
         "Jet.btagDeepFlavB",
-        "nFatJet", "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
+        "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
         "FatJet.jetId", "FatJet.subJetIdx1", "FatJet.subJetIdx2",
-        "nSubJet", "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
+        "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
     },
     produces={
         # new columns
@@ -168,12 +169,14 @@ def jet_selection(
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # pt sorted indices to convert mask
-    sorted_indices = ak.argsort(events.Jet.pt, axis=-1, ascending=False)
-    jet_indices = sorted_indices[default_mask[sorted_indices]]
+    jet_indices = sorted_indices_from_mask(default_mask, events.Jet.pt, ascending=False)
 
     # keep indices of default jets that are explicitly not selected as hhbjets for easier handling
-    non_hhbjet_mask = default_mask & (~hhbjet_mask)
-    non_hhbjet_indices = sorted_indices[non_hhbjet_mask[sorted_indices]]
+    non_hhbjet_indices = sorted_indices_from_mask(
+        default_mask & (~hhbjet_mask),
+        events.Jet.pt,
+        ascending=False,
+    )
 
     # final event selection
     jet_sel = (

@@ -24,7 +24,7 @@ set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
 @producer(
     uses={
         # nano columns
-        "Electron.pt", "Muon.pt", "Jet.pt", "HHBJet.pt", "BJet.pt",
+        "Electron.pt", "Muon.pt", "Jet.pt", "HHBJet.pt",
     },
     produces={
         # new columns

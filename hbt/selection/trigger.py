@@ -16,13 +16,14 @@ ak = maybe_import("awkward")
 @selector(
     uses={
         # nano columns
-        "nTrigObj", "TrigObj.id", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi", "TrigObj.filterBits",
+        "TrigObj.id", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi", "TrigObj.filterBits",
     },
     produces={
         # new columns
         "trigger_ids",
     },
     exposed=True,
+    check_used_columns=False,
 )
 def trigger_selection(
     self: Selector,
