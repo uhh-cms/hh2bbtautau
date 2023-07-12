@@ -6,7 +6,7 @@ Config-related object definitions and utils.
 
 from __future__ import annotations
 
-from typing import Callable, Any
+from typing import Callable, Any, Sequence
 
 from order import UniqueObject, TagMixin
 from order.util import typed
@@ -26,7 +26,12 @@ class TriggerLeg(object):
     For accepted types and conversions, see the *typed* setters implemented in this class.
     """
 
-    def __init__(self, pdg_id=None, min_pt=None, trigger_bits=None):
+    def __init__(
+        self,
+        pdg_id: int | None = None,
+        min_pt: float | int | None = None,
+        trigger_bits: int | Sequence[int] | None = None,
+    ):
         super().__init__()
 
         # instance members
@@ -71,7 +76,7 @@ class TriggerLeg(object):
     @typed
     def trigger_bits(
         self,
-        trigger_bits: int | tuple[int] | list[int] | None,
+        trigger_bits: int | Sequence[int] | None,
     ) -> list[int] | None:
         if trigger_bits is None:
             return None
@@ -113,7 +118,15 @@ class Trigger(UniqueObject, TagMixin):
 
     allow_undefined_data_source = True
 
-    def __init__(self, name, id, run_range=None, legs=None, applies_to_dataset=True, tags=None):
+    def __init__(
+        self,
+        name: str,
+        id: int,
+        run_range: Sequence[int] | None = None,
+        legs: Sequence[TriggerLeg] | None = None,
+        applies_to_dataset: Callable | bool | Any = True,
+        tags: Any = None,
+    ):
         UniqueObject.__init__(self, name, id)
         TagMixin.__init__(self, tags=tags)
 
@@ -150,7 +163,7 @@ class Trigger(UniqueObject, TagMixin):
     @typed
     def run_range(
         self,
-        run_range: tuple[int] | list[int] | None,
+        run_range: Sequence[int] | None,
     ) -> tuple[int] | None:
         if run_range is None:
             return None
