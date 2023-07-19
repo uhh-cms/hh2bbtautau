@@ -10,6 +10,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import DotDict, maybe_import
 
+from hbt.util import IF_NANO_V9, IF_NANO_V11
 from hbt.config.util import Trigger
 
 
@@ -40,12 +41,11 @@ def trigger_object_matching(
 
 @selector(
     uses={
-        # nano columns
         "Electron.pt", "Electron.eta", "Electron.phi", "Electron.dxy", "Electron.dz",
-        "Electron.pfRelIso03_all", "Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90",
+        "Electron.pfRelIso03_all",
+        IF_NANO_V9("Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90"),
+        IF_NANO_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
-        # <= nano v9 names
-        "Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90",
     },
 )
 def electron_selection(
