@@ -47,7 +47,6 @@ def trigger_object_matching(
         # <= nano v9 names
         "Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90",
     },
-    check_used_columns=False,
 )
 def electron_selection(
     self: Selector,

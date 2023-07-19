@@ -6,7 +6,7 @@ Trigger selection methods.
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.util import maybe_import
-from columnflow.columnar_util import set_ak_column
+from columnflow.columnar_util import set_ak_column, optional_column as opt
 
 
 np = maybe_import("numpy")
@@ -23,7 +23,6 @@ ak = maybe_import("awkward")
         "trigger_ids",
     },
     exposed=True,
-    check_used_columns=False,
 )
 def trigger_selection(
     self: Selector,
@@ -101,7 +100,7 @@ def trigger_selection_init(self: Selector) -> None:
 
     # full used columns
     self.uses |= {
-        trigger.name
+        opt(trigger.name)
         for trigger in self.config_inst.x.triggers
         if trigger.applies_to_dataset(self.dataset_inst)
     }

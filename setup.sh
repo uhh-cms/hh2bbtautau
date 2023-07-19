@@ -125,6 +125,13 @@ setup_hbt() {
 
 
     #
+    # git hooks
+    #
+
+    cf_setup_git_hooks || return "$?"
+
+
+    #
     # law setup
     #
 
