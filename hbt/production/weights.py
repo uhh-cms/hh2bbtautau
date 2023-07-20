@@ -145,7 +145,7 @@ def normalized_pdf_weight_setup(
 
     # save average weights
     self.average_pdf_weights = {
-        postfix: safe_div(stats[f"sum_pdf_weight{postfix}"], stats["n_events"])
+        postfix: safe_div(stats[f"sum_pdf_weight{postfix}"], stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }
 
@@ -195,6 +195,6 @@ def normalized_murmuf_weight_setup(
 
     # save average weights
     self.average_murmuf_weights = {
-        postfix: safe_div(stats[f"sum_murmuf_weight{postfix}"], stats["n_events"])
+        postfix: safe_div(stats[f"sum_murmuf_weight{postfix}"], stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }

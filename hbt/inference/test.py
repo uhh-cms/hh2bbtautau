@@ -104,12 +104,6 @@ def test(self):
         type=ParameterType.rate_unconstrained,
     )
 
-    #
-    # post-processing
-    #
-
-    self.cleanup()
-
 
 @inference_model
 def test_no_shifts(self):
@@ -121,11 +115,5 @@ def test_no_shifts(self):
     #
 
     for category_name, process_name, parameter in self.iter_parameters():
-        if parameter.config_shift_source:
+        if parameter.type.is_shape or any(trafo.from_shape for trafo in parameter.transformations):
             self.remove_parameter(parameter.name, process=process_name, category=category_name)
-
-    #
-    # post-processing
-    #
-
-    self.cleanup()

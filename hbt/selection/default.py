@@ -6,9 +6,10 @@ Selection methods.
 
 from operator import and_
 from functools import reduce
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 
 from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.selection.stats import increment_stats
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
 from columnflow.production.processes import process_ids
@@ -28,107 +29,6 @@ from hbt.production.features import cutflow_features
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
-
-
-@selector(
-    uses={btag_weights, pu_weight},
-)
-def increment_stats(
-    self: Selector,
-    events: ak.Array,
-    results: SelectionResult,
-    stats: dict,
-    **kwargs,
-) -> ak.Array:
-    """
-    Unexposed selector that does not actually select objects but instead increments selection
-    *stats* in-place based on all input *events* and the final selection *mask*.
-    """
-    # get event masks
-    event_mask = results.main.event
-    event_mask_no_bjet = results.steps.all_but_bjet
-
-    # increment plain counts
-    stats["n_events"] += len(events)
-    stats["n_events_selected"] += ak.sum(event_mask, axis=0)
-
-    # get a list of unique jet multiplicities present in the chunk
-    unique_process_ids = np.unique(events.process_id)
-    unique_n_jets = []
-    if results.has_aux("n_central_jets"):
-        unique_n_jets = np.unique(results.x.n_central_jets)
-
-    # create a map of entry names to (weight, mask) pairs that will be written to stats
-    weight_map = OrderedDict()
-    if self.dataset_inst.is_mc:
-        # mc weight for all events
-        weight_map["mc_weight"] = (events.mc_weight, Ellipsis)
-
-        # mc weight for selected events
-        weight_map["mc_weight_selected"] = (events.mc_weight, event_mask)
-
-        # mc weight times the pileup weight (with variations) without any selection
-        for name in sorted(self[pu_weight].produces):
-            weight_map[f"mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
-
-        # mc weight for selected events, excluding the bjet selection
-        weight_map["mc_weight_selected_no_bjet"] = (events.mc_weight, event_mask_no_bjet)
-
-        # weights that include standard systematic variations
-        for postfix in ["", "_up", "_down"]:
-            # pdf weight for all events
-            weight_map[f"pdf_weight{postfix}"] = (events[f"pdf_weight{postfix}"], Ellipsis)
-
-            # pdf weight for selected events
-            weight_map[f"pdf_weight{postfix}_selected"] = (events[f"pdf_weight{postfix}"], event_mask)
-
-            # scale weight for all events
-            weight_map[f"murmuf_weight{postfix}"] = (events[f"murmuf_weight{postfix}"], Ellipsis)
-
-            # scale weight for selected events
-            weight_map[f"murmuf_weight{postfix}_selected"] = (events[f"murmuf_weight{postfix}"], event_mask)
-
-        # btag weights
-        for name in sorted(self[btag_weights].produces):
-            if not name.startswith("btag_weight"):
-                continue
-
-            # weights for all events
-            weight_map[name] = (events[name], Ellipsis)
-
-            # weights for selected events
-            weight_map[f"{name}_selected"] = (events[name], event_mask)
-
-            # weights for selected events, excluding the bjet selection
-            weight_map[f"{name}_selected_no_bjet"] = (events[name], event_mask_no_bjet)
-
-            # mc weight times btag weight for selected events, excluding the bjet selection
-            weight_map[f"mc_weight_{name}_selected_no_bjet"] = (events.mc_weight * events[name], event_mask_no_bjet)
-
-    # get and store the weights
-    for name, (weights, mask) in weight_map.items():
-        joinable_mask = True if mask is Ellipsis else mask
-
-        # sum for all processes
-        stats[f"sum_{name}"] += ak.sum(weights[mask])
-
-        # sums per process id and again per jet multiplicity
-        stats.setdefault(f"sum_{name}_per_process", defaultdict(float))
-        stats.setdefault(f"sum_{name}_per_process_and_njet", defaultdict(lambda: defaultdict(float)))
-        for p in unique_process_ids:
-            stats[f"sum_{name}_per_process"][int(p)] += ak.sum(
-                weights[(events.process_id == p) & joinable_mask],
-            )
-            for n in unique_n_jets:
-                stats[f"sum_{name}_per_process_and_njet"][int(p)][int(n)] += ak.sum(
-                    weights[
-                        (events.process_id == p) &
-                        (results.x.n_central_jets == n) &
-                        joinable_mask
-                    ],
-                )
-
-    return events
 
 
 @selector(
@@ -199,7 +99,7 @@ def default(
     results.main["event"] = event_sel
 
     # combined event seleciton after all but the bjet step
-    results.steps.all_but_bjet = reduce(
+    event_sel_nob = results.steps.all_but_bjet = reduce(
         and_,
         [mask for step_name, mask in results.steps.items() if step_name != "bjet"],
     )
@@ -207,10 +107,62 @@ def default(
     # create process ids
     events = self[process_ids](events, **kwargs)
 
-    # increment stats
-    events = self[increment_stats](events, results, stats, **kwargs)
-
     # some cutflow features
     events = self[cutflow_features](events, results.objects, **kwargs)
+
+    # increment stats
+    weight_map = {
+        "num_events": Ellipsis,
+        "num_events_selected": event_sel,
+        "num_events_selected_nobjet": event_sel_nob,
+    }
+    group_map = {}
+    group_combinations = []
+    if self.dataset_inst.is_mc:
+        weight_map["sum_mc_weight"] = events.mc_weight
+        weight_map["sum_mc_weight_selected"] = (events.mc_weight, event_sel)
+        weight_map["sum_mc_weight_selected_nobjet"] = (events.mc_weight, event_sel_nob)
+        # pu weights with variations
+        for name in sorted(self[pu_weight].produces):
+            weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
+        # pdf and murmuf weights with variations
+        for v in ["", "_up", "_down"]:
+            weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
+            weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
+            weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
+            weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
+        # btag weights
+        for name in sorted(self[btag_weights].produces):
+            if not name.startswith("btag_weight"):
+                continue
+            weight_map[f"sum_{name}"] = events[name]
+            weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
+            weight_map[f"sum_{name}_selected_nobjet"] = (events[name], event_sel_nob)
+            weight_map[f"sum_mc_weight_{name}_selected_nobjet"] = (events.mc_weight * events[name], event_sel_nob)
+        # groups
+        group_map = {
+            **group_map,
+            # per process
+            "process": {
+                "values": events.process_id,
+                "mask_fn": (lambda v: events.process_id == v),
+            },
+            # per jet multiplicity
+            "njet": {
+                "values": results.x.n_central_jets,
+                "mask_fn": (lambda v: results.x.n_central_jets == v),
+            },
+        }
+        # combinations
+        group_combinations.append(("process", "njet"))
+    events = self[increment_stats](
+        events,
+        results,
+        stats,
+        weight_map=weight_map,
+        group_map=group_map,
+        group_combinations=group_combinations,
+        **kwargs,
+    )
 
     return events, results

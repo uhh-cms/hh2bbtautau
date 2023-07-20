@@ -10,6 +10,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import DotDict, maybe_import
 
+from hbt.util import IF_NANO_V9, IF_NANO_V11
 from hbt.config.util import Trigger
 
 
@@ -40,12 +41,11 @@ def trigger_object_matching(
 
 @selector(
     uses={
-        # nano columns
-        "nElectron", "Electron.pt", "Electron.eta", "Electron.phi", "Electron.dxy", "Electron.dz",
-        "Electron.pfRelIso03_all", "Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90",
-        "nTrigObj", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
-        # <= nano v9 names
-        "Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90",
+        "Electron.pt", "Electron.eta", "Electron.phi", "Electron.dxy", "Electron.dz",
+        "Electron.pfRelIso03_all",
+        IF_NANO_V9("Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90"),
+        IF_NANO_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
+        "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
 )
 def electron_selection(
@@ -132,9 +132,9 @@ def electron_selection(
 @selector(
     uses={
         # nano columns
-        "nMuon", "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mediumId", "Muon.tightId",
-        "Muon.pfRelIso04_all", "Muon.dxy", "Muon.dz",
-        "nTrigObj", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
+        "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mediumId", "Muon.tightId", "Muon.pfRelIso04_all",
+        "Muon.dxy", "Muon.dz",
+        "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
 )
 def muon_selection(
@@ -213,11 +213,11 @@ def muon_selection(
 @selector(
     uses={
         # nano columns
-        "nTau", "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz", "Tau.idDeepTau2017v2p1VSe",
+        "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz", "Tau.idDeepTau2017v2p1VSe",
         "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet",
-        "nTrigObj", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
-        "nElectron", "Electron.pt", "Electron.eta", "Electron.phi",
-        "nMuon", "Muon.pt", "Muon.eta", "Muon.phi",
+        "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
+        "Electron.pt", "Electron.eta", "Electron.phi",
+        "Muon.pt", "Muon.eta", "Muon.phi",
     },
     # shifts are declared dynamically below in tau_selection_init
 )

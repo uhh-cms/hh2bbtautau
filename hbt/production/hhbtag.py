@@ -24,7 +24,7 @@ logger = law.logger.get_logger(__name__)
         "channel_id",
         # nano columns
         "event",
-        "nJet", "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
         "Jet.btagDeepFlavB",
         "MET.pt", "MET.phi",
     },
@@ -75,11 +75,10 @@ def hhbtag(
         jet_shape * ak.sum(leps.pt, axis=1),
     ]
 
-    # helper to split events, cast to float 32, concatenate across new axis,
+    # helper to split events, cast to float32, concatenate across new axis,
     # then pad with zeros for up to n_jets_max jets
     def split(where):
-        # when there are no events matched by the mask, ak.concatenate (unlike np) fails
-        features = np.concatenate(
+        features = ak.concatenate(
             [
                 ak.values_astype(f[where][..., None], np.float32)
                 for f in input_features

@@ -119,31 +119,6 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=1024 + 256,
                 ),
             ],
-            # the non-HPS path existed only for data and is fully covered in MC below
-            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
-        ),
-        Trigger(
-            name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseChargedIsoPFTau30_eta2p1_CrossL1",
-            id=402,
-            legs=[
-                TriggerLeg(
-                    pdg_id=11,
-                    min_pt=27.0,
-                    # filter names:
-                    # hltEle24erWPTightGsfTrackIsoFilterForTau
-                    # hltOverlapFilterIsoEle24WPTightGsfLooseIsoPFTau30
-                    trigger_bits=2 + 64,
-                ),
-                TriggerLeg(
-                    pdg_id=15,
-                    min_pt=35.0,
-                    # filter names:
-                    # hltSelectedPFTau30LooseChargedIsolationL1HLTMatched
-                    # hltOverlapFilterIsoEle24WPTightGsfLooseIsoPFTau30
-                    trigger_bits=1024 + 256,
-                ),
-            ],
             tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
         ),
 
@@ -167,31 +142,6 @@ def add_triggers_2017(config: od.Config) -> None:
                     min_pt=32.0,
                     # filter names:
                     # hltSelectedPFTau27LooseChargedIsolationAgainstMuonL1HLTMatched or
-                    # hltOverlapFilterIsoMu20LooseChargedIsoPFTau27L1Seeded
-                    trigger_bits=1024 + 512,
-                ),
-            ],
-            # the non-HPS path existed only for data and is fully covered in MC below
-            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
-        ),
-        Trigger(
-            name="HLT_IsoMu20_eta2p1_LooseChargedIsoPFTau27_eta2p1_CrossL1",
-            id=302,
-            legs=[
-                TriggerLeg(
-                    pdg_id=13,
-                    min_pt=22.0,
-                    # filter names:
-                    # hltL3crIsoL1sMu18erTau24erIorMu20erTau24erL1f0L2f10QL3f20QL3trkIsoFiltered0p07
-                    # hltOverlapFilterIsoMu20LooseChargedIsoPFTau27L1Seeded
-                    trigger_bits=2 + 64,
-                ),
-                TriggerLeg(
-                    pdg_id=15,
-                    min_pt=32.0,
-                    # filter names:
-                    # hltSelectedPFTau27LooseChargedIsolationAgainstMuonL1HLTMatched
                     # hltOverlapFilterIsoMu20LooseChargedIsoPFTau27L1Seeded
                     trigger_bits=1024 + 512,
                 ),

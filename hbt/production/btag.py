@@ -91,7 +91,7 @@ def normalized_btag_weights_setup(self: Producer, reqs: dict, inputs: dict, read
     stats = inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json")
 
     # get the unique process ids in that dataset
-    key = "sum_mc_weight_selected_no_bjet_per_process_and_njet"
+    key = "sum_mc_weight_selected_nobjet_per_process_and_njet"
     self.unique_process_ids = list(map(int, stats[key].keys()))
 
     # get the maximum numbers of jets
@@ -99,20 +99,20 @@ def normalized_btag_weights_setup(self: Producer, reqs: dict, inputs: dict, read
 
     # helper to get numerators and denominators
     def numerator_per_pid(pid):
-        key = "sum_mc_weight_selected_no_bjet_per_process"
+        key = "sum_mc_weight_selected_nobjet_per_process"
         return stats[key].get(str(pid), 0.0)
 
     def denominator_per_pid(weight_name, pid):
-        key = f"sum_mc_weight_{weight_name}_selected_no_bjet_per_process"
+        key = f"sum_mc_weight_{weight_name}_selected_nobjet_per_process"
         return stats[key].get(str(pid), 0.0)
 
     def numerator_per_pid_njet(pid, n_jets):
-        key = "sum_mc_weight_selected_no_bjet_per_process_and_njet"
+        key = "sum_mc_weight_selected_nobjet_per_process_and_njet"
         d = stats[key].get(str(pid), {})
         return d.get(str(n_jets), 0.0)
 
     def denominator_per_pid_njet(weight_name, pid, n_jets):
-        key = f"sum_mc_weight_{weight_name}_selected_no_bjet_per_process_and_njet"
+        key = f"sum_mc_weight_{weight_name}_selected_nobjet_per_process_and_njet"
         d = stats[key].get(str(pid), {})
         return d.get(str(n_jets), 0.0)
 
