@@ -25,7 +25,7 @@ analysis_hbt.x.versions = {}
 # files of bash sandboxes that might be required by remote tasks
 # (used in cf.HTCondorWorkflow)
 analysis_hbt.x.bash_sandboxes = [
-    "$CF_BASE/sandboxes/cf_prod.sh",
+    "$CF_BASE/sandboxes/cf.sh",
     "$CF_BASE/sandboxes/venv_columnar.sh",
     "$HBT_BASE/sandboxes/venv_columnar_tf.sh",
 ]
