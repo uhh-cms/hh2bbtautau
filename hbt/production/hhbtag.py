@@ -93,13 +93,13 @@ def hhbtag(
         )
         # fix the dimension of the last axis to the known number of input features
         features = features[..., list(range(len(input_features)))]
-        return features
+        return ak.to_numpy(features)
 
     # reserve an output score array
     scores = np.ones((ak.sum(event_mask), n_jets_max), dtype=np.float32) * EMPTY_FLOAT
 
     # fill even and odd events if there are any
-    even_mask = (events[event_mask].event % 2) == 0
+    even_mask = ak.to_numpy((events[event_mask].event % 2) == 0)
     if ak.sum(even_mask):
         input_features_even = split(even_mask)
         scores_even = self.hhbtag_model_even(input_features_even)[0].numpy()
@@ -123,8 +123,10 @@ def hhbtag(
         scores_ext = layout_ak_array(np.zeros(len(ak.flatten(layout_ext)), dtype=np.int32), layout_ext)
     scores = ak.concatenate([scores, scores_ext], axis=1)
 
+    # prevent Memory Corruption Error
+    jet_mask = ak.fill_none(jet_mask, False, axis=-1)
     # insert scores into an array with same shape as input jets (without jet_mask and event_mask)
-    all_scores = ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32)
+    all_scores = ak.fill_none(ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
     np.asarray(ak.flatten(all_scores))[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(scores))
 
     return all_scores
