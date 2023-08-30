@@ -125,6 +125,7 @@ def hhbtag(
 
     # prevent Memory Corruption Error
     jet_mask = ak.fill_none(jet_mask, False, axis=-1)
+
     # insert scores into an array with same shape as input jets (without jet_mask and event_mask)
     all_scores = ak.fill_none(ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
     np.asarray(ak.flatten(all_scores))[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(scores))

@@ -47,6 +47,12 @@ setup_hbt() {
     local setup_is_default="false"
     [ "${setup_name}" = "default" ] && setup_is_default="true"
 
+    # zsh options
+    if ${shell_is_zsh}; then
+        emulate -L bash
+        setopt globdots
+    fi
+
 
     #
     # global variables

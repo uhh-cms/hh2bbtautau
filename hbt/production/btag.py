@@ -48,7 +48,7 @@ def normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
             # single value
             norm_weight_per_pid[pid_mask] = self.ratio_per_pid[weight_name][pid]
             # lookup table
-            n_jets = ak.num(events[pid_mask].Jet.pt, axis=1)
+            n_jets = ak.to_numpy(ak.num(events[pid_mask].Jet.pt, axis=1))
             norm_weight_per_pid_njet[pid_mask] = self.ratio_per_pid_njet[weight_name][pid][n_jets]
 
         # multiply with actual weight

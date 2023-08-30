@@ -197,7 +197,7 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["met_filter", "trigger", "lepton", "jet", "bjet"],
+        "default": ["json", "met_filter", "trigger", "lepton", "jet", "bjet"],
     }
 
     # custom method and sandbox for determining dataset lfns

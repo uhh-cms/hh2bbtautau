@@ -23,7 +23,7 @@ def trigger_object_matching(
     vectors2: ak.Array,
     threshold: float = 0.25,
     axis: int = 2,
-) -> ak.Array | tuple[ak.Array, ak.Array]:
+) -> ak.Array:
     """
     Helper to check per object in *vectors1* if there is at least one object in *vectors2* that
     leads to a delta R metric below *threshold*. The final reduction is applied over *axis* of the
@@ -47,6 +47,7 @@ def trigger_object_matching(
         IF_NANO_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
+    exposed=False,
 )
 def electron_selection(
     self: Selector,
@@ -136,6 +137,7 @@ def electron_selection(
         "Muon.dxy", "Muon.dz",
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
+    exposed=False,
 )
 def muon_selection(
     self: Selector,
@@ -220,6 +222,7 @@ def muon_selection(
         "Muon.pt", "Muon.eta", "Muon.phi",
     },
     # shifts are declared dynamically below in tau_selection_init
+    exposed=False,
 )
 def tau_selection(
     self: Selector,

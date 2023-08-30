@@ -63,10 +63,12 @@ def default(
 
     # filter bad data events according to golden lumi mask
     if self.dataset_inst.is_data:
-        results.steps["golden"] = self[json_filter](events, **kwargs)
+        events, json_filter_results = self[json_filter](events, **kwargs)
+        results += json_filter_results
 
     # met filter selection
-    results.steps["met_filter"] = self[met_filters](events, **kwargs)
+    events, met_filter_results = self[met_filters](events, **kwargs)
+    results += met_filter_results
 
     # trigger selection
     events, trigger_results = self[trigger_selection](events, **kwargs)
@@ -159,7 +161,7 @@ def default(
         }
         # combinations
         group_combinations.append(("process", "njet"))
-    events = self[increment_stats](
+    events, results = self[increment_stats](
         events,
         results,
         stats,
