@@ -92,8 +92,11 @@ def default(
         events = self[pu_weight](events, **kwargs)
 
         # btag weights
-        events = self[btag_weights](events,
-                                    ak.fill_none(results.x.jet_mask, False, axis=1), **kwargs)
+        events = self[btag_weights](
+            events,
+            ak.fill_none(results.x.jet_mask, False, axis=1),
+            **kwargs,
+        )
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
