@@ -94,7 +94,7 @@ def default(
         # btag weights
         events = self[btag_weights](
             events,
-            ak.fill_none(results.x.jet_mask, False, axis=1),
+            ak.fill_none(results.x.jet_mask, False, axis=-1),
             **kwargs,
         )
 
