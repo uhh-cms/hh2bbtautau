@@ -198,7 +198,7 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["met_filter", "trigger", "lepton", "jet", "bjet"],
+        "default": ["json", "met_filter", "trigger", "lepton", "jet", "bjet"],
     }
 
     # custom method and sandbox for determining dataset lfns
@@ -673,7 +673,7 @@ def add_config(
     })
 
     # event weight columns as keys in an OrderedDict, mapped to shift instances they depend on
-    get_shifts = functools.partial(get_shifts_from_sources, cfhbt/config/configs_run2ul.pyg)
+    get_shifts = functools.partial(get_shifts_from_sources, cfg)
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
         "pdf_weight": get_shifts("pdf"),
