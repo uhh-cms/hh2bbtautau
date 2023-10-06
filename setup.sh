@@ -72,27 +72,13 @@ setup_hbt() {
     # interactive setup
     if [ "${CF_REMOTE_JOB}" != "1" ]; then
         cf_setup_interactive_body() {
-            # start querying for variables
-            query CF_CERN_USER "CERN username" "$( whoami )"
-            export_and_save CF_CERN_USER_FIRSTCHAR "\${CF_CERN_USER:0:1}"
-            query CF_DATA "Local data directory" "\$HBT_BASE/data" "./data"
-            query CF_STORE_NAME "Relative path used in store paths (see next queries)" "hbt_store"
-            query CF_STORE_LOCAL "Default local output store" "\$CF_DATA/\$CF_STORE_NAME"
-            query CF_WLCG_CACHE_ROOT "Local directory for caching remote files" "" "''"
-            export_and_save CF_WLCG_USE_CACHE "$( [ -z "${CF_WLCG_CACHE_ROOT}" ] && echo false || echo true )"
-            export_and_save CF_WLCG_CACHE_CLEANUP "${CF_WLCG_CACHE_CLEANUP:-false}"
-            query CF_SOFTWARE_BASE "Local directory for installing software" "\$CF_DATA/software"
-            query CF_JOB_BASE "Local directory for storing job files" "\$CF_DATA/jobs"
-            query CF_VOMS "Virtual-organization" "cms"
-            query CF_LOCAL_SCHEDULER "Use a local scheduler for law tasks" "True"
-            if [ "${CF_LOCAL_SCHEDULER}" != "True" ]; then
-                query CF_SCHEDULER_HOST "Address of a central scheduler for law tasks" "naf-cms15.desy.de"
-                query CF_SCHEDULER_PORT "Port of a central scheduler for law tasks" "8082"
-            else
-                export_and_save CF_SCHEDULER_HOST "127.0.0.1"
-                export_and_save CF_SCHEDULER_PORT "8082"
-            fi
-            query HBT_BUNDLE_CMSSW "Install and bundle CMSSW sandboxes for job submission?" "True"
+            # the flavor will be cms
+            export CF_FLAVOR="cms"
+
+            # query common variables
+            cf_setup_interactive_common_variables
+
+            # specific variables would go here
         }
         cf_setup_interactive "${CF_SETUP_NAME}" "${HBT_BASE}/.setups/${CF_SETUP_NAME}.sh" || return "$?"
     fi
