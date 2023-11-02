@@ -102,7 +102,7 @@ def default(
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
-    results.main["event"] = event_sel
+    results.event = event_sel
 
     # combined event seleciton after all but the bjet step
     event_sel_nob = results.steps.all_but_bjet = reduce(
