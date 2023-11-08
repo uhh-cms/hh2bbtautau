@@ -76,7 +76,10 @@ def test(self):
     self.add_parameter(
         "CMS_pileup2",
         type=ParameterType.rate_uniform,
-        transformations=[ParameterTransformation.effect_from_shape, ParameterTransformation.symmetrize],
+        transformations=[
+            ParameterTransformation.effect_from_shape,
+            ParameterTransformation.symmetrize,
+        ],
         config_shift_source="minbias_xs",
     )
     self.add_parameter_to_group("CMS_pileup2", "experiment")

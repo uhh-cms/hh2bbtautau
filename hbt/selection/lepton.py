@@ -388,7 +388,8 @@ def lepton_selection(
     sel_muon_indices = empty_indices
     sel_tau_indices = empty_indices
 
-    # perform each lepton election step separately per trigger
+    # perform each lepton election step separately per trigger, avoid caching
+    sel_kwargs = {**kwargs, "call_force": True}
     for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data:
         is_single = trigger.has_tag("single_trigger")
         is_cross = trigger.has_tag("cross_trigger")
@@ -398,8 +399,7 @@ def lepton_selection(
             events,
             trigger,
             leg_masks,
-            call_force=True,
-            **kwargs,
+            **sel_kwargs,
         )
 
         # muon selection
@@ -407,8 +407,7 @@ def lepton_selection(
             events,
             trigger,
             leg_masks,
-            call_force=True,
-            **kwargs,
+            **sel_kwargs,
         )
 
         # tau selection
@@ -418,8 +417,7 @@ def lepton_selection(
             leg_masks,
             electron_indices,
             muon_indices,
-            call_force=True,
-            **kwargs,
+            **sel_kwargs,
         )
 
         # lepton pair selecton per trigger via lepton counting
