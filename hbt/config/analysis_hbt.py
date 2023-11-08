@@ -4,9 +4,6 @@
 Configuration of the HH → bb𝜏𝜏 analysis.
 """
 
-import os
-
-import law
 import order as od
 
 
