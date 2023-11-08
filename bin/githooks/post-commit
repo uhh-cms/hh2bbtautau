@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Custom post-commit hook that runs the linter.
+
+action() {
+    # just lint
+    if [ ! -d "${HBT_BASE}" ]; then
+        >&2 echo "HBT_BASE not setup, skip linting"
+    elif [ "${HBT_SKIP_POST_COMMIT}" != "1" ]; then
+        echo "post-commit linting ..."
+        bash "${HBT_BASE}/tests/run_linting"
+        echo
+    fi
+
+    # always end successfully
+    return "0"
+}
+action "$@"
