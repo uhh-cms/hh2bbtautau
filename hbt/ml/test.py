@@ -61,12 +61,13 @@ class TestModel(MLModel):
     def uses(self, config_inst: od.Config) -> set[Route | str]:
         return set(self.input_features) | set(self.target_features) | {"normalization_weight", "deterministic_seed"}
 
-
     def produces(self, config_inst: od.Config) -> set[Route | str]:
         # mark columns that you don't want to be filtered out
         input_columns = set(self.input_features)
         target_columns = set(self.target_features)
-        ml_predictions = {f"{self.cls_name}.fold{fold}.{feature}" for fold in range(self.folds) for feature in target_columns}
+        ml_predictions = {f"{self.cls_name}.fold{fold}.{feature}"
+            for fold in range(self.folds)
+            for feature in target_columns}
         util_columns = {f"{self.cls_name}.fold_indices"}
 
         preserved_columns = input_columns | target_columns | ml_predictions | util_columns
@@ -94,7 +95,7 @@ class TestModel(MLModel):
         events_of_datasets = inputs["events"][self.config_inst.name]
 
         # get datasets names
-        datasets = [dataset.label for dataset in self.datasets(self.config_inst)]
+        # datasets = [dataset.label for dataset in self.datasets(self.config_inst)]
 
         # extract all columns from parquet files for all datasets and stack them
         all_events = []
@@ -204,7 +205,6 @@ class TestModel(MLModel):
                     prediction[:, index_feature],
                 )
 
-        from IPython import embed; embed(); globals().update(locals())
         events = set_ak_column(
             events,
             f"{self.cls_name}.fold_indices",
