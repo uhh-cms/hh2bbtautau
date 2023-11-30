@@ -59,17 +59,17 @@ class TestModel(MLModel):
         return set(dataset_inst)
 
     def uses(self, config_inst: od.Config) -> set[Route | str]:
-        return {
-            "ht", "n_jet", "n_muon", "n_electron", "normalization_weight", "deterministic_seed",
-        }
+        return set(self.input_features) | set(self.target_features) | {"normalization_weight", "deterministic_seed"}
+
 
     def produces(self, config_inst: od.Config) -> set[Route | str]:
         # mark columns that you don't want to be filtered out
-        preserved_columns = {
-            f"{self.cls_name}.n_muon",
-            f"{self.cls_name}.n_electron",
-            f"{self.cls_name}.ml_prediction",
-        }
+        input_columns = set(self.input_features)
+        target_columns = set(self.target_features)
+        ml_predictions = {f"{self.cls_name}.fold{fold}.{feature}" for fold in range(self.folds) for feature in target_columns}
+        util_columns = {f"{self.cls_name}.fold_indices"}
+
+        preserved_columns = input_columns | target_columns | ml_predictions | util_columns
         return preserved_columns
 
     def output(self, task: law.Task) -> law.FileSystemDirectoryTarget:
@@ -186,28 +186,31 @@ class TestModel(MLModel):
         fold_indices: ak.Array,
         events_used_in_training: bool = False,
     ) -> ak.Array:
-
         # prepare ml_models input features, target is not important
         inputs_tensor, _ = self.prepare_events(events)
 
         # do evaluation on all data
         # one can get test_set of fold using: events[fold_indices == fold]
         for fold, model in enumerate(models):
-            # convert tf.tensor -> np.array to be compatible with awkward
-            prediction = model(inputs_tensor).numpy()
+            # convert tf.tensor -> np.array -> ak.array
+            # to_regular is necessary to make array contigous (otherwise error)
+            prediction = ak.to_regular(model(inputs_tensor).numpy())
 
-        # update events with predictions, sliced by feature, and fold_indices for identification purpose
-        for index_feature, target_feature in enumerate(self.target_features):
-            events = set_ak_column(
-                events,
-                f"fold{fold}_mlprediction.{target_feature}",
-                prediction[:, index_feature],
-            )
-        events.set_ak_column(
+            # update events with predictions, sliced by feature, and fold_indices for identification purpose
+            for index_feature, target_feature in enumerate(self.target_features):
+                events = set_ak_column(
+                    events,
+                    f"{self.cls_name}.fold{fold}.{target_feature}",
+                    prediction[:, index_feature],
+                )
+
+        from IPython import embed; embed(); globals().update(locals())
+        events = set_ak_column(
             events,
-            "fold_indices",
+            f"{self.cls_name}.fold_indices",
             fold_indices,
         )
+
         return events
 
     def training_selector(
