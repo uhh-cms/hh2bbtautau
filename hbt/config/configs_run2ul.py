@@ -20,6 +20,7 @@ from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
     verify_config_processes,
 )
+from columnflow.columnar_util import ColumnCollection
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -661,9 +662,7 @@ def add_config(
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
             # columns added during selection
-            "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
-            "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
-            "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
+            ColumnCollection.ALL_FROM_SELECTOR,
         },
         "cf.MergeSelectionMasks": {
             "cutflow.*",
