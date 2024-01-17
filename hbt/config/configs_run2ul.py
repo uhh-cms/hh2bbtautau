@@ -760,4 +760,11 @@ def add_config(
         cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/cf.sh")
 
         # define custom remote fs's to look at
-        cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+        def get_dataset_lfns_fs(dataset_inst: od.Dataset) -> list[str]:
+            fs = []
+            if os.path.isdir("/pnfs"):
+                fs.append(f"local_fs_{cfg.campaign.x.custom['name']}")
+            fs.append(f"wlcg_fs_{cfg.campaign.x.custom['name']}")
+            return fs
+
+        cfg.x.get_dataset_lfns_remote_fs = get_dataset_lfns_fs
