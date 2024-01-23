@@ -575,7 +575,11 @@ def add_config(
         "met_phi_corr": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/met.json.gz", "v1"),
 
         # hh-btag repository (lightweight) with TF saved model directories
-        "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),  # noqa
+        "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),
+
+        # tobias tautauNN directory with TF saved model directories
+        #"tautauNN_regression_model": ("/afs/desy.de/user/k/kramerto/public/xBogdan/reg_mass_class_l2n400_addCharge_incrMassLoss_lossSum_allMasses.tgz", "v1")  # noqa
+        "tautauNN_regression_model": ("/afs/desy.de/user/k/kramerto/public/xBogdan/ttreg_ED5_LU2x_9x128_CTfcn_ACTelu_BNy_LT50_DO0_BS4096_OPadam_LR3.0e-03_YEARy_SPINy_MASSy_FI0_SD1_reduced_features.tgz", "v1")  # noqa
     })
 
     # external files with more complex year dependence
@@ -648,14 +652,14 @@ def add_config(
             # object info
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
             "Jet.hhbtag",
-            "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
+            "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB", "Jet.btagDeepFlavCvB",
             "HHBJet.hadronFlavour", "HHBJet.hhbtag",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
             "NonHHBJet.btagDeepFlavB", "NonHHBJet.hadronFlavour", "NonHHBJet.hhbtag",
-            "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
+            "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.charge", "Electron.deltaEtaSC",
             "Electron.pfRelIso03_all",
-            "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
-            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe",
+            "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.charge", "Muon.pfRelIso04_all",
+            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.charge", "Tau.idDeepTau2017v2p1VSe",
             "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
             "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
@@ -664,6 +668,7 @@ def add_config(
             "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
             "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
+            "DeepMET*.*"
         },
         "cf.MergeSelectionMasks": {
             "cutflow.*",
