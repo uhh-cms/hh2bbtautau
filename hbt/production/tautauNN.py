@@ -9,7 +9,6 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict
-from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
 
 
 np = maybe_import("numpy")
@@ -148,11 +147,13 @@ def tautauNN(
 
     m = self.tautauNN_model.signatures["serving_default"]
     p = {
-    "cat_input": categorical_input_tensor,
-    "cont_input": continous_input_tensor,
+        "cat_input": categorical_input_tensor[5:10],
+        "cont_input": continous_input_tensor[5:10],
     }
     # use the network
-    from IPython import embed; embed(); globals().update(locals())
+    from IPython import embed
+    globals().update(locals())
+    embed()
 
 
 @tautauNN.requires
@@ -186,8 +187,9 @@ def tautauNN_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
 
     with self.task.publish_step("loading tautauNN models ..."):
         self.tautauNN_model = tf.saved_model.load(repo_dir.child(
-            "ttreg_ED5_LU2x_9x128_CTfcn_ACTelu_BNy_LT50_DO0_BS4096_OPadam_LR3.0e-03_YEARy_SPINy_MASSy_FI0_SD1_reduced_features").path)
-            # "reg_mass_class_l2n400_addCharge_incrMassLoss_lossSum_allMasses_even").path)
+            "ttreg_ED5_LU2x_9x128_CTfcn_ACTelu_BNy_LT50_DO0_BS4096_"
+            "OPadam_LR3.0e-03_YEARy_SPINy_MASSy_FI0_SD1_reduced_features").path)
+        # "reg_mass_class_l2n400_addCharge_incrMassLoss_lossSum_allMasses_even").path)
         # self.tautauNN_model_even = tf.saved_model.load(repo_dir.child(
         #     "reg_mass_class_l2n400_addCharge_incrMassLoss_lossSum_allMasses_even").path)
         # self.tautauNN_model_odd = tf.saved_model.load(repo_dir.child(
@@ -255,5 +257,3 @@ def create_DAU_decay_mode(events):
         (ak.mask((non_tau_mask * np.int32(-1)), non_tau_mask)),
         counts=1)
     return ak.drop_none(ak.concatenate((leptons_without_tau, tau_decay), axis=1))
-
-
