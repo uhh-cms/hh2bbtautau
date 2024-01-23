@@ -575,7 +575,7 @@ def add_config(
         "met_phi_corr": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/met.json.gz", "v1"),
 
         # hh-btag repository (lightweight) with TF saved model directories
-        "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"),
+        "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz", "v1"), # noqa
 
         # tobias tautauNN directory with TF saved model directories
         #"tautauNN_regression_model": ("/afs/desy.de/user/k/kramerto/public/xBogdan/reg_mass_class_l2n400_addCharge_incrMassLoss_lossSum_allMasses.tgz", "v1")  # noqa
@@ -668,7 +668,7 @@ def add_config(
             "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
             "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
-            "DeepMET*.*"
+            "DeepMET*.*",
         },
         "cf.MergeSelectionMasks": {
             "cutflow.*",
