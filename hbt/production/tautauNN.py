@@ -4,19 +4,22 @@
 Producers for Tobias Kramer Neural Network.
 See https://github.com/uhh-cms/tautauNN/tree/main/tautaunn.
 """
+import functools
 
 import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict
-
+from columnflow.columnar_util import set_ak_column
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 tf = maybe_import("tensorflow")
 
-
 logger = law.logger.get_logger(__name__)
+
+# helper function
+set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
 @producer(
@@ -44,80 +47,9 @@ def tautauNN(
     events: ak.Array,
     **kwargs,
 ) -> ak.Array:
-    inputs = {}
-    # continous input features
-    # MET variable
-    inputs["met_e"] = events.MET.pt
-    inputs["met_cov00"] = events.MET.covXX
-    inputs["met_cov01"] = events.MET.covXY
-    inputs["met_cov11"] = events.MET.covYY
 
-    # DAU variables
-    # channel_id decode:1=muon_tau, 2= electron_tau, 3=tau_tau
-    # DAU helper
-    dau = create_DAU(events)
-    dau_dphi = phi_mpi_to_pi(dau.phi - events.MET.phi)
-
-    # DAU features
-    dau_px = dau.pt * np.cos(dau_dphi, dtype=np.float32)
-    dau_py = dau.pt * np.sin(dau_dphi, dtype=np.float32)
-    dau_pz = dau.pt * np.sinh(dau.eta, dtype=np.float32)
-    dau_e = np.sqrt(dau_px**2 + dau_py**2 + dau_pz**2 + dau.mass**2, dtype=np.float32)
-
-    # decay modes
-    dau_decay_mode = create_DAU_decay_mode(events)
-
-    # split into first and second daughter
-    for number in (0, 1):
-        inputs[f"dau{number + 1}_px"] = dau_px[:, number]
-        inputs[f"dau{number + 1}_py"] = dau_py[:, number]
-        inputs[f"dau{number + 1}_pz"] = dau_pz[:, number]
-        inputs[f"dau{number + 1}_e"] = dau_e[:, number]
-
-        inputs[f"dau{number + 1}_charge"] = dau.charge[:, number]
-        inputs[f"dau{number + 1}_decayMode"] = dau_decay_mode[:, number]
-
-    # prepare bjet inputs for network
-    # get jet indices to extract out bjet1, bjet2
-    score_indices = ak.argsort(events.Jet.hhbtag, axis=1, ascending=False)
-    # filter out first 2 bjets and extract features
-    btag_jets = events.Jet[score_indices][:, 0:2]
-
-    # bjet helper features
-    bjet_dphi = phi_mpi_to_pi(btag_jets.phi - events.DeepMETResponseTune.phi)
-
-    # bjet features
-    bjet_px = btag_jets.pt * np.cos(bjet_dphi, dtype=np.float32)
-    bjet_py = btag_jets.pt * np.sin(bjet_dphi, dtype=np.float32)
-    bjet_pz = btag_jets.pt * np.sinh(btag_jets.eta, dtype=np.float32)
-    bjet_e = np.sqrt(bjet_px**2 + bjet_py**2 + bjet_pz**2 + btag_jets.mass**2, dtype=np.float32)
-
-    # bjet particle net scores
-    btag_deepflavor_b = btag_jets.btagDeepFlavB
-    btag_deepflavor_c = btag_jets.btagDeepFlavCvB * btag_jets.btagDeepFlavB
-
-    # split into first and second bjet
-    for number in (0, 1):
-        inputs[f"bjet{number + 1}_px"] = bjet_px[:, number]
-        inputs[f"bjet{number + 1}_py"] = bjet_py[:, number]
-        inputs[f"bjet{number + 1}_pz"] = bjet_pz[:, number]
-        inputs[f"bjet{number + 1}_e"] = bjet_px[:, number]
-        inputs[f"bjet{number + 1}_btag_deepFlavor"] = btag_deepflavor_b[:, number]
-        inputs[f"bjet{number + 1}_cID_deepFlavor"] = btag_deepflavor_c[:, number]
-
-    # reduce channel_id by one to match clubanalysis values: 0,1,2
-    inputs["pairType"] = ak.values_astype(events.channel_id - 1, np.float32)
-
-    # mass, year and spin are derived from outside and are constants
-    self.mass = 200
-    self.year = 2
-    self.spin = 2
-
-    inputs["mass"] = ak.full_like(inputs["met_e"], self.mass, dtype=np.float32)
-    inputs["year"] = ak.full_like(inputs["met_e"], self.year, dtype=np.float32)
-    inputs["spin"] = ak.full_like(inputs["met_e"], self.spin, dtype=np.float32)
-
-    # neural network inputs
+    # neural network inputs in the correct order
+    # defined at https://github.com/uhh-cms/tautauNN/blob/old_setup/train.py#L77
     continous_input_features = [
         "met_e", "met_cov00", "met_cov01", "met_cov11",
         "dau1_px", "dau1_py", "dau1_pz", "dau1_e",
@@ -133,7 +65,98 @@ def tautauNN(
         "pairType", "dau1_decayMode", "dau2_decayMode", "dau1_charge", "dau2_charge", "year", "spin",
     ]
 
-    # create tensorflow tensor
+    # prepare events for network
+
+    inputs = {}
+    # get DAU variables
+
+    # a DAU is a lepton pair, coming from Higgs
+    # What particle is within the pair is encoded within the  channel_id
+    # decode:1=muon_tau, 2= electron_tau, 3=tau_tau
+
+    dau = select_DAU(events)
+
+    # rotate DAU relative to MET
+    dau_dphi = phi_mpi_to_pi(dau.phi - events.MET.phi)
+
+    # DAU kinematics
+    dau_px = dau.pt * np.cos(dau_dphi, dtype=np.float32)
+    dau_py = dau.pt * np.sin(dau_dphi, dtype=np.float32)
+    dau_pz = dau.pt * np.sinh(dau.eta, dtype=np.float32)
+    dau_e = np.sqrt(dau_px**2 + dau_py**2 + dau_pz**2 + dau.mass**2, dtype=np.float32)
+
+    # helper function to set decay mode of leptons to -1
+    dau_decay_mode = select_DAU_decay_mode(events)
+
+    # split DAU pair features into first and second DAU feature
+    for number in (0, 1):
+        inputs[f"dau{number + 1}_px"] = dau_px[:, number]
+        inputs[f"dau{number + 1}_py"] = dau_py[:, number]
+        inputs[f"dau{number + 1}_pz"] = dau_pz[:, number]
+        inputs[f"dau{number + 1}_e"] = dau_e[:, number]
+
+        inputs[f"dau{number + 1}_charge"] = dau.charge[:, number]
+        inputs[f"dau{number + 1}_decayMode"] = dau_decay_mode[:, number]
+
+    # reduce channel_id by one to match clubanalysis values: 0,1,2
+    inputs["pairType"] = ak.values_astype(events.channel_id - 1, np.float32)
+
+    # check if embedding values of daus are respected
+    # TODO will be removed if selector takes care of this!
+    check_network_embedding(inputs)
+
+    # get MET variable
+    inputs["met_e"] = events.MET.pt
+    inputs["met_cov00"] = events.MET.covXX
+    inputs["met_cov01"] = events.MET.covXY
+    inputs["met_cov11"] = events.MET.covYY
+
+    # get BJET variables
+
+    # jet1 and jet2 are defined by first and second highest hhbtag score
+    score_indices = ak.argsort(events.Jet.hhbtag, axis=1, ascending=False)
+    # filter out first 2 bjets and extract features
+    btag_jets = events.Jet[score_indices][:, 0:2]
+
+    # rotate bJet relative to DeepMETResponseTune
+    bjet_dphi = phi_mpi_to_pi(btag_jets.phi - events.DeepMETResponseTune.phi)
+
+    # bJet features
+    bjet_px = btag_jets.pt * np.cos(bjet_dphi, dtype=np.float32)
+    bjet_py = btag_jets.pt * np.sin(bjet_dphi, dtype=np.float32)
+    bjet_pz = btag_jets.pt * np.sinh(btag_jets.eta, dtype=np.float32)
+    bjet_e = np.sqrt(bjet_px**2 + bjet_py**2 + bjet_pz**2 + btag_jets.mass**2, dtype=np.float32)
+
+    # get bJet particle net scores
+    btag_deepflavor_b = btag_jets.btagDeepFlavB
+    btag_deepflavor_c = btag_jets.btagDeepFlavCvB * btag_jets.btagDeepFlavB
+
+    # split into first and second bJet
+    for number in (0, 1):
+        inputs[f"bjet{number + 1}_px"] = bjet_px[:, number]
+        inputs[f"bjet{number + 1}_py"] = bjet_py[:, number]
+        inputs[f"bjet{number + 1}_pz"] = bjet_pz[:, number]
+        inputs[f"bjet{number + 1}_e"] = bjet_e[:, number]
+        inputs[f"bjet{number + 1}_btag_deepFlavor"] = btag_deepflavor_b[:, number]
+        inputs[f"bjet{number + 1}_cID_deepFlavor"] = btag_deepflavor_c[:, number]
+
+    # get user input information about year, spin and mass (parametrized network)
+    # do also some checks for logic reasons
+    allowed_year = (2016, 2017, 2018)
+    allowed_spin = (2)
+    if self.mass < 0:
+        raise ValueError(f"Mass must be positive, but got {self.mass}")
+    inputs["mass"] = ak.full_like(inputs["met_e"], self.mass, dtype=np.float32)
+
+    if self.year not in allowed_year:
+        raise ValueError(f"Year must be one of {allowed_year}, but got {self.year}")
+    inputs["year"] = ak.full_like(inputs["met_e"], self.year, dtype=np.float32)
+
+    if self.spin not in allowed_spin:
+        raise ValueError(f"Spin must be one of {allowed_spin}, but got {self.spin}")
+    inputs["spin"] = ak.full_like(inputs["met_e"], self.spin, dtype=np.float32)
+
+    # convert everything into tensorflow tensors
     continous_input_tensor = tf.stack(
         [tf.convert_to_tensor(inputs[feature], dtype=np.float32)
             for feature in continous_input_features],
@@ -145,15 +168,21 @@ def tautauNN(
         axis=1,
         name="cat_input")
 
-    m = self.tautauNN_model.signatures["serving_default"]
-    p = {
-        "cat_input": categorical_input_tensor[5:10],
-        "cont_input": continous_input_tensor[5:10],
-    }
     # use the network
-    from IPython import embed
-    globals().update(locals())
-    embed()
+    model = self.tautauNN_model.signatures["serving_default"]
+
+    final_network_inputs = {
+        "cat_input": categorical_input_tensor,
+        "cont_input": continous_input_tensor,
+    }
+
+    network_scores = model(**final_network_inputs)
+
+    # store the network output
+    events = set_ak_column_f32(events, f"tautauNN_regression_output", network_scores["regression_output_hep"].numpy())
+    events = set_ak_column_f32(events, f"tautauNN:_classification_output", network_scores["classification_output"].numpy())
+
+    return events
 
 
 @tautauNN.requires
@@ -173,6 +202,7 @@ def tautauNN_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
     """
     Sets up the two tautauNN TF models.
     """
+    tf = maybe_import("tensorflow")
 
     # unpack the external files bundle, create a subdiretory and unpack the tautauNN afs repo in it
     bundle = reqs["external_files"]
@@ -189,12 +219,6 @@ def tautauNN_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
         self.tautauNN_model = tf.saved_model.load(repo_dir.child(
             "ttreg_ED5_LU2x_9x128_CTfcn_ACTelu_BNy_LT50_DO0_BS4096_"
             "OPadam_LR3.0e-03_YEARy_SPINy_MASSy_FI0_SD1_reduced_features").path)
-        # "reg_mass_class_l2n400_addCharge_incrMassLoss_lossSum_allMasses_even").path)
-        # self.tautauNN_model_even = tf.saved_model.load(repo_dir.child(
-        #     "reg_mass_class_l2n400_addCharge_incrMassLoss_lossSum_allMasses_even").path)
-        # self.tautauNN_model_odd = tf.saved_model.load(repo_dir.child(
-        #     "reg_mass_class_l2n400_addCharge_incrMassLoss_lossSum_allMasses_odd").path)
-
 
 def phi_mpi_to_pi(phi):
     # helper function to guarantee that phi stays within [-pi, pi]
@@ -211,9 +235,9 @@ def phi_mpi_to_pi(phi):
     return phi
 
 
-def create_DAU(events):
+def select_DAU(events):
     """
-    Helper function to create DAU variable.
+    Helper function to select DAUs.
     DAUs are daughter lepton coming from Higgs.
     The selection of electron, mkuon and taus always result in single or dual entries.
     Therefore, concatenate of single leptons with another single lepton always will result in
@@ -245,7 +269,7 @@ def create_DAU(events):
     return dau
 
 
-def create_DAU_decay_mode(events):
+def select_DAU_decay_mode(events):
     """
     Helper function to give leptons an decay mode of -1
     """
@@ -257,3 +281,27 @@ def create_DAU_decay_mode(events):
         (ak.mask((non_tau_mask * np.int32(-1)), non_tau_mask)),
         counts=1)
     return ak.drop_none(ak.concatenate((leptons_without_tau, tau_decay), axis=1))
+
+
+def check_network_embedding(events):
+    # check for specific values in embedding and throw error if they are not within events
+    # TODO find a good way to find all UNIQUE values without taking too much CPU time
+    embedding_expected_inputs = {
+        "pairType": [0, 1, 2],  #
+        "dau1_decayMode": [-1, 0, 1, 10, 11], # -1 for e/mu
+        "dau2_decayMode": [0, 1, 10, 11],  #
+        "dau1_charge": [-1, 1],  #
+        "dau2_charge": [-1, 1],  #
+    }
+    for feature in embedding_expected_inputs.keys():
+        expected_values = embedding_expected_inputs[feature]
+        events_of_specific_feature = events[feature]
+
+        value_not_in_mask = ~ak.any([events_of_specific_feature == value for value in expected_values], axis=0)
+
+        if ak.sum(value_not_in_mask) > 0:
+            indices_wrong_events = ak.local_index(events_of_specific_feature)[value_not_in_mask]
+            unique_wrong_values = np.unique(events_of_specific_feature[indices_wrong_events])
+            raise ValueError(
+                f"Network expects {feature} to be have folllowing values: {expected_values}."
+                f"But got {unique_wrong_values}")
