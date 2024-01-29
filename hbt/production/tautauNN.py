@@ -179,8 +179,10 @@ def tautauNN(
     network_scores = model(**final_network_inputs)
 
     # store the network output
-    events = set_ak_column_f32(events, f"tautauNN_regression_output", network_scores["regression_output_hep"].numpy())
-    events = set_ak_column_f32(events, f"tautauNN:_classification_output", network_scores["classification_output"].numpy())
+    regression_output = network_scores["regression_output_hep"].numpy()
+    classification_output = network_scores["classification_output"].numpy()
+    events = set_ak_column_f32(events, "tautauNN_regression_output", regression_output)
+    events = set_ak_column_f32(events, "tautauNN:_classification_output", classification_output)
 
     return events
 
@@ -219,6 +221,7 @@ def tautauNN_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
         self.tautauNN_model = tf.saved_model.load(repo_dir.child(
             "ttreg_ED5_LU2x_9x128_CTfcn_ACTelu_BNy_LT50_DO0_BS4096_"
             "OPadam_LR3.0e-03_YEARy_SPINy_MASSy_FI0_SD1_reduced_features").path)
+
 
 def phi_mpi_to_pi(phi):
     # helper function to guarantee that phi stays within [-pi, pi]
@@ -288,7 +291,7 @@ def check_network_embedding(events):
     # TODO find a good way to find all UNIQUE values without taking too much CPU time
     embedding_expected_inputs = {
         "pairType": [0, 1, 2],  #
-        "dau1_decayMode": [-1, 0, 1, 10, 11], # -1 for e/mu
+        "dau1_decayMode": [-1, 0, 1, 10, 11],  # -1 for e/mu
         "dau2_decayMode": [0, 1, 10, 11],  #
         "dau1_charge": [-1, 1],  #
         "dau2_charge": [-1, 1],  #
@@ -297,10 +300,11 @@ def check_network_embedding(events):
         expected_values = embedding_expected_inputs[feature]
         events_of_specific_feature = events[feature]
 
-        value_not_in_mask = ~ak.any([events_of_specific_feature == value for value in expected_values], axis=0)
+        not_in_mask = ~ak.any([events_of_specific_feature == value for value in expected_values],
+             axis=0)
 
-        if ak.sum(value_not_in_mask) > 0:
-            indices_wrong_events = ak.local_index(events_of_specific_feature)[value_not_in_mask]
+        if ak.sum(not_in_mask) > 0:
+            indices_wrong_events = ak.local_index(events_of_specific_feature)[not_in_mask]
             unique_wrong_values = np.unique(events_of_specific_feature[indices_wrong_events])
             raise ValueError(
                 f"Network expects {feature} to be have folllowing values: {expected_values}."

@@ -4,7 +4,7 @@
 Selection methods.
 """
 
-from operator import and_, or_
+from operator import and_
 from functools import reduce
 from collections import defaultdict
 
