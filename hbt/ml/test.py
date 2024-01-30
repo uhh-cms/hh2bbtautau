@@ -26,6 +26,20 @@ law.contrib.load("tensorflow")
 
 class TestModel(MLModel):
 
+    dataset_names: list = [
+        "hh_ggf_bbtautau_madgraph",
+        "tt_sl_powheg",
+    ]
+
+    def __init__(
+            self,
+            *args,
+            folds: int | None = None,
+            **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        # your instance variables
+
     def setup(self):
         # dynamically add variables for the quantities produced by this model
         if f"{self.cls_name}.n_muon" not in self.config_inst.variables:
@@ -41,36 +55,36 @@ class TestModel(MLModel):
                 binning=(4, -1.5, 2.5),
                 x_title="Predicted number of electrons",
             )
+        return
 
     def sandbox(self, task: law.Task) -> str:
         return "bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"
 
     def datasets(self, config_inst: od.Config) -> set[od.Dataset]:
         # normally you would pass this to the model via config and loop through these names ...
-        all_datasets_names = self.datasets_name
 
         dataset_inst = []
-        for dataset_name in all_datasets_names:
+        for dataset_name in self.dataset_names:
             dataset_inst.append(config_inst.get_dataset(dataset_name))
 
         # ... but you can also add one dataset by using its name
-        config_inst.get_dataset("tt_sl_powheg")
+        dataset_inst.append(config_inst.get_dataset("tt_sl_powheg"))
 
         return set(dataset_inst)
 
     def uses(self, config_inst: od.Config) -> set[Route | str]:
-        return set(self.input_features) | set(self.target_features) | {"normalization_weight", "deterministic_seed"}
+        columns = set(self.input_features) | set(self.target_features) | {"normalization_weight"}
+        return columns
 
     def produces(self, config_inst: od.Config) -> set[Route | str]:
         # mark columns that you don't want to be filtered out
-        input_columns = set(self.input_features)
-        target_columns = set(self.target_features)
         ml_predictions = {f"{self.cls_name}.fold{fold}.{feature}"
             for fold in range(self.folds)
-            for feature in target_columns}
+            for feature in self.target_columns}
+
         util_columns = {f"{self.cls_name}.fold_indices"}
 
-        preserved_columns = input_columns | target_columns | ml_predictions | util_columns
+        preserved_columns = ml_predictions | util_columns
         return preserved_columns
 
     def output(self, task: law.Task) -> law.FileSystemDirectoryTarget:
@@ -81,8 +95,6 @@ class TestModel(MLModel):
         # create directory at task.target, if it does not exist
         target = task.target(f"mlmodel_f{current_fold}of{max_folds}", dir=True)
         return target
-
-        return task.target(f"mlmodel_f{task.fold}of{self.folds}", dir=True)
 
     def open_model(self, target: law.FileSystemDirectoryTarget):
         # if a formatter exists use formatter
@@ -178,6 +190,7 @@ class TestModel(MLModel):
 
         # save your model and everything you want to keep
         output.dump(model, formatter="tf_keras_model")
+        return
 
     def evaluate(
         self,
@@ -245,14 +258,7 @@ hyperparameters = {
     "epochs": 5,
 }
 
-datasets = {
-    "datasets_name": [
-        "hh_ggf_bbtautau_madgraph",
-        "tt_sl_powheg",
-    ],
-}
-
-
+# input and target features
 configuration_dict = {
     "input_features": (
         "n_jet",
@@ -265,8 +271,7 @@ configuration_dict = {
 }
 
 # combine configuration dictionary
-configuration_dict.update(datasets)
 configuration_dict.update(hyperparameters)
 
 # init model instance with config dictionary
-test_model = TestModel.derive("test_model", cls_dict=configuration_dict)
+test_model = TestModel.derive(cls_name="test_model", cls_dict=configuration_dict)
