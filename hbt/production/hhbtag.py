@@ -159,11 +159,13 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     arc.load(repo_dir, formatter="tar")
     repo_dir = repo_dir.child(repo_dir.listdir(pattern="HHbtag-*")[0])
 
-    # also store the version of the external file
-    # (could be used to distinguish between model paths in repo)
+    # get the version of the external file
     self.hhbtag_version = self.config_inst.x.external_files["hh_btag_repo"][1]
+
+    # define the model path
+    model_path = f"models/HHbtag_{self.hhbtag_version}_par"
 
     # save both models (even and odd event numbers)
     with self.task.publish_step("loading hhbtag models ..."):
-        self.hhbtag_model_even = tf.saved_model.load(repo_dir.child("models/HHbtag_v1_par_0").path)
-        self.hhbtag_model_odd = tf.saved_model.load(repo_dir.child("models/HHbtag_v1_par_1").path)
+        self.hhbtag_model_even = tf.saved_model.load(repo_dir.child(f"{model_path}_0").path)
+        self.hhbtag_model_odd = tf.saved_model.load(repo_dir.child(f"{model_path}_1").path)
