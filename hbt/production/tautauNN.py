@@ -41,7 +41,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     produces={
-        "tautauNN_regression_output", "tautauNN_classification_output"
+        "tautauNN_regression_output", "tautauNN_classification_output",
     },
 )
 def tautauNN(
@@ -170,7 +170,7 @@ def tautauNN(
     inputs["spin"] = ak.full_like(inputs["met_e"], self.spin, dtype=np.float32)
 
     # create mask for events with correct embedding
-    selection_mask =mask_network_unknown_embedding(inputs)
+    selection_mask = mask_network_unknown_embedding(inputs)
 
     # convert everything into tensorflow tensors and filter out events with bad embedding
 
@@ -309,7 +309,7 @@ def select_DAU_decay_mode(events):
 
     # set 2 to 1
     tau_decay = ak.where(tau_decay == 2,
-        np.full((len(tau_decay)),1, dtype=np.int32),
+        np.full((len(tau_decay)), 1, dtype=np.int32),
         tau_decay)
 
     # convert mask to array filled with -1
@@ -352,5 +352,3 @@ def mask_network_unknown_embedding(events):
 
     event_mask = ak.all(masks, axis=0)
     return event_mask
-
-
