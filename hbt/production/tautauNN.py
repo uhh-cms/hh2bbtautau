@@ -11,6 +11,8 @@ import law
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict
 from columnflow.columnar_util import set_ak_column
+from columnflow.columnar_util import EMPTY_FLOAT
+
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -39,7 +41,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     produces={
-        "tautauNN_score",
+        "tautauNN_regression_output", "tautauNN_classification_output"
     },
 )
 def tautauNN(
@@ -63,6 +65,16 @@ def tautauNN(
 
     categorical_input_features = [
         "pairType", "dau1_decayMode", "dau2_decayMode", "dau1_charge", "dau2_charge", "year", "spin",
+    ]
+
+    regression_targets = [
+        "genNu1_px", "genNu1_py", "genNu1_pz",
+        "genNu2_px", "genNu2_py", "genNu2_pz",
+    ]
+
+    categorical_targets = [
+        # TODO ask tobi about his labels
+        "A", "B", "C", "D",
     ]
 
     # prepare events for network
@@ -102,9 +114,6 @@ def tautauNN(
     inputs["pairType"] = ak.values_astype(events.channel_id - 1, np.float32)
 
     # check if embedding values of daus are respected
-    # TODO will be removed if selector takes care of this!
-    check_network_embedding(inputs)
-
     # get MET variable
     inputs["met_e"] = events.MET.pt
     inputs["met_cov00"] = events.MET.covXX
@@ -112,7 +121,6 @@ def tautauNN(
     inputs["met_cov11"] = events.MET.covYY
 
     # get BJET variables
-
     # jet1 and jet2 are defined by first and second highest hhbtag score
     score_indices = ak.argsort(events.Jet.hhbtag, axis=1, ascending=False)
     # filter out first 2 bjets and extract features
@@ -142,8 +150,13 @@ def tautauNN(
 
     # get user input information about year, spin and mass (parametrized network)
     # do also some checks for logic reasons
-    allowed_year = (2016, 2017, 2018)
-    allowed_spin = (2)
+    self.mass = 200
+    self.year = 2
+    self.spin = 2
+
+    # year mapping 0=2016_pre, 1=2016, 2=2017, 3=2018
+    allowed_year = (0, 1, 2, 3)
+    allowed_spin = (2,)
     if self.mass < 0:
         raise ValueError(f"Mass must be positive, but got {self.mass}")
     inputs["mass"] = ak.full_like(inputs["met_e"], self.mass, dtype=np.float32)
@@ -156,14 +169,22 @@ def tautauNN(
         raise ValueError(f"Spin must be one of {allowed_spin}, but got {self.spin}")
     inputs["spin"] = ak.full_like(inputs["met_e"], self.spin, dtype=np.float32)
 
-    # convert everything into tensorflow tensors
+    # create mask for events with correct embedding
+    selection_mask =mask_network_unknown_embedding(inputs)
+
+    # convert everything into tensorflow tensors and filter out events with bad embedding
+
+    # ak.local_index(event_mask)[event_mask]
     continous_input_tensor = tf.stack(
-        [tf.convert_to_tensor(inputs[feature], dtype=np.float32)
+        [tf.convert_to_tensor(
+            inputs[feature][selection_mask],
+            dtype=np.float32)
             for feature in continous_input_features],
         axis=1,
         name="cont_input")
     categorical_input_tensor = tf.stack(
-        [tf.convert_to_tensor(inputs[feature], dtype=np.int32)
+        [tf.convert_to_tensor(inputs[feature][selection_mask],
+            dtype=np.int32)
             for feature in categorical_input_features],
         axis=1,
         name="cat_input")
@@ -178,11 +199,15 @@ def tautauNN(
 
     network_scores = model(**final_network_inputs)
 
-    # store the network output
-    regression_output = network_scores["regression_output_hep"].numpy()
-    classification_output = network_scores["classification_output"].numpy()
-    events = set_ak_column_f32(events, "tautauNN_regression_output", regression_output)
-    events = set_ak_column_f32(events, "tautauNN:_classification_output", classification_output)
+    # unmask the events and store the scores
+    regression_scores = np.ones((len(events), len(regression_targets)), dtype=np.float32) * EMPTY_FLOAT
+    classification_scores = np.ones((len(events), len(categorical_targets)), dtype=np.float32) * EMPTY_FLOAT
+
+    regression_scores[selection_mask] = network_scores["regression_output_hep"].numpy()
+    classification_scores[selection_mask] = network_scores["classification_output"].numpy()
+
+    events = set_ak_column_f32(events, "tautauNN_regression_output", regression_scores)
+    events = set_ak_column_f32(events, "tautauNN_classification_output", classification_scores)
 
     return events
 
@@ -224,7 +249,9 @@ def tautauNN_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
 
 
 def phi_mpi_to_pi(phi):
-    # helper function to guarantee that phi stays within [-pi, pi]
+    """
+    Helper function to guarantee that phi stays within [-pi, pi]
+    """
     PI = np.pi
     larger_pi_mask = phi > PI
     smaller_pi_mask = phi < -PI
@@ -274,9 +301,16 @@ def select_DAU(events):
 
 def select_DAU_decay_mode(events):
     """
-    Helper function to give leptons an decay mode of -1
+    Helper function to set decay modes to club analysis decay modes.
+    This means, leptons have an decay mode of -1, and all events with decay mode 2 are set to 1.
+    The reason for last is not known. But the network expects this.
     """
     tau_decay = events.Tau.decayMode
+
+    # set 2 to 1
+    tau_decay = ak.where(tau_decay == 2,
+        np.full((len(tau_decay)),1, dtype=np.int32),
+        tau_decay)
 
     # convert mask to array filled with -1
     non_tau_mask = ak.num(tau_decay) < 2
@@ -286,9 +320,11 @@ def select_DAU_decay_mode(events):
     return ak.drop_none(ak.concatenate((leptons_without_tau, tau_decay), axis=1))
 
 
-def check_network_embedding(events):
-    # check for specific values in embedding and throw error if they are not within events
-    # TODO find a good way to find all UNIQUE values without taking too much CPU time
+def mask_network_unknown_embedding(events):
+    """
+    Helper to create mask to filter out values not seen by embedding layers.
+    Values taken from: https://github.com/uhh-cms/tautauNN/blob/old_setup/train.py#L157-L162
+    """
     embedding_expected_inputs = {
         "pairType": [0, 1, 2],  #
         "dau1_decayMode": [-1, 0, 1, 10, 11],  # -1 for e/mu
@@ -296,16 +332,25 @@ def check_network_embedding(events):
         "dau1_charge": [-1, 1],  #
         "dau2_charge": [-1, 1],  #
     }
-    for feature in embedding_expected_inputs.keys():
-        expected_values = embedding_expected_inputs[feature]
-        events_of_specific_feature = events[feature]
 
-        not_in_mask = ~ak.any([events_of_specific_feature == value for value in expected_values],
+    # get mask for each embedding input, combine them to event mask and return the indices
+    masks = []
+
+    for feature, expected_values in embedding_expected_inputs.items():
+        # skip rest if no differences exist in unique values
+        if len(np.setdiff1d(events[feature], expected_values)) == 0:
+            continue
+
+        # get event, gather masks to create event level mask
+        event_of_feature = events[feature]
+
+        mask_for_expected_feature = ak.any([event_of_feature == value
+            for value in expected_values],
              axis=0)
 
-        if ak.sum(not_in_mask) > 0:
-            indices_wrong_events = ak.local_index(events_of_specific_feature)[not_in_mask]
-            unique_wrong_values = np.unique(events_of_specific_feature[indices_wrong_events])
-            raise ValueError(
-                f"Network expects {feature} to be have folllowing values: {expected_values}."
-                f"But got {unique_wrong_values}")
+        masks.append(mask_for_expected_feature)
+
+    event_mask = ak.all(masks, axis=0)
+    return event_mask
+
+
