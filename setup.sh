@@ -70,7 +70,7 @@ setup_hbt() {
     CF_SKIP_SETUP="1" source "${CF_BASE}/setup.sh" "" || return "$?"
 
     # interactive setup
-    if [ "${CF_REMOTE_JOB}" != "1" ]; then
+    if [ "${CF_REMOTE_ENV}" != "1" ]; then
         cf_setup_interactive_body() {
             # the flavor will be cms
             export CF_FLAVOR="cms"
@@ -87,7 +87,6 @@ setup_hbt() {
     export CF_CONDA_BASE="${CF_CONDA_BASE:-${CF_SOFTWARE_BASE}/conda}"
     export CF_VENV_BASE="${CF_VENV_BASE:-${CF_SOFTWARE_BASE}/venvs}"
     export CF_CMSSW_BASE="${CF_CMSSW_BASE:-${CF_SOFTWARE_BASE}/cmssw}"
-    export CF_CI_JOB="$( [ "${GITHUB_ACTIONS}" = "true" ] && echo 1 || echo 0 )"
 
 
     #
@@ -120,7 +119,9 @@ setup_hbt() {
     # git hooks
     #
 
-    cf_setup_git_hooks || return "$?"
+    if [ "${CF_LOCAL_ENV}" = "1" ]; then
+        cf_setup_git_hooks || return "$?"
+    fi
 
 
     #

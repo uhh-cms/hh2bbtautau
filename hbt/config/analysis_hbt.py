@@ -65,6 +65,14 @@ add_config_run2ul(
     limit_dataset_files=2,
 )
 
+# default v11 uhh config
+add_config_run2ul(
+    analysis_hbt,
+    campaign_run2_2017_nano_uhh_v11.copy(),
+    config_name=campaign_run2_2017_nano_uhh_v11.name,
+    config_id=31,
+)
+
 # v11 uhh config with limited number of files for faster prototyping
 add_config_run2ul(
     analysis_hbt,
