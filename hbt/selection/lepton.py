@@ -240,6 +240,12 @@ def tau_selection(
 
     TODO: there is no decay mode selection yet, but this should be revisited!
     """
+    # return empty mask if no tagged taus exists in the chunk
+    if not ak.any(events.Tau.pt):
+        # Convinint definition of empty mask with no substructure of the array (dtype=bool)
+        empty_mask = events.Tau.idDeepTau2017v2p1VSjet + events.Tau.pt > 0
+        return empty_mask, empty_mask
+
     is_single_e = trigger.has_tag("single_e")
     is_single_mu = trigger.has_tag("single_mu")
     is_cross_e = trigger.has_tag("cross_e_tau")
