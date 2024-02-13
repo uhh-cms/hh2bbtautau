@@ -240,3 +240,65 @@ def default(
         **kwargs,
     )
     return events, results
+
+
+@selector(
+    uses={
+        particle_selection, mc_selection, selection_mc_weights, cutflow_features,
+        increment_stats, attach_coffea_behavior,
+    },
+    produces={
+        trigger_selection, lepton_selection, jet_selection, mc_weight,
+        pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
+        increment_stats,
+    },
+    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
+    exposed=True,
+)
+def empty(
+    self: Selector,
+    events: ak.Array,
+    stats: defaultdict,
+    **kwargs,
+) -> tuple[ak.Array, SelectionResult]:
+
+    # ensure coffea behavior
+    events = self[attach_coffea_behavior](events, **kwargs)
+
+    # prepare the selection results that are updated at every step
+    results = SelectionResult()
+
+    events, _ = self[particle_selection](events, **kwargs)
+
+    # mc-only functions
+    if self.dataset_inst.is_mc:
+        events, _ = self[mc_selection](events, **kwargs)
+
+    # True selection
+    all_true_selection = SelectionResult(
+        steps={"all": ak.ones_like(events.run, dtype=bool)},
+    )
+    results += all_true_selection
+
+    event_sel = reduce(and_, results.steps.values())
+    results.event = event_sel
+
+    # some cutflow features
+    events = self[cutflow_features](events, results.objects, **kwargs)
+
+    weight_map, group_map, group_combinations = self[selection_mc_weights](
+        events,
+        results,
+        **kwargs,
+    )
+
+    events, results = self[increment_stats](
+        events,
+        results,
+        stats,
+        weight_map=weight_map,
+        group_map=group_map,
+        group_combinations=group_combinations,
+        **kwargs,
+    )
+    return events, results
