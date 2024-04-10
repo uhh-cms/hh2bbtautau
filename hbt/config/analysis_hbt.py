@@ -83,14 +83,14 @@ add_config_run2ul(
 )
 
 
-from cmsdb.campaigns.run2_2017_cms_taupog_nano_v12 import run2_2017_cms_taupog_nano_v12
+from cmsdb.campaigns.run2_2017_cms_taupog_nano_v12 import campaign_run2_2017_cms_taupog_nano_v12
 from hbt.config.configs_run2ul_cms_taupog import add_config as add_config_run2ul_cms_taupog
 
 
 add_config_run2ul_cms_taupog(
     analysis_hbt,
-    run2_2017_cms_taupog_nano_v12.copy(),
-    config_name=f"{run2_2017_cms_taupog_nano_v12.name}_limited",
+    campaign_run2_2017_cms_taupog_nano_v12.copy(),
+    config_name=f"{campaign_run2_2017_cms_taupog_nano_v12.name}_limited",
     config_id=42,
     limit_dataset_files=2,
 )
