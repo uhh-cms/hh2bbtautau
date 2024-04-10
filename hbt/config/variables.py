@@ -63,6 +63,14 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Jet 1 $p_{T}$",
     )
     config.add_variable(
+        name="jet_pt",
+        expression="Jet.pt",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Jet $p_{T}$",
+    )
+    config.add_variable(
         name="jet1_eta",
         expression="Jet.eta[:,0]",
         null_value=EMPTY_FLOAT,
