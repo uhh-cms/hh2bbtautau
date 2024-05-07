@@ -13,6 +13,7 @@ from columnflow.columnar_util import set_ak_column
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
+
 @calibrator(
     uses={
         mc_weight, deterministic_seeds,
@@ -52,4 +53,3 @@ def placeholder(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column(events, "HLT_IsoTkMu22_eta2p1", HLT_IsoMu22_eta2p1)
 
     return events
-
