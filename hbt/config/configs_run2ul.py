@@ -322,8 +322,9 @@ def add_config(
 
     # JER
     # https://twiki.cern.ch/twiki/bin/view/CMS/JetResolution?rev=107
+    jer_year = "20" if year == 2016 else "19"
     cfg.x.jer = DotDict.wrap({
-        "campaign": {2016: "Summer20", 2017: "Summer19", 2018: "Summer19"}[year] + f"UL{year2}{jerc_postfix}",
+        "campaign": f"Summer{jer_year}UL{year2}{jerc_postfix}",
         "version": "JR" + {2016: "V3", 2017: "V2", 2018: "V2"}[year],
         "jet_type": "AK4PFchs",
     })
