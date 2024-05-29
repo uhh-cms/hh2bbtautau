@@ -257,7 +257,7 @@ def add_config(
 
     # jec configuration
     # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201
-    jerc_postfix = "APV" if year == 2016 and campaign.x.vfp == "post" else ""
+    jerc_postfix = "APV" if year == 2016 and campaign.x.vfp == "pre" else ""
     cfg.x.jec = DotDict.wrap({
         "campaign": f"Summer19UL{year2}{jerc_postfix}",
         "version": {2016: "V7", 2017: "V5", 2018: "V5"}[year],
@@ -326,8 +326,9 @@ def add_config(
 
     # JER
     # https://twiki.cern.ch/twiki/bin/view/CMS/JetResolution?rev=107
+    jer_year = "20" if year == 2016 else "19"
     cfg.x.jer = DotDict.wrap({
-        "campaign": f"Summer19UL{year2}{jerc_postfix}",
+        "campaign": f"Summer{jer_year}UL{year2}{jerc_postfix}",
         "version": "JR" + {2016: "V3", 2017: "V2", 2018: "V2"}[year],
         "jet_type": "AK4PFchs",
     })
