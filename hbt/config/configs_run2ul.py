@@ -48,7 +48,7 @@ def add_config(
 
     # create a config by passing the campaign, so id and name will be identical
     cfg = analysis.add_config(campaign, name=config_name, id=config_id)
-
+    cfg.add_tag("run2")
     # add processes we are interested in
     process_names = [
         "data",
@@ -570,6 +570,9 @@ def add_config(
 
         # tau energy correction and scale factors
         "tau_sf": (f"{json_mirror}/POG/TAU/{year}{corr_postfix}_UL/tau.json.gz", "v1"),
+
+        # tau trigger scale factors
+        "tau_trigger_sf": (f"{json_mirror}/POG/TAU/{year}{corr_postfix}_UL/tau.json.gz", "v1"),
 
         # electron scale factors
         "electron_sf": (f"{json_mirror}/POG/EGM/{year}{corr_postfix}_UL/electron.json.gz", "v1"),
