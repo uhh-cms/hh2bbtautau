@@ -11,6 +11,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.seeds import deterministic_seeds
 from columnflow.util import maybe_import
 
+from hbt.util import IF_RUN_2
 from hbt.calibration.tau import tec
 
 
@@ -24,10 +25,12 @@ jec_full = jec.derive("jec_nominal", cls_dict={"mc_only": True})
 
 @calibrator(
     uses={
-        mc_weight, jec_nominal, jec_full, jer, tec, deterministic_seeds, met_phi,
+        mc_weight, jec_nominal, jec_full, jer, tec, deterministic_seeds,
+        IF_RUN_2(met_phi),
     },
     produces={
-        mc_weight, jec_nominal, jec_full, jer, tec, deterministic_seeds, met_phi,
+        mc_weight, jec_nominal, jec_full, jer, tec, deterministic_seeds,
+        IF_RUN_2(met_phi),
     },
 )
 def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
@@ -42,7 +45,10 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         events = self[jec_full](events, **kwargs)
         events = self[jer](events, **kwargs)
 
-    events = self[met_phi](events, **kwargs)
+    if self.config_inst.has_tag("run2"):
+        events = self[met_phi](events, **kwargs)
+    else:
+        print("met_phi_setup will be skipped for now, since correction files for run 3 are not yet available!")
 
     if self.dataset_inst.is_mc:
         events = self[tec](events, **kwargs)
