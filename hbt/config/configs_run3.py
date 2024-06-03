@@ -238,9 +238,14 @@ def add_config(
     # TODO later: preliminary luminosity using norm tag. Must be corrected, when more data is available
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     if year == 2022:
-        cfg.x.luminosity = Number(38010, {
-            "total": 0.014j,
-        })
+        if campaign.x.postfix == "post":
+            cfg.x.luminosity = Number(26671.7, {
+                "total": 0.014j,
+            })
+        else:
+            cfg.x.luminosity = Number(7980.4, {
+                "total": 0.014j,
+            })
     elif year == 2023:
         cfg.x.luminosity = Number(27208, {
             "lumi_13TeV_correlated": 0.0j,
