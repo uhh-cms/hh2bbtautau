@@ -11,6 +11,7 @@ from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict
 from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
 
+from hbt.util import IF_RUN_2
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -25,6 +26,7 @@ logger = law.logger.get_logger(__name__)
         # nano columns
         "event",
         "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId",
+        IF_RUN_2("Jet.puId"),
         "Jet.btagDeepFlavB",
         "MET.pt", "MET.phi",
     },

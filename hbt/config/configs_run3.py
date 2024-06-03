@@ -44,7 +44,7 @@ def add_config(
 
     # postfix for 2022 campaigns after ECAL Endcap water leak
     year_postfix = "EE" if campaign.x.postfix == "post" else ""
-    postfixEE = f"{campaign.x.postfix}EE"
+    postfix_ee = f"{campaign.x.postfix}EE"
 
     # get all root processes
     procs = get_root_processes_from_campaign(campaign)
@@ -81,14 +81,6 @@ def add_config(
 
         # add the process
         cfg.add_process(procs.get(process_name))
-
-        # # add the process (and set xsec to 0.1 if not available)
-        # process_inst = procs.get(process_name)
-
-        # cfg.add_process(process_inst)
-        # for proc_inst in cfg.get_process(process_inst).get_leaf_processes():
-        #     if campaign.ecm not in proc_inst.xsecs.keys():
-        #         cfg.get_process(proc_inst.name).set_xsec(campaign.ecm, Number(0.1))
 
     # configure colors, labels, etc
     from hbt.config.styles import stylize_processes
@@ -401,11 +393,7 @@ def add_config(
     # name of the deep tau tagger
     # (used in the tec calibrator)
     # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3
-    cfg.x.tau_tagger = "DeepTau2018v2p5"  # "DeepTauv2p5"
-
-    # name of the MET phi correction set
-    # (used in the met_phi calibrator)
-    # cfg.x.met_phi_correction_set = "{variable}_metphicorr_pfmet_{data_source}"
+    cfg.x.tau_tagger = "DeepTau2018v2p5"
 
     # names of electron correction sets and working points
     # (used in the electron_sf producer)
@@ -417,7 +405,7 @@ def add_config(
 
     # names of muon correction sets and working points
     # (used in the muon producer)
-    cfg.x.muon_sf_names = ("NUM_TightPFIso_DEN_TightID", f"{year}_{postfixEE}")
+    cfg.x.muon_sf_names = ("NUM_TightPFIso_DEN_TightID", f"{year}_{postfix_ee}")
 
     # load jec sources
     with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
@@ -624,10 +612,10 @@ def add_config(
             "electron_sf": (f"{json_mirror}/POG/EGM/{year}_Summer{year2}{year_postfix}/electron.json.gz", "v1"),
 
             # tau energy correction and scale factors
-            "tau_sf": (f"{json_mirror_alt}/POG/TAU/{year}_{postfixEE}/tau_DeepTau2018v2p5_2022_{postfixEE}.json.gz", "v1"),  # noqa
+            "tau_sf": (f"{json_mirror_alt}/POG/TAU/{year}_{postfix_ee}/tau_DeepTau2018v2p5_2022_{postfix_ee}.json.gz", "v1"),  # noqa
 
             # tau trigger
-            "tau_trigger_sf": (f"{json_mirror_alt}/POG/TAU/output/tau_trigger_DeepTau2018v2p5_{year}{postfixEE}.json", "v1"),  # noqa
+            "tau_trigger_sf": (f"{json_mirror_alt}/POG/TAU/output/tau_trigger_DeepTau2018v2p5_{year}{postfix_ee}.json", "v1"),  # noqa
         }))
 
     # external files with more complex year dependence # TODO: check this
@@ -651,7 +639,7 @@ def add_config(
                 },
             },
         }))
-    else:  # year 2023
+    elif year == 2023:  # year 2023
         cfg.x.external_files.update(DotDict.wrap({
             # lumi files
             "lumi": {

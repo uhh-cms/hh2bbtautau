@@ -83,9 +83,9 @@ add_config_run2ul(
 )
 
 
-# #
-# # Run 3 configs
-# #
+#
+# Run 3 configs
+#
 
 # 2022
 from hbt.config.configs_run3 import add_config as add_config_run3
