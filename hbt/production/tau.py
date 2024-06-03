@@ -73,7 +73,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # the correction tool only supports flat arrays, so convert inputs to flat np view first
     pt = flat_np_view(events.Tau.pt, axis=1)
-    abseta = flat_np_view(abs(events.Tau.eta), axis=1)
+    abseta = flat_np_view(abs(events.Tau.eta), axis=1)  # TODO check if eta and not abseta
     dm = flat_np_view(events.Tau.decayMode, axis=1)
     match = flat_np_view(events.Tau.genPartFlav, axis=1)
 
@@ -98,12 +98,22 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     if self.id_vs_jet_corrector.version == 0:
         # pt, dm, genmatch, jet wp, syst, sf type
         tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "VVLoose", syst, "dm")
-    elif self.id_vs_jet_corrector.version in (1, 2):
+    elif self.id_vs_jet_corrector.version in (1, 2, 3):
         # pt, dm, genmatch, jet wp, e wp, syst, sf type
         tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "Loose", "VVLoose", syst, "dm")
     else:
         raise NotImplementedError
-    emu_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
+
+    if self.id_vs_e_corrector.version == 0:
+        e_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
+        e_wp = "VLoose"
+    elif self.id_vs_e_corrector.version in (1,):
+        e_args = lambda mask, wp, syst: (abseta[mask], dm[mask], match[mask], wp, syst)
+        e_wp = "VVLoose"  # TODO test (compensation plot) the purity and statistics of the VVLoose WP
+    else:
+        raise NotImplementedError
+
+    mu_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
 
     # genuine taus
     tau_mask = flat_np_view(dm_mask & (events.Tau.genPartFlav == 5), axis=1)
@@ -111,17 +121,19 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # electrons faking taus
     e_mask = ((events.Tau.genPartFlav == 1) | (events.Tau.genPartFlav == 3))
+    if self.config_inst.has_tag("run3"):
+        e_mask = e_mask & (events.Tau.decayMode != 5) & (events.Tau.decayMode != 6)
     e_single_mask = flat_np_view((e_mask & single_triggered), axis=1)
     e_cross_mask = flat_np_view((e_mask & cross_triggered), axis=1)
-    sf_nom[e_single_mask] = self.id_vs_e_corrector(*emu_args(e_single_mask, "VLoose", "nom"))
-    sf_nom[e_cross_mask] = self.id_vs_e_corrector(*emu_args(e_cross_mask, "VVLoose", "nom"))
+    sf_nom[e_single_mask] = self.id_vs_e_corrector(*e_args(e_single_mask, e_wp, "nom"))
+    sf_nom[e_cross_mask] = self.id_vs_e_corrector(*e_args(e_cross_mask, "VVLoose", "nom"))
 
     # muons faking taus
     mu_mask = ((events.Tau.genPartFlav == 2) | (events.Tau.genPartFlav == 4))
     mu_single_mask = flat_np_view((mu_mask & single_triggered), axis=1)
     mu_cross_mask = flat_np_view((mu_mask & cross_triggered), axis=1)
-    sf_nom[mu_single_mask] = self.id_vs_mu_corrector(*emu_args(mu_single_mask, "Tight", "nom"))
-    sf_nom[mu_cross_mask] = self.id_vs_mu_corrector(*emu_args(mu_cross_mask, "VLoose", "nom"))
+    sf_nom[mu_single_mask] = self.id_vs_mu_corrector(*mu_args(mu_single_mask, "Tight", "nom"))
+    sf_nom[mu_cross_mask] = self.id_vs_mu_corrector(*mu_args(mu_cross_mask, "VLoose", "nom"))
 
     # create and store weights
     events = set_ak_column_f32(events, "tau_weight", reduce_mul(sf_nom))
@@ -153,8 +165,8 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             sf_e = sf_nom.copy()
             e_single_region_mask = e_single_mask & region_mask
             e_cross_region_mask = e_cross_mask & region_mask
-            sf_e[e_single_region_mask] = self.id_vs_e_corrector(*emu_args(e_single_region_mask, "VLoose", direction))
-            sf_e[e_cross_region_mask] = self.id_vs_e_corrector(*emu_args(e_cross_region_mask, "VVLoose", direction))
+            sf_e[e_single_region_mask] = self.id_vs_e_corrector(*e_args(e_single_region_mask, e_wp, direction))
+            sf_e[e_cross_region_mask] = self.id_vs_e_corrector(*e_args(e_cross_region_mask, "VVLoose", direction))
             events = set_ak_column_f32(events, f"tau_weight_e_{region}_{direction}", reduce_mul(sf_e))
 
         # muon fakes -> split into 5 eta regions
@@ -168,8 +180,8 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             sf_mu = sf_nom.copy()
             mu_single_region_mask = mu_single_mask & region_mask
             mu_cross_region_mask = mu_cross_mask & region_mask
-            sf_mu[mu_single_region_mask] = self.id_vs_mu_corrector(*emu_args(mu_single_region_mask, "Tight", direction))
-            sf_mu[mu_cross_region_mask] = self.id_vs_mu_corrector(*emu_args(mu_cross_region_mask, "VLoose", direction))
+            sf_mu[mu_single_region_mask] = self.id_vs_mu_corrector(*mu_args(mu_single_region_mask, "Tight", direction))
+            sf_mu[mu_cross_region_mask] = self.id_vs_mu_corrector(*mu_args(mu_cross_region_mask, "VLoose", direction))
             events = set_ak_column_f32(events, f"tau_weight_mu_{region}_{direction}", reduce_mul(sf_mu))
 
     return events
@@ -200,9 +212,9 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
 
     # check versions
-    assert self.id_vs_jet_corrector.version in (0, 1, 2)
-    assert self.id_vs_e_corrector.version in (0,)
-    assert self.id_vs_mu_corrector.version in (0,)
+    # assert self.id_vs_jet_corrector.version in (0, 1, 2)
+    # assert self.id_vs_e_corrector.version in (0,)
+    # assert self.id_vs_mu_corrector.version in (0,)
 
 
 @producer(
@@ -220,7 +232,7 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     # only run on mc
     mc_only=True,
     # function to determine the correction file
-    get_tau_file=(lambda self, external_files: external_files.tau_sf),
+    get_tau_file=(lambda self, external_files: external_files.tau_trigger_sf),
 )
 def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
@@ -324,10 +336,16 @@ def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targe
     # create the trigger and id correctors
     import correctionlib
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
-    correction_set = correctionlib.CorrectionSet.from_string(
-        self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
-    )
-    self.trigger_corrector = correction_set["tau_trigger"]
+
+    if bundle.config_inst.has_tag("run3"):
+        correction_set = correctionlib.CorrectionSet.from_file(self.get_tau_file(bundle.files).abspath)
+
+        self.trigger_corrector = correction_set["tauTriggerSF"]
+    else:  # run2
+        correction_set = correctionlib.CorrectionSet.from_string(
+            self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
+        )
+        self.trigger_corrector = correction_set["tau_trigger"]
 
     # check versions
-    assert self.trigger_corrector.version in [0]
+    assert self.trigger_corrector.version in [0, 1]

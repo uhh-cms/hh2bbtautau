@@ -81,6 +81,8 @@ def tec(
     scales_down = np.ones_like(dm_mask, dtype=np.float32)
 
     args = (pt[dm_mask], eta[dm_mask], dm[dm_mask], match[dm_mask], self.config_inst.x.tau_tagger)
+    if self.config_inst.has_tag("run3"):
+        args += ("Tight", "Tight")
     scales_nom[dm_mask] = self.tec_corrector(*args, "nom")
     scales_up[dm_mask] = self.tec_corrector(*args, "up")
     scales_down[dm_mask] = self.tec_corrector(*args, "down")
@@ -176,4 +178,4 @@ def tec_setup(self: Calibrator, reqs: dict, inputs: dict, reader_targets: Insert
     self.tec_corrector = correction_set["tau_energy_scale"]
 
     # check versions
-    assert self.tec_corrector.version in [0]
+    assert self.tec_corrector.version in [0, 1]

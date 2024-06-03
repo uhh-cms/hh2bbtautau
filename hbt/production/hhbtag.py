@@ -24,7 +24,7 @@ logger = law.logger.get_logger(__name__)
         "channel_id",
         # nano columns
         "event",
-        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId",
         "Jet.btagDeepFlavB",
         "MET.pt", "MET.phi",
     },
