@@ -82,7 +82,7 @@ def tec(
 
     args = (pt[dm_mask], eta[dm_mask], dm[dm_mask], match[dm_mask], self.config_inst.x.tau_tagger)
     if self.config_inst.campaign.x.run == 3:
-        args += ("Tight", "Tight")
+        args += self.config_inst.x.tau_energy_calibration
     scales_nom[dm_mask] = self.tec_corrector(*args, "nom")
     scales_up[dm_mask] = self.tec_corrector(*args, "up")
     scales_down[dm_mask] = self.tec_corrector(*args, "down")

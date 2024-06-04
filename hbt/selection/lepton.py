@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
-from columnflow.util import DotDict, maybe_import
+from columnflow.util import maybe_import
 
 from hbt.util import IF_NANO_V9, IF_NANO_V11, IF_NANO_V12
 from hbt.config.util import Trigger
@@ -252,17 +252,7 @@ def tau_selection(
     is_run3 = self.config_inst.campaign.x.run == 3
     get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
 
-    # tau id v2.1 working points (binary to int transition after nano v10)
-    if self.config_inst.campaign.x.version < 10:
-        # https://cms-nanoaod-integration.web.cern.ch/integration/master/mc94X_doc.html
-        tau_vs_e = DotDict(vvloose=2, vloose=4)
-        tau_vs_mu = DotDict(vloose=1, tight=8)
-        tau_vs_jet = DotDict(vvloose=2, loose=8, medium=16)
-    else:
-        # https://cms-nanoaod-integration.web.cern.ch/integration/cms-swmaster/data106Xul17v2_v10_doc.html#Tau
-        tau_vs_e = DotDict(vvloose=2, vloose=3)
-        tau_vs_mu = DotDict(vloose=1, tight=4)
-        tau_vs_jet = DotDict(vvloose=2, loose=4, medium=5)
+    wp_config = self.config_inst.x.tau_id_working_points
 
     # start per-tau mask with trigger object matching per leg
     if is_cross_e or is_cross_mu:
@@ -307,9 +297,11 @@ def tau_selection(
         (abs(events.Tau.eta) < max_eta) &
         (events.Tau.pt > min_pt) &
         (abs(events.Tau.dz) < 0.2) &
-        (events.Tau[get_tau_tagger("e")] >= (tau_vs_e.vvloose if is_any_cross_tau else tau_vs_e.vloose)) &
-        (events.Tau[get_tau_tagger("mu")] >= (tau_vs_mu.vloose if is_any_cross_tau else tau_vs_mu.tight)) &
-        (events.Tau[get_tau_tagger("jet")] >= tau_vs_jet.loose)
+        (events.Tau[get_tau_tagger("e")] >= (wp_config.tau_vs_e.vvloose if is_any_cross_tau
+                                            else wp_config.tau_vs_e.vloose)) &
+        (events.Tau[get_tau_tagger("mu")] >= (wp_config.tau_vs_mu.vloose if is_any_cross_tau
+                                            else wp_config.tau_vs_mu.tight)) &
+        (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.loose)
     )
 
     # remove taus with too close spatial separation to previously selected leptons
@@ -341,7 +333,7 @@ def tau_selection(
     base_indices = ak.values_astype(base_indices, np.int32)
 
     # additional mask to select final, Medium isolated taus
-    iso_mask = events.Tau[base_indices][get_tau_tagger("jet")] >= tau_vs_jet.medium
+    iso_mask = events.Tau[base_indices][get_tau_tagger("jet")] >= wp_config.tau_vs_jet.medium
 
     return base_indices, iso_mask
 

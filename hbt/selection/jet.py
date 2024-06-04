@@ -67,7 +67,7 @@ def jet_selection(
     )
 
     if self.config_inst.campaign.x.run == 2:
-        ak4_mask &= ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
+        ak4_mask = ak4_mask & ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
 
     # default jets
     default_mask = (

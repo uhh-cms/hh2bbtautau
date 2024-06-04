@@ -93,23 +93,22 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # start with ones
     sf_nom = np.ones_like(pt, dtype=np.float32)
+    wp_config = self.config_inst.x.tau_trigger_working_points
 
     # helpers to create corrector arguments
     if self.id_vs_jet_corrector.version == 0:
         # pt, dm, genmatch, jet wp, syst, sf type
-        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "VVLoose", syst, "dm")
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], wp_config.id_vs_jet_v0, syst, "dm")
     elif self.id_vs_jet_corrector.version in (1, 2, 3):
         # pt, dm, genmatch, jet wp, e wp, syst, sf type
-        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "Loose", "VVLoose", syst, "dm")
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], *wp_config.id_vs_jet_gv0, syst, "dm")
     else:
         raise NotImplementedError
 
     if self.id_vs_e_corrector.version == 0:
         e_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
-        e_wp = "VLoose"
     elif self.id_vs_e_corrector.version in (1,):
         e_args = lambda mask, wp, syst: (abseta[mask], dm[mask], match[mask], wp, syst)
-        e_wp = "VVLoose"  # TODO test (compensation plot) the purity and statistics of the VVLoose WP
     else:
         raise NotImplementedError
 
@@ -125,15 +124,15 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         e_mask = e_mask & (events.Tau.decayMode != 5) & (events.Tau.decayMode != 6)
     e_single_mask = flat_np_view((e_mask & single_triggered), axis=1)
     e_cross_mask = flat_np_view((e_mask & cross_triggered), axis=1)
-    sf_nom[e_single_mask] = self.id_vs_e_corrector(*e_args(e_single_mask, e_wp, "nom"))
-    sf_nom[e_cross_mask] = self.id_vs_e_corrector(*e_args(e_cross_mask, "VVLoose", "nom"))
+    sf_nom[e_single_mask] = self.id_vs_e_corrector(*e_args(e_single_mask, wp_config.id_vs_e_single, "nom"))
+    sf_nom[e_cross_mask] = self.id_vs_e_corrector(*e_args(e_cross_mask, wp_config.id_vs_e_cross, "nom"))
 
     # muons faking taus
     mu_mask = ((events.Tau.genPartFlav == 2) | (events.Tau.genPartFlav == 4))
     mu_single_mask = flat_np_view((mu_mask & single_triggered), axis=1)
     mu_cross_mask = flat_np_view((mu_mask & cross_triggered), axis=1)
-    sf_nom[mu_single_mask] = self.id_vs_mu_corrector(*mu_args(mu_single_mask, "Tight", "nom"))
-    sf_nom[mu_cross_mask] = self.id_vs_mu_corrector(*mu_args(mu_cross_mask, "VLoose", "nom"))
+    sf_nom[mu_single_mask] = self.id_vs_mu_corrector(*mu_args(mu_single_mask, wp_config.id_vs_mu_single, "nom"))
+    sf_nom[mu_cross_mask] = self.id_vs_mu_corrector(*mu_args(mu_cross_mask, wp_config.id_vs_mu_cross, "nom"))
 
     # create and store weights
     events = set_ak_column_f32(events, "tau_weight", reduce_mul(sf_nom))
@@ -165,8 +164,12 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             sf_e = sf_nom.copy()
             e_single_region_mask = e_single_mask & region_mask
             e_cross_region_mask = e_cross_mask & region_mask
-            sf_e[e_single_region_mask] = self.id_vs_e_corrector(*e_args(e_single_region_mask, e_wp, direction))
-            sf_e[e_cross_region_mask] = self.id_vs_e_corrector(*e_args(e_cross_region_mask, "VVLoose", direction))
+            sf_e[e_single_region_mask] = self.id_vs_e_corrector(
+                *e_args(e_single_region_mask, wp_config.id_vs_e_single, direction),
+            )
+            sf_e[e_cross_region_mask] = self.id_vs_e_corrector(
+                *e_args(e_cross_region_mask, wp_config.id_vs_e_cross, direction),
+            )
             events = set_ak_column_f32(events, f"tau_weight_e_{region}_{direction}", reduce_mul(sf_e))
 
         # muon fakes -> split into 5 eta regions
@@ -180,8 +183,12 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             sf_mu = sf_nom.copy()
             mu_single_region_mask = mu_single_mask & region_mask
             mu_cross_region_mask = mu_cross_mask & region_mask
-            sf_mu[mu_single_region_mask] = self.id_vs_mu_corrector(*mu_args(mu_single_region_mask, "Tight", direction))
-            sf_mu[mu_cross_region_mask] = self.id_vs_mu_corrector(*mu_args(mu_cross_region_mask, "VLoose", direction))
+            sf_mu[mu_single_region_mask] = self.id_vs_mu_corrector(
+                *mu_args(mu_single_region_mask, wp_config.id_vs_mu_single, direction),
+            )
+            sf_mu[mu_cross_region_mask] = self.id_vs_mu_corrector(
+                *mu_args(mu_cross_region_mask, wp_config.id_vs_mu_cross, direction),
+            )
             events = set_ak_column_f32(events, f"tau_weight_mu_{region}_{direction}", reduce_mul(sf_mu))
 
     return events
@@ -294,7 +301,8 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # start with flat ones
     sf_nom = np.ones_like(pt, dtype=np.float32)
-    eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, "VVLoose", "sf", syst)
+    wp_config = self.config_inst.x.tau_trigger_working_points
+    eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, "sf", syst)
     sf_nom[etau_mask] = self.trigger_corrector(*eval_args(etau_mask, "etau", "nom"))
     sf_nom[mutau_mask] = self.trigger_corrector(*eval_args(mutau_mask, "mutau", "nom"))
     sf_nom[tautau_mask] = self.trigger_corrector(*eval_args(tautau_mask, "ditau", "nom"))

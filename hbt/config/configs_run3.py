@@ -272,6 +272,26 @@ def add_config(
         },
     })
 
+    # tau id working points for the selection for nanoAoD > 10
+    cfg.x.tau_id_working_points = DotDict.wrap({
+        "tau_vs_e": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa
+        "tau_vs_jet": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa
+        "tau_vs_mu": {"vloose": 1, "loose": 2, "medium": 3, "tight": 4},
+    })
+
+    # tau trigger working points
+    cfg.x.tau_trigger_working_points = DotDict.wrap({
+        "id_vs_jet_v0": "VVLoose",
+        "id_vs_jet_gv0": ("Loose", "VVLoose"),
+        "id_vs_mu_single": "Tight",
+        "id_vs_mu_cross": "VLoose",
+        "id_vs_e_single": "VVLoose",
+        "id_vs_e_cross": "VVLoose",
+        "trigger_corr": "VVLoose",
+    })
+
+    cfg.x.tau_energy_calibration = ("Tight", "Tight")
+
     # jec configuration
     # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201
     # TODO later: check this corrections summary correction_file (jet_jerc.json.gz) after setting sandbox_dev
@@ -626,18 +646,6 @@ def add_config(
                 "golden": ("/afs/cern.ch/user/a/anhaddad/public/Collisions22/Cert_Collisions2022_355100_362760_Golden.json", "v1"),  # noqa
                 "normtag": ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
             },
-
-            # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
-            "pu": {
-                "json": ("/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileup_JSON.txt", "v1"),  # noqa
-                # Problem No file for 2022 --> using 2023 no matching shapes with root shape
-                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/203834e3ae301f2564423dd1cc84bebf660519b9/SimGeneral/MixingModule/python/Run3_2022_LHC_Simulation_10h_2h_cfi.py", "v1"),  # noqa
-                "data_profile": {
-                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-69200ub-100bins.root", "v1"),  # noqa
-                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-72400ub-100bins.root", "v1"),  # noqa
-                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-66000ub-100bins.root", "v1"),  # noqa
-                },
-            },
         }))
     elif year == 2023:  # year 2023
         cfg.x.external_files.update(DotDict.wrap({
@@ -645,17 +653,6 @@ def add_config(
             "lumi": {
                 "golden": ("/afs/cern.ch/user/a/anhaddad/public/Collisions23/Cert_Collisions2023_366442_370790_Golden.json", "v1"),  # noqa
                 "normtag": ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
-            },
-
-            # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
-            "pu": {
-                "json": ("/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileup_JSON.txt", "v1"),  # noqa
-                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/203834e3ae301f2564423dd1cc84bebf660519b9/SimGeneral/MixingModule/python/mix_2023_25ns_EraCD_PoissonOOTPU_cfi.py", "v1"),  # noqa
-                "data_profile": {
-                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-69200ub-100bins.root", "v1"),  # noqa
-                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-72400ub-100bins.root", "v1"),  # noqa
-                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-66000ub-100bins.root", "v1"),  # noqa
-                },
             },
         }))
 

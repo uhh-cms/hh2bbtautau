@@ -255,6 +255,31 @@ def add_config(
         },
     })
 
+    # tau ID working points
+    if campaign.x.version < 10:
+        cfg.x.tau_id_working_points = DotDict.wrap({
+            "tau_vs_e": {"vvvloose": 1, "vvloose": 2, "vloose": 4, "loose": 8, "medium": 16, "tight": 32, "vtight": 64, "vvtight": 128},  # noqa
+            "tau_vs_jet": {"vvvloose": 1, "vvloose": 2, "vloose": 4, "loose": 8, "medium": 16, "tight": 32, "vtight": 64, "vvtight": 128},  # noqa
+            "tau_vs_mu": {"vloose": 1, "loose": 2, "medium": 4, "tight": 8},
+        })
+    else:
+        cfg.x.tau_id_working_points = DotDict.wrap({
+            "tau_vs_e": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa
+            "tau_vs_jet": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa
+            "tau_vs_mu": {"vloose": 1, "loose": 2, "medium": 3, "tight": 4},
+        })
+
+    # tau trigger working points
+    cfg.x.tau_trigger_working_points = DotDict.wrap({
+        "id_vs_jet_v0": "VVLoose",
+        "id_vs_jet_gv0": ("Loose", "VVLoose"),
+        "id_vs_mu_single": "Tight",
+        "id_vs_mu_cross": "VLoose",
+        "id_vs_e_single": "VLoose",
+        "id_vs_e_cross": "VVLoose",
+        "trigger_corr": "VVLoose",
+    })
+
     # jec configuration
     # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201
     jerc_postfix = "APV" if year == 2016 and campaign.x.vfp == "pre" else ""
