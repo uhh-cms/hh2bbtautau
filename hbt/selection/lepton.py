@@ -249,7 +249,7 @@ def tau_selection(
     is_cross_tau_jet = trigger.has_tag("cross_tau_tau_jet")
     is_any_cross_tau = is_cross_tau or is_cross_tau_vbf or is_cross_tau_jet
     is_2016 = self.config_inst.campaign.x.year == 2016
-    is_run3 = self.config_inst.has_tag("run3")
+    is_run3 = self.config_inst.campaign.x.run == 3
     get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
 
     # tau id v2.1 working points (binary to int transition after nano v10)

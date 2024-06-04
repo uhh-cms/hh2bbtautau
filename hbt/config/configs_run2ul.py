@@ -48,7 +48,7 @@ def add_config(
 
     # create a config by passing the campaign, so id and name will be identical
     cfg = analysis.add_config(campaign, name=config_name, id=config_id)
-    cfg.add_tag("run2")
+
     # add processes we are interested in
     process_names = [
         "data",

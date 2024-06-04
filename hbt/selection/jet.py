@@ -66,7 +66,7 @@ def jet_selection(
         ak.all(events.Jet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2)
     )
 
-    if self.config_inst.has_tag("run2"):
+    if self.config_inst.campaign.x.run == 2:
         ak4_mask &= ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
 
     # default jets
@@ -169,7 +169,7 @@ def jet_selection(
 
     # discard the event in case the (first) fatjet with matching subjets is found
     # but they are not b-tagged (TODO: move to deepjet when available for subjets)
-    if self.config_inst.has_tag("run3"):
+    if self.config_inst.campaign.x.run == 3:
         wp = self.config_inst.x.btag_working_points.particleNet.loose
     else:
         wp = self.config_inst.x.btag_working_points.deepcsv.loose

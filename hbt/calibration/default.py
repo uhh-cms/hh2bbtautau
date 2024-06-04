@@ -45,7 +45,7 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         events = self[jec_full](events, **kwargs)
         events = self[jer](events, **kwargs)
 
-    if self.config_inst.has_tag("run2"):
+    if self.config_inst.campaign.x.run == 2:
         events = self[met_phi](events, **kwargs)
 
     if self.dataset_inst.is_mc:

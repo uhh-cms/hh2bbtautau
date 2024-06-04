@@ -29,4 +29,4 @@ def IF_NANO_V12(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any 
 
 @deferred_column
 def IF_RUN_2(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    return self.get() if func.config_inst.has_tag("run2") else None
+    return self.get() if func.config_inst.campaign.x.run == 2 else None

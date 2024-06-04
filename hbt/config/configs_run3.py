@@ -51,7 +51,7 @@ def add_config(
 
     # create a config by passing the campaign, so id and name will be identical
     cfg = analysis.add_config(campaign, name=config_name, id=config_id)
-    cfg.add_tag("run3")
+
     if not year_postfix:
         cfg.add_tag("pre")
 
@@ -573,7 +573,7 @@ def add_config(
     )
 
     # external files
-    json_mirror = "/afs/cern.ch/user/a/anhaddad/public/jsonpog-integration"
+    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7d9636bf"
     json_mirror_alt = "/afs/cern.ch/user/a/anhaddad/public/jsonpog_alt"
     # TODO later: add factors for other POGs when available
 

@@ -121,7 +121,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # electrons faking taus
     e_mask = ((events.Tau.genPartFlav == 1) | (events.Tau.genPartFlav == 3))
-    if self.config_inst.has_tag("run3"):
+    if self.config_inst.campaign.x.run == 3:
         e_mask = e_mask & (events.Tau.decayMode != 5) & (events.Tau.decayMode != 6)
     e_single_mask = flat_np_view((e_mask & single_triggered), axis=1)
     e_cross_mask = flat_np_view((e_mask & cross_triggered), axis=1)
@@ -337,7 +337,7 @@ def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targe
     import correctionlib
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
 
-    if bundle.config_inst.has_tag("run3"):
+    if bundle.config_inst.campaign.x.run == 3:
         correction_set = correctionlib.CorrectionSet.from_file(self.get_tau_file(bundle.files).abspath)
 
         self.trigger_corrector = correction_set["tauTriggerSF"]

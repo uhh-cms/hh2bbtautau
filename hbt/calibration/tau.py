@@ -81,7 +81,7 @@ def tec(
     scales_down = np.ones_like(dm_mask, dtype=np.float32)
 
     args = (pt[dm_mask], eta[dm_mask], dm[dm_mask], match[dm_mask], self.config_inst.x.tau_tagger)
-    if self.config_inst.has_tag("run3"):
+    if self.config_inst.campaign.x.run == 3:
         args += ("Tight", "Tight")
     scales_nom[dm_mask] = self.tec_corrector(*args, "nom")
     scales_up[dm_mask] = self.tec_corrector(*args, "up")
