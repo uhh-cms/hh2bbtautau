@@ -450,6 +450,29 @@ def add_triggers_2022(config: od.Config) -> None:
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
 
+        Trigger(
+            name="HLT_DoubleMediumChargedIsoDisplacedPFTauHPS32_Trk1_eta2p1_v2",
+            id=507,
+            legs=[
+                TriggerLeg(
+                    pdg_id=15,
+                    min_pt=45.0,
+                    # filter names:
+                    # "MediumChargedIso", "Hps", "TightOOSCPhotons"
+                    trigger_bits=2 + 32 + 16,
+                ),
+                TriggerLeg(
+                    pdg_id=15,
+                    min_pt=45.0,
+                    # filter names:
+                    # "MediumChargedIso", "Hps", "TightOOSCPhotons"
+                    trigger_bits=2 + 32 + 16,
+                ),
+            ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and dataset_inst.x.era < "E"),
+            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+        ),
+
         #
         # vbf
         #
@@ -489,6 +512,41 @@ def add_triggers_2022(config: od.Config) -> None:
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
 
+        Trigger(
+            name="HLT_VBF_DoubleMediumDeepTauPFTauHPS20_eta2p1_v1",
+            id=603,
+            legs=[
+                TriggerLeg(
+                    pdg_id=15,
+                    min_pt=25.0,
+                    # filter names:
+                    # LooseChargedIso", "Hps", "VBFpDoublePFTau_run3"
+                    trigger_bits=1 + 32 + 4096,
+                ),
+                TriggerLeg(
+                    pdg_id=15,
+                    min_pt=25.0,
+                    # filter names:
+                    # LooseChargedIso", "Hps", "VBFpDoublePFTau_run3"
+                    trigger_bits=1 + 32 + 4096,
+                ),
+                # additional leg infos for vbf jets
+                TriggerLeg(  # TODO
+                    min_pt=115.0,
+                    # filter names:
+                    # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleLooseChargedIsoPFTau20
+                    trigger_bits=1,
+                ),
+                TriggerLeg(
+                    min_pt=40.0,
+                    # filter names:
+                    # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleLooseChargedIsoPFTau20
+                    trigger_bits=1,
+                ),
+            ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and config.has_tag("pre")),
+            tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
+        ),
         #
         # tau tau jet
         #
