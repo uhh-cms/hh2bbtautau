@@ -10,12 +10,11 @@ from columnflow.calibration.cms.jets import jec, jer
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.seeds import deterministic_seeds
 from columnflow.util import maybe_import
-
 from hbt.calibration.tau import tec
 
 
 ak = maybe_import("awkward")
-
+np = maybe_import("numpy")
 
 # derive calibrators to add settings
 jec_nominal = jec.derive("jec_nominal", cls_dict={"uncertainty_sources": [], "data_only": True})
@@ -47,4 +46,12 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     if self.dataset_inst.is_mc:
         events = self[tec](events, **kwargs)
 
+    return events
+
+
+@calibrator(
+    uses=set(),
+    produces=set(),
+)
+def empty(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     return events

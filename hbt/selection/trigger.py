@@ -45,7 +45,15 @@ def trigger_selection(
             continue
 
         # get bare decisions
-        fired = events.HLT[trigger.hlt_field] == 1
+
+        try:
+            fired = events.HLT[trigger.hlt_field] == 1
+        except:
+            import traceback
+            traceback.print_exc()
+            from IPython import embed
+            embed(header="trigger selection")
+
         any_fired = any_fired | fired
 
         # get trigger objects for fired events per leg

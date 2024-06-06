@@ -65,6 +65,8 @@ def add_config(
         "h",
         "hh_ggf_bbtautau",
         "graviton_hh_ggf_bbtautau_m400",
+        "graviton_hh_ggf_bbtautau_m450",
+        "graviton_hh_ggf_bbtautau_m500",
         "graviton_hh_ggf_bbtautau_m1250",
     ]
     for process_name in process_names:
@@ -145,6 +147,8 @@ def add_config(
         # signals
         "hh_ggf_bbtautau_madgraph",
         "graviton_hh_ggf_bbtautau_m400_madgraph",
+        "graviton_hh_ggf_bbtautau_m450_madgraph",
+        "graviton_hh_ggf_bbtautau_m500_madgraph",
         "graviton_hh_ggf_bbtautau_m1250_madgraph",
     ]
     for dataset_name in dataset_names:
@@ -211,19 +215,26 @@ def add_config(
 
     # lumi values in inverse pb
     # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2?rev=2#Combination_and_correlations
+    # difference pre-post VFP: https://cds.cern.ch/record/2854610/files/DP2023_006.pdf
     if year == 2016:
-        cfg.x.luminosity = Number(36310, {
-            "lumi_13TeV_2016": 0.01j,
-            "lumi_13TeV_correlated": 0.006j,
-        })
+        if campaign.x.vfp == "pre":
+            cfg.x.luminosity = Number(19_500, {
+                "lumi_13TeV_2016": 0.01j,
+                "lumi_13TeV_correlated": 0.006j,
+            })
+        if campaign.x.vfp == "post":
+            cfg.x.luminosity = Number(16_800, {
+                "lumi_13TeV_2016": 0.01j,
+                "lumi_13TeV_correlated": 0.006j,
+            })
     elif year == 2017:
-        cfg.x.luminosity = Number(41480, {
+        cfg.x.luminosity = Number(41_480, {
             "lumi_13TeV_2017": 0.02j,
             "lumi_13TeV_1718": 0.006j,
             "lumi_13TeV_correlated": 0.009j,
         })
     else:  # 2018
-        cfg.x.luminosity = Number(59830, {
+        cfg.x.luminosity = Number(59_830, {
             "lumi_13TeV_2017": 0.015j,
             "lumi_13TeV_1718": 0.002j,
             "lumi_13TeV_correlated": 0.02j,
@@ -664,7 +675,7 @@ def add_config(
             "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
             "Electron.pfRelIso03_all",
             "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
-            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe",
+            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe", "Tau.charge",
             "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
             "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
@@ -734,9 +745,16 @@ def add_config(
     add_met_filters(cfg)
 
     # add triggers
-    if year == 2017:
+    if year == 2016:
+        # cfg.x.triggers = None
+        from hbt.config.triggers import add_triggers_2016
+        add_triggers_2016(cfg, campaign.x.vfp)
+    elif year == 2017:
         from hbt.config.triggers import add_triggers_2017
         add_triggers_2017(cfg)
+    elif year == 2018:
+        from hbt.config.triggers import add_triggers_2018
+        add_triggers_2018(cfg)
     else:
         raise NotImplementedError(f"triggers not implemented for {year}")
 
@@ -750,11 +768,11 @@ def add_config(
             # destructure dataset_key into parts and create the lfn base directory
             dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
             main_campaign, sub_campaign = full_campaign.split("-", 1)
+            # dataset_inst.data_source is either "mc" or "data"
             lfn_base = law.wlcg.WLCGDirectoryTarget(
                 f"/store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0",
                 fs=f"wlcg_fs_{cfg.campaign.x.custom['name']}",
             )
-
             # loop though files and interpret paths as lfns
             return [
                 lfn_base.child(basename, type="f").path

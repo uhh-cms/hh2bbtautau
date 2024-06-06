@@ -10,7 +10,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import DotDict, maybe_import
 
-from hbt.util import IF_NANO_V9, IF_NANO_V11
+from hbt.util import IF_NANO_V9, IF_NANO_GE_V11
 from hbt.config.util import Trigger
 
 
@@ -44,7 +44,7 @@ def trigger_object_matching(
         "Electron.pt", "Electron.eta", "Electron.phi", "Electron.dxy", "Electron.dz",
         "Electron.pfRelIso03_all",
         IF_NANO_V9("Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90"),
-        IF_NANO_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
+        IF_NANO_GE_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
     exposed=False,
@@ -57,7 +57,7 @@ def electron_selection(
     **kwargs,
 ) -> tuple[ak.Array, ak.Array]:
     """
-    Electron selection returning two sets of indidces for default and veto electrons.
+    Electron selection returning two sets of indices for default and veto electrons.
     See https://twiki.cern.ch/twiki/bin/view/CMS/EgammaNanoAOD?rev=4
     """
     is_single = trigger.has_tag("single_e")
@@ -84,6 +84,8 @@ def electron_selection(
     # obtain mva flags, which might be located at different routes, depending on the nano version
     if "mvaIso_WP80" in events.Electron.fields:
         # >= nano v10
+        # beware that the available Iso should be mvaFall17V2 for run2 files, not Winter22V1,
+        # check this in original root files if necessary
         mva_iso_wp80 = events.Electron.mvaIso_WP80
         mva_iso_wp90 = events.Electron.mvaIso_WP90
         # mva_noniso_wp90 = events.Electron.mvaNoIso_WP90
@@ -281,8 +283,8 @@ def tau_selection(
         min_pt = 20.0
         max_eta = 2.3
     elif is_cross_e:
-        # only existing after 2016, so force a failure in case of misconfiguration
-        min_pt = None if is_2016 else 35.0
+        # only existing after 2016
+        min_pt = 0.0 if is_2016 else 35.0
         max_eta = 2.1
     elif is_cross_mu:
         min_pt = 25.0 if is_2016 else 32.0
@@ -291,8 +293,8 @@ def tau_selection(
         min_pt = 40.0
         max_eta = 2.1
     elif is_cross_tau_vbf:
-        # only existing after 2016, so force in failure in case of misconfiguration
-        min_pt = None if is_2016 else 25.0
+        # only existing after 2016
+        min_pt = 0.0 if is_2016 else 25.0
         max_eta = 2.1
 
     # base tau mask for default and qcd sideband tau
