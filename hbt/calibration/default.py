@@ -19,16 +19,15 @@ ak = maybe_import("awkward")
 
 # derive calibrators to add settings
 jec_full = jec.derive("jec_full", cls_dict={"mc_only": True, "nominal_only": True})
-tec_full = tec.derive("tec_full", cls_dict={"nominal_only": True})
 
 
 @calibrator(
     uses={
-        mc_weight, jec_nominal, jec_full, jer, tec_nominal, tec_full, deterministic_seeds,
+        mc_weight, jec_nominal, jec_full, jer, tec_nominal, tec, deterministic_seeds,
         IF_RUN_2(met_phi),
     },
     produces={
-        mc_weight, jec_nominal, jec_full, jer, tec_nominal, tec_full, deterministic_seeds,
+        mc_weight, jec_nominal, jec_full, jer, tec_nominal, tec, deterministic_seeds,
         IF_RUN_2(met_phi),
     },
 )
@@ -48,7 +47,7 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
 
     if self.dataset_inst.is_mc:
         if self.global_shift_inst.is_nominal:
-            events = self[tec_full](events, **kwargs)
+            events = self[tec](events, **kwargs)
         else:
             events = self[tec_nominal](events, **kwargs)
 
