@@ -179,3 +179,6 @@ def tec_setup(self: Calibrator, reqs: dict, inputs: dict, reader_targets: Insert
 
     # check versions
     assert self.tec_corrector.version in [0, 1]
+
+
+tec_nominal = tec.derive("tec_nominal", cls_dict={"uncertainty_sources": []})
