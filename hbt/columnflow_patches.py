@@ -56,6 +56,33 @@ def patch_htcondor_workflow_naf_resources():
 
 
 @memoize
+def patch_user_parameters():
+    """
+    Adds user parameters to some tasks.
+    """
+    from hbt.tasks.parameters import user_parameter_inst
+    from columnflow.tasks.framework.remote import (
+        BundleRepo,
+        BundleSoftware,
+        BuildBashSandbox,
+        BundleBashSandbox,
+        BundleCMSSWSandbox,
+    )
+
+    for cls in [
+        BundleRepo,
+        BundleSoftware,
+        BuildBashSandbox,
+        BundleBashSandbox,
+        BundleCMSSWSandbox,
+    ]:
+        cls.user_parameter = user_parameter_inst
+
+    logger.debug("patched user parameters")
+
+
+@memoize
 def patch_all():
     patch_bundle_repo_exclude_files()
-    patch_htcondor_workflow_naf_resources
+    patch_htcondor_workflow_naf_resources()
+    patch_user_parameters()
