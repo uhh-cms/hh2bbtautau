@@ -52,11 +52,3 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         events = self[tec](events, **kwargs)
 
     return events
-
-
-@calibrator(
-    uses=set(),
-    produces=set(),
-)
-def empty(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
-    return events

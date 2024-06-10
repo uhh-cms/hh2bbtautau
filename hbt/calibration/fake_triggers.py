@@ -23,7 +23,7 @@ ak = maybe_import("awkward")
         "HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau20_SingleL1",
     },
 )
-def placeholder(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
+def fake_triggers(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
 
     HLT_Ele25_eta2p1_WPTight_Gsf = ak.any(
         (events.Electron.pt >= 25.5) &

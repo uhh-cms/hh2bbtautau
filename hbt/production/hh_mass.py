@@ -3,8 +3,6 @@ from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import EMPTY_FLOAT, set_ak_column
 from columnflow.production.util import attach_coffea_behavior
-from columnflow.production.categories import category_ids
-from columnflow.production.normalization import normalization_weights
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -15,29 +13,18 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 @producer(
     uses=(
         "Electron.*", "Tau.*", "Jet.*", "HHBJet.*",
-        category_ids, normalization_weights, attach_coffea_behavior,
+        attach_coffea_behavior,
     ),
     produces={
-        "hh.*", "diTau.*", "diBJet.*", category_ids, normalization_weights,
+        "hh.*", "diTau.*", "diBJet.*",
     },
 )
 def hh_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    # category ids
-    events = self[category_ids](events, **kwargs)
-
     events = self[attach_coffea_behavior](
         events,
         collections={"HHBJet": {"type_name": "Jet"}},
         **kwargs,
     )
-
-    # mc-only weights
-    if self.dataset_inst.is_mc:
-        # normalization weights
-        events = self[normalization_weights](events, **kwargs)
-
-        # btag weights
-        # events = self[normalized_btag_weights](events, **kwargs)
 
     # total number of objects per event
     n_bjets = ak.num(events.HHBJet, axis=1)

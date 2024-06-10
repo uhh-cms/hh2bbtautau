@@ -205,21 +205,21 @@ def add_variables(config: od.Config) -> None:
     )
 
     config.add_variable(
-        name="diTau_mass",
+        name="ditau_mass",
         expression="diTau.mass",
         binning=(20, 50, 200.0),
         unit="GeV",
         x_title=r"$m_{\tau\tau}$",
     )
     config.add_variable(
-        name="diTau_pt",
+        name="ditau_pt",
         expression="diTau.pt",
         binning=(100, 0, 500.0),
         unit="GeV",
         x_title=r"$p_T$",
     )
     config.add_variable(
-        name="diTau_eta",
+        name="ditau_eta",
         expression="diTau.eta",
         binning=(100, -3.0, 3.0),
         unit="GeV",
@@ -227,21 +227,21 @@ def add_variables(config: od.Config) -> None:
     )
 
     config.add_variable(
-        name="diBJet_mass",
+        name="dibjet_mass",
         expression="diBJet.mass",
         binning=(20, 0, 500.0),
         unit="GeV",
         x_title=r"$m_{bb}$",
     )
     config.add_variable(
-        name="diBJet_pt",
+        name="dibjet_pt",
         expression="diBJet.pt",
         binning=(100, 0, 500.0),
         unit="GeV",
         x_title=r"$p_T$",
     )
     config.add_variable(
-        name="diBJet_eta",
+        name="dibjet_eta",
         expression="diBJet.eta",
         binning=(100, -3.0, 3.0),
         unit="GeV",
