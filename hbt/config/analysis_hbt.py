@@ -17,6 +17,7 @@ analysis_hbt = od.Analysis(
 )
 
 # analysis-global versions
+# (empty since we use the lookup from the law.cfg instead)
 analysis_hbt.x.versions = {}
 
 # files of bash sandboxes that might be required by remote tasks
@@ -40,6 +41,10 @@ analysis_hbt.x.config_groups = {}
 
 #
 # load configs
+#
+
+#
+# Run 2 configs
 #
 
 from hbt.config.configs_run2ul import add_config as add_config_run2ul
