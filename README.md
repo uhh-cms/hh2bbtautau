@@ -3,7 +3,6 @@
 [![Lint and test](https://github.com/uhh-cms/hh2bbtautau/actions/workflows/lint_and_test.yaml/badge.svg)](https://github.com/uhh-cms/hh2bbtautau/actions/workflows/lint_and_test.yaml)
 [![License](https://img.shields.io/github/license/uhh-cms/hh2bbtautau.svg)](https://github.com/uhh-cms/hh2bbtautau/blob/master/LICENSE)
 
-
 ### Quickstart
 
 A couple test tasks are listed below.
@@ -44,6 +43,12 @@ law run cf.CreateDatacards \
     --workers 3
 ```
 
+### Useful links
+
+- [columnflow documentation](https://columnflow.readthedocs.io/en/latest/index.html)
+- [Nano documentation](https://gitlab.cern.ch/cms-nanoAOD/nanoaod-doc)
+- [Correctionlib files](https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration)
+- [HLT info browser](https://cmshltinfo.app.cern.ch/path/HLT_MediumChargedIsoPFTau180HighPtRelaxedIso_Trk50_eta2p1_v)
 
 ### Development
 
