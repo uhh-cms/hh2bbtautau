@@ -6,7 +6,6 @@ Trigger relatad studies.
 
 from collections import OrderedDict
 
-import luigi
 import law
 
 from columnflow.tasks.framework.base import Requirements, DatasetTask
@@ -15,6 +14,7 @@ from columnflow.tasks.external import GetDatasetLFNs
 from columnflow.util import ensure_proxy, dev_sandbox
 
 from hbt.tasks.base import HBTTask
+from hbt.tasks.parameters import table_format_param, escape_markdown_param
 
 
 class PrintTriggersInFile(HBTTask, DatasetTask, law.tasks.RunOnceTask):
@@ -26,7 +26,7 @@ class PrintTriggersInFile(HBTTask, DatasetTask, law.tasks.RunOnceTask):
         > law run hbt.PrintTriggersInFile --dataset hh_ggf_bbtautau_madgraph
     """
 
-    sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/venv_columnar.sh")
+    sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
 
     version = None
 
@@ -70,16 +70,10 @@ class PrintExistingConfigTriggers(HBTTask, DatasetsProcessesMixin, law.tasks.Run
         > law run hbt.PrintExistingConfigTriggers --datasets "hh_ggf_bbtautau_madgraph,data_mu_{b,c,d,e,f}"
     """
 
-    table_format = luigi.Parameter(
-        default="fancy_grid",
-        description="a tabulate table format; default: 'fancy_grid'",
-    )
-    escape_markdown = luigi.BoolParameter(
-        default=False,
-        description="escape some characters for markdown; default: False",
-    )
+    table_format = table_format_param
+    escape_markdown = escape_markdown_param
 
-    sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/venv_columnar.sh")
+    sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
 
     version = None
     processes = None

@@ -544,13 +544,13 @@ def add_config(
     cfg.add_shift(name="mu_down", id=101, type="shape")
     add_shift_aliases(cfg, "mu", {"muon_weight": "muon_weight_{direction}"})
 
-    btag_uncs = [
+    cfg.x.btag_unc_names = [
         "hf", "lf",
         f"hfstats1_{year}", f"hfstats2_{year}",
         f"lfstats1_{year}", f"lfstats2_{year}",
         "cferr1", "cferr2",
     ]
-    for i, unc in enumerate(btag_uncs):
+    for i, unc in enumerate(cfg.x.btag_unc_names):
         cfg.add_shift(name=f"btag_{unc}_up", id=110 + 2 * i, type="shape")
         cfg.add_shift(name=f"btag_{unc}_down", id=111 + 2 * i, type="shape")
         add_shift_aliases(
@@ -715,7 +715,7 @@ def add_config(
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
-        "normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in btag_uncs)),
+        "normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in tau_uncs)),

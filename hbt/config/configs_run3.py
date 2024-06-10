@@ -34,7 +34,10 @@ def add_config(
     limit_dataset_files: int | None = None,
 ) -> od.Config:
     # some validations
+    assert campaign.x.run == 3
     assert campaign.x.year in [2022, 2023, 2024]
+    if campaign.x.year == 2022:
+        assert campaign.x.postfix in ["pre", "post"]
     if campaign.x.year == 2024:
         raise NotImplementedError("It a bit too early for 2024 analysis :)")
 
@@ -55,6 +58,20 @@ def add_config(
     if not year_postfix:
         cfg.add_tag("pre")
 
+    # helper to enable processes / datasets only for a specific era
+    def if_era(
+        run: int | list[int],
+        year: int | list[int],
+        postfix: str | list[str],
+        values: list[str],
+    ) -> list[str]:
+        match = (
+            campaign.x.run == run and
+            campaign.x.year == year and
+            campaign.x("postfix", "") == postfix
+        )
+        return values if match else []
+
     # add processes we are interested in
     process_names = [
         "data",
@@ -69,7 +86,7 @@ def add_config(
         # "vvv",
         # "qcd",
         # "h",
-        "hh_ggf_bbtautau",
+        "hh_ggf_hbb_htt",
         # "hh_vbf_bbtautau",
         # "graviton_hh_ggf_bbtautau_m400",
         # "graviton_hh_ggf_bbtautau_m1250",
@@ -88,29 +105,16 @@ def add_config(
 
     # add datasets we need to study
     dataset_names = [
-        # data
-        # "data_e_b",
-        # "data_e_c",
-        # "data_e_d",
-        # "data_e_e",
-        # "data_e_f",
-        # "data_mu_a",
-        # "data_mu_b",
-        # "data_mu_c",
-        # "data_mu_d",
-        # "data_mu_e",
-        # "data_mu_f",
-        # "data_mu_g",
-        # "data_tau_b",
-        # "data_tau_c",
-        "data_tau_d",
-        # "data_tau_e",
-        # "data_tau_f",
-        # "data_tau_g",
+        # signals
+        "hh_ggf_hbb_htt_kl1_kt1_c20_powheg",
+        "hh_ggf_hbb_htt_kl0_kt1_c20_powheg",
+        "hh_ggf_hbb_htt_kl2p45_kt1_c20_powheg",
+        "hh_ggf_hbb_htt_kl5_kt1_c20_powheg",
         # backgrounds
         "tt_sl_powheg",
-        # "tt_dl_powheg",
-        # "tt_fh_powheg",
+        "tt_dl_powheg",
+        "tt_fh_powheg",
+        # TODO: add more
         # "ttz_llnunu_amcatnlo",
         # "ttw_nlu_amcatnlo",
         # "ttw_qq_amcatnlo",
@@ -149,8 +153,10 @@ def add_config(
         # "tth_tautau_powheg",
         # "tth_bb_powheg",
         # "tth_nonbb_powheg",
-        # # signals
-        "hh_ggf_hbb_htt_kl1_kt1_c20_powheg",
+        # data
+        *if_era(run=3, year=2022, postfix="pre", values=[
+            f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "cd"
+        ]),
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there
@@ -182,7 +188,7 @@ def add_config(
     cfg.x.default_inference_model = "test_no_shifts"
     cfg.x.default_categories = ("incl",)
     cfg.x.default_variables = ("n_jet", "n_btag")
-    cfg.x.default_weight_producer = "all_weights"
+    cfg.x.default_weight_producer = "default"
 
     # process groups for conveniently looping over certain processs
     # (used in wrapper_factory and during plotting)
@@ -218,12 +224,12 @@ def add_config(
     # TODO later: preliminary luminosity using norm tag. Must be corrected, when more data is available
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     if year == 2022:
-        if campaign.x.postfix == "post":
-            cfg.x.luminosity = Number(26671.7, {
+        if campaign.x.postfix == "pre":
+            cfg.x.luminosity = Number(7980.4, {
                 "total": 0.014j,
             })
-        else:
-            cfg.x.luminosity = Number(7980.4, {
+        else:  # post
+            cfg.x.luminosity = Number(26671.7, {
                 "total": 0.014j,
             })
     elif year == 2023:
@@ -520,12 +526,12 @@ def add_config(
         )
 
     # start at id=50
-    tau_uncs = [
+    cfg.x.tau_unc_names = [
         "jet_dm0", "jet_dm1", "jet_dm10",
         "e_barrel", "e_endcap",
         "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
     ]
-    for i, unc in enumerate(tau_uncs):
+    for i, unc in enumerate(cfg.x.tau_unc_names):
         cfg.add_shift(name=f"tau_{unc}_up", id=50 + 2 * i, type="shape")
         cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape")
         add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_" + "{direction}"})
@@ -552,13 +558,13 @@ def add_config(
     cfg.add_shift(name="mu_down", id=101, type="shape")
     add_shift_aliases(cfg, "mu", {"muon_weight": "muon_weight_{direction}"})
 
-    btag_uncs = [
+    cfg.x.btag_unc_names = [
         "hf", "lf",
         f"hfstats1_{year}", f"hfstats2_{year}",
         f"lfstats1_{year}", f"lfstats2_{year}",
         "cferr1", "cferr2",
     ]
-    for i, unc in enumerate(btag_uncs):
+    for i, unc in enumerate(cfg.x.btag_unc_names):
         cfg.add_shift(name=f"btag_{unc}_up", id=110 + 2 * i, type="shape")
         cfg.add_shift(name=f"btag_{unc}_down", id=111 + 2 * i, type="shape")
         add_shift_aliases(
@@ -693,17 +699,19 @@ def add_config(
         },
     })
 
-    # event weight columns as keys in an OrderedDict, mapped to shift instances they depend on
+    # configurations for all possible event weight columns as keys in an OrderedDict,
+    # mapped to shift instances they depend on
+    # (this info is used by weight producers)
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
-        "normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in btag_uncs)),
+        "normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
-        "tau_weight": get_shifts(*(f"tau_{unc}" for unc in tau_uncs)),
+        "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
         "tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
     })
 
@@ -712,22 +720,9 @@ def add_config(
         if dataset.x("is_ttbar", False):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
 
-    # versions per task family and optionally also dataset and shift
-    # None can be used as a key to define a default value
-    # TODO: versioning is disabled for now and will be enabled once needed
+    # pinned versions
+    # (empty since we use the lookup from the law.cfg instead)
     cfg.x.versions = {}
-    # if cfg.name == "run2_2017_nano_v9":
-    #     cfg.x.versions = {
-    #         "cf.CalibrateEvents": "dev1",
-    #         "cf.MergeSelectionStats": "dev1",
-    #         "cf.MergeSelectionMasks": "dev1",
-    #         "cf.SelectEvents": "dev1",
-    #         "cf.ReduceEvents": "dev1",
-    #         "cf.MergeReductionStats": "dev1",
-    #         "cf.MergeReducedEvents": "dev1",
-    #     }
-    # else:
-    #     raise NotImplementedError(f"config versions not implemented for {cfg.name}")
 
     # channels
     cfg.add_channel(name="mutau", id=1)

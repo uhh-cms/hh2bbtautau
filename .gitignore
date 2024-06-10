@@ -37,3 +37,4 @@ data
 .setups
 .mypy_cache
 .vscode
+.python-version
