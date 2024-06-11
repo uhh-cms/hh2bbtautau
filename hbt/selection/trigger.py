@@ -45,6 +45,7 @@ def trigger_selection(
             continue
 
         # get bare decisions
+
         fired = events.HLT[trigger.hlt_field] == 1
         any_fired = any_fired | fired
 
