@@ -46,19 +46,18 @@ def hh_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         mask: ak.Array[bool],
     ):
         return set_ak_column_f32(
-            source, target_column,
+            source,
+            target_column,
             ak.where(mask, column_values, EMPTY_FLOAT),
         )
 
-    # write out variables to the corresponding events array, applying the diTau mask
+    # write out variables to the corresponding events array, applying certain masks
     events = save_interesting_properties(events, "diBJet.mass", diBJet.mass, diBjet_mask)
     events = save_interesting_properties(events, "diBJet.eta", diBJet.eta, diBjet_mask)
     events = save_interesting_properties(events, "diBJet.pt", diBJet.pt, diBjet_mask)
-
     events = save_interesting_properties(events, "diTau.mass", diTau.mass, ditau_mask)
     events = save_interesting_properties(events, "diTau.eta", diTau.eta, ditau_mask)
     events = save_interesting_properties(events, "diTau.pt", diTau.pt, ditau_mask)
-
     events = save_interesting_properties(events, "hh.mass", hh.mass, dihh_mask)
     events = save_interesting_properties(events, "hh.eta", hh.eta, dihh_mask)
     events = save_interesting_properties(events, "hh.pt", hh.pt, dihh_mask)
