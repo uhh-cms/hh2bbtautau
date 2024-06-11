@@ -58,4 +58,4 @@ def patch_htcondor_workflow_naf_resources():
 @memoize
 def patch_all():
     patch_bundle_repo_exclude_files()
-    patch_htcondor_workflow_naf_resources
+    patch_htcondor_workflow_naf_resources()

@@ -38,6 +38,9 @@ analysis_hbt.x.cmssw_sandboxes = [
 # (used in wrapper_factory)
 analysis_hbt.x.config_groups = {}
 
+# named function hooks that can modify store_parts of task outputs if needed
+analysis_hbt.x.store_parts_modifiers = {}
+
 
 #
 # load configs
