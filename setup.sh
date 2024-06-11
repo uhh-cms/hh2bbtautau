@@ -65,6 +65,8 @@ setup_hbt() {
     export CF_REPO_BASE="${HBT_BASE}"
     export CF_REPO_BASE_ALIAS="HBT_BASE"
     export CF_SETUP_NAME="${setup_name}"
+    export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-naf-cms14.desy.de}"
+    export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8088}"
 
     # load cf setup helpers
     CF_SKIP_SETUP="1" source "${CF_BASE}/setup.sh" "" || return "$?"
