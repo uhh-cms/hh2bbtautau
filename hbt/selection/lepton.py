@@ -242,8 +242,10 @@ def tau_selection(
     """
     # return empty mask if no tagged taus exists in the chunk
     if not ak.any(events.Tau.pt):
-        # Convinint definition of empty mask with no substructure of the array (dtype=bool)
+        # Convenient definition of empty mask with no substructure of the array (dtype=bool)
+        # adding two different columns is required to avoid having a substructure in the type of the empty mask 
         empty_mask = events.Tau.idDeepTau2017v2p1VSjet + events.Tau.pt > 0
+        print("WARNING: this file has no Tau entry, proceeding with the creation of an empty mask for Taus")
         return empty_mask, empty_mask
 
     is_single_e = trigger.has_tag("single_e")
