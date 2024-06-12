@@ -104,12 +104,13 @@ def mc_selection(
     # pileup weights
     events = self[pu_weight](events, **kwargs)
 
-    # btag weights
-    events = self[btag_weights](
-        events,
-        ak.fill_none(results.x.jet_mask, False, axis=-1),
-        **kwargs,
-    )
+        # btag weights
+        events = self[btag_weights](
+            events,
+            ak.fill_none(results.x.jet_mask, False, axis=-1),
+            negative_b_score_log_mode="none",
+            **kwargs,
+        )
 
     return events, results
 

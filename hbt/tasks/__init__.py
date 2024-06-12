@@ -3,4 +3,5 @@
 
 # provisioning imports
 import hbt.tasks.base
+import hbt.tasks.stats
 import hbt.tasks.studies
