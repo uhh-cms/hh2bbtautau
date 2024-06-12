@@ -63,7 +63,7 @@ def add_config(
         "vvv",
         "qcd",
         "h",
-        "hh_ggf_hbb_htt",
+        "hh_ggf_hbb_htt_kl1_kt1",
         "graviton_hh_ggf_hbb_htt_m400",
         "graviton_hh_ggf_hbb_htt_m450",
         "graviton_hh_ggf_hbb_htt_m500",
