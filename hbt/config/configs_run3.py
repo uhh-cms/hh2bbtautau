@@ -20,7 +20,7 @@ from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
     verify_config_processes,
 )
-from columnflow.columnar_util import ColumnCollection
+from columnflow.columnar_util import ColumnCollection, skip_column
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -668,8 +668,8 @@ def add_config(
     # columns to keep after certain steps
     cfg.x.keep_columns = DotDict.wrap({
         "cf.ReduceEvents": {
-            # general event info
-            "run", "luminosityBlock", "event",
+            # mandatory
+            ColumnCollection.MANDATORY_COFFEA,
             # object info
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
             "Jet.hhbtag", "Jet.btagPNet*",
@@ -684,12 +684,9 @@ def add_config(
             "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
-            # columns added during selection
-            "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
-            "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
-            "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
-            # columns added during selection
+            # keep all columns added during selection, but skip cutflow feature
             ColumnCollection.ALL_FROM_SELECTOR,
+            skip_column("cutflow.*"),
         },
         "cf.MergeSelectionMasks": {
             "cutflow.*",
@@ -780,4 +777,7 @@ def add_config(
         cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/cf.sh")
 
         # define custom remote fs's to look at
-        cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+        cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: [
+            f"local_fs_{cfg.campaign.x.custom['name']}",
+            f"wlcg_fs_{cfg.campaign.x.custom['name']}",
+        ]
