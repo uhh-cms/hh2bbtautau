@@ -20,7 +20,7 @@ from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
     verify_config_processes,
 )
-from columnflow.columnar_util import ColumnCollection
+from columnflow.columnar_util import ColumnCollection, skip_column
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -76,20 +76,28 @@ def add_config(
     process_names = [
         "data",
         "tt",
-        # "st",
-        # "ttv",
-        # "ttvv",
-        # "dy",
-        # "w",
-        # "ewk",
-        # "vv",
-        # "vvv",
-        # "qcd",
-        # "h",
-        "hh_ggf_hbb_htt",
-        # "hh_vbf_bbtautau",
-        # "graviton_hh_ggf_bbtautau_m400",
-        # "graviton_hh_ggf_bbtautau_m1250",
+        "st",
+        "ttv",
+        "ttvv",
+        "dy",
+        "w",
+        "ewk",
+        "vv",
+        "vvv",
+        "qcd",
+        "h",
+        "hh_ggf_hbb_htt_kl1_kt1",
+        "hh_ggf_hbb_htt_kl0_kt1",
+        "hh_ggf_hbb_htt_kl2p45_kt1",
+        "hh_ggf_hbb_htt_kl5_kt1",
+        "hh_ggf_hbb_htt_kl0_kt1_c21",
+        "hh_ggf_hbb_htt_kl1_kt1_c23",
+        "hh_vbf_hbb_htt_kv1_k2v1_kl1",
+        "hh_vbf_hbb_htt_kv1_k2v0_kl1",
+        "hh_vbf_hbb_htt_kv1_k2v1_kl2",
+        "hh_vbf_hbb_htt_kv1_k2v2_kl1",
+        "graviton_hh_ggf_hbb_htt_m450",
+        "graviton_hh_ggf_hbb_htt_m1200",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -106,53 +114,71 @@ def add_config(
     # add datasets we need to study
     dataset_names = [
         # signals
-        "hh_ggf_hbb_htt_kl1_kt1_c20_powheg",
-        "hh_ggf_hbb_htt_kl0_kt1_c20_powheg",
-        "hh_ggf_hbb_htt_kl2p45_kt1_c20_powheg",
-        "hh_ggf_hbb_htt_kl5_kt1_c20_powheg",
+        "hh_ggf_hbb_htt_kl1_kt1_powheg",
+        "hh_ggf_hbb_htt_kl0_kt1_powheg",
+        "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
+        "hh_ggf_hbb_htt_kl5_kt1_powheg",
+        "hh_ggf_hbb_htt_kl0_kt1_c21_powheg",
+        "hh_ggf_hbb_htt_kl1_kt1_c23_powheg",
+
+        "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+        "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
+        "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",
+        "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",
+
+        "graviton_hh_ggf_hbb_htt_m450_madgraph",
+        "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+
         # backgrounds
         "tt_sl_powheg",
         "tt_dl_powheg",
         "tt_fh_powheg",
         # TODO: add more
-        # "ttz_llnunu_amcatnlo",
-        # "ttw_nlu_amcatnlo",
-        # "ttw_qq_amcatnlo",
-        # "ttzz_madgraph",
-        # "ttwz_madgraph",
-        # "ttww_madgraph",
-        # "st_tchannel_t_powheg",
-        # "st_tchannel_tbar_powheg",
-        # "st_twchannel_t_powheg",
-        # "st_twchannel_tbar_powheg",
-        # "st_schannel_lep_amcatnlo",
-        # "st_schannel_had_amcatnlo",
-        # "dy_lep_pt50To100_amcatnlo",
-        # "dy_lep_pt100To250_amcatnlo",
-        # "dy_lep_pt250To400_amcatnlo",
-        # "dy_lep_pt400To650_amcatnlo",
-        # "dy_lep_pt650_amcatnlo",
-        # "w_lnu_madgraph",
-        # "ewk_wm_lnu_madgraph",
-        # "ewk_w_lnu_madgraph",
-        # "ewk_z_ll_madgraph",
-        # "zz_pythia",
-        # "wz_pythia",
-        # "ww_pythia",
-        # "zzz_amcatnlo",
-        # "wzz_amcatnlo",
-        # "wwz_amcatnlo",
-        # "www_amcatnlo",
-        # "h_ggf_tautau_powheg",
-        # "h_vbf_tautau_powheg",
-        # "zh_tautau_powheg",
-        # "zh_bb_powheg",
-        # "wph_tautau_powheg",
-        # "wmh_tautau_powheg",
-        # "ggzh_llbb_powheg",
-        # "tth_tautau_powheg",
-        # "tth_bb_powheg",
-        # "tth_nonbb_powheg",
+        # "ttz_llnunu_amcatnlo", not available
+        # "ttw_nlu_amcatnlo", not available
+        # "ttw_qq_amcatnlo", not available
+        "ttzz_madgraph",
+        # "ttwz_madgraph", not available
+        "ttww_madgraph",
+        "st_tchannel_t_powheg",  # no variations available
+        "st_tchannel_tbar_powheg",  # no variations available
+        "st_twchannel_t_sl_powheg",
+        "st_twchannel_tbar_sl_powheg",
+        "st_twchannel_t_dl_powheg",
+        "st_twchannel_tbar_dl_powheg",
+        "st_twchannel_t_fh_powheg",
+        "st_twchannel_tbar_fh_powheg",
+        # "st_schannel_lep_amcatnlo", not available
+        # "st_schannel_had_amcatnlo", not available
+        "dy_m4to10_amcatnlo",
+        "dy_m10to50_amcatnlo",
+        "dy_m50toinf_amcatnlo",
+        "w_lnu_madgraph",
+        # "ewk_wm_lnu_m50toinf_madgraph",  not available
+        # "ewk_w_lnu_m50toinf_madgraph",  not available
+        # "ewk_z_ll_m50toinf_madgraph",  not available
+        "zz_pythia",
+        "wz_pythia",
+        "ww_pythia",
+        "zzz_amcatnlo",
+        "wzz_amcatnlo",
+        "wwz_amcatnlo",
+        "www_amcatnlo",
+        "h_ggf_htt_powheg",
+        "h_vbf_htt_powheg",
+        # "zh_tautau_powheg",  not available
+        "vh_hnonbb_amcatnlo",
+        "zh_zll_hbb_powheg",
+        "zh_zqq_hbb_powheg",
+        "wmh_wlnu_hbb_powheg",
+        "wph_wlnu_hbb_powheg",
+        "zh_gg_zll_hbb_powheg",
+        # "wph_tautau_powheg",  not available
+        # "wmh_tautau_powheg",  not available
+        # "tth_tautau_powheg",  not available
+        "tth_hbb_powheg",
+        "tth_hnonbb_powheg",
+
         # data
         *if_era(run=3, year=2022, postfix="pre", values=[
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "cd"
@@ -668,8 +694,8 @@ def add_config(
     # columns to keep after certain steps
     cfg.x.keep_columns = DotDict.wrap({
         "cf.ReduceEvents": {
-            # general event info
-            "run", "luminosityBlock", "event",
+            # mandatory
+            ColumnCollection.MANDATORY_COFFEA,
             # object info
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
             "Jet.hhbtag", "Jet.btagPNet*",
@@ -684,12 +710,9 @@ def add_config(
             "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
-            # columns added during selection
-            "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
-            "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
-            "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
-            # columns added during selection
+            # keep all columns added during selection, but skip cutflow feature
             ColumnCollection.ALL_FROM_SELECTOR,
+            skip_column("cutflow.*"),
         },
         "cf.MergeSelectionMasks": {
             "cutflow.*",
@@ -780,4 +803,7 @@ def add_config(
         cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/cf.sh")
 
         # define custom remote fs's to look at
-        cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+        cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: [
+            f"local_fs_{cfg.campaign.x.custom['name']}",
+            f"wlcg_fs_{cfg.campaign.x.custom['name']}",
+        ]

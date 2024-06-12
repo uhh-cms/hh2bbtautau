@@ -58,7 +58,7 @@ def electron_selection(
     **kwargs,
 ) -> tuple[ak.Array, ak.Array]:
     """
-    Electron selection returning two sets of indidces for default and veto electrons.
+    Electron selection returning two sets of indices for default and veto electrons.
     See https://twiki.cern.ch/twiki/bin/view/CMS/EgammaNanoAOD?rev=4
     """
     is_single = trigger.has_tag("single_e")
@@ -85,6 +85,8 @@ def electron_selection(
     # obtain mva flags, which might be located at different routes, depending on the nano version
     if "mvaIso_WP80" in events.Electron.fields:
         # >= nano v10
+        # beware that the available Iso should be mvaFall17V2 for run2 files, not Winter22V1,
+        # check this in original root files if necessary
         mva_iso_wp80 = events.Electron.mvaIso_WP80
         mva_iso_wp90 = events.Electron.mvaIso_WP90
         # mva_noniso_wp90 = events.Electron.mvaNoIso_WP90
@@ -283,8 +285,8 @@ def tau_selection(
         min_pt = 20.0
         max_eta = 2.3
     elif is_cross_e:
-        # only existing after 2016, so force a failure in case of misconfiguration
-        min_pt = None if is_2016 else 35.0
+        # only existing after 2016
+        min_pt = 0.0 if is_2016 else 35.0
         max_eta = 2.1
     elif is_cross_mu:
         min_pt = 25.0 if is_2016 else 32.0
@@ -293,13 +295,13 @@ def tau_selection(
         min_pt = 40.0
         max_eta = 2.1
     elif is_cross_tau_vbf:
-        # only existing after 2016, so force in failure in case of misconfiguration
-        min_pt = None if is_2016 else 25.0
+        # only existing after 2016
+        min_pt = 0.0 if is_2016 else 25.0
         max_eta = 2.1
     elif is_cross_tau_jet:
         min_pt = None if not is_run3 else 35.0
         max_eta = 2.1
-    # from IPython import embed; embed(header='Debugging tau selection...')
+
     # base tau mask for default and qcd sideband tau
     base_mask = (
         (abs(events.Tau.eta) < max_eta) &

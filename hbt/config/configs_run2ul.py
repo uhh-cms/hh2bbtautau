@@ -63,9 +63,11 @@ def add_config(
         "vvv",
         "qcd",
         "h",
-        "hh_ggf_bbtautau",
-        "graviton_hh_ggf_bbtautau_m400",
-        "graviton_hh_ggf_bbtautau_m1250",
+        "hh_ggf_hbb_htt_kl1_kt1",
+        "graviton_hh_ggf_hbb_htt_m400",
+        "graviton_hh_ggf_hbb_htt_m450",
+        "graviton_hh_ggf_hbb_htt_m500",
+        "graviton_hh_ggf_hbb_htt_m1250",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -101,9 +103,9 @@ def add_config(
         "tt_sl_powheg",
         "tt_dl_powheg",
         "tt_fh_powheg",
-        "ttz_llnunu_m10_amcatnlo",
-        "ttw_nlu_amcatnlo",
-        "ttw_qq_amcatnlo",
+        "ttz_zlep_m10toinf_amcatnlo",
+        "ttw_wnlu_amcatnlo",
+        "ttw_wqq_amcatnlo",
         "ttzz_madgraph",
         "ttwz_madgraph",
         "ttww_madgraph",
@@ -116,15 +118,15 @@ def add_config(
         "st_schannel_lep_amcatnlo",
         "st_schannel_had_amcatnlo",
 
-        "dy_lep_pt50to100_amcatnlo",
-        "dy_lep_pt100to250_amcatnlo",
-        "dy_lep_pt250to400_amcatnlo",
-        "dy_lep_pt400to650_amcatnlo",
-        "dy_lep_pt650_amcatnlo",
+        "dy_pt50to100_amcatnlo",
+        "dy_pt100to250_amcatnlo",
+        "dy_pt250to400_amcatnlo",
+        "dy_pt400to650_amcatnlo",
+        "dy_pt650toinf_amcatnlo",
         "w_lnu_madgraph",
-        "ewk_wm_lnu_m50_madgraph",
-        "ewk_w_lnu_m50_madgraph",
-        "ewk_z_ll_m50_madgraph",
+        "ewk_wm_lnu_m50toinf_madgraph",
+        "ewk_w_lnu_m50toinf_madgraph",
+        "ewk_z_ll_m50toinf_madgraph",
         "zz_pythia",
         "wz_pythia",
         "ww_pythia",
@@ -132,20 +134,22 @@ def add_config(
         "wzz_amcatnlo",
         "wwz_amcatnlo",
         "www_amcatnlo",
-        "h_ggf_tautau_powheg",
-        "h_vbf_tautau_powheg",
-        "zh_tautau_powheg",
-        "zh_llbb_powheg",
-        "wph_tautau_powheg",
-        "wmh_tautau_powheg",
-        "ggzh_llbb_powheg",
-        "tth_tautau_powheg",
-        "tth_bb_powheg",
-        "tth_nonbb_powheg",
+        "h_ggf_htt_powheg",
+        "h_vbf_htt_powheg",
+        "zh_htt_powheg",
+        "zh_zll_hbb_powheg",
+        "wph_htt_powheg",
+        "wmh_htt_powheg",
+        "zh_gg_zll_hbb_powheg",
+        "tth_htt_powheg",
+        "tth_hbb_powheg",
+        "tth_hnonbb_powheg",
         # signals
-        "hh_ggf_bbtautau_madgraph",
-        "graviton_hh_ggf_bbtautau_m400_madgraph",
-        "graviton_hh_ggf_bbtautau_m1250_madgraph",
+        "hh_ggf_hbb_htt_kl1_kt1_madgraph",
+        "graviton_hh_ggf_hbb_htt_m400_madgraph",
+        "graviton_hh_ggf_hbb_htt_m450_madgraph",
+        "graviton_hh_ggf_hbb_htt_m500_madgraph",
+        "graviton_hh_ggf_hbb_htt_m1250_madgraph",
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there
@@ -211,19 +215,26 @@ def add_config(
 
     # lumi values in inverse pb
     # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2?rev=2#Combination_and_correlations
+    # difference pre-post VFP: https://cds.cern.ch/record/2854610/files/DP2023_006.pdf
     if year == 2016:
-        cfg.x.luminosity = Number(36310, {
-            "lumi_13TeV_2016": 0.01j,
-            "lumi_13TeV_correlated": 0.006j,
-        })
+        if campaign.x.vfp == "pre":
+            cfg.x.luminosity = Number(19_500, {
+                "lumi_13TeV_2016": 0.01j,
+                "lumi_13TeV_correlated": 0.006j,
+            })
+        if campaign.x.vfp == "post":
+            cfg.x.luminosity = Number(16_800, {
+                "lumi_13TeV_2016": 0.01j,
+                "lumi_13TeV_correlated": 0.006j,
+            })
     elif year == 2017:
-        cfg.x.luminosity = Number(41480, {
+        cfg.x.luminosity = Number(41_480, {
             "lumi_13TeV_2017": 0.02j,
             "lumi_13TeV_1718": 0.006j,
             "lumi_13TeV_correlated": 0.009j,
         })
     else:  # 2018
-        cfg.x.luminosity = Number(59830, {
+        cfg.x.luminosity = Number(59_830, {
             "lumi_13TeV_2017": 0.015j,
             "lumi_13TeV_1718": 0.002j,
             "lumi_13TeV_correlated": 0.02j,
@@ -692,7 +703,7 @@ def add_config(
             "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
             "Electron.pfRelIso03_all",
             "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
-            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe",
+            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe", "Tau.charge",
             "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
             "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
@@ -762,9 +773,16 @@ def add_config(
     add_met_filters(cfg)
 
     # add triggers
-    if year == 2017:
+    if year == 2016:
+        # cfg.x.triggers = None
+        from hbt.config.triggers import add_triggers_2016
+        add_triggers_2016(cfg, campaign.x.vfp)
+    elif year == 2017:
         from hbt.config.triggers import add_triggers_2017
         add_triggers_2017(cfg)
+    elif year == 2018:
+        from hbt.config.triggers import add_triggers_2018
+        add_triggers_2018(cfg)
     else:
         raise NotImplementedError(f"triggers not implemented for {year}")
 
@@ -778,11 +796,11 @@ def add_config(
             # destructure dataset_key into parts and create the lfn base directory
             dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
             main_campaign, sub_campaign = full_campaign.split("-", 1)
+            # dataset_inst.data_source is either "mc" or "data"
             lfn_base = law.wlcg.WLCGDirectoryTarget(
                 f"/store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0",
                 fs=f"wlcg_fs_{cfg.campaign.x.custom['name']}",
             )
-
             # loop though files and interpret paths as lfns
             return [
                 lfn_base.child(basename, type="f").path

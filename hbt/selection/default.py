@@ -54,10 +54,6 @@ def default(
     # ensure coffea behavior
     events = self[attach_coffea_behavior](events, **kwargs)
 
-    # add corrected mc weights
-    if self.dataset_inst.is_mc:
-        events = self[mc_weight](events, **kwargs)
-
     # prepare the selection results that are updated at every step
     results = SelectionResult()
 
@@ -84,6 +80,8 @@ def default(
 
     # mc-only functions
     if self.dataset_inst.is_mc:
+        events = self[mc_weight](events, **kwargs)
+
         # pdf weights
         events = self[pdf_weights](events, **kwargs)
 
@@ -97,6 +95,7 @@ def default(
         events = self[btag_weights](
             events,
             ak.fill_none(results.x.jet_mask, False, axis=-1),
+            negative_b_score_log_mode="none",
             **kwargs,
         )
 

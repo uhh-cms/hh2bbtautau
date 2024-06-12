@@ -55,6 +55,14 @@ def add_variables(config: od.Config) -> None:
         x_title="HT",
     )
     config.add_variable(
+        name="jet_pt",
+        expression="Jet.pt",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"all Jet $p_{T}$",
+    )
+    config.add_variable(
         name="jet1_pt",
         expression="Jet.pt[:,0]",
         null_value=EMPTY_FLOAT,
@@ -83,6 +91,14 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(33, -3.3, 3.3),
         x_title=r"MET $\phi$",
+    )
+
+    config.add_variable(
+        name="e_pt",
+        expression="Electron.pt",
+        null_value=EMPTY_FLOAT,
+        binning=(400, 0, 400),
+        x_title=r"Electron p$_{T}$",
     )
 
     # weights
@@ -163,4 +179,71 @@ def add_variables(config: od.Config) -> None:
         binning=(40, 0.0, 400.0),
         unit="GeV",
         x_title=r"Jet 2 $p_{T}$",
+    )
+
+    # variables of interest
+    config.add_variable(
+        name="hh_mass",
+        expression="hh.mass",
+        binning=(20, 250, 750.0),
+        unit="GeV",
+        x_title=r"$m_{hh}$",
+    )
+    config.add_variable(
+        name="hh_pt",
+        expression="hh.pt",
+        binning=(100, 0, 500.0),
+        unit="GeV",
+        x_title=r"$p_T$",
+    )
+    config.add_variable(
+        name="hh_eta",
+        expression="hh.eta",
+        binning=(100, -3.0, 3.0),
+        unit="GeV",
+        x_title=r"$\eta$",
+    )
+
+    config.add_variable(
+        name="ditau_mass",
+        expression="diTau.mass",
+        binning=(20, 50, 200.0),
+        unit="GeV",
+        x_title=r"$m_{\tau\tau}$",
+    )
+    config.add_variable(
+        name="ditau_pt",
+        expression="diTau.pt",
+        binning=(100, 0, 500.0),
+        unit="GeV",
+        x_title=r"$p_T$",
+    )
+    config.add_variable(
+        name="ditau_eta",
+        expression="diTau.eta",
+        binning=(100, -3.0, 3.0),
+        unit="GeV",
+        x_title=r"$\eta$",
+    )
+
+    config.add_variable(
+        name="dibjet_mass",
+        expression="diBJet.mass",
+        binning=(20, 0, 500.0),
+        unit="GeV",
+        x_title=r"$m_{bb}$",
+    )
+    config.add_variable(
+        name="dibjet_pt",
+        expression="diBJet.pt",
+        binning=(100, 0, 500.0),
+        unit="GeV",
+        x_title=r"$p_T$",
+    )
+    config.add_variable(
+        name="dibjet_eta",
+        expression="diBJet.eta",
+        binning=(100, -3.0, 3.0),
+        unit="GeV",
+        x_title=r"$\eta$",
     )
