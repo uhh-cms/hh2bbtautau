@@ -954,7 +954,7 @@ def add_triggers_2022(config: od.Config) -> None:
         ),
 
         Trigger(
-            name="HLT_DoubleMediumChargedIsoDisplacedPFTauHPS32_Trk1_eta2p1_v2",
+            name="HLT_DoubleMediumChargedIsoDisplacedPFTauHPS32_Trk1_eta2p1",
             id=507,
             legs=[
                 TriggerLeg(
@@ -1016,7 +1016,7 @@ def add_triggers_2022(config: od.Config) -> None:
         ),
 
         Trigger(
-            name="HLT_VBF_DoubleMediumDeepTauPFTauHPS20_eta2p1_v1",
+            name="HLT_VBF_DoubleMediumDeepTauPFTauHPS20_eta2p1",
             id=603,
             legs=[
                 TriggerLeg(
