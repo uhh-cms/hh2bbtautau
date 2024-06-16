@@ -922,14 +922,14 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     min_pt=40.0,
                     # filter names:
-                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (deeptau + HPS)
+                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
                     trigger_bits=8 + 32,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     min_pt=40.0,
                     # filter names:
-                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (deeptau + HPS)
+                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
                     trigger_bits=8 + 32,
                 ),
             ],
@@ -1030,7 +1030,8 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     min_pt=25.0,
                     # filter names:
-                    # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau (DeepTau + HPS + run 3 VBF+ditau)
+                    # (DeepTau + HPS + run 3 VBF+ditau)
+                    # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                     # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
                     # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
                     trigger_bits=8 + 32 + 4096,
@@ -1048,11 +1049,13 @@ def add_triggers_2022(config: od.Config) -> None:
                 TriggerLeg(  # TODO
                     min_pt=115.0,
                     # filter names:
+                    # The filters are applied to the lepton
                     trigger_bits=None,
                 ),
                 TriggerLeg(
                     min_pt=40.0,
                     # filter names:
+                    # The filters are applied to the lepton
                     trigger_bits=None,
                 ),
             ],
@@ -1071,7 +1074,8 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     min_pt=35.0,
                     # filter names:
-                    # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet (Deeptau + HPS + di-tau + PFJet)
+                    # (TightOOSCPhotons + di-tau + PFJet)
+                    # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
                     trigger_bits=16 + 16384,
                 ),
                 TriggerLeg(
@@ -1084,7 +1088,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 TriggerLeg(
                     min_pt=65.0,
                     # filter names:
-                    # hlt1PFJet60L1HLTMatched
+                    # Filters are applied to the leptons
                     trigger_bits=None,
                 ),
             ],
