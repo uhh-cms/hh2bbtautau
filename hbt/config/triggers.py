@@ -1050,13 +1050,14 @@ def add_triggers_2022(config: od.Config) -> None:
                     min_pt=115.0,
                     # filter names:
                     # The filters are applied to the lepton
-                    trigger_bits=None,
+                    # Taking the loosest filter for the Jets with the pt cut
+                    trigger_bits=1,
                 ),
                 TriggerLeg(
                     min_pt=40.0,
                     # filter names:
                     # The filters are applied to the lepton
-                    trigger_bits=None,
+                    trigger_bits=1,
                 ),
             ],
             # applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and config.has_tag("pre")),
@@ -1089,7 +1090,8 @@ def add_triggers_2022(config: od.Config) -> None:
                     min_pt=65.0,
                     # filter names:
                     # Filters are applied to the leptons
-                    trigger_bits=None,
+                    # Taking the loosest filter for the Jets with the pt cut
+                    trigger_bits=1,
                 ),
             ],
             tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
