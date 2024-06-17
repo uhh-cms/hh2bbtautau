@@ -653,6 +653,9 @@ def add_config(
 
         # hh-btag repository (lightweight) with TF saved model directories
         "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa
+
+        # Tobias Kramers tautauNN (https://github.com/uhh-cms/tautauNN)
+        "tautauNN_regression_model": ("/afs/desy.de/user/k/kramerto/public/xBogdan/tautaureg_PSnew_baseline_LSmulti4_SSdefault_FSdefault_daurot_composite-default_extended_pair_ED10_LU5x128+4x128_CTfcn_ACTelu_BNy_LT50_DO0_BS4096_OPadamw_LR3.0e-03_YEARy_SPINy_MASSy.tgz", "v1")  # noqa
     })
 
     if year == 2022:
@@ -698,7 +701,7 @@ def add_config(
             ColumnCollection.MANDATORY_COFFEA,
             # object info
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
-            "Jet.hhbtag", "Jet.btagPNet*",
+            "Jet.hhbtag", "Jet.btagPNet*", "Jet.btagDeep*", "Jet."
             "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
             "HHBJet.hadronFlavour", "HHBJet.hhbtag", "Jet.puId",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
@@ -710,6 +713,7 @@ def add_config(
             "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
+            "FatJet.*",
             # keep all columns added during selection, but skip cutflow feature
             ColumnCollection.ALL_FROM_SELECTOR,
             skip_column("cutflow.*"),

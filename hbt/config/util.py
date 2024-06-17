@@ -145,9 +145,8 @@ class Trigger(UniqueObject, TagMixin):
         self.applies_to_dataset = applies_to_dataset
 
     def __repr__(self):
-        data_source = "" if self.data_source is None else f", {self.data_source}-only"
         return (
-            f"<{self.__class__.__name__} 'name={self.name}, nlegs={self.n_legs}{data_source}' "
+            f"<{self.__class__.__name__} 'name={self.name}, nlegs={self.n_legs}' "
             f"at {hex(id(self))}>"
         )
 
