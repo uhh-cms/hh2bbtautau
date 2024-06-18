@@ -1064,6 +1064,25 @@ def add_triggers_2022(config: od.Config) -> None:
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
 
+        # Currently disabled since it may not be needed
+        # Trigger(
+        #     name="HLT_DoublePFJets40_Mass500_MediumDeepTauPFTauHPS45_L2NN_MediumDeepTauPFTauHPS20_eta2p1",
+        #     id=604,
+        #     legs=[
+        #         TriggerLeg(
+        #             pdg_id=15,
+        #             min_pt=25.0,
+        #             trigger_bits=None,
+        #         ),
+        #         TriggerLeg(
+        #             pdg_id=15,
+        #             min_pt=25.0,
+        #             # filter names:
+        #             trigger_bits=None,
+        #         )
+        #     ],
+        # )
+
         #
         # tau tau jet
         #
