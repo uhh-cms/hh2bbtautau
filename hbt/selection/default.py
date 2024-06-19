@@ -12,6 +12,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.stats import increment_stats
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
+# from columnflow.production import Producer
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
@@ -44,9 +45,9 @@ ak = maybe_import("awkward")
 def particle_selection(
     self: Selector,
     events: ak.Array,
+    results: SelectionResult,
     **kwargs,
 ) -> tuple[ak.Array, SelectionResult]:
-    results = SelectionResult()
 
     # filter bad data events according to golden lumi mask
     if self.dataset_inst.is_data:
@@ -69,9 +70,6 @@ def particle_selection(
     events, jet_results = self[jet_selection](events, trigger_results, lepton_results, **kwargs)
     results += jet_results
 
-    # create process ids
-    events = self[process_ids](events, **kwargs)
-
     return events, results
 
 
@@ -85,12 +83,12 @@ def particle_selection(
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=False,
 )
-def mc_selection(
+def add_weights_for_mc(
     self: Selector,
     events: ak.Array,
+    results: SelectionResult,
     **kwargs,
 ) -> tuple[ak.Array, SelectionResult]:
-    results = SelectionResult()
 
     # corrected mc weights
     events = self[mc_weight](events, **kwargs)
@@ -115,22 +113,17 @@ def mc_selection(
     return events, results
 
 
-@selector(
-    uses={
-        pu_weight, btag_weights,
-    },
-    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
-    exposed=False,
-)
 def selection_mc_weights(
     self: Selector,
     events: ak.Array,
     selection_results: SelectionResult,
+    # pu_weight: Producer,
+    # btag_weights: Producer,
     **kwargs,
 ) -> tuple[dict, dict, list]:
     event_sel = selection_results.event
 
-    # combined event seleciton after all but the bjet step
+    # combined event selection after all but the bjet step
     event_sel_nob = selection_results.steps.all_but_bjet = reduce(
         and_,
         [mask for step_name, mask in selection_results.steps.items() if step_name != "bjet"],
@@ -187,8 +180,8 @@ def selection_mc_weights(
 
 @selector(
     uses={
-        particle_selection, mc_selection, selection_mc_weights, cutflow_features,
-        increment_stats, attach_coffea_behavior,
+        particle_selection, add_weights_for_mc, cutflow_features,
+        increment_stats, attach_coffea_behavior, pu_weight, btag_weights,
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight,
@@ -210,13 +203,14 @@ def default(
     # prepare the selection results that are updated at every step
     results = SelectionResult()
 
-    events, particle_results = self[particle_selection](events, **kwargs)
-    results += particle_results
+    events, results = self[particle_selection](events, results, **kwargs)
+
+    # create process ids
+    events = self[process_ids](events, **kwargs)
 
     # mc-only functions
     if self.dataset_inst.is_mc:
-        events, mc_results = self[mc_selection](events, **kwargs)
-        results += mc_results
+        events, results = self[add_weights_for_mc](events, results, **kwargs)
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
@@ -225,7 +219,8 @@ def default(
     # some cutflow features
     events = self[cutflow_features](events, results.objects, **kwargs)
 
-    weight_map, group_map, group_combinations = self[selection_mc_weights](
+    weight_map, group_map, group_combinations = selection_mc_weights(
+        self,
         events,
         results,
         **kwargs,
@@ -245,8 +240,8 @@ def default(
 
 @selector(
     uses={
-        particle_selection, mc_selection, selection_mc_weights, cutflow_features,
-        increment_stats, attach_coffea_behavior,
+        particle_selection, add_weights_for_mc, cutflow_features,
+        increment_stats, attach_coffea_behavior, pu_weight, btag_weights,
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight,
@@ -256,7 +251,7 @@ def default(
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
 )
-def empty(
+def only_default_columns(
     self: Selector,
     events: ak.Array,
     stats: defaultdict,
@@ -269,13 +264,20 @@ def empty(
     # prepare the selection results that are updated at every step
     results = SelectionResult()
 
-    events, _ = self[particle_selection](events, **kwargs)
+    events, _ = self[particle_selection](events, results, **kwargs)
+
+    # create process ids
+    events = self[process_ids](events, **kwargs)
 
     # mc-only functions
     if self.dataset_inst.is_mc:
-        events, _ = self[mc_selection](events, **kwargs)
+        events, _ = self[add_weights_for_mc](events, results, **kwargs)
+
+    # some cutflow features
+    events = self[cutflow_features](events, results.objects, **kwargs)
 
     # True selection
+    results = SelectionResult()
     all_true_selection = SelectionResult(
         steps={"all": ak.ones_like(events.run, dtype=bool)},
     )
@@ -284,10 +286,8 @@ def empty(
     event_sel = reduce(and_, results.steps.values())
     results.event = event_sel
 
-    # some cutflow features
-    events = self[cutflow_features](events, results.objects, **kwargs)
-
-    weight_map, group_map, group_combinations = self[selection_mc_weights](
+    weight_map, group_map, group_combinations = selection_mc_weights(
+        self,
         events,
         results,
         **kwargs,
