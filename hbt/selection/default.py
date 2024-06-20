@@ -110,7 +110,7 @@ def add_weights_for_mc(
         **kwargs,
     )
 
-    return events, results
+    return events
 
 
 def selection_mc_weights(
@@ -210,7 +210,7 @@ def default(
 
     # mc-only functions
     if self.dataset_inst.is_mc:
-        events, results = self[add_weights_for_mc](events, results, **kwargs)
+        events = self[add_weights_for_mc](events, results, **kwargs)
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
