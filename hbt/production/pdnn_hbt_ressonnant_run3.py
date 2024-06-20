@@ -202,7 +202,7 @@ def mask_network_unknown_embedding(events, raise_only=False):
     },
     # kwargs passed to the parametrized network
     mass=250,
-    year=3,
+    year="e2022",
     spin=2,
 )
 def pdnn_hbt_ressonnant_run3(
@@ -357,7 +357,7 @@ def pdnn_hbt_ressonnant_run3(
     # parametrized features
     # fill constant value for mass, year and spin
     f.mass = ak.full_like(f.met_px, self.mass, dtype=np.int32)
-    f.year = ak.full_like(f.met_px, Era[self.year], dtype=np.int32)
+    f.year = ak.full_like(f.met_px, Era[self.year].value, dtype=np.int32)
     f.spin = ak.full_like(f.met_px, self.spin, dtype=np.int32)
 
     # filter out events with bad embedding, if raise_only=True only log the events, but do not mask
