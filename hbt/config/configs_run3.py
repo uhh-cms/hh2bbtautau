@@ -98,6 +98,7 @@ def add_config(
         "hh_vbf_hbb_htt_kv1_k2v2_kl1",
         "graviton_hh_ggf_hbb_htt_m450",
         "graviton_hh_ggf_hbb_htt_m1200",
+        "radion_hh_ggf_hbb_htt_m700",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -128,6 +129,7 @@ def add_config(
 
         "graviton_hh_ggf_hbb_htt_m450_madgraph",
         "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+        "radion_hh_ggf_hbb_htt_m700_madgraph",
 
         # backgrounds
         "tt_sl_powheg",
@@ -655,7 +657,7 @@ def add_config(
         "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa
 
         # Tobias Kramers tautauNN (https://github.com/uhh-cms/tautauNN)
-        "tautauNN_regression_model": ("/afs/desy.de/user/k/kramerto/public/xBogdan/tautaureg_PSnew_baseline_LSmulti4_SSdefault_FSdefault_daurot_composite-default_extended_pair_ED10_LU5x128+4x128_CTfcn_ACTelu_BNy_LT50_DO0_BS4096_OPadamw_LR3.0e-03_YEARy_SPINy_MASSy.tgz", "v1")  # noqa
+        "resonnant_combine_network": ("/nfs/dust/cms/user/riegerma/taunn_data/store/ExportEnsemble/prod3/hbtres_PSnew_baseline_LSmulti3_SSdefault_FSdefault_daurot_composite-default_extended_pair_ED10_LU8x128_CTdense_ACTelu_BNy_LT50_DO0_BS4096_OPadamw_LR1.0e-03_YEARy_SPINy_MASSy_RSv6_fi80_lbn_ft_lt20_lr1_LBdefault_daurot_fatjet_composite.tgz", "v1")  # noqa
     })
 
     if year == 2022:
