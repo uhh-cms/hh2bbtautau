@@ -243,10 +243,9 @@ def tau_selection(
     TODO: there is no decay mode selection yet, but this should be revisited!
     """
     # return empty mask if no tagged taus exists in the chunk
-    if not ak.any(events.Tau.pt):
+    if ak.all(ak.num(events.Tau) == 0):
         # Convenient definition of empty mask with no substructure of the array (dtype=bool)
-        # adding two different columns is required to avoid having a substructure in the type of the empty mask
-        empty_mask = events.Tau.idDeepTau2017v2p1VSjet + events.Tau.pt > 0
+        empty_mask = ak.ones_like(events.Tau.pt) == 1
         print("WARNING: this file has no Tau entry, proceeding with the creation of an empty mask for Taus")
         return empty_mask, empty_mask
 
