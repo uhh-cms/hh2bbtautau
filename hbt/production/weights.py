@@ -6,8 +6,13 @@ Column production methods related to generic event weights.
 
 from columnflow.production import Producer, producer
 from columnflow.production.cms.pileup import pu_weight
-from columnflow.util import maybe_import, safe_div, InsertableDict
+from columnflow.production.cms.mc_weight import mc_weight
+from columnflow.production.cms.pdf import pdf_weights
+from columnflow.production.cms.scale import murmuf_weights
+from columnflow.production.cms.btag import btag_weights
+from columnflow.util import maybe_import, safe_div, InsertableDict, dev_sandbox
 from columnflow.columnar_util import set_ak_column
+from columnflow.selection import Selector, SelectionResult
 
 
 ak = maybe_import("awkward")
@@ -198,3 +203,43 @@ def normalized_murmuf_weight_setup(
         postfix: safe_div(stats[f"sum_murmuf_weight{postfix}"], stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }
+
+
+@producer(
+    uses={
+        mc_weight, pdf_weights, murmuf_weights, pu_weight, btag_weights,
+    },
+    produces={
+        mc_weight, pdf_weights, murmuf_weights, pu_weight, btag_weights,
+    },
+    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
+    exposed=False,
+)
+def selection_weights_for_mc(
+    self: Selector,
+    events: ak.Array,
+    results: SelectionResult,
+    **kwargs,
+) -> ak.Array:
+
+    # corrected mc weights
+    events = self[mc_weight](events, **kwargs)
+
+    # pdf weights
+    events = self[pdf_weights](events, **kwargs)
+
+    # renormalization/factorization scale weights
+    events = self[murmuf_weights](events, **kwargs)
+
+    # pileup weights
+    events = self[pu_weight](events, **kwargs)
+
+    # btag weights
+    events = self[btag_weights](
+        events,
+        ak.fill_none(results.x.jet_mask, False, axis=-1),
+        negative_b_score_log_mode="none",
+        **kwargs,
+    )
+
+    return events

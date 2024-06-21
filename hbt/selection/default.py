@@ -12,13 +12,9 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.stats import increment_stats
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
-# from columnflow.production import Producer
-from columnflow.production.processes import process_ids
-from columnflow.production.cms.mc_weight import mc_weight
-from columnflow.production.cms.pileup import pu_weight
-from columnflow.production.cms.pdf import pdf_weights
-from columnflow.production.cms.scale import murmuf_weights
 from columnflow.production.cms.btag import btag_weights
+from columnflow.production.cms.pileup import pu_weight
+from columnflow.production.processes import process_ids
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import, dev_sandbox
 
@@ -26,6 +22,7 @@ from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
+from hbt.production.weights import selection_weights_for_mc
 
 
 np = maybe_import("numpy")
@@ -71,46 +68,6 @@ def particle_selection(
     results += jet_results
 
     return events, results
-
-
-@selector(
-    uses={
-        mc_weight, pdf_weights, murmuf_weights, pu_weight, btag_weights,
-    },
-    produces={
-        mc_weight, pdf_weights, murmuf_weights, pu_weight, btag_weights,
-    },
-    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
-    exposed=False,
-)
-def add_weights_for_mc(
-    self: Selector,
-    events: ak.Array,
-    results: SelectionResult,
-    **kwargs,
-) -> tuple[ak.Array, SelectionResult]:
-
-    # corrected mc weights
-    events = self[mc_weight](events, **kwargs)
-
-    # pdf weights
-    events = self[pdf_weights](events, **kwargs)
-
-    # renormalization/factorization scale weights
-    events = self[murmuf_weights](events, **kwargs)
-
-    # pileup weights
-    events = self[pu_weight](events, **kwargs)
-
-    # btag weights
-    events = self[btag_weights](
-        events,
-        ak.fill_none(results.x.jet_mask, False, axis=-1),
-        negative_b_score_log_mode="none",
-        **kwargs,
-    )
-
-    return events
 
 
 def selection_mc_weights(
@@ -180,13 +137,12 @@ def selection_mc_weights(
 
 @selector(
     uses={
-        particle_selection, add_weights_for_mc, cutflow_features,
+        particle_selection, selection_weights_for_mc, cutflow_features,
         increment_stats, attach_coffea_behavior, pu_weight, btag_weights,
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight,
-        pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
-        increment_stats,
+        trigger_selection, lepton_selection, jet_selection, selection_weights_for_mc,
+        process_ids, cutflow_features, increment_stats,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -210,7 +166,7 @@ def default(
 
     # mc-only functions
     if self.dataset_inst.is_mc:
-        events = self[add_weights_for_mc](events, results, **kwargs)
+        events = self[selection_weights_for_mc](events, results, **kwargs)
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
