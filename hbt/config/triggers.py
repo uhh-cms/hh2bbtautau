@@ -800,7 +800,7 @@ def add_triggers_2022(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=30.0,
+                    min_pt=31.0,
                     # filter names:
                     # WPTightTrackIso
                     trigger_bits=2,
