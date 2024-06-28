@@ -789,6 +789,9 @@ def add_triggers_2022(config: od.Config) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
     https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
+    Tau Trigger: https://twiki.cern.ch/twiki/bin/viewauth/CMS/TauTrigger#Trigger_Table_for_2022
+    Electron Trigger: https://twiki.cern.ch/twiki/bin/view/CMS/EgHLTRunIIISummary
+    Muon Trigger: https://twiki.cern.ch/twiki/bin/view/CMS/MuonHLT2022
     """
     config.x.triggers = od.UniqueObjectIndex(Trigger, [
         #
@@ -802,7 +805,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=11,
                     min_pt=31.0,
                     # filter names:
-                    # WPTightTrackIso
+                    # hltEle30WPTightGsfTrackIsoFilter
                     trigger_bits=2,
                 ),
             ],
@@ -868,15 +871,15 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=11,
                     min_pt=25.0,
                     # filter names:
-                    # hltEle24erWPTightGsfTrackIsoFilterForTau
-                    # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (OverlapFilter)
+                    # hltOverlapFilterIsoEle24IsoTau30WPTightGsfCaloJet5 # TODO Twiki has no matches
+                    # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (OverlapFilter) # TODO Twiki sugests 8 + 64  # noqa
                     trigger_bits=8,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     min_pt=35.0,
                     # filter names:
-                    # hltHpsSelectedPFTau30LooseETauWPDeepTauL1HLTMatched (DeepTau + HPS)
+                    # (DeepTau + HPS) # TODO Twiki sugests 8 + 32 + 256
                     # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
                     trigger_bits=8 + 32,
                 ),
@@ -895,15 +898,15 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=13,
                     min_pt=22.0,
                     # filter names:
-                    # hltL3crIsoBigORMu18erTauXXer2p1L1f0L2f10QL3f20QL3trkIsoFiltered0p08
-                    # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded (OverlapFilter PFTau)
+                    # hltL3crIsoBigORMu18erTauXXer2p1L1f0L2f10QL3f20QL3trkIsoFiltered  # TODO Twiki sugests 2
+                    # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded (OverlapFilter PFTau) # TODO Twiki sugests 4 + 64  # noqa
                     trigger_bits=4,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     min_pt=32.0,
                     # filter names:
-                    # hltHpsSelectedPFTau27LooseMuTauWPDeepTauVsJetsAgainstMuonL1HLTMatched (DeepTau + HPS)
+                    # (DeepTau + HPS) # TODO Twiki sugests 8 + 32 + 512 + 262144
                     # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded
                     trigger_bits=8 + 32,
                 ),
@@ -922,14 +925,14 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     min_pt=40.0,
                     # filter names:
-                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
+                    # hltHpsDoublePFTau35MediumDitauWPDeepTauDz02 (Deeptau + HPS)
                     trigger_bits=8 + 32,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     min_pt=40.0,
                     # filter names:
-                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
+                    # hltHpsDoublePFTau35MediumDitauWPDeepTauDz02 (Deeptau + HPS)
                     trigger_bits=8 + 32,
                 ),
             ],
@@ -991,19 +994,15 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     min_pt=25.0,
                     # filter names:
-                    # (DeepTau + HPS + run 3 VBF+ditau)
-                    # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
+                    # (DeepTau + HPS + run 3 VBF+ditau) # TODO Twiki sugests 8
                     # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
-                    # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
                     trigger_bits=8 + 32 + 4096,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     min_pt=25.0,
                     # filter names:
-                    # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                     # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
-                    # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
                     trigger_bits=8 + 32 + 4096,
                 ),
                 # # additional leg infos for vbf jets
@@ -1094,15 +1093,15 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     min_pt=35.0,
                     # filter names:
-                    # (TightOOSCPhotons + di-tau + PFJet)
-                    # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
+                    # (TightOOSCPhotons + di-tau + PFJet) # TODO Twiki sugests 8 + 32 + 16384
+                    # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
                     trigger_bits=16 + 16384,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     min_pt=35.0,
                     # filter names:
-                    # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
+                    # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
                     trigger_bits=16 + 16384,
                 ),
                 # TriggerLeg(
