@@ -1,0 +1,7 @@
+# version 1
+
+-r ./columnar_tf.txt
+
+-e ${CF_BASE}/modules/law
+-e ${CF_BASE}/modules/order
+-e ${HBT_BASE}/modules/columnflow
