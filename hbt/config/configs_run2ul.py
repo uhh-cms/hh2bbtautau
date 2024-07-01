@@ -596,7 +596,7 @@ def add_config(
     )
 
     # external files
-    json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c"
+    json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-6ce37404"
     cfg.x.external_files = DotDict.wrap({
         # pileup weight corrections
         "pu_sf": (f"{json_mirror}/POG/LUM/{year}{corr_postfix}_UL/puWeights.json.gz", "v1"),

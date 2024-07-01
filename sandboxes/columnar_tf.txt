@@ -1,5 +1,5 @@
-# version 7
+# version 8
 
 -r ../modules/columnflow/sandboxes/columnar.txt
 
-tensorflow~=2.11.0
+tensorflow~=2.16.1
