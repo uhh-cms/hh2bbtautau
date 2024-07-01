@@ -625,7 +625,7 @@ def add_config(
     )
 
     # external files
-    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7d9636bf"
+    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-6ce37404"
     # remove the taupog specific json files once they are integrated centrally
     json_mirror_taupog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
 
