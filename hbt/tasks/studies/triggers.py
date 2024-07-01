@@ -32,7 +32,7 @@ class HBTTriggerTask(HBTTask):
 
     lfn_indices = law.CSVParameter(
         cls=luigi.IntParameter,
-        default=0,
+        default=(0,),
         description="Indices of the LFN to use in the dataset. Defaults to 0.",
         significant=False,
         force_tuple=True,
