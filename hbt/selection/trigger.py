@@ -15,6 +15,7 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
+        "run",
         # nano columns
         "TrigObj.id", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi", "TrigObj.filterBits",
     },
@@ -45,8 +46,14 @@ def trigger_selection(
             continue
 
         # get bare decisions
-
-        fired = events.HLT[trigger.hlt_field] == 1
+        if trigger.run_range is None:
+            fired = events.HLT[trigger.hlt_field] == 1
+        else:
+            fired = (
+                (events.HLT[trigger.hlt_field] == 1) &
+                ((trigger.run_range[0] is None) | (trigger.run_range[0] < events.run)) &
+                ((trigger.run_range[1] is None) | (trigger.run_range[1] > events.run))
+            )
         any_fired = any_fired | fired
 
         # get trigger objects for fired events per leg
