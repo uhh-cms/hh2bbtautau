@@ -98,6 +98,7 @@ def add_config(
         "hh_vbf_hbb_htt_kv1_k2v2_kl1",
         "graviton_hh_ggf_hbb_htt_m450",
         "graviton_hh_ggf_hbb_htt_m1200",
+        "radion_hh_ggf_hbb_htt_m700",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -128,6 +129,7 @@ def add_config(
 
         "graviton_hh_ggf_hbb_htt_m450_madgraph",
         "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+        "radion_hh_ggf_hbb_htt_m700_madgraph",
 
         # backgrounds
         "tt_sl_powheg",
@@ -653,6 +655,9 @@ def add_config(
 
         # hh-btag repository (lightweight) with TF saved model directories
         "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa
+
+        # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
+        "res_pdnn": ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1")  # noqa
     })
 
     if year == 2022:
@@ -695,7 +700,7 @@ def add_config(
             ColumnCollection.MANDATORY_COFFEA,
             # object info
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
-            "Jet.hhbtag", "Jet.btagPNet*",
+            "Jet.hhbtag", "Jet.btagPNet*", "Jet.btagDeep*",
             "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
             "HHBJet.hadronFlavour", "HHBJet.hhbtag", "Jet.puId",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
@@ -707,6 +712,7 @@ def add_config(
             "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
+            "FatJet.*",
             # keep all columns added during selection, but skip cutflow feature
             ColumnCollection.ALL_FROM_SELECTOR,
             skip_column("cutflow.*"),
