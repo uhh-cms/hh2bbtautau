@@ -476,7 +476,7 @@ def lepton_selection(
             sel_muon_indices = ak.where(where, muon_indices, sel_muon_indices)
             sel_tau_indices = ak.where(where, tau_indices, sel_tau_indices)
 
-        elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf"}):
+        elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}):
             # expect 0 veto electrons, 0 veto muons and at least two taus of which one is isolated
             is_tautau = (
                 trigger_fired &
