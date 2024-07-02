@@ -656,8 +656,8 @@ def add_config(
         # hh-btag repository (lightweight) with TF saved model directories
         "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa
 
-        # Tobias Kramers tautauNN (https://github.com/uhh-cms/tautauNN)
-        "resonnant_combine_network": ("/nfs/dust/cms/user/riegerma/taunn_data/store/ExportEnsemble/prod3/hbtres_PSnew_baseline_LSmulti3_SSdefault_FSdefault_daurot_composite-default_extended_pair_ED10_LU8x128_CTdense_ACTelu_BNy_LT50_DO0_BS4096_OPadamw_LR1.0e-03_YEARy_SPINy_MASSy_RSv6_fi80_lbn_ft_lt20_lr1_LBdefault_daurot_fatjet_composite.tgz", "v1")  # noqa
+        # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
+        "res_pdnn": ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1")  # noqa
     })
 
     if year == 2022:
@@ -703,7 +703,7 @@ def add_config(
             ColumnCollection.MANDATORY_COFFEA,
             # object info
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
-            "Jet.hhbtag", "Jet.btagPNet*", "Jet.btagDeep*", "Jet."
+            "Jet.hhbtag", "Jet.btagPNet*", "Jet.btagDeep*",
             "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
             "HHBJet.hadronFlavour", "HHBJet.hhbtag", "Jet.puId",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",

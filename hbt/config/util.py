@@ -116,8 +116,6 @@ class Trigger(UniqueObject, TagMixin):
           describe the type of the trigger ("single_mu", "cross", ...).
     """
 
-    allow_undefined_data_source = True
-
     def __init__(
         self,
         name: str,
