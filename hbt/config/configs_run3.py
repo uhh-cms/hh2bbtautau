@@ -140,8 +140,8 @@ def add_config(
         "ttzz_madgraph",
         # "ttwz_madgraph", not available
         "ttww_madgraph",
-        "st_tchannel_t_powheg",  # no variations available
-        "st_tchannel_tbar_powheg",  # no variations available
+        "st_tchannel_t_4f_powheg",  # no variations available
+        "st_tchannel_tbar_4f_powheg",  # no variations available
         "st_twchannel_t_sl_powheg",
         "st_twchannel_tbar_sl_powheg",
         "st_twchannel_t_dl_powheg",
@@ -162,8 +162,8 @@ def add_config(
         "ww_pythia",
         "zzz_amcatnlo",
         "wzz_amcatnlo",
-        "wwz_amcatnlo",
-        "www_amcatnlo",
+        "wwz_4f_amcatnlo",
+        "www_4f_amcatnlo",
         "h_ggf_htt_powheg",
         "h_vbf_htt_powheg",
         # "zh_tautau_powheg",  not available
