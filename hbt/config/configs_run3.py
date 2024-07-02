@@ -664,10 +664,7 @@ def add_config(
             "electron_sf": (f"{json_mirror}/POG/EGM/{year}_Summer{year2}{year_postfix}/electron.json.gz", "v1"),
 
             # tau energy correction and scale factors
-            "tau_sf": (f"{json_mirror_taupog}/POG/TAU/{year}_{postfix_ee}/tau_DeepTau2018v2p5_2022_{postfix_ee}.json.gz", "v1"),  # noqa
-
-            # tau trigger
-            "tau_trigger_sf": (f"{json_mirror_taupog}/POG/TAU/output/tau_trigger_DeepTau2018v2p5_{year}{postfix_ee}.json", "v1"),  # noqa
+            "tau_sf": (f"{json_mirror_taupog}/POG/TAU/{year}_{postfix_ee}/tau_DeepTau2018v2p5_{year}_{postfix_ee}.json.gz", "v1"),  # noqa
         }))
 
     # external files with more complex year dependence # TODO: check this
