@@ -724,9 +724,9 @@ def add_config(
             ColumnCollection.MANDATORY_COFFEA,
             # object info
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
-            "Jet.hhbtag", "Jet.btagPNet*", "Jet.btagDeep*",
+            "Jet.hhbtag", "Jet.btagPNet*", "Jet.btagDeep*", "Jet.puId",
             "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
-            "HHBJet.hadronFlavour", "HHBJet.hhbtag", "Jet.puId",
+            "HHBJet.hadronFlavour", "HHBJet.hhbtag", "HHBJet.btagPNet*", "HHBJet.btagDeep*",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
             "NonHHBJet.btagDeepFlavB", "NonHHBJet.hadronFlavour", "NonHHBJet.hhbtag",
             "Electron.*",

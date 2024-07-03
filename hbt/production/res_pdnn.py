@@ -13,10 +13,9 @@ import enum
 import law
 
 from columnflow.production import Producer, producer
-from columnflow.util import maybe_import, dev_sandbox, InsertableDict
-from columnflow.columnar_util import set_ak_column
-from columnflow.columnar_util import EMPTY_FLOAT
-from columnflow.util import DotDict
+from columnflow.production.util import attach_coffea_behavior, default_collections
+from columnflow.columnar_util import set_ak_column, attach_behavior, EMPTY_FLOAT
+from columnflow.util import maybe_import, dev_sandbox, InsertableDict, DotDict
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -45,18 +44,16 @@ class Era(enum.Enum):
 
 @producer(
     uses={
+        attach_coffea_behavior,
         # custom columns created upstream, probably by a selector
         "channel_id",
         # nano columns
         "event",
-        "Jet.{pt,eta,phi,mass}",
-        "Jet.btagDeepFlav{B,CvB,CvL}",
-        "Jet.btagPNet{B,CvB,CvL,QvG}",
-        "Jet.hhbtag",
-        "MET.{pt,phi}", "MET.cov{XX,XY,YY}",
+        "Tau.{eta,phi,pt,mass,charge,decayMode}",
         "Electron.{eta,phi,pt,mass,charge}",
-        "Tau.{eta,phi,pt,mass,decayMode,charge}",
         "Muon.{eta,phi,pt,mass,charge}",
+        "HHBJet.{pt,eta,phi,mass,hhbtag}", "HHBJet.btagDeepFlav{B,CvB,CvL}", "HHBJet.btagPNet{B,CvB,CvL,QvG}",
+        "MET.{pt,phi}", "MET.cov{XX,XY,YY}",
         "FatJet.{eta,phi,pt,mass}",
     },
     # produced columns are added in the deferred init below
@@ -82,39 +79,44 @@ def res_pdnn(
     """
     tf = maybe_import("tensorflow")
 
+    # ensure coffea behavior
+    events = self[attach_coffea_behavior](
+        events,
+        collections={"HHBJet": default_collections["Jet"]},
+        **kwargs,
+    )
+
     # prepare events for network
     f = DotDict()
 
-    # get visible tau decay products
-    vis_taus = ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1)
+    # get visible tau decay products, consider them all as tau types
+    vis_taus = attach_behavior(
+        ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
+        "Tau",
+    )
     vis_tau1, vis_tau2 = vis_taus[:, 0], vis_taus[:, 1]
-    from IPython import embed; embed(header="pdnn")
 
     # compute angle from visible mother particle of vis_tau1 and vis_tau2
     # used to rotate the kinematics of dau{1,2}, met, bjet{1,2} and fatjets relative to it
-    f.vis_tau1_px, f.vis_tau1_py = get_px(vis_tau1), get_py(vis_tau1)
-    f.vis_tau2_px, f.vis_tau2_py = get_px(vis_tau2), get_py(vis_tau2)
+    phi_lep = np.arctan2(vis_tau1.py + vis_tau2.py, vis_tau1.px + vis_tau2.px)
 
-    phi_lep = np.arctan2(
-        f.vis_tau1_py + f.vis_tau2_py,
-        f.vis_tau1_px + f.vis_tau2_px,
-    )
+    # lepton 1
+    f.vis_tau1_px, f.vis_tau1_py = get_rotated_kinematics(phi_lep, vis_tau1.px, vis_tau1.py)
+    f.vis_tau1_pz = vis_tau1.pz
+    f.vis_tau1_e = vis_tau1.energy
 
-    f.vis_tau1_px, f.vis_tau1_py = get_rotated_kinematics(phi_lep, vis_tau1)
-    f.vis_tau1_pz = get_pz(vis_tau1)
-    f.vis_tau1_e = get_e(f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, vis_tau1.mass)
+    # lepton 2
+    f.vis_tau2_px, f.vis_tau2_py = get_rotated_kinematics(phi_lep, vis_tau2.px, vis_tau2.py)
+    f.vis_tau2_pz = vis_tau2.pz
+    f.vis_tau2_e = vis_tau2.energy
 
-    f.vis_tau2_px, f.vis_tau2_py = get_rotated_kinematics(phi_lep, vis_tau2)
-    f.vis_tau2_pz = get_pz(vis_tau2)
-    f.vis_tau2_e = get_e(f.vis_tau2_px, f.vis_tau2_py, f.vis_tau2_pz, vis_tau2.mass)
+    from IPython import embed; embed(header="ipython debugger")
 
     # bJet variables
-    # extract jet1 and jet2 by first and second highest hhbtag score
-    score_indices = ak.argsort(events.Jet.hhbtag, axis=1, ascending=False)
     btag_jet1 = events.Jet[score_indices][:, 0]
     btag_jet2 = events.Jet[score_indices][:, 1]
 
-    f.bjet1_px, f.bjet1_py = get_rotated_kinematics(phi_lep, btag_jet1)
+    f.bjet1_px, f.bjet1_py = get_rotated_kinematics(phi_lep, events.HHBJet)
     f.bjet1_pz = get_pz(btag_jet1)
     f.bjet1_e = get_e(f.bjet1_px, f.bjet1_py, f.bjet1_pz, btag_jet1.mass)
 
@@ -138,7 +140,7 @@ def res_pdnn(
     f.fatjet_pz = get_pz(events.FatJet)
     f.fatjet_e = get_e(f.fatjet_px, f.fatjet_py, f.fatjet_pz, events.FatJet.mass)
 
-    # pad_features with padding values for missing values
+    # pad features with padding values for missing values
     pad_values = {
         "bjet1_e": 0.0,
         "bjet1_px": 0.0,
@@ -148,12 +150,12 @@ def res_pdnn(
         "bjet2_px": 0.0,
         "bjet2_py": 0.0,
         "bjet2_pz": 0.0,
-        "bjet1_btag_df": - 1.0,
-        "bjet1_cvsb": - 1.0,
-        "bjet1_cvsl": - 1.0,
-        "bjet2_btag_df": - 1.0,
-        "bjet2_cvsb": - 1.0,
-        "bjet2_cvsl": - 1.0,
+        "bjet1_btag_df": -1.0,
+        "bjet1_cvsb": -1.0,
+        "bjet1_cvsl": -1.0,
+        "bjet2_btag_df": -1.0,
+        "bjet2_cvsb": -1.0,
+        "bjet2_cvsl": -1.0,
         "fatjet_e": 0.0,
         "fatjet_px": 0.0,
         "fatjet_py": 0.0,
@@ -166,7 +168,7 @@ def res_pdnn(
             continue
 
         # fill nones with pad_value and flat the resulting array to make it 1 dimensional
-        f[key] = ak.flatten(ak.fill_none(ak.pad_none(f[key], 1), pad_value))
+        f[key] = ak.flatten(ak.fill_none(ak.pad_none(f[key], axis=1), pad_value))
 
     # composite particles
     # combine daus
@@ -302,12 +304,14 @@ def res_pdnn_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
 
     # unpack the model archive
     bundle = reqs["external_files"]
+    bundle.files
     model_dir = bundle.files_dir.child("res_pdnn_model", type="d")
     bundle.files.res_pdnn.load(model_dir, formatter="tar")
 
     # load the model
     with self.task.publish_step("loading resonant pDNN model ..."):
-        self.res_pdnn_model = tf.saved_model.load(model_dir.abspath).signatures["serving_default"]
+        saved_model = tf.saved_model.load(model_dir.child("model_fold0").abspath)
+        self.res_pdnn_model = saved_model.signatures["serving_default"]
 
 
 def select_DAU_decay_mode(events):
@@ -339,52 +343,14 @@ def select_DAU_decay_mode(events):
     return vis_tau1_decay_mode, vis_tau2_decay_mode
 
 
-def get_rotated_kinematics(
-    ref_phi: ak.Array,
-    events: ak.Array,
-):
+def get_rotated_kinematics(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> ak.Array:
     """
-    Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi angle *ref_phi*.
-    Returns the rotated px and py components in a 2-tuple.
+    Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
+    angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
     """
-
-    def phi_mpi_to_pi(phi: ak.Array):
-        """
-        Helper function to guarantee that phi stays within [-pi, pi]
-        """
-        PI = np.pi
-        larger_pi_mask = phi > PI
-        smaller_pi_mask = phi < -PI
-        while ak.any(larger_pi_mask) or ak.any(smaller_pi_mask):
-            # TODO check why inplace -=, += is not working
-            phi = phi - 2 * PI * larger_pi_mask
-            phi = phi + 2 * PI * smaller_pi_mask
-
-            larger_pi_mask = phi > PI
-            smaller_pi_mask = phi < -PI
-        return phi
-    new_phi = phi_mpi_to_pi(events.phi) - ref_phi
-    return events.pt * np.cos(new_phi, dtype=np.float32), events.pt * np.sin(new_phi, dtype=np.float32)
-
-
-def get_px(events: ak.Array):
-    # p_x = p_t cos(phi)
-    return events.pt * np.cos(events.phi, dtype=np.float32)
-
-
-def get_py(events: ak.Array):
-    # p_y = p_t sin(phi)
-    return events.pt * np.sin(events.phi, dtype=np.float32)
-
-
-def get_pz(events: ak.Array):
-    # p_z = p_t sinh(eta)
-    return events.pt * np.sinh(events.eta, dtype=np.float32)
-
-
-def get_e(px: ak.Array, py: ak.Array, pz: ak.Array, mass: ak.Array):
-    # E = sqrt(px^2 + py^2 + pz^2 + m^2)
-    return np.sqrt(px**2 + py**2 + pz**2 + mass**2)
+    new_phi = np.arctan2(py, px) - ref_phi
+    pt = (px**2 + py**2)**0.5
+    return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
 
 def mask_network_unknown_embedding(events, raise_only=False):
