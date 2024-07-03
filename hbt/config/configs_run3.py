@@ -153,7 +153,7 @@ def add_config(
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
         "dy_m50toinf_amcatnlo",
-        "w_lnu_madgraph",
+        "w_lnu_amcatnlo",
         # "ewk_wm_lnu_m50toinf_madgraph", not available
         # "ewk_w_lnu_m50toinf_madgraph", not available
         # "ewk_z_ll_m50toinf_madgraph", not available
@@ -185,10 +185,6 @@ def add_config(
         ]),
     ]
     for dataset_name in dataset_names:
-        # development switch in case datasets are not _yet_ there
-        if dataset_name not in campaign.datasets:
-            continue
-
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
@@ -218,7 +214,23 @@ def add_config(
 
     # process groups for conveniently looping over certain processs
     # (used in wrapper_factory and during plotting)
-    cfg.x.process_groups = {}
+    cfg.x.process_groups = {
+        "sm": [
+            "data",
+            "tt",
+            "st",
+            "ttv",
+            "ttvv",
+            "dy",
+            "w",
+            "ewk",
+            "vv",
+            "vvv",
+            "qcd",
+            "h",
+            "hh_ggf_hbb_htt_kl1_kt1",
+        ],
+    }
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
