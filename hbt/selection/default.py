@@ -83,10 +83,12 @@ def default(
         events = self[mc_weight](events, **kwargs)
 
         # pdf weights
-        events = self[pdf_weights](events, **kwargs)
+        if not self.dataset_inst.has_tag("no_lhe_weights"):
+            events = self[pdf_weights](events, **kwargs)
 
         # renormalization/factorization scale weights
-        events = self[murmuf_weights](events, **kwargs)
+        if not self.dataset_inst.has_tag("no_lhe_weights"):
+            events = self[murmuf_weights](events, **kwargs)
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
@@ -131,11 +133,12 @@ def default(
         for name in sorted(self[pu_weight].produces):
             weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
         # pdf and murmuf weights with variations
-        for v in ["", "_up", "_down"]:
-            weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
-            weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
-            weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
-            weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
+        if not self.dataset_inst.has_tag("no_lhe_weights"):
+            for v in ["", "_up", "_down"]:
+                weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
+                weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
+                weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
+                weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
         # btag weights
         for name in sorted(self[btag_weights].produces):
             if not name.startswith("btag_weight"):
@@ -160,6 +163,7 @@ def default(
         }
         # combinations
         group_combinations.append(("process", "njet"))
+
     events, results = self[increment_stats](
         events,
         results,

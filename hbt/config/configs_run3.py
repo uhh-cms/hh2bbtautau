@@ -7,6 +7,7 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 from __future__ import annotations
 
 import os
+import re
 import itertools
 import functools
 
@@ -193,6 +194,8 @@ def add_config(
             dataset.add_tag(("has_top", "is_ttbar"))
         elif dataset.name.startswith("st"):
             dataset.add_tag(("has_top", "is_single_top"))
+        if re.match(r"^(ww|wz|zz)_.*pythia$", dataset.name):
+            dataset.add_tag("no_lhe_weights")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
