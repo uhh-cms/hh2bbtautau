@@ -239,7 +239,7 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     # only run on mc
     mc_only=True,
     # function to determine the correction file
-    get_tau_file=(lambda self, external_files: external_files.tau_trigger_sf),
+    get_tau_file=(lambda self, external_files: external_files.tau_sf),
 )
 def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
@@ -285,7 +285,7 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         (events.Tau.decayMode == 11)
     )
     tautau_mask = flat_np_view(
-        dm_mask & (channel_id == ch_tautau.id),
+        dm_mask & (events.Tau.pt >= 40.0) & (channel_id == ch_tautau.id),
         axis=1,
     )
     # not existing yet
@@ -345,15 +345,11 @@ def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targe
     import correctionlib
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
 
-    if bundle.config_inst.campaign.x.run == 3:
-        correction_set = correctionlib.CorrectionSet.from_file(self.get_tau_file(bundle.files).abspath)
-
-        self.trigger_corrector = correction_set["tauTriggerSF"]
-    else:  # run2
-        correction_set = correctionlib.CorrectionSet.from_string(
-            self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
-        )
-        self.trigger_corrector = correction_set["tau_trigger"]
+    # load the correction set
+    correction_set = correctionlib.CorrectionSet.from_string(
+        self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
+    )
+    self.trigger_corrector = correction_set["tau_trigger"]
 
     # check versions
     assert self.trigger_corrector.version in [0, 1]

@@ -7,6 +7,7 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 from __future__ import annotations
 
 import os
+import re
 import itertools
 import functools
 
@@ -142,8 +143,8 @@ def add_config(
         "ttzz_madgraph",
         # "ttwz_madgraph", not available
         "ttww_madgraph",
-        "st_tchannel_t_powheg",  # no variations available
-        "st_tchannel_tbar_powheg",  # no variations available
+        "st_tchannel_t_4f_powheg",
+        "st_tchannel_tbar_4f_powheg",
         "st_twchannel_t_sl_powheg",
         "st_twchannel_tbar_sl_powheg",
         "st_twchannel_t_dl_powheg",
@@ -155,29 +156,29 @@ def add_config(
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
         "dy_m50toinf_amcatnlo",
-        "w_lnu_madgraph",
-        # "ewk_wm_lnu_m50toinf_madgraph",  not available
-        # "ewk_w_lnu_m50toinf_madgraph",  not available
-        # "ewk_z_ll_m50toinf_madgraph",  not available
+        "w_lnu_amcatnlo",
+        # "ewk_wm_lnu_m50toinf_madgraph", not available
+        # "ewk_w_lnu_m50toinf_madgraph", not available
+        # "ewk_z_ll_m50toinf_madgraph", not available
         "zz_pythia",
         "wz_pythia",
         "ww_pythia",
         "zzz_amcatnlo",
         "wzz_amcatnlo",
-        "wwz_amcatnlo",
-        "www_amcatnlo",
+        "wwz_4f_amcatnlo",
+        "www_4f_amcatnlo",
         "h_ggf_htt_powheg",
         "h_vbf_htt_powheg",
-        # "zh_tautau_powheg",  not available
+        # "zh_tautau_powheg", not available
         "vh_hnonbb_amcatnlo",
         "zh_zll_hbb_powheg",
         "zh_zqq_hbb_powheg",
         "wmh_wlnu_hbb_powheg",
         "wph_wlnu_hbb_powheg",
         "zh_gg_zll_hbb_powheg",
-        # "wph_tautau_powheg",  not available
-        # "wmh_tautau_powheg",  not available
-        # "tth_tautau_powheg",  not available
+        # "wph_tautau_powheg", not available
+        # "wmh_tautau_powheg", not available
+        # "tth_tautau_powheg", not available
         "tth_hbb_powheg",
         "tth_hnonbb_powheg",
 
@@ -187,10 +188,6 @@ def add_config(
         ]),
     ]
     for dataset_name in dataset_names:
-        # development switch in case datasets are not _yet_ there
-        if dataset_name not in campaign.datasets:
-            continue
-
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
@@ -199,6 +196,8 @@ def add_config(
             dataset.add_tag(("has_top", "is_ttbar"))
         elif dataset.name.startswith("st"):
             dataset.add_tag(("has_top", "is_single_top"))
+        if re.match(r"^(ww|wz|zz)_.*pythia$", dataset.name):
+            dataset.add_tag("no_lhe_weights")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
@@ -220,7 +219,23 @@ def add_config(
 
     # process groups for conveniently looping over certain processs
     # (used in wrapper_factory and during plotting)
-    cfg.x.process_groups = {}
+    cfg.x.process_groups = {
+        "sm": [
+            "data",
+            "tt",
+            "st",
+            "ttv",
+            "ttvv",
+            "dy",
+            "w",
+            "ewk",
+            "vv",
+            "vvv",
+            "qcd",
+            "h",
+            "hh_ggf_hbb_htt_kl1_kt1",
+        ],
+    }
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
@@ -443,6 +458,12 @@ def add_config(
 
     # name of the btag_sf correction set and jec uncertainties to propagate through
     cfg.x.btag_sf = ("particleNet_shape", cfg.x.btag_sf_jec_sources, "btagPNetB")
+    # from columnflow.production.cms.btag import BTagSFConfig
+    # cfg.x.btag_sf = BTagSFConfig(
+    #     correction_set="particleNet_shape",
+    #     jec_sources=cfg.x.btag_sf_jec_sources,
+    #     discriminator="btagPNetB",
+    # )
 
     # name of the deep tau tagger
     # (used in the tec calibrator)
@@ -473,6 +494,9 @@ def add_config(
 
     cfg.add_shift(name="hdamp_up", id=3, type="shape", tags={"disjoint_from_nominal"})
     cfg.add_shift(name="hdamp_down", id=4, type="shape", tags={"disjoint_from_nominal"})
+
+    cfg.add_shift(name="mtop_up", id=5, type="shape", tags={"disjoint_from_nominal"})
+    cfg.add_shift(name="mtop_down", id=6, type="shape", tags={"disjoint_from_nominal"})
 
     cfg.add_shift(name="minbias_xs_up", id=7, type="shape")
     cfg.add_shift(name="minbias_xs_down", id=8, type="shape")
@@ -669,10 +693,7 @@ def add_config(
             "electron_sf": (f"{json_mirror}/POG/EGM/{year}_Summer{year2}{year_postfix}/electron.json.gz", "v1"),
 
             # tau energy correction and scale factors
-            "tau_sf": (f"{json_mirror_taupog}/POG/TAU/{year}_{postfix_ee}/tau_DeepTau2018v2p5_2022_{postfix_ee}.json.gz", "v1"),  # noqa
-
-            # tau trigger
-            "tau_trigger_sf": (f"{json_mirror_taupog}/POG/TAU/output/tau_trigger_DeepTau2018v2p5_{year}{postfix_ee}.json", "v1"),  # noqa
+            "tau_sf": (f"{json_mirror_taupog}/POG/TAU/{year}_{postfix_ee}/tau_DeepTau2018v2p5_{year}_{postfix_ee}.json.gz", "v1"),  # noqa
         }))
 
     # external files with more complex year dependence # TODO: check this
