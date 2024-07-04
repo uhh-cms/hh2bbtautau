@@ -454,14 +454,12 @@ def add_config(
         "TimePtEta",
     ]
 
-    # name of the btag_sf correction set and jec uncertainties to propagate through
-    cfg.x.btag_sf = ("particleNet_shape", cfg.x.btag_sf_jec_sources, "btagPNetB")
-    # from columnflow.production.cms.btag import BTagSFConfig
-    # cfg.x.btag_sf = BTagSFConfig(
-    #     correction_set="particleNet_shape",
-    #     jec_sources=cfg.x.btag_sf_jec_sources,
-    #     discriminator="btagPNetB",
-    # )
+    from columnflow.production.cms.btag import BTagSFConfig
+    cfg.x.btag_sf = BTagSFConfig(
+        correction_set="particleNet_shape",
+        jec_sources=cfg.x.btag_sf_jec_sources,
+        discriminator="btagPNetB",
+    )
 
     # name of the deep tau tagger
     # (used in the tec calibrator)
