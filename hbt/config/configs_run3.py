@@ -624,8 +624,8 @@ def add_config(
             },
         )
 
-    cfg.add_shift(name="pdf_up", id=130, type="shape")
-    cfg.add_shift(name="pdf_down", id=131, type="shape")
+    cfg.add_shift(name="pdf_up", id=130, type="shape", tags={"lhe_weight"})
+    cfg.add_shift(name="pdf_down", id=131, type="shape", tags={"lhe_weight"})
     add_shift_aliases(
         cfg,
         "pdf",
@@ -635,8 +635,8 @@ def add_config(
         },
     )
 
-    cfg.add_shift(name="murmuf_up", id=140, type="shape")
-    cfg.add_shift(name="murmuf_down", id=141, type="shape")
+    cfg.add_shift(name="murmuf_up", id=140, type="shape", tags={"lhe_weight"})
+    cfg.add_shift(name="murmuf_down", id=141, type="shape", tags={"lhe_weight"})
     add_shift_aliases(
         cfg,
         "murmuf",
