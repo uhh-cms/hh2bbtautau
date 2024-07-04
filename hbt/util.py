@@ -37,8 +37,7 @@ def IF_DATASET_HAS_LHE_WEIGHTS(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
 ) -> Any | set[Any]:
-    return (
-        self.get()
-        if getattr(func, "dataset_inst") is None or not func.dataset_inst.has_tag("no_lhe_weights")
-        else None
-    )
+    if getattr(func, "dataset_inst", None) is None:
+        return self.get()
+
+    return None if func.dataset_inst.has_tag("no_lhe_weights") else self.get()
