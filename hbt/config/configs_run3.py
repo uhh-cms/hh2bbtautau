@@ -730,7 +730,7 @@ def add_config(
             "Electron.*",
             "Muon.*",
             "Tau.*",
-            "MET.{pt,phisignificance,covXX,covXY,covYY}",
+            "MET.{pt,phi,significance,covXX,covXY,covYY}",
             "PV.npvs",
             "FatJet.*",
             # keep all columns added during selection, but skip cutflow feature

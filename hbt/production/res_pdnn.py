@@ -8,13 +8,12 @@ See https://github.com/uhh-cms/tautauNN
 from __future__ import annotations
 
 import functools
-import enum
 
 import law
 
 from columnflow.production import Producer, producer
 from columnflow.production.util import attach_coffea_behavior, default_collections
-from columnflow.columnar_util import set_ak_column, attach_behavior, EMPTY_FLOAT
+from columnflow.columnar_util import set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict, DotDict
 
 np = maybe_import("numpy")
@@ -23,23 +22,18 @@ ak = maybe_import("awkward")
 
 logger = law.logger.get_logger(__name__)
 
-
 # helper function
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
-class Era(enum.Enum):
+def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Array, ak.Array]:
     """
-    Enum for the different eras.
-    Everything above 2018 is considered 2018, since the network is only trained for Run2.
+    Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
+    angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
     """
-    e2016APV = 0
-    e2016 = 1
-    e2017 = 2
-    e2018 = 3
-    e2022 = e2018
-    e2023 = e2018
-    e2024 = e2018
+    new_phi = np.arctan2(py, px) - ref_phi
+    pt = (px**2 + py**2)**0.5
+    return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
 
 @producer(
@@ -52,8 +46,8 @@ class Era(enum.Enum):
         "Tau.{eta,phi,pt,mass,charge,decayMode}",
         "Electron.{eta,phi,pt,mass,charge}",
         "Muon.{eta,phi,pt,mass,charge}",
-        "HHBJet.{pt,eta,phi,mass,hhbtag}", "HHBJet.btagDeepFlav{B,CvB,CvL}", "HHBJet.btagPNet{B,CvB,CvL,QvG}",
-        "MET.{pt,phi}", "MET.cov{XX,XY,YY}",
+        "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+        "MET.{pt,phi,covXX,covXY,covYY}",
         "FatJet.{eta,phi,pt,mass}",
     },
     # produced columns are added in the deferred init below
@@ -86,91 +80,108 @@ def res_pdnn(
         **kwargs,
     )
 
-    # prepare events for network
-    f = DotDict()
+    # define the pair type (KLUBs channel id)
+    pair_type = np.zeros(len(events), dtype=np.int32)
+    for channel_id, pair_type_id in self.channel_id_to_pair_type.items():
+        pair_type[events.channel_id == channel_id] = pair_type_id
 
     # get visible tau decay products, consider them all as tau types
     vis_taus = attach_behavior(
         ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
-        "Tau",
+        type_name="Tau",
     )
     vis_tau1, vis_tau2 = vis_taus[:, 0], vis_taus[:, 1]
+
+    # get decay mode of first lepton (e, mu or tau)
+    tautau_mask = events.channel_id == self.config_inst.channels.n.tautau.id
+    dm1 = -1 * np.ones(len(events), dtype=np.int32)
+    dm1[tautau_mask] = events.Tau.decayMode[tautau_mask][:, 0]
+
+    # get decay mode of second lepton (also a tau, but position depends on channel)
+    dm2 = np.zeros(len(events), dtype=np.int32)
+    dm2[~tautau_mask] = events.Tau.decayMode[~tautau_mask][:, 0]
+    dm2[tautau_mask] = events.Tau.decayMode[tautau_mask][:, 1]
+
+    # the dnn treats dm 2 as 1, so we need to map it
+    dm1 = np.where(dm1 == 2, 1, dm1)
+    dm2 = np.where(dm2 == 2, 1, dm2)
+
+    # whether the events is resolvede, boosted or neither
+    has_jet_pair = ak.num(events.HHBJet) >= 2
+    has_fatjet = ak.num(events.FatJet) >= 1
+
+    # before preparing the network inputs, define a mask of events which have caregorical features
+    # that are actually covered by the networks embedding layers; other events cannot be evaluated!
+    event_mask = (
+        np.isin(pair_type, self.embedding_expected_inputs["pair_type"]) &
+        np.isin(dm1, self.embedding_expected_inputs["decay_mode1"]) &
+        np.isin(dm2, self.embedding_expected_inputs["decay_mode2"]) &
+        np.isin(vis_tau1.charge, self.embedding_expected_inputs["charge1"]) &
+        np.isin(vis_tau2.charge, self.embedding_expected_inputs["charge2"]) &
+        (has_jet_pair | has_fatjet) &
+        (self.year_flag in self.embedding_expected_inputs["year"])
+    )
+
+    # apply to all arrays needed until now
+    _events = events[event_mask]
+    pair_type = pair_type[event_mask]
+    vis_tau1, vis_tau2 = vis_tau1[event_mask], vis_tau2[event_mask]
+    tautau_mask = tautau_mask[event_mask]
+    dm1, dm2 = dm1[event_mask], dm2[event_mask]
+    has_jet_pair, has_fatjet = has_jet_pair[event_mask], has_fatjet[event_mask]
+
+    # prepare network inputs
+    f = DotDict()
 
     # compute angle from visible mother particle of vis_tau1 and vis_tau2
     # used to rotate the kinematics of dau{1,2}, met, bjet{1,2} and fatjets relative to it
     phi_lep = np.arctan2(vis_tau1.py + vis_tau2.py, vis_tau1.px + vis_tau2.px)
 
     # lepton 1
-    f.vis_tau1_px, f.vis_tau1_py = get_rotated_kinematics(phi_lep, vis_tau1.px, vis_tau1.py)
-    f.vis_tau1_pz = vis_tau1.pz
-    f.vis_tau1_e = vis_tau1.energy
+    f.vis_tau1_px, f.vis_tau1_py = rotate_to_phi(phi_lep, vis_tau1.px, vis_tau1.py)
+    f.vis_tau1_pz, f.vis_tau1_e = vis_tau1.pz, vis_tau1.energy
 
     # lepton 2
-    f.vis_tau2_px, f.vis_tau2_py = get_rotated_kinematics(phi_lep, vis_tau2.px, vis_tau2.py)
-    f.vis_tau2_pz = vis_tau2.pz
-    f.vis_tau2_e = vis_tau2.energy
+    f.vis_tau2_px, f.vis_tau2_py = rotate_to_phi(phi_lep, vis_tau2.px, vis_tau2.py)
+    f.vis_tau2_pz, f.vis_tau2_e = vis_tau2.pz, vis_tau2.energy
 
-    from IPython import embed; embed(header="ipython debugger")
+    # there might be less than two jets or no fatjet, so pad them
+    bjets = ak.pad_none(_events.HHBJet, 2, axis=1)
+    fatjet = ak.pad_none(_events.FatJet, 1, axis=1)[:, 0]
 
-    # bJet variables
-    btag_jet1 = events.Jet[score_indices][:, 0]
-    btag_jet2 = events.Jet[score_indices][:, 1]
+    # bjet 1
+    f.bjet1_px, f.bjet1_py = rotate_to_phi(phi_lep, bjets[:, 0].px, bjets[:, 0].py)
+    f.bjet1_pz, f.bjet1_e = bjets[:, 0].pz, bjets[:, 0].energy
+    f.bjet1_btag_df = bjets[:, 0].btagDeepFlavB
+    f.bjet1_cvsb = bjets[:, 0].btagDeepFlavCvB
+    f.bjet1_cvsl = bjets[:, 0].btagDeepFlavCvL
+    f.bjet1_hhbtag = bjets[:, 0].hhbtag
 
-    f.bjet1_px, f.bjet1_py = get_rotated_kinematics(phi_lep, events.HHBJet)
-    f.bjet1_pz = get_pz(btag_jet1)
-    f.bjet1_e = get_e(f.bjet1_px, f.bjet1_py, f.bjet1_pz, btag_jet1.mass)
-
-    f.bjet2_px, f.bjet2_py = get_rotated_kinematics(phi_lep, btag_jet2)
-    f.bjet2_pz = get_pz(btag_jet2)
-    f.bjet2_e = get_e(f.bjet2_px, f.bjet2_py, f.bjet2_pz, btag_jet2.mass)
-
-    # bJet particle net scores
-    f.bjet1_btag_df = btag_jet1.btagDeepFlavB
-    f.bjet1_cvsb = btag_jet1.btagDeepFlavCvB
-    f.bjet1_cvsl = btag_jet1.btagDeepFlavCvL
-    f.bjet1_hhbtag = btag_jet1.hhbtag
-
-    f.bjet2_btag_df = btag_jet2.btagDeepFlavB
-    f.bjet2_cvsb = btag_jet2.btagDeepFlavCvB
-    f.bjet2_cvsl = btag_jet2.btagDeepFlavCvL
-    f.bjet2_hhbtag = btag_jet2.hhbtag
+    # bjet 2
+    f.bjet2_px, f.bjet2_py = rotate_to_phi(phi_lep, bjets[:, 1].px, bjets[:, 1].py)
+    f.bjet2_pz, f.bjet2_e = bjets[:, 1].pz, bjets[:, 1].energy
+    f.bjet2_btag_df = bjets[:, 1].btagDeepFlavB
+    f.bjet2_cvsb = bjets[:, 1].btagDeepFlavCvB
+    f.bjet2_cvsl = bjets[:, 1].btagDeepFlavCvL
+    f.bjet2_hhbtag = bjets[:, 1].hhbtag
 
     # fatjet variables
-    f.fatjet_px, f.fatjet_py = get_rotated_kinematics(phi_lep, events.FatJet)
-    f.fatjet_pz = get_pz(events.FatJet)
-    f.fatjet_e = get_e(f.fatjet_px, f.fatjet_py, f.fatjet_pz, events.FatJet.mass)
+    f.fatjet_px, f.fatjet_py = rotate_to_phi(phi_lep, fatjet.px, fatjet.py)
+    f.fatjet_pz, f.fatjet_e = fatjet.pz, fatjet.energy
 
-    # pad features with padding values for missing values
-    pad_values = {
-        "bjet1_e": 0.0,
-        "bjet1_px": 0.0,
-        "bjet1_py": 0.0,
-        "bjet1_pz": 0.0,
-        "bjet2_e": 0.0,
-        "bjet2_px": 0.0,
-        "bjet2_py": 0.0,
-        "bjet2_pz": 0.0,
-        "bjet1_btag_df": -1.0,
-        "bjet1_cvsb": -1.0,
-        "bjet1_cvsl": -1.0,
-        "bjet2_btag_df": -1.0,
-        "bjet2_cvsb": -1.0,
-        "bjet2_cvsl": -1.0,
-        "fatjet_e": 0.0,
-        "fatjet_px": 0.0,
-        "fatjet_py": 0.0,
-        "fatjet_pz": 0.0,
-    }
+    # mask values as done during training of the network
+    def mask_values(mask, value, *fields):
+        for field in fields:
+            arr = ak.fill_none(f[field], value, axis=0)
+            flat_np_view(arr)[mask] = value
+            f[field] = arr
 
-    for key, pad_value in pad_values.items():
-        # skip flat arrays
-        if f[key].ndim == 1:
-            continue
+    mask_values(~has_jet_pair, 0.0, "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e")
+    mask_values(~has_jet_pair, 0.0, "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e")
+    mask_values(~has_jet_pair, -1.0, "bjet1_btag_df", "bjet1_cvsb", "bjet1_cvsl", "bjet1_hhbtag")
+    mask_values(~has_jet_pair, -1.0, "bjet2_btag_df", "bjet2_cvsb", "bjet2_cvsl", "bjet2_hhbtag")
+    mask_values(~has_fatjet, 0.0, "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e")
 
-        # fill nones with pad_value and flat the resulting array to make it 1 dimensional
-        f[key] = ak.flatten(ak.fill_none(ak.pad_none(f[key], axis=1), pad_value))
-
-    # composite particles
     # combine daus
     f.htt_e = f.vis_tau1_e + f.vis_tau2_e
     f.htt_px = f.vis_tau1_px + f.vis_tau2_px
@@ -182,105 +193,104 @@ def res_pdnn(
     f.hbb_px = f.bjet1_px + f.bjet2_px
     f.hbb_py = f.bjet1_py + f.bjet2_py
     f.hbb_pz = f.bjet1_pz + f.bjet2_pz
+    mask_values(~has_jet_pair, 0.0, "hbb_e", "hbb_px", "hbb_py", "hbb_pz")
 
     # htt + hbb
     f.htthbb_e = f.htt_e + f.hbb_e
     f.htthbb_px = f.htt_px + f.hbb_px
     f.htthbb_py = f.htt_py + f.hbb_py
     f.htthbb_pz = f.htt_pz + f.hbb_pz
+    mask_values(~has_jet_pair, 0.0, "htthbb_e", "htthbb_px", "htthbb_py", "htthbb_pz")
 
     # htt + fatjet
     f.httfatjet_e = f.htt_e + f.fatjet_e
     f.httfatjet_px = f.htt_px + f.fatjet_px
     f.httfatjet_py = f.htt_py + f.fatjet_py
     f.httfatjet_pz = f.htt_pz + f.fatjet_pz
+    mask_values(~has_fatjet, 0.0, "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz")
 
-    # MET variable
-    f.met_px, f.met_py = get_rotated_kinematics(phi_lep, events.MET)
-    f.met_cov00 = events.MET.covXX
-    f.met_cov01 = events.MET.covXY
-    f.met_cov11 = events.MET.covYY
+    # MET variables
+    f.met_px, f.met_py = rotate_to_phi(
+        phi_lep,
+        _events.MET.pt * np.cos(_events.MET.phi),
+        _events.MET.pt * np.sin(_events.MET.phi),
+    )
+    f.met_cov00, f.met_cov01, f.met_cov11 = _events.MET.covXX, _events.MET.covXY, _events.MET.covYY
 
-    # categorical inputs
-    # pair_type
-    # reduce channel_id by one to match clubanalysis values: 0,1,2
-    f.pair_type = ak.values_astype(events.channel_id - 1, np.int32)
-
-    # is_boosted if 1 ak8 (fatjet) jet is present
-    # see: https://github.com/LLRCMS/KLUBAnalysis/blob/master/test/skimNtuple_HHbtag.cpp#L4797-L4799
-    f.is_boosted = ak.num(events.FatJet) > 0
-
-    # dau decay mode & charge
-    f.vis_tau1_decay_mode, f.vis_tau2_decay_mode = select_DAU_decay_mode(events)
-    f.vis_tau1_charge, f.vis_tau2_charge = vis_tau1.charge, vis_tau2.charge
-
-    # has_bjet_pair
-    # see: https://github.com/uhh-cms/tautauNN/blob/5c5371bc852f2a5c0a40ce0ecd9ffaa0c360e565/tautaunn/config.py#L632
-    f.has_bjet_pair = ak.num(events.Jet) > 1
-
-    # parametrized features
-    # fill constant value for mass, year and spin
-    f.mass = ak.full_like(f.met_px, self.mass, dtype=np.int32)
-    f.year = ak.full_like(f.met_px, Era[self.year].value, dtype=np.int32)
-    f.spin = ak.full_like(f.met_px, self.spin, dtype=np.int32)
-
-    # filter out events with bad embedding, if raise_only=True only log the events, but do not mask
-    selection_mask = mask_network_unknown_embedding(f, raise_only=False)
-
-    # convert the networks input into a tensorflow tensor and evaluate the model
-    # taken from https://github.com/uhh-cms/tautauNN/blob/f1ca194/evaluation/interface.py#L159
-    categorical_targets = [
-        "HH", "Drell-Yan", "ttbar",
-    ]
-
+    # build continous inputs
+    # (order exactly as documented in link above)
     continous_inputs = tf.concat(
         [t[..., None] for t in [
             f.met_px, f.met_py, f.met_cov00, f.met_cov01, f.met_cov11,
             f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
             f.vis_tau2_px, f.vis_tau2_py, f.vis_tau2_pz, f.vis_tau2_e,
-            f.bjet1_px, f.bjet1_py, f.bjet1_pz, f.bjet1_e, f.bjet1_btag_df, f.bjet1_cvsb, f.bjet1_cvsl, f.bjet1_hhbtag,  # noqa
-            f.bjet2_px, f.bjet2_py, f.bjet2_pz, f.bjet2_e, f.bjet2_btag_df, f.bjet2_cvsb, f.bjet2_cvsl, f.bjet2_hhbtag,  # noqa
+            f.bjet1_px, f.bjet1_py, f.bjet1_pz, f.bjet1_e, f.bjet1_btag_df, f.bjet1_cvsb, f.bjet1_cvsl, f.bjet1_hhbtag,
+            f.bjet2_px, f.bjet2_py, f.bjet2_pz, f.bjet2_e, f.bjet2_btag_df, f.bjet2_cvsb, f.bjet2_cvsl, f.bjet2_hhbtag,
             f.fatjet_px, f.fatjet_py, f.fatjet_pz, f.fatjet_e,
             f.htt_e, f.htt_px, f.htt_py, f.htt_pz,
             f.hbb_e, f.hbb_px, f.hbb_py, f.hbb_pz,
             f.htthbb_e, f.htthbb_px, f.htthbb_py, f.htthbb_pz,
             f.httfatjet_e, f.httfatjet_px, f.httfatjet_py, f.httfatjet_pz,
-            f.mass,
+            self.mass * np.ones(len(_events), dtype=np.float32),
         ]],
         axis=1,
     )
 
+    # build categorical inputs
+    # (order exactly as documented in link above)
     categorical_inputs = tf.concat(
         [t[..., None] for t in [
-            f.pair_type, f.vis_tau1_decay_mode, f.vis_tau2_decay_mode,
-            f.vis_tau1_charge, f.vis_tau2_charge,
-            f.is_boosted, f.has_bjet_pair,
-            f.year, f.spin,
+            pair_type,
+            dm1, dm2,
+            vis_tau1.charge, vis_tau2.charge,
+            has_jet_pair, has_fatjet,
+            self.year_flag * np.ones(len(_events), dtype=np.int32),
+            self.spin * np.ones(len(_events), dtype=np.int32),
         ]],
         axis=1,
     )
 
-    # mask events that have bad embedding
-    masked_network_inputs = {
-        "cat_input": tf.cast(tf.boolean_mask(categorical_inputs, selection_mask), np.int32),
-        "cont_input": tf.cast(tf.boolean_mask(continous_inputs, selection_mask), np.float32),
-    }
-    network_scores = self.res_pdnn_model(**masked_network_inputs)
+    # evaluate the model
+    scores = self.res_pdnn_model(
+        cont_input=continous_inputs,
+        cat_input=categorical_inputs,
+    )["hbt_ensemble"].numpy()
 
-    # fill the scores with EMPTY_FLOAT for events that were masked
-    # place the scores in the correct column
-    classification_scores = np.ones((len(events), len(categorical_targets)), dtype=np.float32) * EMPTY_FLOAT
-    classification_scores[selection_mask] = network_scores["hbt_ensemble"].numpy()
-    events = set_ak_column_f32(events, "ressonant_combined_network_output", classification_scores)
+    # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
+    # so issue a warning and set them to a default value
+    nan_mask = ~np.isfinite(scores)
+    if np.any(nan_mask):
+        logger.warning(
+            f"{nan_mask.sum() // scores.shape[1]} out of {scores.shape[0]} events have NaN scores; "
+            "setting them to EMPTY_FLOAT",
+        )
+        scores[nan_mask] = EMPTY_FLOAT
+
+    # prepare output columns with the shape of the original events and assign values into them
+    for i, column in enumerate(self.output_columns):
+        values = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
+        values[event_mask] = scores[:, i]
+        events = set_ak_column_f32(events, column, values)
+
     return events
 
 
 @res_pdnn.init
 def res_pdnn_init(self: Producer) -> None:
-    self.produces |= {
-        f"res_pdnn_s{self.spin}_m{self.mass}_{proc}"
-        for proc in ["hh", "tt", "dy"]
-    }
+    # check spin value and mass values
+    if self.spin not in {0, 2}:
+        raise ValueError(f"invalid spin value: {self.spin}")
+    if self.mass < 250:
+        raise ValueError(f"invalid mass value: {self.mass}")
+
+    # output column names (in this order)
+    self.output_columns = [
+        f"res_pdnn_s{self.spin}_m{self.mass}_{name}"
+        for name in ["hh", "tt", "dy"]
+    ]
+
+    # update produced columns
+    self.produces |= set(self.output_columns)
 
 
 @res_pdnn.requires
@@ -313,87 +323,36 @@ def res_pdnn_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
         saved_model = tf.saved_model.load(model_dir.child("model_fold0").abspath)
         self.res_pdnn_model = saved_model.signatures["serving_default"]
 
-
-def select_DAU_decay_mode(events):
-    """
-    Helper function to select decay modes of tau as done in club analysis.
-    Expected values are -1, 0, 1, 10, 11.
-    - 0 for 1-prong
-    - 1 for 3-prong
-    - 10 for 1-prong+pi0
-    - 11 for 3-prong+pi0
-    - -1 is used for e/mu
-    - 2 is mapped to 1 (reason unknown, just KLUB things)
-    """
-    tau_decay = events.Tau.decayMode
-
-    # set 2 to 1
-    tau_decay = ak.where(tau_decay == 2,
-        np.full((len(tau_decay)), 1, dtype=np.int32),
-        tau_decay)
-
-    # convert mask to array filled with -1
-    non_tau_mask = ak.num(tau_decay) < 2
-    leptons_without_tau = ak.unflatten(
-        (ak.mask((non_tau_mask * np.int32(-1)), non_tau_mask)),
-        counts=1)
-
-    decay_mode = ak.drop_none(ak.concatenate((leptons_without_tau, tau_decay), axis=1))
-    vis_tau1_decay_mode, vis_tau2_decay_mode = decay_mode[:, 0], decay_mode[:, 1]
-    return vis_tau1_decay_mode, vis_tau2_decay_mode
-
-
-def get_rotated_kinematics(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> ak.Array:
-    """
-    Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
-    angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
-    """
-    new_phi = np.arctan2(py, px) - ref_phi
-    pt = (px**2 + py**2)**0.5
-    return pt * np.cos(new_phi), pt * np.sin(new_phi)
-
-
-def mask_network_unknown_embedding(events, raise_only=False):
-    """
-    Helper to create mask to filter out values not seen by embedding layers.
-    Values taken from: https://github.com/uhh-cms/tautauNN/blob/old_setup/train.py#L157-L162
-    """
-    embedding_expected_inputs = {
-        "pair_type": [0, 1, 2],
-        "vis_tau1_decay_mode": [-1, 0, 1, 10, 11],  # -1 for e/mu
-        "vis_tau2_decay_mode": [0, 1, 10, 11],
-        "vis_tau1_charge": [-1, 1],
-        "vis_tau2_charge": [-1, 1],
+    # categorical values handled by the network
+    # (names and values from training code that was aligned to KLUB notation)
+    self.embedding_expected_inputs = {
+        "pair_type": [0, 1, 2],  # see mapping below
+        "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
+        "decay_mode2": [0, 1, 10, 11],
+        "charge1": [-1, 1],
+        "charge2": [-1, 1],
+        "is_boosted": [0, 1],  # whether a selected fatjet is present
+        "has_jet_pair": [0, 1],  # whether two or more jets are present
         "spin": [0, 2],
-        "year": [0, 1, 2, 3],
-        "is_boosted": [0, 1],
-        "has_bjet_pair": [0, 1],
+        "year": [0, 1, 2, 3],  # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018
     }
 
-    # get mask for each embedding input, combine them to event mask and return the indices
-    masks = []
-    for feature, expected_values in embedding_expected_inputs.items():
-        # skip rest if no differences exist in unique values
-        unique_different_values = np.setdiff1d(events[feature], expected_values)
-        if len(unique_different_values) == 0:
-            continue
+    # our channel ids mapped to KLUB "pair_type"
+    self.channel_id_to_pair_type = {
+        self.config_inst.channels.n.mutau.id: 0,
+        self.config_inst.channels.n.etau.id: 1,
+        self.config_inst.channels.n.tautau.id: 2,
+    }
 
-        logger.info(
-            f"{feature} has  unknown values to embeding: {unique_different_values}"
-            f"expected only {expected_values}.",
-        )
-        if raise_only:
-            continue
-        # get event, gather masks to create event level mask
-        event_of_feature = events[feature]
-
-        mask_for_expected_feature = ak.any([event_of_feature == value
-            for value in expected_values],
-            axis=0)
-
-        masks.append(mask_for_expected_feature)
-
-    if not raise_only and (len(masks) > 0):
-        logger.info(f"Wrong embedings are masked and network scores is set to {EMPTY_FLOAT}")
-    event_mask = ak.all(masks, axis=0)
-    return event_mask
+    # define the year based on the incoming campaign
+    # (the training was done only for run 2, so map run 3 campaigns to 2018)
+    self.year_flag = {
+        (2016, "pre"): 0,
+        (2016, "post"): 1,
+        (2017, ""): 2,
+        (2018, ""): 3,
+        (2022, "pre"): 3,
+        (2022, "post"): 3,
+        (2023, "pre"): 3,
+        (2023, "post"): 3,
+    }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
