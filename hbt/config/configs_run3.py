@@ -109,6 +109,19 @@ def add_config(
         # add the process
         cfg.add_process(procs.get(process_name))
 
+    # add a multi-boson process
+    from order import Process
+    multi_boson = Process(
+        name="multi_boson",
+        id=7999,
+        label="Multi-Boson",
+    )
+
+    multi_boson.add_process(cfg.get_process("vv"))
+    multi_boson.add_process(cfg.get_process("vvv"))
+
+    cfg.add_process(multi_boson)
+
     # configure colors, labels, etc
     from hbt.config.styles import stylize_processes
     stylize_processes(cfg)
@@ -229,8 +242,7 @@ def add_config(
             "dy",
             "w",
             "ewk",
-            "vv",
-            "vvv",
+            "multi_boson",
             "qcd",
             "h",
             "hh_ggf_hbb_htt_kl1_kt1",
@@ -257,6 +269,12 @@ def add_config(
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
         "default": ["json", "met_filter", "trigger", "lepton", "jet", "bjet"],
+    }
+
+    cfg.x.custom_style_config_groups = {
+        "small_legend": {
+            "legend_cfg": {"ncols": 2, "fontsize": 16, "columnspacing": 0.6},
+        },
     }
 
     # custom method and sandbox for determining dataset lfns
