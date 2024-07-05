@@ -15,6 +15,7 @@ from hbt.production.features import features
 from hbt.production.weights import normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight
 from hbt.production.btag import normalized_btag_weights
 from hbt.production.tau import tau_weights, trigger_weights
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
 
 ak = maybe_import("awkward")
@@ -22,14 +23,14 @@ ak = maybe_import("awkward")
 
 @producer(
     uses={
-        category_ids, features, normalization_weights, normalized_pdf_weight,
-        normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
-        tau_weights, electron_weights, muon_weights, trigger_weights,
+        category_ids, features, normalization_weights, normalized_pu_weight,
+        normalized_btag_weights, tau_weights, electron_weights, muon_weights, trigger_weights,
+        IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
     },
     produces={
-        category_ids, features, normalization_weights, normalized_pdf_weight,
-        normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
-        tau_weights, electron_weights, muon_weights, trigger_weights,
+        category_ids, features, normalization_weights, normalized_pu_weight,
+        normalized_btag_weights, tau_weights, electron_weights, muon_weights, trigger_weights,
+        IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
     },
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -45,10 +46,12 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         events = self[normalization_weights](events, **kwargs)
 
         # normalized pdf weight
-        events = self[normalized_pdf_weight](events, **kwargs)
+        if self.has_dep(normalized_pdf_weight):
+            events = self[normalized_pdf_weight](events, **kwargs)
 
         # normalized renorm./fact. weight
-        events = self[normalized_murmuf_weight](events, **kwargs)
+        if self.has_dep(normalized_murmuf_weight):
+            events = self[normalized_murmuf_weight](events, **kwargs)
 
         # normalized pu weights
         events = self[normalized_pu_weight](events, **kwargs)

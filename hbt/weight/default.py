@@ -43,6 +43,15 @@ def default_init(self: WeightProducer) -> None:
         if not do_keep(weight_name) or do_drop(weight_name):
             continue
 
+        # manually skip pdf and scale weights for samples that do not have lhe info
+        if getattr(self, "dataset_inst", None) is not None:
+            is_lhe_weight = any(
+                shift_inst.has_tag("lhe_weight")
+                for shift_inst in self.config_inst.x.event_weights[weight_name]
+            )
+            if is_lhe_weight and self.dataset_inst.has_tag("no_lhe_weights"):
+                continue
+
         self.weight_columns.append(weight_name)
         self.uses.add(weight_name)
         self.shifts |= {

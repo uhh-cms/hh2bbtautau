@@ -25,7 +25,7 @@ from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
-
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -34,13 +34,14 @@ ak = maybe_import("awkward")
 @selector(
     uses={
         json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
-        pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
-        increment_stats, attach_coffea_behavior,
+        pu_weight, btag_weights, process_ids, cutflow_features, increment_stats,
+        attach_coffea_behavior,
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight,
-        pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
-        increment_stats,
+        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, btag_weights,
+        process_ids, cutflow_features, increment_stats,
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -83,11 +84,11 @@ def default(
         events = self[mc_weight](events, **kwargs)
 
         # pdf weights
-        if not self.dataset_inst.has_tag("no_lhe_weights"):
+        if self.has_dep(pdf_weights):
             events = self[pdf_weights](events, **kwargs)
 
         # renormalization/factorization scale weights
-        if not self.dataset_inst.has_tag("no_lhe_weights"):
+        if self.has_dep(murmuf_weights):
             events = self[murmuf_weights](events, **kwargs)
 
         # pileup weights

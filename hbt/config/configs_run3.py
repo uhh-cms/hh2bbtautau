@@ -456,14 +456,12 @@ def add_config(
         "TimePtEta",
     ]
 
-    # name of the btag_sf correction set and jec uncertainties to propagate through
-    cfg.x.btag_sf = ("particleNet_shape", cfg.x.btag_sf_jec_sources, "btagPNetB")
-    # from columnflow.production.cms.btag import BTagSFConfig
-    # cfg.x.btag_sf = BTagSFConfig(
-    #     correction_set="particleNet_shape",
-    #     jec_sources=cfg.x.btag_sf_jec_sources,
-    #     discriminator="btagPNetB",
-    # )
+    from columnflow.production.cms.btag import BTagSFConfig
+    cfg.x.btag_sf = BTagSFConfig(
+        correction_set="particleNet_shape",
+        jec_sources=cfg.x.btag_sf_jec_sources,
+        discriminator="btagPNetB",
+    )
 
     # name of the deep tau tagger
     # (used in the tec calibrator)
@@ -628,8 +626,8 @@ def add_config(
             },
         )
 
-    cfg.add_shift(name="pdf_up", id=130, type="shape")
-    cfg.add_shift(name="pdf_down", id=131, type="shape")
+    cfg.add_shift(name="pdf_up", id=130, type="shape", tags={"lhe_weight"})
+    cfg.add_shift(name="pdf_down", id=131, type="shape", tags={"lhe_weight"})
     add_shift_aliases(
         cfg,
         "pdf",
@@ -639,8 +637,8 @@ def add_config(
         },
     )
 
-    cfg.add_shift(name="murmuf_up", id=140, type="shape")
-    cfg.add_shift(name="murmuf_down", id=141, type="shape")
+    cfg.add_shift(name="murmuf_up", id=140, type="shape", tags={"lhe_weight"})
+    cfg.add_shift(name="murmuf_down", id=141, type="shape", tags={"lhe_weight"})
     add_shift_aliases(
         cfg,
         "murmuf",
@@ -723,18 +721,16 @@ def add_config(
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,
             # object info
-            "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
-            "Jet.hhbtag", "Jet.btagPNet*", "Jet.btagDeep*", "Jet.puId",
-            "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
-            "HHBJet.hadronFlavour", "HHBJet.hhbtag", "HHBJet.btagPNet*", "HHBJet.btagDeep*",
-            "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
-            "NonHHBJet.btagDeepFlavB", "NonHHBJet.hadronFlavour", "NonHHBJet.hhbtag",
+            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
+            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
+            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
+            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
+            "FatJet.*",
+            "SubJet{1,2}.*",
             "Electron.*",
             "Muon.*",
-            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe", "Tau.charge",
-            "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
-            "Tau.decayMode",
-            "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
+            "Tau.*",
+            "MET.{pt,phisignificance,covXX,covXY,covYY}",
             "PV.npvs",
             "FatJet.*",
             # keep all columns added during selection, but skip cutflow feature
