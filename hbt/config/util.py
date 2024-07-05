@@ -102,7 +102,7 @@ class Trigger(UniqueObject, TagMixin):
         - *name*: The path name of a trigger that should have fired.
         - *id*: A unique id of the trigger.
         - *run_range*: An inclusive range describing the runs where the trigger is to be applied
-          (usually only defined by data).
+          (usually only defined by data). None in the tuple means no lower or upper boundary.
         - *legs*: A list of :py:class:`TriggerLeg` objects contraining additional information and
           constraints of particular trigger legs.
         - *applies_to_dataset*: A function that obtains an ``order.Dataset`` instance to decide
@@ -116,13 +116,11 @@ class Trigger(UniqueObject, TagMixin):
           describe the type of the trigger ("single_mu", "cross", ...).
     """
 
-    allow_undefined_data_source = True
-
     def __init__(
         self,
         name: str,
         id: int,
-        run_range: Sequence[int] | None = None,
+        run_range: tuple[int | None, int | None] | None = None,
         legs: Sequence[TriggerLeg] | None = None,
         applies_to_dataset: Callable | bool | Any = True,
         tags: Any = None,
@@ -145,9 +143,8 @@ class Trigger(UniqueObject, TagMixin):
         self.applies_to_dataset = applies_to_dataset
 
     def __repr__(self):
-        data_source = "" if self.data_source is None else f", {self.data_source}-only"
         return (
-            f"<{self.__class__.__name__} 'name={self.name}, nlegs={self.n_legs}{data_source}' "
+            f"<{self.__class__.__name__} 'name={self.name}, nlegs={self.n_legs}' "
             f"at {hex(id(self))}>"
         )
 
@@ -172,7 +169,7 @@ class Trigger(UniqueObject, TagMixin):
         if isinstance(run_range, list):
             run_range = tuple(run_range)
 
-        # run_range must be a tuple with to integers
+        # run_range must be a tuple with two integers
         if not isinstance(run_range, tuple):
             raise TypeError(f"invalid run_range: {run_range}")
         if len(run_range) != 2:
