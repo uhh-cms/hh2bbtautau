@@ -247,3 +247,12 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"$\eta$",
     )
+
+    # outputs of the resonant pDNN at SM-like mass and spin values
+    for proc in ["hh", "tt", "dy"]:
+        config.add_variable(
+            name=f"res_pdnn_{proc}",
+            expression=f"res_pdnn_s0_m500_{proc}",
+            binning=(25, 0.0, 1.0),
+            x_title=rf"Resonant DNN_{{{proc}}} $(m_{{HH}}=500GeV,s=0)$",
+        )

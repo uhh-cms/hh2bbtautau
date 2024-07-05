@@ -54,7 +54,7 @@ def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Arr
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     # kwargs passed to the parametrized network
     mass=500,
-    spin=2,
+    spin=0,
 )
 def res_pdnn(
     self: Producer,
