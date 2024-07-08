@@ -6,50 +6,86 @@ Style definitions.
 
 import order as od
 
+from columnflow.util import DotDict
+
 
 def stylize_processes(config: od.Config) -> None:
     """
     Adds process colors and adjust labels.
     """
-    if config.has_process("hh_ggf_hbb_htt_kl1_kt1"):
-        config.processes.n.hh_ggf_hbb_htt_kl1_kt1.color1 = "#3f90da"  # old: (67, 118, 201)
-        config.processes.n.hh_ggf_hbb_htt_kl1_kt1.label = r"$HH_{ggf} \rightarrow bb\tau\tau$" + " \n " + r"($\kappa_{\lambda}=1$, $\kappa_{t}=1$)"  # noqa
+    cfg = config
 
-    if config.has_process("hh_vbf_hbb_htt_kv1_k2v1_kl1"):
-        config.processes.n.hh_vbf_hbb_htt_kv1_k2v1_kl1.color1 = "#011c87"  # old: (86, 211, 71)
+    # recommended cms colors
+    cfg.x.colors = DotDict(
+        bright_blue="#3f90da",
+        dark_blue="#011c87",
+        purple="#832db6",
+        aubergine="#964a8b",
+        yellow="#f7c331",
+        bright_orange="#ffa90e",
+        dark_orange="#e76300",
+        red="#bd1f01",
+        teal="#92dadd",
+        grey="#94a4a2",
+        brown="#a96b59",
+    )
 
-    if config.has_process("h"):
-        config.processes.n.h.color1 = "#92dadd"  # old: (65, 180, 219)
+    for kl in ["0", "1", "2p45", "5"]:
+        if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
+            p.color1 = cfg.x.colors.bright_blue
+            p.label = (
+                r"$HH_{ggf} \rightarrow bb\tau\tau$ __SCALE__"
+                "\n"
+                rf"($\kappa_{{\lambda}}$={kl.replace('p', '.')},$\kappa_{{t}}$=1)"
+            )
 
-    if config.has_process("tt"):
-        config.processes.n.tt.color1 = "#ffa90e"  # old: (244, 182, 66)
+    if (p := config.get_process("hh_vbf_hbb_htt_kv1_k2v1_kl1", default=None)):
+        p.color1 = cfg.x.colors.dark_blue
+        p.label = (
+            r"$HH_{vbf} \rightarrow bb\tau\tau$ __SCALE__"
+            "\n"
+            r"($\kappa_{\lambda}$=1,$\kappa_{V}$=1,$\kappa_{2V}$=1)"
+        )
 
-    if config.has_process("st"):
-        config.processes.n.st.color1 = "#e76300"  # old: (244, 93, 66)
+    if (p := config.get_process("h", default=None)):
+        p.color1 = cfg.x.colors.purple
 
-    if config.has_process("dy"):
-        config.processes.n.dy.color1 = "#bd1f01"  # old: (68, 186, 104)
+    if (p := config.get_process("tt", default=None)):
+        p.color1 = cfg.x.colors.bright_orange
+        p.label = r"$t\bar{t}$"
 
-    if config.has_process("vv"):
-        config.processes.n.vv.color1 = "#832db6"  # old: (2, 24, 140)
+    if (p := config.get_process("st", default=None)):
+        p.color1 = cfg.x.colors.aubergine
 
-    if config.has_process("w"):
-        config.processes.n.w.color1 = "#717581"
+    if (p := config.get_process("dy", default=None)):
+        p.color1 = cfg.x.colors.dark_orange
 
-    if config.has_process("ewk"):
-        config.processes.n.ewk.color1 = "#b9ac70"
+    if (p := config.get_process("vv", default=None)):
+        p.color1 = cfg.x.colors.yellow
 
-    # if config.has_process("ttv"):
-    #     config.processes.n.ttv.color1 = "#f7c331"
+    if (p := config.get_process("vvv", default=None)):
+        p.color1 = cfg.x.colors.yellow
 
-    if config.has_process("ttvv"):
-        config.processes.n.ttvv.color1 = "#a96b59"
+    if (p := config.get_process("multiboson", default=None)):
+        p.color1 = cfg.x.colors.yellow
 
-    if config.has_process("vvv"):
-        config.processes.n.vvv.color1 = "#832db6"
+    if (p := config.get_process("w", default=None)):
+        p.color1 = cfg.x.colors.teal
+        p.label = "W"
 
-    if config.has_process("multi_boson"):
-        config.processes.n.multi_boson.color1 = "#832db6"
+    if (p := config.get_process("ewk", default=None)):
+        p.color1 = cfg.x.colors.brown
 
-    if config.has_process("qcd"):
-        config.processes.n.qcd.color1 = "#94a4a2"  # old: (242, 149, 99)
+    if (p := config.get_process("ttv", default=None)):
+        p.color1 = cfg.x.colors.grey
+        p.label = r"$t\bar{t} + V$"
+
+    if (p := config.get_process("ttvv", default=None)):
+        p.color1 = cfg.x.colors.grey
+        p.label = r"$t\bar{t} + VV$"
+
+    if (p := config.get_process("tt_multiboson", default=None)):
+        p.color1 = cfg.x.colors.grey
+
+    if (p := config.get_process("qcd", default=None)):
+        p.color1 = cfg.x.colors.red

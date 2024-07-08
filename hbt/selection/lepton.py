@@ -6,6 +6,8 @@ Lepton selection methods.
 
 from __future__ import annotations
 
+import law
+
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import maybe_import
@@ -13,9 +15,11 @@ from columnflow.util import maybe_import
 from hbt.util import IF_NANO_V9, IF_NANO_V11, IF_NANO_V12
 from hbt.config.util import Trigger
 
-
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
+
+
+logger = law.logger.get_logger(__name__)
 
 
 def trigger_object_matching(
@@ -244,10 +248,10 @@ def tau_selection(
     """
     # return empty mask if no tagged taus exists in the chunk
     if ak.all(ak.num(events.Tau) == 0):
-        # Convenient definition of empty mask with no substructure of the array (dtype=bool)
-        empty_mask = ak.ones_like(events.Tau.pt) == 1
-        print("WARNING: this file has no Tau entry, proceeding with the creation of an empty mask for Taus")
-        return empty_mask, empty_mask
+        logger.info("no taus found in event chunk")
+        # convenient definition of empty indices and iso mask
+        empty_indices = ak.local_index(events.Tau)
+        return empty_indices, empty_indices == 0
 
     is_single_e = trigger.has_tag("single_e")
     is_single_mu = trigger.has_tag("single_mu")
@@ -333,7 +337,7 @@ def tau_selection(
 
     # indices for sorting first by isolation, then by pt
     # for this, combine iso and pt values, e.g. iso 255 and pt 32.3 -> 2550032.3
-    f = 10 ** (np.ceil(np.log10(ak.max(events.Tau.pt))) + 1)
+    f = 10**(np.ceil(np.log10(ak.max(events.Tau.pt))) + 1)
     sort_key = events.Tau[get_tau_tagger("jet")] * f + events.Tau.pt
     sorted_indices = ak.argsort(sort_key, axis=-1, ascending=False)
 

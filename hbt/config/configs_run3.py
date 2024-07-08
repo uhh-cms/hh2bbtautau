@@ -40,7 +40,7 @@ def add_config(
     if campaign.x.year == 2022:
         assert campaign.x.postfix in ["pre", "post"]
     if campaign.x.year == 2024:
-        raise NotImplementedError("It a bit too early for 2024 analysis :)")
+        raise NotImplementedError("it's a bit too early for the 2024 analysis :)")
 
     # gather campaign data
     year = campaign.x.year
@@ -73,6 +73,22 @@ def add_config(
         )
         return values if match else []
 
+    # add custom processes
+    cfg.add_process(
+        name="multiboson",
+        id=7998,
+        label="Multiboson",
+        processes=[procs.n.vv, procs.n.vvv],
+    )
+    cfg.add_process(
+        name="tt_multiboson",
+        id=7999,
+        label=r"$t\bar{t}$ + Multiboson",
+        # enable both processes once ttv exists
+        # processes=[procs.n.ttv, procs.n.ttvv],
+        processes=[procs.n.ttvv],
+    )
+
     # add processes we are interested in
     process_names = [
         "data",
@@ -83,8 +99,7 @@ def add_config(
         "dy",
         "w",
         "ewk",
-        "vv",
-        "vvv",
+        "multiboson",
         "qcd",
         "h",
         "hh_ggf_hbb_htt_kl1_kt1",
@@ -102,25 +117,18 @@ def add_config(
         "radion_hh_ggf_hbb_htt_m700",
     ]
     for process_name in process_names:
-        # development switch in case datasets are not _yet_ there
-        if process_name not in procs:
+        if process_name in procs:
+            proc = procs.get(process_name)
+        elif process_name == "qcd":
+            # qcd is not part of procs since there is no dataset registered for it
+            from cmsdb.processes.qcd import qcd
+            proc = qcd
+        else:
+            # development switch in case datasets are not _yet_ there
             continue
 
         # add the process
-        cfg.add_process(procs.get(process_name))
-
-    # add a multi-boson process
-    from order import Process
-    multi_boson = Process(
-        name="multi_boson",
-        id=7999,
-        label="Multi-Boson",
-    )
-
-    multi_boson.add_process(cfg.get_process("vv"))
-    multi_boson.add_process(cfg.get_process("vvv"))
-
-    cfg.add_process(multi_boson)
+        cfg.add_process(proc)
 
     # configure colors, labels, etc
     from hbt.config.styles import stylize_processes
@@ -233,20 +241,21 @@ def add_config(
     # process groups for conveniently looping over certain processs
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {
-        "sm": [
-            "data",
-            "tt",
-            "st",
-            "ttv",
-            "ttvv",
-            "dy",
-            "w",
-            "ewk",
-            "multi_boson",
-            "qcd",
+        "backgrounds": (backgrounds := [
             "h",
-            "hh_ggf_hbb_htt_kl1_kt1",
-        ],
+            "tt",
+            "dy",
+            "qcd",
+            "st",
+            "w",
+            "multiboson",
+            "tt_multiboson",
+            "ewk",
+        ]),
+        "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
+        "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
+        "sm_ggf_data": ["data"] + sm_ggf_group,
+        "sm_data": ["data"] + sm_group,
     }
 
     # dataset groups for conveniently looping over certain datasets
@@ -276,6 +285,7 @@ def add_config(
             "legend_cfg": {"ncols": 2, "fontsize": 16, "columnspacing": 0.6},
         },
     }
+    cfg.x.default_custom_style_config = "small_legend"
 
     # custom method and sandbox for determining dataset lfns
     cfg.x.get_dataset_lfns = None
@@ -678,20 +688,8 @@ def add_config(
         # jet energy correction
         "jet_jerc": (f"{json_mirror}/POG/JME/{year}_Summer{year2}{year_postfix}/jet_jerc.json.gz", "v1"),
 
-        # tau energy correction and scale factors
-        # "tau_sf": (f"{json_mirror}/POG/TAU/{year_folder}/tau.json.gz", "v1"),
-
-        # electron scale factors
-        # "electron_sf": (f"{json_mirror}/POG/EGM/{year_folder}/electron.json.gz", "v1"),
-
-        # muon scale factors
-        # "muon_sf": (f"{json_mirror}/POG/MUO/{year_folder}/muon_Z.json.gz", "v1"),
-
         # btag scale factor
         "btag_sf_corr": (f"{json_mirror}/POG/BTV/{year}_Summer{year2}{year_postfix}/btagging.json.gz", "v1"),
-
-        # met phi corrector
-        # "met_phi_corr": (f"{json_mirror}/POG/JME/2018_UL/met.json.gz", "v1"),
 
         # hh-btag repository (lightweight) with TF saved model directories
         "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa

@@ -54,7 +54,6 @@ law run cf.ReduceEventsWrapper \
     --datasets "*" \
     --shifts "nominal,{tune,hdamp,mtop}_{up,down}" \
     --cf.ReduceEvents-workflow htcondor \
-    --cf.ReduceEvents-poll-interval 30s \
     --cf.ReduceEvents-pilot \
     --cf.ReduceEvents-tasks-per-job 3 \
     --local-scheduler False \

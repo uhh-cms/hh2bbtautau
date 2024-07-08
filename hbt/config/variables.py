@@ -254,5 +254,5 @@ def add_variables(config: od.Config) -> None:
             name=f"res_pdnn_{proc}",
             expression=f"res_pdnn_s0_m500_{proc}",
             binning=(25, 0.0, 1.0),
-            x_title=rf"Resonant DNN_{{{proc}}} $(m_{{HH}}=500GeV,s=0)$",
+            x_title=rf"{proc.upper()} output node, res. pNN$_{{m_{{HH}}=500\,GeV,s=0}}$",
         )
