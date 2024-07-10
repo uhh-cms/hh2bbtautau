@@ -17,7 +17,7 @@ ak = maybe_import("awkward")
 
 
 @producer(
-    uses={IF_DATASET_IS_DY("LHE.Njets", "LHE.Vpt")},
+    uses={IF_DATASET_IS_DY("LHE.NpNLO", "LHE.Vpt", "LHE.*")},
     produces={"process_ids"},
 )
 def dy_process_ids(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -33,7 +33,7 @@ def dy_process_ids(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         )
     process = self.dataset_inst.processes.get_first()
     jet_match = re.match(r"^.*(\d)j.*$", process.name)
-
+    from IPython import embed; embed(header='Debugging dy_process_ids')
     if process.is_leaf_process:
         process_id = process.id
         # store the column
@@ -41,7 +41,7 @@ def dy_process_ids(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         return events
 
     # get the LHE Njets and Vpt
-    njets = events.LHE.Njets
+    njets = events.LHE.NpNLO
     pt = events.LHE.Vpt
     process_ids = np.zeros(len(events), dtype=np.int32)
 
