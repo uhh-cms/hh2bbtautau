@@ -25,6 +25,7 @@ from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
+from hbt.production.processes import dy_process_ids
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
 np = maybe_import("numpy")
@@ -35,12 +36,12 @@ ak = maybe_import("awkward")
     uses={
         json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
         pu_weight, btag_weights, process_ids, cutflow_features, increment_stats,
-        attach_coffea_behavior,
+        attach_coffea_behavior, dy_process_ids,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, btag_weights,
-        process_ids, cutflow_features, increment_stats,
+        process_ids, cutflow_features, increment_stats, dy_process_ids,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
@@ -113,7 +114,10 @@ def default(
     )
 
     # create process ids
-    events = self[process_ids](events, **kwargs)
+    if self.dataset_inst.has_tag("is_dy"):
+        events = self[dy_process_ids](events, **kwargs)
+    else:
+        events = self[process_ids](events, **kwargs)
 
     # some cutflow features
     events = self[cutflow_features](events, results.objects, **kwargs)

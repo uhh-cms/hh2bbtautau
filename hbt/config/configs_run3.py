@@ -161,6 +161,7 @@ def add_config(
         # "ttz_llnunu_amcatnlo", not available
         # "ttw_nlu_amcatnlo", not available
         # "ttw_qq_amcatnlo", not available
+        "ttz_zqq_amcatnlo",
         "ttzz_madgraph",
         # "ttwz_madgraph", not available
         "ttww_madgraph",
@@ -177,6 +178,19 @@ def add_config(
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
         "dy_m50toinf_amcatnlo",
+        "dy_m50toinf_0j_amcatnlo",
+        "dy_m50toinf_1j_amcatnlo",
+        "dy_m50toinf_2j_amcatnlo",
+        "dy_m50toinf_1j_pt40to100_amcatnlo",
+        "dy_m50toinf_1j_pt100to200_amcatnlo",
+        "dy_m50toinf_1j_pt200to400_amcatnlo",
+        "dy_m50toinf_1j_pt400to600_amcatnlo",
+        "dy_m50toinf_1j_pt600toinf_amcatnlo",
+        "dy_m50toinf_2j_pt40to100_amcatnlo",
+        "dy_m50toinf_2j_pt100to200_amcatnlo",
+        "dy_m50toinf_2j_pt200to400_amcatnlo",
+        "dy_m50toinf_2j_pt400to600_amcatnlo",
+        "dy_m50toinf_2j_pt600toinf_amcatnlo",
         "w_lnu_amcatnlo",
         # "ewk_wm_lnu_m50toinf_madgraph", not available
         # "ewk_w_lnu_m50toinf_madgraph", not available
@@ -197,6 +211,8 @@ def add_config(
         "wmh_wlnu_hbb_powheg",
         "wph_wlnu_hbb_powheg",
         "zh_gg_zll_hbb_powheg",
+        "zh_gg_znunu_hbb_powheg",
+        "zh_gg_zqq_hbb_powheg",
         # "wph_tautau_powheg", not available
         # "wmh_tautau_powheg", not available
         # "tth_tautau_powheg", not available
@@ -217,6 +233,8 @@ def add_config(
             dataset.add_tag(("has_top", "is_ttbar"))
         elif dataset.name.startswith("st"):
             dataset.add_tag(("has_top", "is_single_top"))
+        if dataset.name.startswith("dy"):
+            dataset.add_tag("is_dy")
         if re.match(r"^(ww|wz|zz)_.*pythia$", dataset.name):
             dataset.add_tag("no_lhe_weights")
 
@@ -256,6 +274,12 @@ def add_config(
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
         "sm_data": ["data"] + sm_group,
+    }
+
+    # define available leaf dy processes (key=njet, value=list[tuple(min_pt, max_pt)])
+    cfg.x.dy_pt_stitching_ranges = {
+        njet: [(0, 40), (40, 100), (100, 200), (200, 400), (400, 600), (600, float("inf"))]
+        for njet in [1, 2]
     }
 
     # dataset groups for conveniently looping over certain datasets
