@@ -33,7 +33,7 @@ def dy_process_ids(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         )
     process = self.dataset_inst.processes.get_first()
     jet_match = re.match(r"^.*(\d)j.*$", process.name)
-    from IPython import embed; embed(header='Debugging dy_process_ids')
+
     if process.is_leaf_process:
         process_id = process.id
         # store the column
