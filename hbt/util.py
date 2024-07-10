@@ -42,6 +42,7 @@ def IF_DATASET_HAS_LHE_WEIGHTS(
 
     return None if func.dataset_inst.has_tag("no_lhe_weights") else self.get()
 
+
 @deferred_column
 def IF_DATASET_IS_DY(
     self: ArrayFunction.DeferredColumn,
