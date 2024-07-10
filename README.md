@@ -1,7 +1,6 @@
 # HH → bb𝜏𝜏
 
 [![Lint and test](https://github.com/uhh-cms/hh2bbtautau/actions/workflows/lint_and_test.yaml/badge.svg)](https://github.com/uhh-cms/hh2bbtautau/actions/workflows/lint_and_test.yaml)
-[![License](https://img.shields.io/github/license/uhh-cms/hh2bbtautau.svg)](https://github.com/uhh-cms/hh2bbtautau/blob/master/LICENSE)
 
 ## Quickstart
 
