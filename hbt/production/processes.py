@@ -79,12 +79,24 @@ def process_ids_dy_setup(
     reader_targets: InsertableDict,
 ) -> None:
     # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
-    # TODO: extract the following from the datasets' aux info
-    stitching_ranges = {
-        0: None,
-        1: [(0, 40), (40, 100), (100, 200), (200, 400), (400, 600), (600, float("inf"))],
-        2: [(0, 40), (40, 100), (100, 200), (200, 400), (400, 600), (600, float("inf"))],
-    }
+    stichting_ranges = {}
+    for proc in self.dy_inclusive_dataset.get_leaf_processes():
+        if any(d.processes.get_first() == proc.id for d in self.config_inst.datasets):
+            if not proc.x("njets", None):
+                continue
+            if proc.x("njets") not in stichting_ranges:
+                stichting_ranges[proc.x("njets")] = []
+            stichting_ranges[proc.x("njets")].append(proc.x("ptll"))
+
+    # sort by the first element of the ptll range
+    for nj in stichting_ranges:
+        stichting_ranges[nj] = stichting_ranges[nj].sort(key=lambda x: x[0])
+
+    # stitching_ranges = {
+    #     0: None,
+    #     1: [(0, 40), (40, 100), (100, 200), (200, 400), (400, 600), (600, float("inf"))],
+    #     2: [(0, 40), (40, 100), (100, 200), (200, 400), (400, 600), (600, float("inf"))],
+    # }
 
     # define a key function that maps njets and pt to a unique key for use in a lookup table
     def key_func(njets, pt):
@@ -119,3 +131,5 @@ def process_ids_dy_setup(
     max_nj = max(stitching_ranges.keys()) + 1
     self.id_table = sp.sparse.lil_matrix((1, key_func(max_nj, 0) + 1), dtype=np.int64)
     # TODO: fill
+    for leaf_process in self.dy_inclusive_dataset.get_leaf_processes():
+        self.id_table[0, key_func(leaf_process.x("njets"), leaf_process.x("ptll"))] = leaf_process.id
