@@ -79,18 +79,18 @@ def process_ids_dy_setup(
     reader_targets: InsertableDict,
 ) -> None:
     # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
-    stichting_ranges = {}
+    stitching_ranges = {}
     for proc in self.dy_inclusive_dataset.get_leaf_processes():
         if any(d.processes.get_first() == proc.id for d in self.config_inst.datasets):
             if not proc.x("njets", None):
                 continue
-            if proc.x("njets") not in stichting_ranges:
-                stichting_ranges[proc.x("njets")] = []
-            stichting_ranges[proc.x("njets")].append(proc.x("ptll"))
+            if proc.x("njets") not in stitching_ranges:
+                stitching_ranges[proc.x("njets")] = []
+            stitching_ranges[proc.x("njets")].append(proc.x("ptll"))
 
     # sort by the first element of the ptll range
-    for nj in stichting_ranges:
-        stichting_ranges[nj] = stichting_ranges[nj].sort(key=lambda x: x[0])
+    for nj in stitching_ranges:
+        stitching_ranges[nj] = stitching_ranges[nj].sort(key=lambda x: x[0])
 
     # stitching_ranges = {
     #     0: None,
