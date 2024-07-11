@@ -276,10 +276,9 @@ def add_config(
         "sm_data": ["data"] + sm_group,
     }
 
-    # define available leaf dy processes (key=njet, value=list[tuple(min_pt, max_pt)])
-    cfg.x.dy_pt_stitching_ranges = {
-        njet: [(0, 40), (40, 100), (100, 200), (200, 400), (400, 600), (600, float("inf"))]
-        for njet in [1, 2]
+    # define inclusive datasets for the dy process identification
+    cfg.x.dy_inclusive_datasets = {
+        "m50toinf": cfg.datasets.n.dy_m50toinf_amcatnlo,
     }
 
     # dataset groups for conveniently looping over certain datasets

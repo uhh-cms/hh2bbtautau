@@ -4,6 +4,8 @@
 Selection methods.
 """
 
+from __future__ import annotations
+
 from operator import and_
 from functools import reduce
 from collections import defaultdict
@@ -25,7 +27,7 @@ from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
-from hbt.production.processes import dy_process_ids
+from hbt.production.processes import process_ids_dy
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
 np = maybe_import("numpy")
@@ -36,12 +38,12 @@ ak = maybe_import("awkward")
     uses={
         json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
         pu_weight, btag_weights, process_ids, cutflow_features, increment_stats,
-        attach_coffea_behavior, dy_process_ids,
+        attach_coffea_behavior,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, btag_weights,
-        process_ids, cutflow_features, increment_stats, dy_process_ids,
+        process_ids, cutflow_features, increment_stats,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
@@ -114,8 +116,8 @@ def default(
     )
 
     # create process ids
-    if self.dataset_inst.has_tag("is_dy"):
-        events = self[dy_process_ids](events, **kwargs)
+    if self.process_ids_dy is not None:
+        events = self[self.process_ids_dy](events, **kwargs)
     else:
         events = self[process_ids](events, **kwargs)
 
@@ -180,3 +182,27 @@ def default(
     )
 
     return events, results
+
+
+@default.init
+def default_init(self: Selector) -> None:
+    if getattr(self, "dataset_inst", None) is None:
+        return
+
+    self.process_ids_dy: process_ids_dy | None = None
+    if self.dataset_inst.has_tag("is_dy"):
+        # check if this dataset is covered by any dy id producer
+        for name, dataset_inst in self.config_inst.x.dy_inclusive_datasets.items():
+            # the dataset is "covered" if its process is a subprocess of that of the dy dataset
+            if dataset_inst.has_process(self.dataset_inst.processes.get_first()):
+                self.process_ids_dy = process_ids_dy.derive(
+                    f"process_ids_dy_{name}",
+                    cls_dict={"dy_inclusive_dataset": dataset_inst},
+                )
+
+                # add it as a dependency
+                self.uses.add(self.process_ids_dy)
+                self.produces.add(self.process_ids_dy)
+
+                # stop after the first match
+                break
