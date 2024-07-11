@@ -19,7 +19,7 @@ from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
 from columnflow.production.cms.btag import btag_weights
 from columnflow.production.util import attach_coffea_behavior
-from columnflow.util import maybe_import, dev_sandbox
+from columnflow.util import maybe_import
 
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
@@ -43,7 +43,6 @@ ak = maybe_import("awkward")
         process_ids, cutflow_features, increment_stats,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
-    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
 )
 def default(
