@@ -276,9 +276,21 @@ def add_config(
         "sm_data": ["data"] + sm_group,
     }
 
-    # define inclusive datasets for the dy process identification
-    cfg.x.dy_inclusive_datasets = {
-        "m50toinf": cfg.datasets.n.dy_m50toinf_amcatnlo,
+    # define inclusive datasets for the dy process identification with corresponding leaf processes
+    cfg.x.dy_stitching = {
+        "m50toinf": {
+            "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+            "leaf_processes": [
+                # the following processes cover the full njet and pt phasespace
+                procs.n.dy_m50toinf_0j,
+                *(
+                    procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
+                    for nj in [1, 2]
+                    for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                ),
+                procs.n.dy_m50toinf_ge3j,
+            ],
+        },
     }
 
     # dataset groups for conveniently looping over certain datasets
