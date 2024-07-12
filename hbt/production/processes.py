@@ -53,8 +53,6 @@ def process_ids_dy(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # but actually does not fit
     njets_range = process_inst.x("njets", None)
     if njets_range is not None:
-        if isinstance(njets_range, int):
-            njets_range = (njets_range, njets_range + 1)
         outliers = (njets < njets_range[0]) | (njets >= njets_range[1])
         if ak.any(outliers):
             logger.warning(
@@ -73,7 +71,7 @@ def process_ids_dy(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             )
 
     # lookup the id and check for invalid values
-    process_ids = np.array(self.id_table[0, self.key_func(njets, pt)].todense())[0]
+    process_ids = np.squeeze(np.asarray(self.id_table[self.key_func(njets, pt)].todense()))
     invalid_mask = process_ids == 0
     if ak.any(invalid_mask):
         raise ValueError(
@@ -94,17 +92,17 @@ def process_ids_dy_setup(
     reader_targets: InsertableDict,
 ) -> None:
     # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
-    stitching_ranges_dict: dict[NJetsRange, list[PtRange]] = {}
+    stitching_ranges: dict[NJetsRange, list[PtRange]] = {}
     for proc in self.dy_leaf_processes:
         njets = proc.x.njets
-        stitching_ranges_dict.setdefault(njets, [])
+        stitching_ranges.setdefault(njets, [])
         if proc.has_aux("ptll"):
-            stitching_ranges_dict[njets].append(proc.x.ptll)
+            stitching_ranges[njets].append(proc.x.ptll)
 
     # sort by the first element of the ptll range
-    stitching_ranges: list[tuple[NJetsRange, list[PtRange]]] = [
-        (nj_range, sorted(stitching_ranges_dict[nj_range], key=lambda ptll_range: ptll_range[0]))
-        for nj_range in sorted(stitching_ranges_dict.keys(), key=lambda nj_range: nj_range[0])
+    sorted_stitching_ranges: list[tuple[NJetsRange, list[PtRange]]] = [
+        (nj_range, sorted(stitching_ranges[nj_range], key=lambda ptll_range: ptll_range[0]))
+        for nj_range in sorted(stitching_ranges.keys(), key=lambda nj_range: nj_range[0])
     ]
 
     # define a key function that maps njets and pt to a unique key for use in a lookup table
@@ -120,7 +118,7 @@ def process_ids_dy_setup(
         # map into bins (index 0 means no binning)
         nj_bins = np.zeros(len(njets), dtype=np.int32)
         pt_bins = np.zeros(len(pt), dtype=np.int32)
-        for nj_bin, (nj_range, pt_ranges) in enumerate(stitching_ranges, 1):
+        for nj_bin, (nj_range, pt_ranges) in enumerate(sorted_stitching_ranges, 1):
             # nj_bin
             nj_mask = (nj_range[0] <= njets) & (njets < nj_range[1])
             nj_bins[nj_mask] = nj_bin
@@ -129,18 +127,16 @@ def process_ids_dy_setup(
                 pt_mask = (pt_min <= pt) & (pt < pt_max)
                 pt_bins[nj_mask & pt_mask] = pt_bin
 
-        # compute the key
-        key = nj_bins * 100 + pt_bins
-
-        return key[0] if single else key
+        return (nj_bins[0], pt_bins[0]) if single else (nj_bins, pt_bins)
 
     self.key_func = key_func
 
     # define the lookup table
-    max_key = key_func(99999, 99999)
-    self.id_table = sp.sparse.lil_matrix((1, max_key + 1), dtype=np.int64)
+    max_nj_bin = len(sorted_stitching_ranges)
+    max_pt_bin = max(map(len, stitching_ranges.values()))
+    self.id_table = sp.sparse.lil_matrix((max_nj_bin + 1, max_pt_bin + 1), dtype=np.int64)
 
     # fill it
     for proc in self.dy_leaf_processes:
         key = key_func(proc.x.njets[0], proc.x("ptll", [-1])[0])
-        self.id_table[0, key] = proc.id
+        self.id_table[key] = proc.id
