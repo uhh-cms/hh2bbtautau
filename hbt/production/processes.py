@@ -22,7 +22,9 @@ maybe_import("scipy.sparse")
 
 logger = law.logger.get_logger(__name__)
 
-# helper
+NJetsRange = tuple[int, int]
+PtRange = tuple[float, float]
+
 set_ak_column_i64 = functools.partial(set_ak_column, value_type=np.int64)
 
 
@@ -91,27 +93,18 @@ def process_ids_dy_setup(
     inputs: dict,
     reader_targets: InsertableDict,
 ) -> None:
-    # helper to get the njets value from a process in a 2-tuple
-    def get_njets(proc):
-        njets = proc.x.njets
-        if isinstance(njets, list):
-            njets = tuple(njets)
-        if not isinstance(njets, tuple):
-            njets = (njets, njets + 1)
-        return njets
-
     # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
-    stitching_ranges = {}
+    stitching_ranges_dict: dict[NJetsRange, list[PtRange]] = {}
     for proc in self.dy_leaf_processes:
-        njets = get_njets(proc)
-        stitching_ranges.setdefault(njets, [])
+        njets = proc.x.njets
+        stitching_ranges_dict.setdefault(njets, [])
         if proc.has_aux("ptll"):
-            stitching_ranges[njets].append(tuple(proc.x.ptll))
+            stitching_ranges_dict[njets].append(proc.x.ptll)
 
     # sort by the first element of the ptll range
-    stitching_ranges = [
-        (nj_range, sorted(stitching_ranges[nj_range], key=lambda ptll_range: ptll_range[0]))
-        for nj_range in sorted(stitching_ranges.keys(), key=lambda nj_range: nj_range[0])
+    stitching_ranges: list[tuple[NJetsRange, list[PtRange]]] = [
+        (nj_range, sorted(stitching_ranges_dict[nj_range], key=lambda ptll_range: ptll_range[0]))
+        for nj_range in sorted(stitching_ranges_dict.keys(), key=lambda nj_range: nj_range[0])
     ]
 
     # define a key function that maps njets and pt to a unique key for use in a lookup table
@@ -141,13 +134,13 @@ def process_ids_dy_setup(
 
         return key[0] if single else key
 
-    # save it
     self.key_func = key_func
 
-    # define the lookup table and fill it
+    # define the lookup table
     max_key = key_func(99999, 99999)
     self.id_table = sp.sparse.lil_matrix((1, max_key + 1), dtype=np.int64)
+
+    # fill it
     for proc in self.dy_leaf_processes:
-        njets = get_njets(proc)[0]
-        pt = proc.x("ptll", [-1])[0]
-        self.id_table[0, key_func(njets, pt)] = proc.id
+        key = key_func(proc.x.njets[0], proc.x("ptll", [-1])[0])
+        self.id_table[0, key] = proc.id
