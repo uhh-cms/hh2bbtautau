@@ -8,11 +8,12 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.selection.util import sorted_indices_from_mask
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 
-from hbt.util import IF_RUN_2
+from hbt.util import IF_RUN_2, IF_RUN_3
 from hbt.production.hhbtag import hhbtag
 
 
@@ -22,7 +23,7 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
-        hhbtag,
+        hhbtag, IF_RUN_3(jet_veto_map),
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
@@ -202,8 +203,8 @@ def jet_selection(
     # store some columns
     events = set_ak_column(events, "Jet.hhbtag", hhbtag_scores)
 
-    # build and return selection results plus new columns (src -> dst -> indices)
-    return events, SelectionResult(
+    # build selection results plus new columns (src -> dst -> indices)
+    result = SelectionResult(
         steps={
             "jet": jet_sel,
             # the btag weight normalization requires a selection with everything but the bjet
@@ -233,6 +234,13 @@ def jet_selection(
             "n_central_jets": ak.num(jet_indices, axis=1),
         },
     )
+
+    # additional jet veto map, vetoing entire events
+    if self.has_dep(jet_veto_map):
+        events, veto_result = self[jet_veto_map](events, **kwargs)
+        result += veto_result
+
+    return events, result
 
 
 @jet_selection.init

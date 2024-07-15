@@ -11,7 +11,7 @@ from hbt.config.util import Trigger, TriggerLeg
 # 2016 triggers as per AN of CMS-HIG-20-010 (AN2018_121_v11-1)
 
 
-def add_triggers_2016(config: od.Config, era: str) -> None:
+def add_triggers_2016(config: od.Config) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
     https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
@@ -197,7 +197,7 @@ def add_triggers_2016(config: od.Config, era: str) -> None:
         #
     ])
 
-    if era == "pre":
+    if config.campaign.has_tag("preVFP"):
         #
         # single electron
         #
