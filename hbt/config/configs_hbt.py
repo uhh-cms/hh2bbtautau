@@ -59,12 +59,14 @@ def add_config(
         run: int | None = None,
         year: int | None = None,
         postfix: str | None = None,
+        tag: str | None = None,
         values: list[str] | None = None,
     ) -> list[str]:
         match = (
             (run is None or campaign.x.run == run) and
             (year is None or campaign.x.year == year) and
-            (postfix is None or campaign.x.postfix == postfix)
+            (postfix is None or campaign.x.postfix == postfix) and
+            (tag is None or campaign.has_tag(tag))
         )
         return (values or []) if match else []
 
@@ -210,7 +212,7 @@ def add_config(
         ]),
 
         # data
-        *if_era(run=3, year=2022, postfix="", values=[
+        *if_era(run=3, year=2022, tag="preEE", values=[
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "cd"
         ]),
     ]
