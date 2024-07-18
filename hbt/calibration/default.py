@@ -7,15 +7,15 @@ Calibration methods.
 from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.cms.met import met_phi
 from columnflow.calibration.cms.jets import jec, jec_nominal, jer
+from columnflow.calibration.cms.tau import tec, tec_nominal
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.seeds import deterministic_seeds
 from columnflow.util import maybe_import
 
 from hbt.util import IF_RUN_2
-from hbt.calibration.tau import tec, tec_nominal
-
 
 ak = maybe_import("awkward")
+
 
 # derive calibrators to add settings
 jec_full = jec.derive("jec_full", cls_dict={"mc_only": True, "nominal_only": True})

@@ -64,6 +64,8 @@ def default(
     if self.dataset_inst.is_data:
         events, json_filter_results = self[json_filter](events, **kwargs)
         results += json_filter_results
+    else:
+        results += SelectionResult(steps={"json": np.ones(len(events), dtype=bool)})
 
     # met filter selection
     events, met_filter_results = self[met_filters](events, **kwargs)
