@@ -4,6 +4,8 @@
 Selection methods.
 """
 
+from __future__ import annotations
+
 from operator import and_
 from functools import reduce
 from collections import defaultdict
@@ -25,6 +27,7 @@ from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
+from hbt.production.processes import process_ids_dy
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
 np = maybe_import("numpy")
@@ -114,7 +117,10 @@ def default(
     )
 
     # create process ids
-    events = self[process_ids](events, **kwargs)
+    if self.process_ids_dy is not None:
+        events = self[self.process_ids_dy](events, **kwargs)
+    else:
+        events = self[process_ids](events, **kwargs)
 
     # some cutflow features
     events = self[cutflow_features](events, results.objects, **kwargs)
@@ -177,3 +183,28 @@ def default(
     )
 
     return events, results
+
+
+@default.init
+def default_init(self: Selector) -> None:
+    if getattr(self, "dataset_inst", None) is None:
+        return
+
+    self.process_ids_dy: process_ids_dy | None = None
+    if self.dataset_inst.has_tag("is_dy"):
+        # check if this dataset is covered by any dy id producer
+        for name, dy_cfg in self.config_inst.x.dy_stitching.items():
+            dataset_inst = dy_cfg["inclusive_dataset"]
+            # the dataset is "covered" if its process is a subprocess of that of the dy dataset
+            if dataset_inst.has_process(self.dataset_inst.processes.get_first()):
+                self.process_ids_dy = process_ids_dy.derive(f"process_ids_dy_{name}", cls_dict={
+                    "dy_inclusive_dataset": dataset_inst,
+                    "dy_leaf_processes": dy_cfg["leaf_processes"],
+                })
+
+                # add it as a dependency
+                self.uses.add(self.process_ids_dy)
+                self.produces.add(self.process_ids_dy)
+
+                # stop after the first match
+                break
