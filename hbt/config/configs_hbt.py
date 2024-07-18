@@ -452,19 +452,21 @@ def add_config(
     # tau settings
     ################################################################################################
 
-    # TODO: combine with tau_tagger info for tec
-    cfg.x.tau_energy_calibration = ("Tight", "Tight")
-
-    # name of the deep tau tagger
-    # (used in the tec calibrator)
+    # tau tagger name
+    # (needed by TECConfig below as well as tau selection)
     if run == 2:
-        # TODO: still correct?
+        # TODO: still correct? what about 2p5?
         cfg.x.tau_tagger = "DeepTau2017v2p1"
     elif run == 3:
         # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3
         cfg.x.tau_tagger = "DeepTau2018v2p5"
     else:
         assert False
+
+    # tec config
+    from columnflow.calibration.cms.tau import TECConfig
+    corrector_kwargs = {"wp": "Tight", "wp_VSe": "Tight"} if run == 3 else {}
+    cfg.x.tec = TECConfig(tagger=cfg.x.tau_tagger, corrector_kwargs=corrector_kwargs)
 
     # tau ID working points
     if campaign.x.version < 10:
