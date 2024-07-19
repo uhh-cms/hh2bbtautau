@@ -347,12 +347,12 @@ def res_pdnn_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
     # define the year based on the incoming campaign
     # (the training was done only for run 2, so map run 3 campaigns to 2018)
     self.year_flag = {
-        (2016, "pre"): 0,
-        (2016, "post"): 1,
+        (2016, "APV"): 0,
+        (2016, ""): 1,
         (2017, ""): 2,
         (2018, ""): 3,
-        (2022, "pre"): 3,
-        (2022, "post"): 3,
-        (2023, "pre"): 3,
-        (2023, "post"): 3,
+        (2022, ""): 3,
+        (2022, "EE"): 3,
+        (2023, ""): 3,
+        (2023, "BPix"): 3,
     }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
