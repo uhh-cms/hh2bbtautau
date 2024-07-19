@@ -47,7 +47,7 @@ def add_config(
     procs = get_root_processes_from_campaign(campaign)
 
     # create a config by passing the campaign, so id and name will be identical
-    cfg = analysis.add_config(campaign, name=config_name, id=config_id)
+    cfg = od.Config(name=config_name, id=config_id, campaign=campaign)
 
     ################################################################################################
     # helpers
@@ -289,21 +289,22 @@ def add_config(
     }
 
     # define inclusive datasets for the dy process identification with corresponding leaf processes
-    cfg.x.dy_stitching = {
-        "m50toinf": {
-            "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-            "leaf_processes": [
-                # the following processes cover the full njet and pt phasespace
-                procs.n.dy_m50toinf_0j,
-                *(
-                    procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
-                    for nj in [1, 2]
-                    for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                ),
-                procs.n.dy_m50toinf_ge3j,
-            ],
-        },
-    }
+    if run == 3:
+        cfg.x.dy_stitching = {
+            "m50toinf": {
+                "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                "leaf_processes": [
+                    # the following processes cover the full njet and pt phasespace
+                    procs.n.dy_m50toinf_0j,
+                    *(
+                        procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
+                        for nj in [1, 2]
+                        for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                    ),
+                    procs.n.dy_m50toinf_ge3j,
+                ],
+            },
+        }
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
