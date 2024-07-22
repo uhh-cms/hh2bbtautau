@@ -315,6 +315,12 @@ def add_config(
             "tt_multiboson",
             "ewk",
         ]),
+        "signals": [
+            "hh_ggf_*",
+            "graviton_hh_*",
+            "radion_hh_*",
+            "hh_vbf_*",
+        ],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
@@ -368,6 +374,8 @@ def add_config(
         },
     }
     cfg.x.default_custom_style_config = "small_legend"
+
+    cfg.x.default_blinding_threshold = 5e-4
 
     ################################################################################################
     # luminosity and normalization
