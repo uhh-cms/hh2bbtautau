@@ -316,10 +316,7 @@ def add_config(
             "ewk",
         ]),
         "signals": [
-            "hh_ggf_*",
-            "graviton_hh_*",
-            "radion_hh_*",
-            "hh_vbf_*",
+            "hh",
         ],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
