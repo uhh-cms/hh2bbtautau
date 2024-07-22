@@ -73,6 +73,13 @@ def stylize_processes(config: od.Config) -> None:
         p.color1 = cfg.x.colors.teal
         p.label = "W"
 
+    if (p := config.get_process("z", default=None)):
+        p.color1 = cfg.x.colors.brown
+        p.label = "Z"
+
+    if (p := config.get_process("v", default=None)):
+        p.color1 = cfg.x.colors.teal
+
     if (p := config.get_process("ewk", default=None)):
         p.color1 = cfg.x.colors.brown
 

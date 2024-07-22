@@ -76,6 +76,12 @@ def add_config(
 
     # add custom processes
     cfg.add_process(
+        name="v",
+        id=7997,
+        label="W/Z",
+        processes=[procs.n.w, procs.n.z],
+    )
+    cfg.add_process(
         name="multiboson",
         id=7998,
         label="Multiboson",
@@ -85,9 +91,7 @@ def add_config(
         name="tt_multiboson",
         id=7999,
         label=r"$t\bar{t}$ + Multiboson",
-        # enable both processes once ttv exists
-        # processes=[procs.n.ttv, procs.n.ttvv],
-        processes=[procs.n.ttvv],
+        processes=[procs.n.ttv, procs.n.ttvv],
     )
 
     # add processes we are interested in
@@ -95,12 +99,10 @@ def add_config(
         "data",
         "tt",
         "st",
-        "ttv",
-        "ttvv",
         "dy",
-        "w",
-        "ewk",
+        "v",
         "multiboson",
+        "tt_multiboson",
         "qcd",
         "h",
         "hh_ggf_hbb_htt_kl1_kt1",
@@ -114,6 +116,14 @@ def add_config(
             "hh_vbf_hbb_htt_kv1_k2v0_kl1",
             "hh_vbf_hbb_htt_kv1_k2v1_kl2",
             "hh_vbf_hbb_htt_kv1_k2v2_kl1",
+            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p030_kl10p2",
+            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
+            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43",
+            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
+            "hh_vbf_hbb_htt_kvm1p60_k2v2p72_klm1p36",
+            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
+            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
         ]),
         "graviton_hh_ggf_hbb_htt_m450",
         "graviton_hh_ggf_hbb_htt_m1200",
@@ -130,6 +140,14 @@ def add_config(
             # development switch in case datasets are not _yet_ there
             continue
 
+        # add tags to processes
+        if process_name.startswith("hh_"):
+            proc.add_tag("signal")
+            proc.add_tag("nonresonant_signal")
+        if process_name.startswith(("graviton_hh_", "radion_hh_")):
+            proc.add_tag("signal")
+            proc.add_tag("resonant_signal")
+
         # add the process
         cfg.add_process(proc)
 
@@ -145,16 +163,25 @@ def add_config(
     dataset_names = [
         # signals
         *if_era(run=3, year=2022, values=[
+            # ggf
             "hh_ggf_hbb_htt_kl1_kt1_powheg",
             "hh_ggf_hbb_htt_kl0_kt1_powheg",
             "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
             "hh_ggf_hbb_htt_kl5_kt1_powheg",
-            "hh_ggf_hbb_htt_kl0_kt1_c21_powheg",
-            "hh_ggf_hbb_htt_kl1_kt1_c23_powheg",
+            # vbf
             "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p030_kl10p2_madgraph",
+            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
+            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
+            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
+            "hh_vbf_hbb_htt_kvm1p60_k2v2p72_klm1p36_madgraph",
+            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
+            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+            # some resonances
             "graviton_hh_ggf_hbb_htt_m450_madgraph",
             "graviton_hh_ggf_hbb_htt_m1200_madgraph",
             "radion_hh_ggf_hbb_htt_m700_madgraph",
@@ -165,13 +192,13 @@ def add_config(
         "tt_dl_powheg",
         "tt_fh_powheg",
         *if_era(run=3, year=2022, values=[
-            # "ttz_llnunu_amcatnlo", not available
-            # "ttw_nlu_amcatnlo", not available
-            # "ttw_qq_amcatnlo", not available
+            "ttw_wlnu_amcatnlo",
             "ttz_zqq_amcatnlo",
+            "ttz_zll_m4to50_amcatnlo",
+            "ttz_zll_m50toinf_amcatnlo",
             "ttzz_madgraph",
-            # "ttwz_madgraph", not available
             "ttww_madgraph",
+            # "ttwz_madgraph",  # not available yet
             "st_tchannel_t_4f_powheg",
             "st_tchannel_tbar_4f_powheg",
             "st_twchannel_t_sl_powheg",
@@ -180,8 +207,8 @@ def add_config(
             "st_twchannel_tbar_dl_powheg",
             "st_twchannel_t_fh_powheg",
             "st_twchannel_tbar_fh_powheg",
-            # "st_schannel_lep_amcatnlo", not available
-            # "st_schannel_had_amcatnlo", not available
+            # "st_schannel_t_lep_4f_amcatnlo",  # no cross section yet
+            # "st_schannel_tbar_lep_4f_amcatnlo",  # no cross section yet
             "dy_m4to10_amcatnlo",
             "dy_m10to50_amcatnlo",
             "dy_m50toinf_amcatnlo",
@@ -199,9 +226,10 @@ def add_config(
             "dy_m50toinf_2j_pt400to600_amcatnlo",
             "dy_m50toinf_2j_pt600toinf_amcatnlo",
             "w_lnu_amcatnlo",
-            # "ewk_wm_lnu_m50toinf_madgraph", not available
-            # "ewk_w_lnu_m50toinf_madgraph", not available
-            # "ewk_z_ll_m50toinf_madgraph", not available
+            "z_qq_pt100to200_1j_amcatnlo",
+            "z_qq_pt100to200_2j_amcatnlo",
+            "z_qq_pt200to400_1j_amcatnlo",
+            "z_qq_pt200to400_2j_amcatnlo",  # literally no events selected above 400 GeV
             "zz_pythia",
             "wz_pythia",
             "ww_pythia",
@@ -211,18 +239,17 @@ def add_config(
             "www_4f_amcatnlo",
             "h_ggf_htt_powheg",
             "h_vbf_htt_powheg",
-            # "zh_tautau_powheg", not available
             "vh_hnonbb_amcatnlo",
             "zh_zll_hbb_powheg",
             "zh_zqq_hbb_powheg",
-            "wmh_wlnu_hbb_powheg",
+            "zh_htt_powheg",
+            "wph_htt_powheg",
+            "wmh_htt_powheg",
             "wph_wlnu_hbb_powheg",
+            "wmh_wlnu_hbb_powheg",
             "zh_gg_zll_hbb_powheg",
             "zh_gg_znunu_hbb_powheg",
             "zh_gg_zqq_hbb_powheg",
-            # "wph_tautau_powheg", not available
-            # "wmh_tautau_powheg", not available
-            # "tth_tautau_powheg", not available
             "tth_hbb_powheg",
             "tth_hnonbb_powheg",
         ]),
@@ -245,6 +272,12 @@ def add_config(
             dataset.add_tag("is_dy")
         if re.match(r"^(ww|wz|zz)_.*pythia$", dataset.name):
             dataset.add_tag("no_lhe_weights")
+        if dataset_name.startswith("hh_"):
+            dataset.add_tag("signal")
+            dataset.add_tag("nonresonant_signal")
+        if dataset_name.startswith(("graviton_hh_", "radion_hh_")):
+            dataset.add_tag("signal")
+            dataset.add_tag("resonant_signal")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
@@ -277,7 +310,7 @@ def add_config(
             "dy",
             "qcd",
             "st",
-            "w",
+            "v",
             "multiboson",
             "tt_multiboson",
             "ewk",
