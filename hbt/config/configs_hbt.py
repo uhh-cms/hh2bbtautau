@@ -297,8 +297,8 @@ def add_config(
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "test_no_shifts"
-    cfg.x.default_categories = ("incl",)
-    cfg.x.default_variables = ("n_jet", "n_btag")
+    cfg.x.default_categories = ("incl__os__iso",)
+    cfg.x.default_variables = ("n_jet", "n_btag", "res_pdnn_hh")
     cfg.x.default_weight_producer = "default"
 
     # process groups for conveniently looping over certain processs
@@ -1036,7 +1036,7 @@ def add_config(
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
 
     ################################################################################################
-    # external configs: channels, categories, met filters, triggers, variables
+    # external configs: channels, categories, met filters, triggers, variables, hist hooks
     ################################################################################################
 
     # channels
@@ -1075,6 +1075,10 @@ def add_config(
         add_triggers_2023(cfg)
     else:
         raise False
+
+    # add hist hooks
+    from hbt.config.hist_hooks import add_hist_hooks
+    add_hist_hooks(cfg)
 
     ################################################################################################
     # LFN settings
