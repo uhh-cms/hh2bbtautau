@@ -105,6 +105,7 @@ def add_config(
         "tt_multiboson",
         "qcd",
         "h",
+        "hh",
         "hh_ggf_hbb_htt_kl1_kt1",
         *if_era(run=3, year=2022, values=[
             "hh_ggf_hbb_htt_kl0_kt1",
