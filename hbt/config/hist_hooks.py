@@ -26,10 +26,11 @@ def add_hist_hooks(config: od.Config) -> None:
     Add histogram hooks to a configuration.
     """
     # helper to convert a histogram to a number object containing bin values and uncertainties
+    # from variances stored in an array of values
     def hist_to_num(h: hist.Histogram, unc_name=str(sn.DEFAULT)) -> sn.Number:
         return sn.Number(h.values(), {unc_name: h.variances()**0.5})
 
-    # helper to integrate values stored in an array bsaed number object
+    # helper to integrate values stored in an array based number object
     def integrate_num(num: sn.Number, axis=None) -> sn.Number:
         return sn.Number(
             nominal=num.nominal.sum(axis=axis),
@@ -51,7 +52,7 @@ def add_hist_hooks(config: od.Config) -> None:
         if not qcd_proc:
             return hists
 
-        # extract all uniique category ids and verify that the axis order is exactly
+        # extract all unique category ids and verify that the axis order is exactly
         # "category -> shift -> variable" which is needed to insert values at the end
         CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
         category_ids = set()
