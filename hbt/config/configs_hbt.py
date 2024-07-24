@@ -105,7 +105,6 @@ def add_config(
         "tt_multiboson",
         "qcd",
         "h",
-        "hh",
         "hh_ggf_hbb_htt_kl1_kt1",
         *if_era(run=3, year=2022, values=[
             "hh_ggf_hbb_htt_kl0_kt1",
@@ -305,6 +304,9 @@ def add_config(
     # process groups for conveniently looping over certain processs
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {
+        "signals": [
+            "hh_ggf_hbb_htt_kl1_kt1",
+        ],
         "backgrounds": (backgrounds := [
             "h",
             "tt",
@@ -316,9 +318,6 @@ def add_config(
             "tt_multiboson",
             "ewk",
         ]),
-        "signals": [
-            "hh",
-        ],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
@@ -373,7 +372,7 @@ def add_config(
     }
     cfg.x.default_custom_style_config = "small_legend"
 
-    cfg.x.default_blinding_threshold = 5e-4
+    cfg.x.default_blinding_threshold = 7e-4
 
     ################################################################################################
     # luminosity and normalization
