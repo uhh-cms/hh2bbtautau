@@ -1,6 +1,5 @@
 import order as od
 from columnflow.util import maybe_import
-from columnflow.columnar_util import fill_hist
 
 hist = maybe_import("hist")
 
@@ -78,9 +77,11 @@ def add_hooks(cfg: od.Config):
                 if cat_parent not in regions:
                     regions[cat_parent] = {}
                     rate_int_dic[cat_parent] = {}
-                    create_regions(rate, rate_int_dic, rate_int, cat_id, regions, mc_hist, data_hist, cat_name, cat_parent)
+                    create_regions(rate, rate_int_dic, rate_int, cat_id, regions, mc_hist, data_hist, cat_name,
+                    cat_parent)
                 else:
-                    create_regions(rate, rate_int_dic, rate_int, cat_id, regions, mc_hist, data_hist, cat_name, cat_parent)
+                    create_regions(rate, rate_int_dic, rate_int, cat_id, regions, mc_hist, data_hist, cat_name,
+                    cat_parent)
 
             # NOTE: the ABCD regions have the same entries for both parent categories (incl and 2j) why ?
 
