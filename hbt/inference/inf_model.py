@@ -6,7 +6,7 @@ def test_unc(self):
     self.add_category(
         "channel",
         config_category="incl",
-        config_variable="hh.mass",
+        config_variable="hh_mass",
         # fake data
         data_from_processes=["TT", "dy"],
         mc_stats=True,
@@ -28,7 +28,7 @@ def test_unc(self):
     self.add_process(
         "hh_ggf",
         is_signal=True,
-        config_process="hh_ggf_bbtautau",
+        config_process="hh_ggf_hbb_htt_kl1_kt1",
     )
 
     #
