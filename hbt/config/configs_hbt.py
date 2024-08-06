@@ -307,6 +307,12 @@ def add_config(
         "signals": [
             "hh_ggf_hbb_htt_kl1_kt1",
         ],
+        "signals_ggf": [
+            "hh_ggf_hbb_htt_kl0_kt1",
+            "hh_ggf_hbb_htt_kl1_kt1",
+            "hh_ggf_hbb_htt_kl2p45_kt1",
+            "hh_ggf_hbb_htt_kl5_kt1",
+        ],
         "backgrounds": (backgrounds := [
             "h",
             "tt",
@@ -406,19 +412,19 @@ def add_config(
         })
     elif year == 2022 and campaign.has_tag("preEE"):
         cfg.x.luminosity = Number(7980.4, {
-            "total": 0.014j,
+            "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
         cfg.x.luminosity = Number(26671.7, {
-            "total": 0.014j,
+            "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2023:
         cfg.x.luminosity = Number(27208, {
-            "lumi_13TeV_correlated": 0.0j,
+            "lumi_13p6TeV_correlated": 0.0j,
         })
     elif year == 2024:
         cfg.x.luminosity = Number(0, {
-            "lumi_13TeV_correlated": 0.0j,
+            "lumi_13p6TeV_correlated": 0.0j,
         })
     else:
         assert False

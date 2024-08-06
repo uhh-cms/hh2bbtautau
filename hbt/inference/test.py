@@ -16,18 +16,11 @@ def test(self):
 
     self.add_category(
         "cat1",
-        config_category="incl",
-        config_variable="ht",
-        config_data_datasets=["data_mu_b"],
-        mc_stats=True,
-    )
-    self.add_category(
-        "cat2",
-        config_category="2j",
-        config_variable="jet1_pt",
-        # fake data from TT
-        data_from_processes=["TT"],
-        mc_stats=True,
+        config_category="incl__os__iso",
+        config_variable="res_pdnn_hh",
+        config_data_datasets=["data_mu_c", "data_mu_d"],
+        # data_from_processes=["TT"],
+        mc_stats=10.0,
     )
 
     #
@@ -37,8 +30,8 @@ def test(self):
     self.add_process(
         "HH",
         is_signal=True,
-        config_process="hh_ggf_bbtautau",
-        config_mc_datasets=["hh_ggf_bbtautau_madgraph"],
+        config_process="hh_ggf_hbb_htt_kl1_kt1",
+        config_mc_datasets=["hh_ggf_hbb_htt_kl1_kt1_powheg"],
     )
     self.add_process(
         "TT",
@@ -62,50 +55,54 @@ def test(self):
             type=ParameterType.rate_gauss,
             effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
             transformations=[ParameterTransformation.symmetrize],
+            group="experiment",
         )
 
-    # minbias xs
-    self.add_parameter(
-        "CMS_pileup",
-        type=ParameterType.shape,
-        config_shift_source="minbias_xs",
-    )
-    self.add_parameter_to_group("CMS_pileup", "experiment")
+    # # minbias xs
+    # self.add_parameter(
+    #     "CMS_pileup",
+    #     type=ParameterType.shape,
+    #     config_shift_source="minbias_xs",
+    #     group="experiment",
+    # )
+    # self.add_parameter_to_group("CMS_pileup", "experiment")
 
-    # and again minbias xs, but encoded as a symmetrized rate
-    self.add_parameter(
-        "CMS_pileup2",
-        type=ParameterType.rate_uniform,
-        transformations=[
-            ParameterTransformation.effect_from_shape,
-            ParameterTransformation.symmetrize,
-        ],
-        config_shift_source="minbias_xs",
-    )
-    self.add_parameter_to_group("CMS_pileup2", "experiment")
+    # # and again minbias xs, but encoded as a symmetrized rate
+    # self.add_parameter(
+    #     "CMS_pileup2",
+    #     type=ParameterType.rate_uniform,
+    #     transformations=[
+    #         ParameterTransformation.effect_from_shape,
+    #         ParameterTransformation.symmetrize,
+    #     ],
+    #     config_shift_source="minbias_xs",
+    #     group="experiment",
+    # )
+    # self.add_parameter_to_group("CMS_pileup2", "experiment")
 
-    # a custom asymmetric uncertainty that is converted from rate to shape
-    self.add_parameter(
-        "QCDscale_ttbar",
-        process="TT",
-        type=ParameterType.shape,
-        transformations=[ParameterTransformation.effect_from_rate],
-        effect=(0.5, 1.1),
-    )
+    # # a custom asymmetric uncertainty that is converted from rate to shape
+    # self.add_parameter(
+    #     "QCDscale_ttbar",
+    #     process="TT",
+    #     type=ParameterType.shape,
+    #     transformations=[ParameterTransformation.effect_from_rate],
+    #     effect=(0.5, 1.1),
+    #     group="theory",
+    # )
 
-    # test
-    self.add_parameter(
-        "QCDscale_ttbar_uniform",
-        category="cat1",
-        process="TT",
-        type=ParameterType.rate_uniform,
-    )
-    self.add_parameter(
-        "QCDscale_ttbar_unconstrained",
-        category="cat2",
-        process="TT",
-        type=ParameterType.rate_unconstrained,
-    )
+    # # test
+    # self.add_parameter(
+    #     "QCDscale_ttbar_uniform",
+    #     category="cat1",
+    #     process="TT",
+    #     type=ParameterType.rate_uniform,
+    # )
+    # self.add_parameter(
+    #     "QCDscale_ttbar_unconstrained",
+    #     category="cat2",
+    #     process="TT",
+    #     type=ParameterType.rate_unconstrained,
+    # )
 
 
 @inference_model
