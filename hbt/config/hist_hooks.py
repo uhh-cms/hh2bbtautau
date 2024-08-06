@@ -172,6 +172,23 @@ def add_hist_hooks(config: od.Config) -> None:
 
         return hists
 
+    def hh_morphing(task, hists):
+        # guidance points: kl = {0, 1, 2.45}
+        # created point: kl = 5
+        proc = od.Process("hh_ggf_hbb_htt_kl5_kt1_morphed", id="+", label="hihi")
+
+        # model procs = ...
+
+        # create the new hist
+        hists[proc] = model_procs[0].copy().reset()
+
+        # morphing here ...
+
+
+        from IPython import embed; embed(header="do stuff")
+
+
     config.x.hist_hooks = {
         "qcd": qcd_estimation,
+        "hh_morphing": hh_morphing,
     }
