@@ -172,21 +172,88 @@ def add_hist_hooks(config: od.Config) -> None:
 
         return hists
 
+    def read_coupling_values(couplings):
+        coupling_list = couplings.split("_")
+        coupling_dict = {}
+        for coupling in coupling_list:
+            if coupling.startswith("kl"):
+                coupling_dict["kl"] = float(coupling[2:].replace("p", "."))
+            elif coupling.startswith("kt"):
+                coupling_dict["kt"] = float(coupling[2:].replace("p", "."))
+        return coupling_dict
+
     def hh_morphing(task, hists):
         # guidance points: kl = {0, 1, 2.45}
-        # created point: kl = 5
-        proc = od.Process("hh_ggf_hbb_htt_kl5_kt1_morphed", id="+", label="hihi")
+        guidance_points = ["0", "1", "2p45"]
+        guidance_points_float = [float(i.replace("p", ".")) for i in guidance_points]
 
-        # model procs = ...
+        model_procs = [
+            config.get_process(f"hh_ggf_hbb_htt_kl{i}_kt1", default=None)
+            for i in guidance_points
+        ]
+        if not all(model_procs):
+            return hists
+
+        # created point: kl = 5, kt = 1
+        target_point = "kl5_kt1"
+        new_proc = od.Process(
+            "hh_ggf_hbb_htt_kl5_kt1_morphed",
+            id=21130,
+            label=r"morphed $HH_{ggf} \rightarrow bb\tau\tau$ "
+            "\n"
+            r"($\kappa_{\lambda}=5$, $\kappa_{t}=1$)",
+        )
+
+        # verify that the axis order is exactly "category -> shift -> variable"
+        # which is needed to insert values at the end
+        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
+        for h in hists.values():
+            # validate axes
+            assert len(h.axes) == 3
+            assert h.axes[CAT_AXIS].name == "category"
+            assert h.axes[SHIFT_AXIS].name == "shift"
+
+        # get model histograms, stop early when not three present
+        model_hists = [h for p, h in hists.items() if p in model_procs]
+        if len(model_hists) != 3:
+            raise Exception("not all three model histograms present, morphing cannot occur")
+            return hists
 
         # create the new hist
-        hists[proc] = model_procs[0].copy().reset()
+        hists[new_proc] = model_hists[0].copy().reset()
 
-        # morphing here ...
+        # prepare morphing here
+        # build guidance matrix from guidance points
+        # knowing that all model hists have kt=1
+        # (formula for any kt: (kt**2*kl**2,kt**4,kt**3*kl))
+        guidance_matrix = np.array([
+            [guidance_point**2, 1, guidance_point] for guidance_point in guidance_points_float
+        ])
 
+        # inverse guidance matrix
+        inv_guidance_matrix = np.linalg.inv(guidance_matrix)
 
-        from IPython import embed; embed(header="do stuff")
+        # new coefficients for the newly created point
+        kl = read_coupling_values(target_point)["kl"]
+        kt = read_coupling_values(target_point)["kt"]
+        new_coefficients = np.array([kt**2 * kl**2, kt**4, kt**3 * kl])
 
+        # morphing
+        model_values = np.array([
+            model_hists[i].view().value for i in range(3)
+        ])
+
+        # morphed values
+        original_hist_shape = hists[new_proc].view().value.shape
+        morphed_values = np.matmul(
+            np.matmul(new_coefficients, inv_guidance_matrix),
+            model_values.reshape(3, -1),
+        ).reshape(original_hist_shape)
+
+        # insert values into the new histogram
+        hists[new_proc].view().value = morphed_values
+
+        return hists
 
     config.x.hist_hooks = {
         "qcd": qcd_estimation,
