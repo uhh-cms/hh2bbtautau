@@ -7,6 +7,7 @@ Histogram hooks.
 from __future__ import annotations
 
 from collections import defaultdict
+from functools import partial
 
 import law
 import order as od
@@ -182,9 +183,8 @@ def add_hist_hooks(config: od.Config) -> None:
                 coupling_dict["kt"] = float(coupling[2:].replace("p", "."))
         return coupling_dict
 
-    def hh_morphing(task, hists):
-        # guidance points: kl = {0, 1, 2.45}
-        guidance_points = ["0", "1", "2p45"]
+    def hh_morphing(task, hists, guidance_points=["0", "1", "2p45"], target_point="kl5_kt1"):
+
         guidance_points_float = [float(i.replace("p", ".")) for i in guidance_points]
 
         model_procs = [
@@ -193,16 +193,6 @@ def add_hist_hooks(config: od.Config) -> None:
         ]
         if not all(model_procs):
             return hists
-
-        # created point: kl = 5, kt = 1
-        target_point = "kl5_kt1"
-        new_proc = od.Process(
-            "hh_ggf_hbb_htt_kl5_kt1_morphed",
-            id=21130,
-            label=r"morphed $HH_{ggf} \rightarrow bb\tau\tau$ "
-            "\n"
-            r"($\kappa_{\lambda}=5$, $\kappa_{t}=1$)",
-        )
 
         # verify that the axis order is exactly "category -> shift -> variable"
         # which is needed to insert values at the end
@@ -219,9 +209,6 @@ def add_hist_hooks(config: od.Config) -> None:
             raise Exception("not all three model histograms present, morphing cannot occur")
             return hists
 
-        # create the new hist
-        hists[new_proc] = model_hists[0].copy().reset()
-
         # prepare morphing here
         # build guidance matrix from guidance points
         # knowing that all model hists have kt=1
@@ -237,6 +224,18 @@ def add_hist_hooks(config: od.Config) -> None:
         kl = read_coupling_values(target_point)["kl"]
         kt = read_coupling_values(target_point)["kt"]
         new_coefficients = np.array([kt**2 * kl**2, kt**4, kt**3 * kl])
+
+        # create the new process
+        new_proc = od.Process(
+            f"hh_ggf_hbb_htt_{target_point}_morphed",
+            id=21130,
+            label=r"morphed $HH_{ggf} \rightarrow bb\tau\tau$ "
+            "\n"
+            r"($\kappa_{\lambda}=$" + str(kl) + r", $\kappa_{t}=$" + str(kt) + ")",
+        )
+
+        # create the new hist
+        hists[new_proc] = model_hists[0].copy().reset()
 
         # morphing
         model_values = np.array([
@@ -257,5 +256,8 @@ def add_hist_hooks(config: od.Config) -> None:
 
     config.x.hist_hooks = {
         "qcd": qcd_estimation,
-        "hh_morphing": hh_morphing,
+        "hh_morphing_kl5_kt1": partial(hh_morphing, guidance_points=["0", "1", "2p45"], target_point="kl5_kt1"),
+        "hh_morphing_kl2p45_kt1": partial(hh_morphing, guidance_points=["0", "1", "5"], target_point="kl2p45_kt1"),
+        "hh_morphing_kl1_kt1": partial(hh_morphing, guidance_points=["0", "2p45", "5"], target_point="kl1_kt1"),
+        "hh_morphing_kl0_kt1": partial(hh_morphing, guidance_points=["1", "2p45", "5"], target_point="kl0_kt1"),
     }
