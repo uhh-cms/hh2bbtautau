@@ -25,21 +25,8 @@ def add_categories(config: od.Config) -> None:
     add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"$\tau_{h,2} non-isolated$", tags={"noniso"})  # noqa: E501
 
     # kinematic categories
-    add_category(
-        config,
-        name="incl",
-        id=100,
-        selection="cat_incl",
-        label="inclusive",
-    )
-
-    add_category(
-        config,
-        name="2j",
-        id=110,
-        selection="cat_2j",
-        label="2 jets",
-    )
+    add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
+    add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
 
     #
     # build groups
