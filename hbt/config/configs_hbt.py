@@ -378,7 +378,7 @@ def add_config(
     }
     cfg.x.default_custom_style_config = "small_legend"
 
-    cfg.x.default_blinding_threshold = 7e-4
+    cfg.x.default_blinding_threshold = 3e-4
 
     ################################################################################################
     # luminosity and normalization
@@ -411,15 +411,15 @@ def add_config(
             "lumi_13TeV_correlated": 0.02j,
         })
     elif year == 2022 and campaign.has_tag("preEE"):
-        cfg.x.luminosity = Number(7980.4, {
+        cfg.x.luminosity = Number(7_980.4, {
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
-        cfg.x.luminosity = Number(26671.7, {
+        cfg.x.luminosity = Number(26_671.7, {
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2023:
-        cfg.x.luminosity = Number(27208, {
+        cfg.x.luminosity = Number(27_208, {
             "lumi_13p6TeV_correlated": 0.0j,
         })
     elif year == 2024:
@@ -957,6 +957,8 @@ def add_config(
     add_external("hh_btag_repo", ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"))  # noqa
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1"))
+    # non-parametric (flat) training up to mX = 800 GeV
+    add_external("res_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3_nonparam/model_fold0.tgz", "v1"))
 
     # run specific files
     if run == 2:

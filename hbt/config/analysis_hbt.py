@@ -74,6 +74,7 @@ def add_lazy_config(
                 campaign.copy(),
                 config_name=config_name + config_name_postfix,
                 config_id=config_id,
+                limit_dataset_files=limit_dataset_files,
                 **kwargs,
             )
         return factory
