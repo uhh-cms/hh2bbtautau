@@ -311,7 +311,7 @@ def plot_bin_morphing(
         list(guidance_hists.values())[i].values()[..., chosen_bin][0] for i in range(3)
     ])
 
-    guidance_chosen_bins_errors = np.array([
+    guidance_chosen_bins_variances = np.array([
         list(guidance_hists.values())[i].variances()[..., chosen_bin][0] for i in range(3)
     ])
 
@@ -321,14 +321,14 @@ def plot_bin_morphing(
     def parabola(x, a, b, c):
         return a * x**2 + b * x + c
 
-    popt, pcov = curve_fit(parabola, guidance_points, guidance_chosen_bins_values, sigma=guidance_chosen_bins_errors)
+    popt, pcov = curve_fit(parabola, guidance_points, guidance_chosen_bins_values, sigma=guidance_chosen_bins_variances)
 
     # plot the parabola
     fig, ax = plt.subplots()
     axs = (ax,)
     mplhep.style.use("CMS")
 
-    x = np.linspace(-5, 10, 150)
+    x = np.linspace(-1, 6, 150)
     y = parabola(x, *popt)
 
     ax.plot(x, y, label="Parabola fit", color="black")
@@ -337,7 +337,7 @@ def plot_bin_morphing(
     ax.errorbar(
         guidance_points,
         guidance_chosen_bins_values,
-        yerr=guidance_chosen_bins_errors,
+        yerr=np.sqrt(guidance_chosen_bins_variances),
         fmt="bo",
         label="Guidance points",
     )
@@ -345,8 +345,8 @@ def plot_bin_morphing(
     # plot the chosen bin values for morphed and non-morphed histograms
     morphed_hist_name = list(morphed_hists.keys())[0].name
     morphed_point = float(morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1_morphed", "").replace("p", "."))  # noqa
-    ax.errorbar(morphed_point, morphed_chosen_bin[0], yerr=morphed_chosen_bin[1], fmt="r+", label="Morphed")
-    ax.errorbar(morphed_point, non_morphed_chosen_bin[0], yerr=non_morphed_chosen_bin[1], fmt="go", label="True value")
+    ax.errorbar(morphed_point, morphed_chosen_bin[0], yerr=np.sqrt(morphed_chosen_bin[1]), fmt="r+", label="Morphed")
+    ax.errorbar(morphed_point, non_morphed_chosen_bin[0], yerr=np.sqrt(non_morphed_chosen_bin[1]), fmt="go", label="True value")  # noqa
 
     ax.set_xlabel("kl")
     ax.set_ylabel(bin_type + " value")

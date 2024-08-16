@@ -253,8 +253,10 @@ def add_hist_hooks(config: od.Config) -> None:
         hists[new_proc] = model_hists[0].copy().reset()
 
         # morphing
+        # be careful with the order, the categories can be shuffled around in the different histograms
+        # so sort the values by the categories
         model_values = np.array([
-            model_hists[i].view().value for i in range(3)
+            model_hists[i].view().value[np.argsort(model_hists[i].axes[0])] for i in range(3)
         ])
 
         # morphed values
@@ -264,8 +266,11 @@ def add_hist_hooks(config: od.Config) -> None:
             model_values.reshape(3, -1),
         ).reshape(original_hist_shape)
 
+        # reshape the values to the correct categorization
+        morphed_values_correct_categorization = morphed_values[np.argsort(np.argsort(model_hists[0].axes[0]))]
+
         # insert values into the new histogram
-        hists[new_proc].view().value = morphed_values
+        hists[new_proc].view().value = morphed_values_correct_categorization
 
         return hists
 
