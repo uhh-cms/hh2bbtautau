@@ -248,11 +248,19 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$\eta$",
     )
 
-    # outputs of the resonant pDNN at SM-like mass and spin values
     for proc in ["hh", "tt", "dy"]:
+        # outputs of the resonant pDNN at SM-like mass and spin values
         config.add_variable(
             name=f"res_pdnn_{proc}",
             expression=f"res_pdnn_s0_m500_{proc}",
             binning=(25, 0.0, 1.0),
             x_title=rf"{proc.upper()} output node, res. pDNN$_{{m_{{HH}}=500\,GeV,s=0}}$",
+        )
+
+        # outputs of the resonant DNN trained over flat masses
+        config.add_variable(
+            name=f"res_dnn_{proc}",
+            expression=f"res_dnn_{proc}",
+            binning=(25, 0.0, 1.0),
+            x_title=rf"{proc.upper()} output node, res. DNN",
         )

@@ -60,13 +60,12 @@ def test_unc(self):
 
     # electron uncertainty
     self.add_parameter(
-        "CMS_eff_e",  # this is the name of the uncertainty as it will show in the datacard. Let's use some variant of the official naming
+        "CMS_eff_e",  # this is the name of the uncertainty as it will show in the datacard. Let's use some variant of the official naming # noqa
         process="*",
         type=ParameterType.shape,
         config_shift_source="e",  # this is the name of the shift (alias) in the config
     )
     self.add_parameter_to_group("CMS_eff_e", "experiment")
-
 
     # a custom asymmetric uncertainty
     self.add_parameter(
@@ -77,7 +76,6 @@ def test_unc(self):
         effect=(0.85, 1.1),
     )
     self.add_parameter_to_group("QCDscale_ttbar", "experiment")
-
 
     """
     # tune uncertainty

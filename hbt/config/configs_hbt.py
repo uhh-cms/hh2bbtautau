@@ -117,11 +117,11 @@ def add_config(
             "hh_vbf_hbb_htt_kv1_k2v1_kl2",
             "hh_vbf_hbb_htt_kv1_k2v2_kl1",
             "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
-            "hh_vbf_hbb_htt_kvm0p012_k2v0p030_kl10p2",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
             "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
             "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43",
             "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
-            "hh_vbf_hbb_htt_kvm1p60_k2v2p72_klm1p36",
+            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
             "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
             "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
         ]),
@@ -174,11 +174,11 @@ def add_config(
             "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",
             "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-            "hh_vbf_hbb_htt_kvm0p012_k2v0p030_kl10p2_madgraph",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
             "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
             "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
             "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
-            "hh_vbf_hbb_htt_kvm1p60_k2v2p72_klm1p36_madgraph",
+            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
             "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
             "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
             # some resonances
@@ -296,9 +296,9 @@ def add_config(
     cfg.x.default_selector = "default"
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
-    cfg.x.default_inference_model = "test_no_shifts"
+    cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("incl__os__iso",)
-    cfg.x.default_variables = ("n_jet", "n_btag", "res_pdnn_hh")
+    cfg.x.default_variables = ("n_jet", "n_btag", "res_pdnn_hh", "res_dnn_hh")
     cfg.x.default_weight_producer = "default"
 
     # process groups for conveniently looping over certain processs
@@ -306,6 +306,12 @@ def add_config(
     cfg.x.process_groups = {
         "signals": [
             "hh_ggf_hbb_htt_kl1_kt1",
+        ],
+        "signals_ggf": [
+            "hh_ggf_hbb_htt_kl0_kt1",
+            "hh_ggf_hbb_htt_kl1_kt1",
+            "hh_ggf_hbb_htt_kl2p45_kt1",
+            "hh_ggf_hbb_htt_kl5_kt1",
         ],
         "backgrounds": (backgrounds := [
             "h",
@@ -372,7 +378,7 @@ def add_config(
     }
     cfg.x.default_custom_style_config = "small_legend"
 
-    cfg.x.default_blinding_threshold = 7e-4
+    cfg.x.default_blinding_threshold = 3e-4
 
     ################################################################################################
     # luminosity and normalization
@@ -405,20 +411,20 @@ def add_config(
             "lumi_13TeV_correlated": 0.02j,
         })
     elif year == 2022 and campaign.has_tag("preEE"):
-        cfg.x.luminosity = Number(7980.4, {
-            "total": 0.014j,
+        cfg.x.luminosity = Number(7_980.4, {
+            "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
-        cfg.x.luminosity = Number(26671.7, {
-            "total": 0.014j,
+        cfg.x.luminosity = Number(26_671.7, {
+            "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2023:
-        cfg.x.luminosity = Number(27208, {
-            "lumi_13TeV_correlated": 0.0j,
+        cfg.x.luminosity = Number(27_208, {
+            "lumi_13p6TeV_correlated": 0.0j,
         })
     elif year == 2024:
         cfg.x.luminosity = Number(0, {
-            "lumi_13TeV_correlated": 0.0j,
+            "lumi_13p6TeV_correlated": 0.0j,
         })
     else:
         assert False
@@ -951,6 +957,8 @@ def add_config(
     add_external("hh_btag_repo", ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"))  # noqa
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1"))
+    # non-parametric (flat) training up to mX = 800 GeV
+    add_external("res_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3_nonparam/model_fold0.tgz", "v1"))
 
     # run specific files
     if run == 2:

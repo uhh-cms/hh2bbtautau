@@ -19,9 +19,6 @@ from hbt.production.btag import normalized_btag_weights
 from hbt.production.tau import tau_weights, trigger_weights
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
-from hbt.production.hh_mass import hh_mass
-
-
 ak = maybe_import("awkward")
 
 

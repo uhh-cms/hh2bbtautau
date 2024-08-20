@@ -26,16 +26,6 @@ logger = law.logger.get_logger(__name__)
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
-def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Array, ak.Array]:
-    """
-    Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
-    angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
-    """
-    new_phi = np.arctan2(py, px) - ref_phi
-    pt = (px**2 + py**2)**0.5
-    return pt * np.cos(new_phi), pt * np.sin(new_phi)
-
-
 @producer(
     uses={
         attach_coffea_behavior,
@@ -50,25 +40,27 @@ def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Arr
         "MET.{pt,phi,covXX,covXY,covYY}",
         "FatJet.{eta,phi,pt,mass}",
     },
+    # whether the model is parameterized in mass, spin and year
+    # (this is a slight forward declaration but simplifies the code reasonably well in our use case)
+    parametrized=None,
+    # limited chunk size to avoid memory issues
+    max_chunk_size=5_000,
     # produced columns are added in the deferred init below
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
-    # kwargs passed to the parametrized network
-    mass=500,
-    spin=0,
+    # not exposed to be called from the command line
+    exposed=False,
 )
-def res_pdnn(
+def _res_dnn_evaluation(
     self: Producer,
     events: ak.Array,
     **kwargs,
 ) -> ak.Array:
     """
-    The producer for the combined multiclass classfifer network used by HBT resonnant analysis.
+    Base producer for dnn evaluations of the resonant run 2 analyses, whose models are considered
+    external and thus part of producers rather than standalone ml model objects.
     The output scores are classifying if incoming events are HH, Drell-Yan or ttbar.
-    The network uses continous, categorical and parametrized inputs.
-    The network is parametrized in *year*, *spin*, *mass*.
-    Since the network was trained on Run2 data, Run3 uses 2018 as parameter.
-
-    A list of all inputs in the correct order can be found in the tautauNN repo:
+    The network uses continous, categorical and parametrized inputs. A list of all inputs in the
+    correct order can be found in the tautauNN repo:
     https://github.com/uhh-cms/tautauNN/blob/f1ca194/evaluation/interface.py#L67
     """
     tf = maybe_import("tensorflow")
@@ -219,8 +211,8 @@ def res_pdnn(
 
     # build continous inputs
     # (order exactly as documented in link above)
-    continous_inputs = tf.concat(
-        [t[..., None] for t in [
+    continous_inputs = [
+        t[..., None] for t in [
             f.met_px, f.met_py, f.met_cov00, f.met_cov01, f.met_cov11,
             f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
             f.vis_tau2_px, f.vis_tau2_py, f.vis_tau2_pz, f.vis_tau2_e,
@@ -231,29 +223,28 @@ def res_pdnn(
             f.hbb_e, f.hbb_px, f.hbb_py, f.hbb_pz,
             f.htthbb_e, f.htthbb_px, f.htthbb_py, f.htthbb_pz,
             f.httfatjet_e, f.httfatjet_px, f.httfatjet_py, f.httfatjet_pz,
-            self.mass * np.ones(len(_events), dtype=np.float32),
-        ]],
-        axis=1,
-    )
+            (self.mass * np.ones(len(_events), dtype=np.float32)) if self.parametrized else None,
+        ]
+        if t is not None
+    ]
 
     # build categorical inputs
     # (order exactly as documented in link above)
-    categorical_inputs = tf.concat(
-        [t[..., None] for t in [
+    categorical_inputs = [
+        t[..., None] for t in [
             pair_type,
             dm1, dm2,
             vis_tau1.charge, vis_tau2.charge,
             has_jet_pair, has_fatjet,
-            self.year_flag * np.ones(len(_events), dtype=np.int32),
-            self.spin * np.ones(len(_events), dtype=np.int32),
-        ]],
-        axis=1,
-    )
+            (self.year_flag * np.ones(len(_events), dtype=np.int32)) if self.parametrized else None,
+            (self.spin * np.ones(len(_events), dtype=np.int32)) if self.parametrized else None,
+        ] if t is not None
+    ]
 
     # evaluate the model
-    scores = self.res_pdnn_model(
-        cont_input=continous_inputs,
-        cat_input=categorical_inputs,
+    scores = self.res_model(
+        cont_input=tf.concat(continous_inputs, axis=1),
+        cat_input=tf.concat(categorical_inputs, axis=1),
     )["hbt_ensemble"].numpy()
 
     # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
@@ -275,29 +266,8 @@ def res_pdnn(
     return events
 
 
-@res_pdnn.init
-def res_pdnn_init(self: Producer) -> None:
-    # check spin value and mass values
-    if self.spin not in {0, 2}:
-        raise ValueError(f"invalid spin value: {self.spin}")
-    if self.mass < 250:
-        raise ValueError(f"invalid mass value: {self.mass}")
-
-    # output column names (in this order)
-    self.output_columns = [
-        f"res_pdnn_s{self.spin}_m{self.mass}_{name}"
-        for name in ["hh", "tt", "dy"]
-    ]
-
-    # update produced columns
-    self.produces |= set(self.output_columns)
-
-
-@res_pdnn.requires
-def res_pdnn_requires(self: Producer, reqs: dict) -> None:
-    """
-    Add the external files bundle to requirements.
-    """
+@_res_dnn_evaluation.requires
+def _res_dnn_evaluation_requires(self: Producer, reqs: dict) -> None:
     if "external_files" in reqs:
         return
 
@@ -305,23 +275,29 @@ def res_pdnn_requires(self: Producer, reqs: dict) -> None:
     reqs["external_files"] = BundleExternalFiles.req(self.task)
 
 
-@res_pdnn.setup
-def res_pdnn_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
-    """
-    Sets up the two tautauNN TF models.
-    """
+@_res_dnn_evaluation.setup
+def _res_dnn_evaluation_setup(
+    self: Producer,
+    reqs: dict,
+    inputs: dict,
+    reader_targets: InsertableDict,
+) -> None:
     tf = maybe_import("tensorflow")
+
+    # some checks
+    if not isinstance(self.parametrized, bool):
+        raise AttributeError("'parametrized' must be set in the producer configuration")
 
     # unpack the model archive
     bundle = reqs["external_files"]
     bundle.files
-    model_dir = bundle.files_dir.child("res_pdnn_model", type="d")
-    bundle.files.res_pdnn.load(model_dir, formatter="tar")
+    model_dir = bundle.files_dir.child(self.cls_name, type="d")
+    getattr(bundle.files, self.cls_name).load(model_dir, formatter="tar")
 
     # load the model
-    with self.task.publish_step("loading resonant pDNN model ..."):
+    with self.task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
         saved_model = tf.saved_model.load(model_dir.child("model_fold0").abspath)
-        self.res_pdnn_model = saved_model.signatures["serving_default"]
+        self.res_model = saved_model.signatures["serving_default"]
 
     # categorical values handled by the network
     # (names and values from training code that was aligned to KLUB notation)
@@ -356,3 +332,71 @@ def res_pdnn_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Ins
         (2023, ""): 3,
         (2023, "BPix"): 3,
     }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
+
+
+#
+# parameterized network
+# trained with Radion (spin 0) and Graviton (spin 2) samples up to mX = 3000 GeV in all run 2 eras
+#
+
+res_pdnn = _res_dnn_evaluation.derive("res_pdnn", cls_dict={
+    "parametrized": True,
+    "exposed": True,
+    "mass": 500,
+    "spin": 0,
+})
+
+
+@res_pdnn.init
+def res_pdnn_init(self: Producer) -> None:
+    # check spin value and mass values
+    if self.spin not in {0, 2}:
+        raise ValueError(f"invalid spin value: {self.spin}")
+    if self.mass < 250:
+        raise ValueError(f"invalid mass value: {self.mass}")
+
+    # output column names (in this order)
+    self.output_columns = [
+        f"res_pdnn_s{self.spin}_m{self.mass}_{name}"
+        for name in ["hh", "tt", "dy"]
+    ]
+
+    # update produced columns
+    self.produces |= set(self.output_columns)
+
+
+#
+# non-parameterized network
+# trained only with Radion (spin 0) samples up to mX = 800 GeV across all run 2 eras
+#
+
+res_dnn = _res_dnn_evaluation.derive("res_dnn", cls_dict={
+    "parametrized": False,
+    "exposed": True,
+})
+
+
+@res_dnn.init
+def res_dnn_init(self: Producer) -> None:
+    # output column names (in this order)
+    self.output_columns = [
+        f"res_dnn_{name}"
+        for name in ["hh", "tt", "dy"]
+    ]
+
+    # update produced columns
+    self.produces |= set(self.output_columns)
+
+
+#
+# preprocessing helpers
+#
+
+def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Array, ak.Array]:
+    """
+    Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
+    angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
+    """
+    new_phi = np.arctan2(py, px) - ref_phi
+    pt = (px**2 + py**2)**0.5
+    return pt * np.cos(new_phi), pt * np.sin(new_phi)
