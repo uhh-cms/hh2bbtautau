@@ -14,7 +14,7 @@ from columnflow.plotting.plot_util import (
     apply_variable_settings,
     apply_process_settings,
     apply_density_to_hists,
-    # get_position,
+    get_position,
     # get_profile_variations,
     blind_sensitive_bins,
 )
@@ -116,16 +116,20 @@ def prepare_plot_config_custom_ratio(
                 if key in plot_cfg:
                     plot_cfg[key]["yerr"] = False
 
-    # build ratio_kwargs: standard divided by morphed, error bars are the standard error
+    # build ratio_kwargs: morphed divided by standard, error bars are the propagated ratio errors
     if len(line_hists) == 2:
         if "morphed" in plot_config["line_0"]["kwargs"]["label"]:
-            i = 0
-            j = 1
-        else:
             i = 1
             j = 0
+        else:
+            i = 0
+            j = 1
         plot_config[f"line_{j}"]["ratio_kwargs"] = {
             "norm": line_hists[i].values(),
+            # yerr obtained by error propagation of the ratio
+            "yerr": np.sqrt(
+                (line_hists[j].values()**2) * line_hists[i].variances() / (line_hists[i].values()**4) +
+                line_hists[j].variances() / (line_hists[i].values()**2)),
             "color": line_colors[j],
         }
 
@@ -236,6 +240,34 @@ def plot_morphing_comparison(
     if shape_norm:
         style_config["ax_cfg"]["ylabel"] = r"$\Delta N/N$"
 
+    # add custom ylim params to style_config due to partially huge error bars
+    whitespace_fraction = 0.3
+    magnitudes = 4
+
+    log_y = style_config.get("ax_cfg", {}).get("yscale", "linear") == "log"
+
+    hists_and_norms = []
+    for params in plot_config.values():
+        if "hist" in params:
+            h = params["hist"]
+        if "kwargs" in params and "norm" in params["kwargs"]:
+            norm = params["kwargs"]["norm"]
+        else:
+            norm = 1
+        hists_and_norms.append((h, norm))
+
+    max_important_value = np.max([np.max(h.values() / norm) for h, norm in hists_and_norms])
+
+    ax_ymin = max_important_value / 10**magnitudes if log_y else 0.0000001
+    ax_ymax = get_position(ax_ymin, max_important_value, factor=1 / (1 - whitespace_fraction), logscale=log_y)
+    style_config["ax_cfg"]["ylim"] = (ax_ymin, ax_ymax)
+    style_config["rax_cfg"]["ylim"] = (0.41, 1.59)
+
+    style_config["legend_cfg"]["facecolor"] = "white"
+    style_config["legend_cfg"]["edgecolor"] = "black"
+    style_config["legend_cfg"]["framealpha"] = 0.8
+    style_config["legend_cfg"]["frameon"] = True
+
     return plot_all(plot_config, style_config, **kwargs)
 
 
@@ -255,6 +287,8 @@ def plot_bin_morphing(
     variable_settings: dict | None = None,
     **kwargs,
 ) -> plt.Figure:
+
+    variable_inst = variable_insts[0]
 
     # separate morphed, true and guidance points histograms
     morphed_hists = OrderedDict()
@@ -345,12 +379,23 @@ def plot_bin_morphing(
     # plot the chosen bin values for morphed and non-morphed histograms
     morphed_hist_name = list(morphed_hists.keys())[0].name
     morphed_point = float(morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1_morphed", "").replace("p", "."))  # noqa
-    ax.errorbar(morphed_point, morphed_chosen_bin[0], yerr=np.sqrt(morphed_chosen_bin[1]), fmt="r+", label="Morphed")
+    ax.errorbar(morphed_point, morphed_chosen_bin[0], yerr=np.sqrt(morphed_chosen_bin[1]), fmt="ro", label="Morphed")
     ax.errorbar(morphed_point, non_morphed_chosen_bin[0], yerr=np.sqrt(non_morphed_chosen_bin[1]), fmt="go", label="True value")  # noqa
 
+    # add text with the chosen bin value and the variable name on the top right corner
+    ax.text(
+        0.99,
+        1.01,
+        f"Bin number: {chosen_bin} \n for variable {variable_inst.name}",
+        horizontalalignment="right",
+        verticalalignment="bottom",
+        fontsize=12,
+        transform=ax.transAxes,
+
+    )
     ax.set_xlabel("kl")
     ax.set_ylabel(bin_type + " value")
-    ax.legend()
+    ax.legend(fontsize=12)
     return fig, axs
 
 

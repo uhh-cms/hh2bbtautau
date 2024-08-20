@@ -259,6 +259,10 @@ def add_hist_hooks(config: od.Config) -> None:
             model_hists[i].view().value[np.argsort(model_hists[i].axes[0])] for i in range(3)
         ])
 
+        model_variances = np.array([
+            model_hists[i].view().variance[np.argsort(model_hists[i].axes[0])] for i in range(3)
+        ])
+
         # morphed values
         original_hist_shape = hists[new_proc].view().value.shape
         morphed_values = np.matmul(
@@ -266,11 +270,19 @@ def add_hist_hooks(config: od.Config) -> None:
             model_values.reshape(3, -1),
         ).reshape(original_hist_shape)
 
+        # morphed variances, using quadratic error propagation (and therefore assuming uncorrelated uncertainties)
+        morphed_variances = np.matmul(
+            np.matmul(new_coefficients**2, inv_guidance_matrix**2),
+            model_variances.reshape(3, -1),
+        ).reshape(original_hist_shape)
+
         # reshape the values to the correct categorization
         morphed_values_correct_categorization = morphed_values[np.argsort(np.argsort(model_hists[0].axes[0]))]
+        morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
 
         # insert values into the new histogram
         hists[new_proc].view().value = morphed_values_correct_categorization
+        hists[new_proc].view().variance = morphed_variances_correct_categorization
 
         return hists
 
