@@ -198,7 +198,7 @@ def plot_morphing_comparison(
 
     non_morphed_hist = OrderedDict()
     for key, hist in hists.items():
-        if list(morphed_hists.keys())[0].name.replace("_morphed", "") == key.name:
+        if list(morphed_hists.keys())[0].name.replace("_morphed", "").replace("_average", "") == key.name:
             non_morphed_hist[key] = hist
 
     if len(morphed_hists.keys()) != len(non_morphed_hist.keys()):
@@ -289,38 +289,51 @@ def plot_bin_morphing(
 ) -> plt.Figure:
 
     variable_inst = variable_insts[0]
+    averaged = False
 
     # separate morphed, true and guidance points histograms
     morphed_hists = OrderedDict()
     for key, hist in hists.items():
         if "morphed" in key.name:
             morphed_hists[key] = hist
+            if "average" in key.name:
+                averaged = True
 
     if not morphed_hists:
         raise ValueError("No morphed histograms found in input hists.")
 
-    if len(morphed_hists.keys()) > 1:
-        raise ValueError("More than one morphed histogram found in input hists. Not implemented")
+    # if len(morphed_hists.keys()) > 1:
+    #     raise ValueError("More than one morphed histogram found in input hists. Not implemented")
 
-    # non morphed
-    non_morphed_hist = OrderedDict()
-    for key, hist in hists.items():
-        if list(morphed_hists.keys())[0].name.replace("_morphed", "") == key.name:
-            non_morphed_hist[key] = hist
+    if not averaged:
+        # non morphed
+        non_morphed_hist = OrderedDict()
+        for key, hist in hists.items():
+            if list(morphed_hists.keys())[0].name.replace("_morphed", "").replace("_average", "") == key.name:
+                non_morphed_hist[key] = hist
 
-    if len(morphed_hists.keys()) != len(non_morphed_hist.keys()):
-        raise ValueError("Number of morphed and non-morphed histograms do not match.")
+        # if len(morphed_hists.keys()) != len(non_morphed_hist.keys()):
+        #     raise ValueError("Number of morphed and non-morphed histograms do not match.")
 
-    # guidance point histograms
-    guidance_hists = OrderedDict()
-    for key, hist in hists.items():
-        not_in_non_morphed_hists = (key.name != list(non_morphed_hist.keys())[0].name)
-        not_in_morphed_hists = (key.name != list(morphed_hists.keys())[0].name)
-        if ("hh_ggf_hbb_htt_kl" in key.name) and not_in_non_morphed_hists and not_in_morphed_hists:
-            guidance_hists[key] = hist
+        # guidance point histograms
+        guidance_hists = OrderedDict()
+        for key, hist in hists.items():
+            not_in_non_morphed_hists = (key.name != list(non_morphed_hist.keys())[0].name)
+            not_in_morphed_hists = (key.name not in [list(morphed_hists.keys())[i].name for i in range(len(morphed_hists.keys()))])  # noqa
+            if ("hh_ggf_hbb_htt_kl" in key.name) and not_in_non_morphed_hists and not_in_morphed_hists:
+                guidance_hists[key] = hist
 
-    if len(guidance_hists.keys()) != 3:
-        raise ValueError("Number of guidance point histograms is not 3.")
+        if len(guidance_hists.keys()) != 3:
+            raise ValueError("Number of guidance point histograms is not 3.")
+    else:
+        # guidance point histograms
+        guidance_hists = OrderedDict()
+        for key, hist in hists.items():
+            if "hh_ggf_hbb_htt_kl" in key.name and "morphed" not in key.name:
+                guidance_hists[key] = hist
+
+        if len(guidance_hists.keys()) != 4:
+            raise ValueError("Number of guidance point histograms is not 4.")
 
     # get guidance points
     guidance_points_str = [key.name.replace("hh_ggf_hbb_htt_kl", "") for key in guidance_hists.keys()]
@@ -331,22 +344,30 @@ def plot_bin_morphing(
     chosen_bin = function_bin_search(list(morphed_hists.values())[0].values())
 
     # get value of chosen bin for each histogram
-    morphed_chosen_bin = np.array([
-        list(morphed_hists.values())[0].values()[..., chosen_bin][0],
-        list(morphed_hists.values())[0].variances()[..., chosen_bin][0],
-    ])
+    morphed_chosen_bins = []
+    for key, hist in morphed_hists.items():
+        morphed_chosen_bins.append(np.array([
+            hist.values()[..., chosen_bin][0],
+            hist.variances()[..., chosen_bin][0],
+        ]))
+    morphed_chosen_bins = np.array(morphed_chosen_bins)
+    # morphed_chosen_bin = np.array([
+    #     list(morphed_hists.values())[0].values()[..., chosen_bin][0],
+    #     list(morphed_hists.values())[0].variances()[..., chosen_bin][0],
+    # ])
 
-    non_morphed_chosen_bin = np.array([
-        list(non_morphed_hist.values())[0].values()[..., chosen_bin][0],
-        list(non_morphed_hist.values())[0].variances()[..., chosen_bin][0],
-    ])
+    if not averaged:
+        non_morphed_chosen_bin = np.array([
+            list(non_morphed_hist.values())[0].values()[..., chosen_bin][0],
+            list(non_morphed_hist.values())[0].variances()[..., chosen_bin][0],
+        ])
 
     guidance_chosen_bins_values = np.array([
-        list(guidance_hists.values())[i].values()[..., chosen_bin][0] for i in range(3)
+        list(guidance_hists.values())[i].values()[..., chosen_bin][0] for i in range(len(guidance_points))
     ])
 
     guidance_chosen_bins_variances = np.array([
-        list(guidance_hists.values())[i].variances()[..., chosen_bin][0] for i in range(3)
+        list(guidance_hists.values())[i].variances()[..., chosen_bin][0] for i in range(len(guidance_points))
     ])
 
     # fit a parabola to the guidance points
@@ -355,7 +376,12 @@ def plot_bin_morphing(
     def parabola(x, a, b, c):
         return a * x**2 + b * x + c
 
-    popt, pcov = curve_fit(parabola, guidance_points, guidance_chosen_bins_values, sigma=guidance_chosen_bins_variances)
+    popt, pcov = curve_fit(
+        parabola,
+        guidance_points,
+        guidance_chosen_bins_values,
+        sigma=np.sqrt(guidance_chosen_bins_variances),
+    )
 
     # plot the parabola
     fig, ax = plt.subplots()
@@ -367,6 +393,41 @@ def plot_bin_morphing(
 
     ax.plot(x, y, label="Parabola fit", color="black")
 
+    if averaged:
+        # fit parabola unweighted
+        popt_unweighted, pcov_unweighted = curve_fit(parabola, guidance_points, guidance_chosen_bins_values)
+
+        y_unweighted = parabola(x, *popt_unweighted)
+        ax.plot(x, y_unweighted, label="Parabola fit unweighted", color="orange")
+
+    if not averaged:
+        # fit a parabola to the four true points
+        # get fourth point from non-morphed histogram
+        non_morphed_hist_name = list(non_morphed_hist.keys())[0].name
+        non_morphed_point = float(non_morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1", "").replace("p", "."))  # noqa
+        popt_2, pcov_2 = curve_fit(
+            parabola,
+            [non_morphed_point, *guidance_points],
+            [non_morphed_chosen_bin[0], *guidance_chosen_bins_values],
+            sigma=np.sqrt(np.array([non_morphed_chosen_bin[1], *guidance_chosen_bins_variances])),
+        )
+
+        y_2 = parabola(x, *popt_2)
+        ax.plot(x, y_2, label="Parabola fit with 4 values", color="orange")
+
+        # same result as above
+
+        # # fit a parabola with 4 points but through the polyfit function
+        # coefs = np.polyfit(
+        #     [non_morphed_point, *guidance_points],
+        #     [non_morphed_chosen_bin[0], *guidance_chosen_bins_values],
+        #     2,
+        #     w=1 / np.sqrt(np.array([non_morphed_chosen_bin[1], *guidance_chosen_bins_variances])),
+        # )
+
+        # y_3 = np.polyval(coefs, x)
+        # ax.plot(x, y_3, label="Polyfit with 4 values", color="green")
+
     # plot the guidance points
     ax.errorbar(
         guidance_points,
@@ -377,10 +438,38 @@ def plot_bin_morphing(
     )
 
     # plot the chosen bin values for morphed and non-morphed histograms
-    morphed_hist_name = list(morphed_hists.keys())[0].name
-    morphed_point = float(morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1_morphed", "").replace("p", "."))  # noqa
-    ax.errorbar(morphed_point, morphed_chosen_bin[0], yerr=np.sqrt(morphed_chosen_bin[1]), fmt="ro", label="Morphed")
-    ax.errorbar(morphed_point, non_morphed_chosen_bin[0], yerr=np.sqrt(non_morphed_chosen_bin[1]), fmt="go", label="True value")  # noqa
+    if averaged:
+        label_ = "Average morphed"
+    else:
+        label_ = "Morphed"
+    morphed_points = []
+    # label_list = []
+    i = 0
+    for key, hist in morphed_hists.items():
+        morphed_hist_name = list(morphed_hists.keys())[i].name
+        if "average" in morphed_hist_name:
+            morphed_hist_name = morphed_hist_name.replace("_average", "")
+        morphed_point = float(morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1_morphed", "").replace("p", "."))  # noqa
+        morphed_points.append(morphed_point)
+        i += 1
+        # label_list.append(label_ + " kl " + str(morphed_point))
+    ax.errorbar(
+        morphed_points,
+        morphed_chosen_bins[:, 0],
+        yerr=np.sqrt(morphed_chosen_bins[:, 1]),
+        fmt="ro",
+        label=label_,
+    )
+    if not averaged:
+        non_morphed_hist_name = list(non_morphed_hist.keys())[0].name
+        non_morphed_point = float(non_morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1", "").replace("p", "."))  # noqa
+        ax.errorbar(
+            non_morphed_point,
+            non_morphed_chosen_bin[0],
+            yerr=np.sqrt(non_morphed_chosen_bin[1]),
+            fmt="go",
+            label="True value",
+        )
 
     # add text with the chosen bin value and the variable name on the top right corner
     ax.text(
@@ -401,3 +490,4 @@ def plot_bin_morphing(
 
 plot_max_bin_morphing = partial(plot_bin_morphing, function_bin_search=np.argmax, bin_type="Max bin")
 plot_min_bin_morphing = partial(plot_bin_morphing, function_bin_search=np.argmin, bin_type="Min bin")
+plot_bin_5_morphing = partial(plot_bin_morphing, function_bin_search=lambda x: 5, bin_type="Bin 5")

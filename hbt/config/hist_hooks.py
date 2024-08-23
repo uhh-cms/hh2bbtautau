@@ -256,24 +256,113 @@ def add_hist_hooks(config: od.Config) -> None:
         # be careful with the order, the categories can be shuffled around in the different histograms
         # so sort the values by the categories
         model_values = np.array([
-            model_hists[i].view().value[np.argsort(model_hists[i].axes[0])] for i in range(3)
+            model_hists[i].view().value[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
         ])
 
         model_variances = np.array([
-            model_hists[i].view().variance[np.argsort(model_hists[i].axes[0])] for i in range(3)
+            model_hists[i].view().variance[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
         ])
 
         # morphed values
         original_hist_shape = hists[new_proc].view().value.shape
         morphed_values = np.matmul(
             np.matmul(new_coefficients, inv_guidance_matrix),
-            model_values.reshape(3, -1),
+            model_values.reshape(len(guidance_points), -1),
         ).reshape(original_hist_shape)
 
         # morphed variances, using quadratic error propagation (and therefore assuming uncorrelated uncertainties)
         morphed_variances = np.matmul(
             np.matmul(new_coefficients**2, inv_guidance_matrix**2),
-            model_variances.reshape(3, -1),
+            model_variances.reshape(len(guidance_points), -1),
+        ).reshape(original_hist_shape)
+
+        # reshape the values to the correct categorization
+        morphed_values_correct_categorization = morphed_values[np.argsort(np.argsort(model_hists[0].axes[0]))]
+        morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
+
+        # insert values into the new histogram
+        hists[new_proc].view().value = morphed_values_correct_categorization
+        hists[new_proc].view().variance = morphed_variances_correct_categorization
+
+        return hists
+
+    def hh_averaged_morphing(task, hists, guidance_points=["0", "1", "2p45", "5"], target_point="kl5_kt1"):
+
+        guidance_points_float = [float(i.replace("p", ".")) for i in guidance_points]
+
+        model_procs = [
+            config.get_process(f"hh_ggf_hbb_htt_kl{i}_kt1", default=None)
+            for i in guidance_points
+        ]
+        if not all(model_procs):
+            return hists
+
+        # verify that the axis order is exactly "category -> shift -> variable"
+        # which is needed to insert values at the end
+        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
+        for h in hists.values():
+            # validate axes
+            assert len(h.axes) == 3
+            assert h.axes[CAT_AXIS].name == "category"
+            assert h.axes[SHIFT_AXIS].name == "shift"
+
+        # get model histograms, stop early when not four present
+        model_hists = [h for p, h in hists.items() if p in model_procs]
+        if len(model_hists) != 4:
+            raise Exception("not all four model histograms present, averaged morphing cannot occur")
+            return hists
+
+        # prepare morphing here
+        # build guidance matrix from guidance points
+        # knowing that all model hists have kt=1
+        # (formula for any kt: (kt**2*kl**2,kt**4,kt**3*kl))
+        guidance_matrix = np.array([
+            [guidance_point**2, 1, guidance_point] for guidance_point in guidance_points_float
+        ])
+
+        # pseudo inverse guidance matrix
+        pinv_guidance_matrix = np.linalg.pinv(guidance_matrix)
+
+        # new coefficients for the newly created point
+        kl = read_coupling_values(target_point)["kl"]
+        kt = read_coupling_values(target_point)["kt"]
+        new_coefficients = np.array([kt**2 * kl**2, kt**4, kt**3 * kl])
+
+        # create the new process
+        new_proc = od.Process(
+            # "_average" used to distinguish from the other morphing in plot functions
+            f"hh_ggf_hbb_htt_{target_point}_average_morphed",
+            id=21130,
+            label=r"average morphed $HH_{ggf} \rightarrow bb\tau\tau$ "
+            "\n"
+            r"($\kappa_{\lambda}=$" + str(kl) + r", $\kappa_{t}=$" + str(kt) + ")",
+        )
+
+        # create the new hist
+        hists[new_proc] = model_hists[0].copy().reset()
+
+        # morphing
+        # be careful with the order, the categories can be shuffled around in the different histograms
+        # so sort the values by the categories
+        model_values = np.array([
+            model_hists[i].view().value[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
+        ])
+
+        model_variances = np.array([
+            model_hists[i].view().variance[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
+        ])
+
+        # morphed values
+        original_hist_shape = hists[new_proc].view().value.shape
+        morphed_values = np.matmul(
+            np.matmul(new_coefficients, pinv_guidance_matrix),
+            model_values.reshape(len(guidance_points), -1),
+        ).reshape(original_hist_shape)
+
+        # morphed variances, using quadratic error propagation (and therefore assuming uncorrelated uncertainties)
+        morphed_variances = np.matmul(
+            np.matmul(new_coefficients**2, pinv_guidance_matrix**2),
+            model_variances.reshape(len(guidance_points), -1),
         ).reshape(original_hist_shape)
 
         # reshape the values to the correct categorization
@@ -292,4 +381,42 @@ def add_hist_hooks(config: od.Config) -> None:
         "hh_morphing_kl2p45_kt1": partial(hh_morphing, guidance_points=["0", "1", "5"], target_point="kl2p45_kt1"),
         "hh_morphing_kl1_kt1": partial(hh_morphing, guidance_points=["0", "2p45", "5"], target_point="kl1_kt1"),
         "hh_morphing_kl0_kt1": partial(hh_morphing, guidance_points=["1", "2p45", "5"], target_point="kl0_kt1"),
+        "hh_morphing_kl2_kt1": partial(hh_morphing, guidance_points=["0", "1", "2p45"], target_point="kl2_kt1"),
+        "hh_morphing_kl3_kt1": partial(hh_morphing, guidance_points=["0", "1", "2p45"], target_point="kl3_kt1"),
+        "hh_morphing_kl4_kt1": partial(hh_morphing, guidance_points=["0", "1", "2p45"], target_point="kl4_kt1"),
+        "hh_averaged_morphing_kl5_kt1": partial(
+            hh_averaged_morphing,
+            guidance_points=["0", "1", "2p45", "5"],
+            target_point="kl5_kt1",
+        ),
+        "hh_averaged_morphing_kl0_kt1": partial(
+            hh_averaged_morphing,
+            guidance_points=["0", "1", "2p45", "5"],
+            target_point="kl0_kt1",
+        ),
+        "hh_averaged_morphing_kl1_kt1": partial(
+            hh_averaged_morphing,
+            guidance_points=["0", "1", "2p45", "5"],
+            target_point="kl1_kt1",
+        ),
+        "hh_averaged_morphing_kl2_kt1": partial(
+            hh_averaged_morphing,
+            guidance_points=["0", "1", "2p45", "5"],
+            target_point="kl2_kt1",
+        ),
+        "hh_averaged_morphing_kl2p45_kt1": partial(
+            hh_averaged_morphing,
+            guidance_points=["0", "1", "2p45", "5"],
+            target_point="kl2p45_kt1",
+        ),
+        "hh_averaged_morphing_kl3_kt1": partial(
+            hh_averaged_morphing,
+            guidance_points=["0", "1", "2p45", "5"],
+            target_point="kl3_kt1",
+        ),
+        "hh_averaged_morphing_kl4_kt1": partial(
+            hh_averaged_morphing,
+            guidance_points=["0", "1", "2p45", "5"],
+            target_point="kl4_kt1",
+        ),
     }
