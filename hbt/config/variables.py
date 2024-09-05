@@ -101,6 +101,22 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Electron p$_{T}$",
     )
 
+    config.add_variable(
+        name="tau_pt",
+        expression="Tau.pt",
+        null_value=EMPTY_FLOAT,
+        binning=(100, 0, 100),
+        x_title=r"Tau p$_{T}$",
+    )
+
+    config.add_variable(
+        name="tau_eta",
+        expression="Tau.eta",
+        null_value=EMPTY_FLOAT,
+        binning=(30, -3.0, 3.0),
+        x_title=r"Tau $\eta$",
+    )
+
     # weights
     config.add_variable(
         name="mc_weight",
