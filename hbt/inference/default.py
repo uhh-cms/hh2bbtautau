@@ -4,7 +4,7 @@
 Default inference model.
 """
 
-from columnflow.inference import inference_model, ParameterType
+from columnflow.inference import inference_model, ParameterType, FlowStrategy
 
 
 @inference_model
@@ -19,6 +19,7 @@ def default(self):
         config_category="incl__os__iso",
         config_variable="res_dnn_hh",
         config_data_datasets=["data_*"],
+        flow_strategy=FlowStrategy.move,
         mc_stats=8.0,
     )
 
@@ -38,11 +39,11 @@ def default(self):
         config_process="tt",
         config_mc_datasets=["^tt_(sl|dl|fh)_powheg$"],
     )
-    self.add_process(
-        "DY",
-        config_process="dy",
-        config_mc_datasets=["dy_*_amcatnlo"],
-    )
+    # self.add_process(
+    #     "DY",
+    #     config_process="dy",
+    #     config_mc_datasets=["dy_*_amcatnlo"],
+    # )
 
     #
     # parameters
@@ -124,13 +125,13 @@ def default(self):
         )
 
     # btag
-    for name in self.config_inst.x.btag_unc_names:
-        self.add_parameter(
-            f"CMS_btag_{name}",
-            type=ParameterType.shape,
-            config_shift_source=f"btag_{name}",
-            group="experiment",
-        )
+    # for name in self.config_inst.x.btag_unc_names:
+    #     self.add_parameter(
+    #         f"CMS_btag_{name}",
+    #         type=ParameterType.shape,
+    #         config_shift_source=f"btag_{name}",
+    #         group="experiment",
+    #     )
 
     # pileup
     self.add_parameter(
