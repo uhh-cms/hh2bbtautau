@@ -187,6 +187,7 @@ def add_hist_hooks(config: od.Config) -> None:
 
         return hists
 
+
     def flat_s(task ,hists: Dict[hist.Histogram]) -> Dict[hist.Histogram]:
         """Rebinnig of the signal histogram to have a flat distribution in the DNN output.
 
@@ -650,5 +651,5 @@ def add_hist_hooks(config: od.Config) -> None:
         return hists
 
     config.x.hist_hooks = {
-        "qcd": qcd_estimation,
+        "qcd": qcd_estimation, "flat_s": flat_s
     }
