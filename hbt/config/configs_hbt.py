@@ -94,6 +94,7 @@ def add_config(
         processes=[procs.n.ttv, procs.n.ttvv],
     )
 
+
     # add processes we are interested in
     process_names = [
         "data",
@@ -147,6 +148,10 @@ def add_config(
         if process_name.startswith(("graviton_hh_", "radion_hh_")):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
+        if process_name.startswith("tt"):
+            proc.add_tag("is_ttbar")
+        if process_name.startswith("dy"):
+            proc.add_tag("is_dy")
 
         # add the process
         cfg.add_process(proc)
