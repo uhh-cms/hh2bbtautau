@@ -97,7 +97,8 @@ def add_variables(config: od.Config) -> None:
         name="e_pt",
         expression="Electron.pt",
         null_value=EMPTY_FLOAT,
-        binning=(400, 0, 400),
+        binning=(40, 0, 400),
+        unit="GeV",
         x_title=r"Electron p$_{T}$",
     )
 
@@ -105,7 +106,8 @@ def add_variables(config: od.Config) -> None:
         name="tau_pt",
         expression="Tau.pt",
         null_value=EMPTY_FLOAT,
-        binning=(100, 0, 100),
+        binning=(10, 20, 100),
+        unit="GeV",
         x_title=r"Tau p$_{T}$",
     )
 
