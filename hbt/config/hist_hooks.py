@@ -188,317 +188,6 @@ def add_hist_hooks(config: od.Config) -> None:
 
         return hists
 
-    def read_coupling_values(couplings):
-        coupling_list = couplings.split("_")
-        coupling_dict = {}
-        for coupling in coupling_list:
-            if coupling.startswith("kl"):
-                coupling_dict["kl"] = float(coupling[2:].replace("p", "."))
-            elif coupling.startswith("kt"):
-                coupling_dict["kt"] = float(coupling[2:].replace("p", "."))
-        return coupling_dict
-
-    def hh_morphing(task, hists, guidance_points=["0", "1", "2p45"], target_point="kl5_kt1"):
-
-        guidance_points_float = [float(i.replace("p", ".")) for i in guidance_points]
-
-        model_procs = [
-            config.get_process(f"hh_ggf_hbb_htt_kl{i}_kt1", default=None)
-            for i in guidance_points
-        ]
-        if not all(model_procs):
-            return hists
-
-        # verify that the axis order is exactly "category -> shift -> variable"
-        # which is needed to insert values at the end
-        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
-        for h in hists.values():
-            # validate axes
-            assert len(h.axes) == 3
-            assert h.axes[CAT_AXIS].name == "category"
-            assert h.axes[SHIFT_AXIS].name == "shift"
-
-        # get model histograms, stop early when not three present
-        model_hists = [h for p, h in hists.items() if p in model_procs]
-        if len(model_hists) != 3:
-            raise Exception("not all three model histograms present, morphing cannot occur")
-            return hists
-
-        # prepare morphing here
-        # build guidance matrix from guidance points
-        # knowing that all model hists have kt=1
-        # (formula for any kt: (kt**2*kl**2,kt**4,kt**3*kl))
-        guidance_matrix = np.array([
-            [guidance_point**2, 1, guidance_point] for guidance_point in guidance_points_float
-        ])
-
-        # inverse guidance matrix
-        inv_guidance_matrix = np.linalg.inv(guidance_matrix)
-
-        # new coefficients for the newly created point
-        kl = read_coupling_values(target_point)["kl"]
-        kt = read_coupling_values(target_point)["kt"]
-        new_coefficients = np.array([kt**2 * kl**2, kt**4, kt**3 * kl])
-
-        # create the new process
-        new_proc = od.Process(
-            f"hh_ggf_hbb_htt_{target_point}_morphed",
-            id=21130,
-            label=r"morphed $HH_{ggf} \rightarrow bb\tau\tau$ "
-            "\n"
-            r"($\kappa_{\lambda}=$" + str(kl) + r", $\kappa_{t}=$" + str(kt) + ")",
-        )
-
-        # create the new hist
-        hists[new_proc] = model_hists[0].copy().reset()
-
-        # morphing
-        # be careful with the order, the categories can be shuffled around in the different histograms
-        # so sort the values by the categories
-        model_values = np.array([
-            model_hists[i].view().value[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
-        ])
-
-        model_variances = np.array([
-            model_hists[i].view().variance[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
-        ])
-
-        # morphed values
-        original_hist_shape = hists[new_proc].view().value.shape
-        morphed_values = np.matmul(
-            np.matmul(new_coefficients, inv_guidance_matrix),
-            model_values.reshape(len(guidance_points), -1),
-        ).reshape(original_hist_shape)
-
-        # morphed variances, using quadratic error propagation (and therefore assuming uncorrelated uncertainties)
-        morphed_variances = np.matmul(
-            np.matmul(new_coefficients**2, inv_guidance_matrix**2),
-            model_variances.reshape(len(guidance_points), -1),
-        ).reshape(original_hist_shape)
-
-        # reshape the values to the correct categorization
-        morphed_values_correct_categorization = morphed_values[np.argsort(np.argsort(model_hists[0].axes[0]))]
-        morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
-
-        # insert values into the new histogram
-        hists[new_proc].view().value = morphed_values_correct_categorization
-        hists[new_proc].view().variance = morphed_variances_correct_categorization
-
-        return hists
-
-    def hh_averaged_morphing(task, hists, guidance_points=["0", "1", "2p45", "5"], target_point="kl5_kt1"):
-
-        guidance_points_float = [float(i.replace("p", ".")) for i in guidance_points]
-
-        model_procs = [
-            config.get_process(f"hh_ggf_hbb_htt_kl{i}_kt1", default=None)
-            for i in guidance_points
-        ]
-        if not all(model_procs):
-            return hists
-
-        # verify that the axis order is exactly "category -> shift -> variable"
-        # which is needed to insert values at the end
-        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
-        for h in hists.values():
-            # validate axes
-            assert len(h.axes) == 3
-            assert h.axes[CAT_AXIS].name == "category"
-            assert h.axes[SHIFT_AXIS].name == "shift"
-
-        # get model histograms, stop early when not four present
-        model_hists = [h for p, h in hists.items() if p in model_procs]
-        if len(model_hists) != 4:
-            raise Exception("not all four model histograms present, averaged morphing cannot occur")
-            return hists
-
-        # prepare morphing here
-        # build guidance matrix from guidance points
-        # knowing that all model hists have kt=1
-        # (formula for any kt: (kt**2*kl**2,kt**4,kt**3*kl))
-        guidance_matrix = np.array([
-            [guidance_point**2, 1, guidance_point] for guidance_point in guidance_points_float
-        ])
-
-        # pseudo inverse guidance matrix
-        pinv_guidance_matrix = np.linalg.pinv(guidance_matrix)
-
-        # new coefficients for the newly created point
-        kl = read_coupling_values(target_point)["kl"]
-        kt = read_coupling_values(target_point)["kt"]
-        new_coefficients = np.array([kt**2 * kl**2, kt**4, kt**3 * kl])
-
-        # create the new process
-        new_proc = od.Process(
-            # "_average" used to distinguish from the other morphing in plot functions
-            f"hh_ggf_hbb_htt_{target_point}_average_morphed",
-            id=21130,
-            label=r"average morphed $HH_{ggf} \rightarrow bb\tau\tau$ "
-            "\n"
-            r"($\kappa_{\lambda}=$" + str(kl) + r", $\kappa_{t}=$" + str(kt) + ")",
-        )
-
-        # create the new hist
-        hists[new_proc] = model_hists[0].copy().reset()
-
-        # morphing
-        # be careful with the order, the categories can be shuffled around in the different histograms
-        # so sort the values by the categories
-        model_values = np.array([
-            model_hists[i].view().value[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
-        ])
-
-        model_variances = np.array([
-            model_hists[i].view().variance[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
-        ])
-
-        # morphed values
-        original_hist_shape = hists[new_proc].view().value.shape
-        morphed_values = np.matmul(
-            np.matmul(new_coefficients, pinv_guidance_matrix),
-            model_values.reshape(len(guidance_points), -1),
-        ).reshape(original_hist_shape)
-
-        # morphed variances, using quadratic error propagation (and therefore assuming uncorrelated uncertainties)
-        morphed_variances = np.matmul(
-            np.matmul(new_coefficients**2, pinv_guidance_matrix**2),
-            model_variances.reshape(len(guidance_points), -1),
-        ).reshape(original_hist_shape)
-
-        # reshape the values to the correct categorization
-        morphed_values_correct_categorization = morphed_values[np.argsort(np.argsort(model_hists[0].axes[0]))]
-        morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
-
-        # insert values into the new histogram
-        hists[new_proc].view().value = morphed_values_correct_categorization
-        hists[new_proc].view().variance = morphed_variances_correct_categorization
-
-        return hists
-
-    def hh_fit_morphing(task, hists, guidance_points=["0", "1", "2p45", "5"], target_point="kl5_kt1"):
-
-        guidance_points_float = [float(i.replace("p", ".")) for i in guidance_points]
-
-        model_procs = [
-            config.get_process(f"hh_ggf_hbb_htt_kl{i}_kt1", default=None)
-            for i in guidance_points
-        ]
-        if not all(model_procs):
-            return hists
-
-        # verify that the axis order is exactly "category -> shift -> variable"
-        # which is needed to insert values at the end
-        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
-        for h in hists.values():
-            # validate axes
-            assert len(h.axes) == 3
-            assert h.axes[CAT_AXIS].name == "category"
-            assert h.axes[SHIFT_AXIS].name == "shift"
-
-        # get model histograms, stop early when not four present
-        model_hists = [h for p, h in hists.items() if p in model_procs]
-        if len(model_hists) != 4:
-            raise Exception("not all four model histograms present, averaged morphing cannot occur")
-            return hists
-
-        # prepare morphing here
-        # create function and define params
-        from scipy.optimize import curve_fit
-        x = guidance_points_float
-        coupling_values = np.column_stack([x, np.array([1, 1, 1, 1])])
-
-        def ggf_LO_fit(values, a, b, c):
-            kl, kt = values
-            return a * kt**2 * kl**2 + b * kl * kt**3 + c * kt**4
-
-        def ggf_LO_fit_variances(values, a, b, c):
-            kl, kt = values
-            return a * (kt**2 * kl**2)**2 + b * (kl * kt**3)**2 + c * (kt**4)**2
-
-        # get target point
-        kl = read_coupling_values(target_point)["kl"]
-        kt = read_coupling_values(target_point)["kt"]
-
-        # morphing
-        # be careful with the order, the categories can be shuffled around in the different histograms
-        # so sort the values by the categories
-        model_values = np.array([
-            model_hists[i].view().value[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
-        ])
-
-        model_variances = np.array([
-            model_hists[i].view().variance[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
-        ])
-
-        morphed_values = np.zeros(model_values[0].shape)
-        morphed_variances = np.zeros(model_values[0].shape)
-
-        # loop over bins and calculate the morphed value
-        for cat_ in range(len(model_hists[0].axes[0].centers)):
-            for shift in range(len(model_hists[0].axes[1].centers)):
-                for bin_ in range(len(model_hists[0].axes[2].centers)):
-                    # fit the bin values to the function
-                    y = model_values[:, cat_, shift, bin_]
-                    variances = model_variances[:, cat_, shift, bin_]
-
-                    # y = np.array([model_hists[i].view().value[bin] for i in range(len(guidance_points))])
-                    popt, pcov, infodict_, mesg_, ier_ = curve_fit(
-                        ggf_LO_fit,
-                        coupling_values.T,
-                        y,
-                        sigma=np.sqrt(variances),
-                        absolute_sigma=True,
-                        p0=[0, 0, 0],
-                        full_output=True,
-                    )
-                    # , p0=[1, 1, 1])
-                    # calculate the morphed value
-                    morphed_value = ggf_LO_fit([kl, kt], *popt)
-                    fit_variance = np.diag(pcov)
-                    morphed_variance = ggf_LO_fit_variances([kl, kt], *fit_variance)
-
-                    # # alternative fitting with iminuit
-                    # from iminuit import Minuit
-                    # # we also need a cost function to fit and import the LeastSquares function
-                    # from iminuit.cost import LeastSquares
-                    # least_squares = LeastSquares(coupling_values.T, y, np.sqrt(variances), ggf_LO_fit)
-                    # m = Minuit(least_squares, a=0, b=0, c=0)
-                    # m.migrad()  # finds minimum of least_squares function
-                    # m.hesse()  # accurately computes uncertainties
-                    # fitted_params = list(m.values)
-                    # fitted_param_errors = list(m.errors)
-
-                    morphed_values[cat_, shift, bin_] = morphed_value
-                    morphed_variances[cat_, shift, bin_] = morphed_variance
-                    # if cat_ == 18 and bin_ == 5:
-                    #     print(f"cat: {cat_}, shift: {shift}, bin: {bin_}")
-                    #     print(f"morphed_value: {morphed_value}")
-                    #     print(f"morphed_variance: {morphed_variance}")
-                    #     from IPython import embed; embed()
-
-        # create the new process
-        new_proc = od.Process(
-            # "_average" used to distinguish from the other morphing in plot functions
-            f"hh_ggf_hbb_htt_{target_point}_average_fit_morphed",
-            id=21130,
-            label=r"average fit morphed $HH_{ggf} \rightarrow bb\tau\tau$ "
-            "\n"
-            r"($\kappa_{\lambda}=$" + str(kl) + r", $\kappa_{t}=$" + str(kt) + ")",
-        )
-
-        # create the new hist
-        hists[new_proc] = model_hists[0].copy().reset()
-
-        # reshape the values to the correct categorization
-        morphed_values_correct_categorization = morphed_values[np.argsort(np.argsort(model_hists[0].axes[0]))]
-        morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
-
-        # insert values into the new histogram
-        hists[new_proc].view().value = morphed_values_correct_categorization
-        hists[new_proc].view().variance = morphed_variances_correct_categorization
-
-        return hists
-
     def general_higgs_morphing(
         task,
         hists,
@@ -873,9 +562,6 @@ def add_hist_hooks(config: od.Config) -> None:
                 morphed_values = morphed_values_with_weights
                 morphed_variances = morphed_variances_with_weights
 
-                # from IPython import embed; embed(header="morphing v3")
-
-
         if morphing_type == "fit":
             # create function and define params
             from scipy.optimize import curve_fit
@@ -915,7 +601,7 @@ def add_hist_hooks(config: od.Config) -> None:
             morphed_variances = np.zeros(model_values[0].shape)
 
             pcovs = []
-            minuit_pcovs = []
+            # minuit_pcovs = []
 
             # loop over bins and calculate the morphed value
             for cat_ in range(len(model_hists[0].axes[0].centers)):
@@ -936,18 +622,18 @@ def add_hist_hooks(config: od.Config) -> None:
                             full_output=True,
                         )
 
-                        # alternative fitting with iminuit
-                        from iminuit import Minuit
-                        # we also need a cost function to fit and import the LeastSquares function
-                        from iminuit.cost import LeastSquares
-                        least_squares = LeastSquares(x.T, y, np.sqrt(variances), LO_fit_function)
-                        m = Minuit(least_squares, a=0, b=0, c=0)
-                        # m.errordef = Minuit.LIKELIHOOD
-                        m.migrad()  # finds minimum of least_squares function
-                        m.hesse()  # accurately computes uncertainties
-                        fitted_params = np.array(m.values)
-                        # fitted_param_errors = list(m.errors)
-                        fitted_cov = np.array(m.covariance)
+                        # # alternative least square fitting with iminuit
+                        # from iminuit import Minuit
+                        # # we also need a cost function to fit and import the LeastSquares function
+                        # from iminuit.cost import LeastSquares
+                        # least_squares = LeastSquares(x.T, y, np.sqrt(variances), LO_fit_function)
+                        # m = Minuit(least_squares, a=0, b=0, c=0)
+                        # # m.errordef = Minuit.LIKELIHOOD
+                        # m.migrad()  # finds minimum of least_squares function
+                        # m.hesse()  # accurately computes uncertainties
+                        # fitted_params = np.array(m.values)
+                        # # fitted_param_errors = list(m.errors)
+                        # fitted_cov = np.array(m.covariance)
 
                         # TODO : WIP
                         # # alternative fitting with likelihood
@@ -1033,10 +719,10 @@ def add_hist_hooks(config: od.Config) -> None:
                         #     print(f"morphed_variance: {morphed_variance}")
                         #     from IPython import embed; embed()
                         pcovs.append(pcov)
-                        minuit_pcovs.append(fitted_cov)
+                        # minuit_pcovs.append(fitted_cov)
 
             pcovs = np.array(pcovs)
-            minuit_pcovs = np.array(minuit_pcovs)
+            # minuit_pcovs = np.array(minuit_pcovs)
             morphed_variances = np.matmul(
                 new_coefficients,
                 np.matmul(
@@ -1044,17 +730,11 @@ def add_hist_hooks(config: od.Config) -> None:
                     new_coefficients,
                 ).T,
             ).reshape(original_hist_shape)
-
-
             # from IPython import embed; embed(header="fitting")
 
         # reshape the values to the correct categorization
         morphed_values_correct_categorization = morphed_values[np.argsort(np.argsort(model_hists[0].axes[0]))]
         morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
-
-        print(morphed_values[8])
-        print(morphed_variances[8])
-        from IPython import embed; embed(header="check variances")
 
         # insert values into the new histogram
         hists[new_proc].view().value = morphed_values_correct_categorization
@@ -1064,83 +744,6 @@ def add_hist_hooks(config: od.Config) -> None:
 
     config.x.hist_hooks = {
         "qcd": qcd_estimation,
-        # "hh_morphing_kl5_kt1": partial(hh_morphing, guidance_points=["0", "1", "2p45"], target_point="kl5_kt1"),
-        # "hh_morphing_kl2p45_kt1": partial(hh_morphing, guidance_points=["0", "1", "5"], target_point="kl2p45_kt1"),
-        # "hh_morphing_kl1_kt1": partial(hh_morphing, guidance_points=["0", "2p45", "5"], target_point="kl1_kt1"),
-        # "hh_morphing_kl0_kt1": partial(hh_morphing, guidance_points=["1", "2p45", "5"], target_point="kl0_kt1"),
-        # "hh_morphing_kl2_kt1": partial(hh_morphing, guidance_points=["0", "1", "2p45"], target_point="kl2_kt1"),
-        # "hh_morphing_kl3_kt1": partial(hh_morphing, guidance_points=["0", "1", "2p45"], target_point="kl3_kt1"),
-        # "hh_morphing_kl4_kt1": partial(hh_morphing, guidance_points=["0", "1", "2p45"], target_point="kl4_kt1"),
-        # "hh_averaged_morphing_kl5_kt1": partial(
-        #     hh_averaged_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl5_kt1",
-        # ),
-        # "hh_averaged_morphing_kl0_kt1": partial(
-        #     hh_averaged_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl0_kt1",
-        # ),
-        # "hh_averaged_morphing_kl1_kt1": partial(
-        #     hh_averaged_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl1_kt1",
-        # ),
-        # "hh_averaged_morphing_kl2_kt1": partial(
-        #     hh_averaged_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl2_kt1",
-        # ),
-        # "hh_averaged_morphing_kl2p45_kt1": partial(
-        #     hh_averaged_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl2p45_kt1",
-        # ),
-        # "hh_averaged_morphing_kl3_kt1": partial(
-        #     hh_averaged_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl3_kt1",
-        # ),
-        # "hh_averaged_morphing_kl4_kt1": partial(
-        #     hh_averaged_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl4_kt1",
-        # ),
-        # "hh_fit_morphing_kl0_kt1": partial(
-        #     hh_fit_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl0_kt1",
-        # ),
-        # "hh_fit_morphing_kl1_kt1": partial(
-        #     hh_fit_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl1_kt1",
-        # ),
-        # "hh_fit_morphing_kl2_kt1": partial(
-        #     hh_fit_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl2_kt1",
-        # ),
-        # "hh_fit_morphing_kl2p45_kt1": partial(
-        #     hh_fit_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl2p45_kt1",
-        # ),
-        # "hh_fit_morphing_kl3_kt1": partial(
-        #     hh_fit_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl3_kt1",
-        # ),
-        # "hh_fit_morphing_kl4_kt1": partial(
-        #     hh_fit_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl4_kt1",
-        # ),
-        # "hh_fit_morphing_kl5_kt1": partial(
-        #     hh_fit_morphing,
-        #     guidance_points=["0", "1", "2p45", "5"],
-        #     target_point="kl5_kt1",
-        # ),
 
         "hh_ggf_exact_morphing_kl0_kt1": partial(
             general_higgs_morphing,
