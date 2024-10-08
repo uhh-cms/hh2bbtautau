@@ -337,18 +337,6 @@ def add_hist_hooks(config: od.Config) -> None:
         target_params_oi_float = {key: float(target_params_oi[key]) for key in target_params_oi.keys()}
         new_coefficients = np.array(get_coeffs(target_params_oi_float, parameters_oi))
 
-        # if production_channel == "ggf":
-        #     # new coefficients for the newly created point
-        #     kl = float(general_read_coupling_values(target_point)["kl"])
-        #     kt = float(general_read_coupling_values(target_point)["kt"])
-        #     c2 = float(general_read_coupling_values(target_point)["c2"])
-
-        # if production_channel == "vbf":
-        #     # new coefficients for the newly created point
-        #     kv = float(general_read_coupling_values(target_point)["kv"])
-        #     k2v = float(general_read_coupling_values(target_point)["k2v"])
-        #     kl = float(general_read_coupling_values(target_point)["kl"])
-
         if production_channel == "ggf":
             # create the new process for the morphed histogram, TODO: make customized id?
             new_proc = od.Process(
@@ -406,12 +394,6 @@ def add_hist_hooks(config: od.Config) -> None:
                 model_values.reshape(len(guidance_points), -1),
             ).reshape(original_hist_shape)
 
-            # morphed variances, using quadratic error propagation (and therefore assuming uncorrelated uncertainties)
-            morphed_variances_uncorr = np.matmul(
-                np.matmul(new_coefficients**2, inv_guidance_matrix**2),
-                model_variances.reshape(len(guidance_points), -1),
-            ).reshape(original_hist_shape)
-
             # morphed values and variances, using covariance matrix
             reshaped_model_variances = model_variances.reshape(len(guidance_points), -1)
             covariances = np.array([
@@ -433,38 +415,39 @@ def add_hist_hooks(config: od.Config) -> None:
                 ).T,
             ).reshape(original_hist_shape)
 
-            # actual equation, even for non invertible matrices:
-            # (C^T * C) v = C^T sigma
-            # v = (C^T * C)^-1 * C^T sigma
-            inv_guidance_matrix_v2 = np.linalg.inv(np.matmul(guidance_matrix.T, guidance_matrix))
-            factor_v = np.matmul(inv_guidance_matrix_v2, guidance_matrix.T)
-            morphed_values_v2 = np.matmul(
-                new_coefficients,
-                np.matmul(
-                    factor_v,
-                    model_values.reshape(len(guidance_points), -1),
-                ),
-            ).reshape(original_hist_shape)
+            # # alternative method for morphing, using the actual equation, even for non invertible matrices:
+            # # taken from blobel statistics book
+            # # leads to exact same results as above
+            # # (C^T * C) v = C^T sigma
+            # # v = (C^T * C)^-1 * C^T sigma
+            # inv_guidance_matrix_v2 = np.linalg.inv(np.matmul(guidance_matrix.T, guidance_matrix))
+            # factor_v = np.matmul(inv_guidance_matrix_v2, guidance_matrix.T)
+            # morphed_values_v2 = np.matmul(
+            #     new_coefficients,
+            #     np.matmul(
+            #         factor_v,
+            #         model_values.reshape(len(guidance_points), -1),
+            #     ),
+            # ).reshape(original_hist_shape)
 
-            sigma_v_vector_v2 = np.matmul(
-                np.matmul(
-                    factor_v,
-                    covariances.T,
-                ).T,
-                factor_v.T,
-            )
+            # sigma_v_vector_v2 = np.matmul(
+            #     np.matmul(
+            #         factor_v,
+            #         covariances.T,
+            #     ).T,
+            #     factor_v.T,
+            # )
 
-            morphed_variances_v2 = np.matmul(
-                new_coefficients,
-                np.matmul(
-                    sigma_v_vector_v2,
-                    new_coefficients,
-                ).T,
-            ).reshape(original_hist_shape)
-
-            # from IPython import embed; embed(header="morphing v2")
+            # morphed_variances_v2 = np.matmul(
+            #     new_coefficients,
+            #     np.matmul(
+            #         sigma_v_vector_v2,
+            #         new_coefficients,
+            #     ).T,
+            # ).reshape(original_hist_shape)
 
             if weights:
+                # morphing with weights matrix, needs equation from blobel statistics book
                 # actual equation also possible with weights
                 # v = (C^T * W * C)^-1 * C^T * W * sigma
 
@@ -485,17 +468,20 @@ def add_hist_hooks(config: od.Config) -> None:
                     weights,
                 )
 
-                # method number 1: custom multiplication by hand in loop
-                vector_v_3 = np.array([
-                    np.matmul(factor_v_2[i], model_values.reshape(len(guidance_points), -1)[:, i]) for i in range(len(factor_v_2))  # noqa
-                ])
+                # at this point, matrix multiplication becomes difficult due to extended dimensionality
+                # we want to multiply the matrices for each bin separately
 
-                morphed_values_with_weights = np.matmul(
-                    new_coefficients,
-                    vector_v_3.T,
-                ).reshape(original_hist_shape)
+                # # method number 1: custom multiplication by hand in loop
+                # vector_v_3 = np.array([
+                #     np.matmul(factor_v_2[i], model_values.reshape(len(guidance_points), -1)[:, i]) for i in range(len(factor_v_2))  # noqa
+                # ])
 
-                # method number 2: tensor multiplication, then masking
+                # morphed_values_with_weights = np.matmul(
+                #     new_coefficients,
+                #     vector_v_3.T,
+                # ).reshape(original_hist_shape)
+
+                # method number 2: tensor multiplication, then masking the additional dimensions
                 tensordot_res = np.tensordot(
                     factor_v_2,
                     model_values.reshape(len(guidance_points), -1),
@@ -508,7 +494,7 @@ def add_hist_hooks(config: od.Config) -> None:
 
                 vector_v_3_v2 = tensordot_res[mask].reshape(len(factor_v_2), -1)
 
-                morphed_values_with_weights_v2 = np.matmul(
+                morphed_values_with_weights = np.matmul(
                     new_coefficients,
                     vector_v_3_v2.T,
                 ).reshape(original_hist_shape)
@@ -544,13 +530,13 @@ def add_hist_hooks(config: od.Config) -> None:
                 for i in range(len(factor_v_2)):
                     mask_variances_part2[i, :, :, i] = True
 
-
                 sigma_v_vector_v3 = tensordot_res_variances_part2[mask_variances_part2].reshape(
                     len(factor_v_2),
                     len(new_coefficients),
                     len(new_coefficients),
                 )
 
+                # finally, do the last multiplication with the new coefficients to get the morphed variances
                 morphed_variances_with_weights = np.matmul(
                     new_coefficients,
                     np.matmul(
@@ -730,6 +716,8 @@ def add_hist_hooks(config: od.Config) -> None:
                     new_coefficients,
                 ).T,
             ).reshape(original_hist_shape)
+
+            # TODO: check why uncertainties fit and weights method are not the same
             # from IPython import embed; embed(header="fitting")
 
         # reshape the values to the correct categorization
