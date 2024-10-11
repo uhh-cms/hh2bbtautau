@@ -261,7 +261,7 @@ def plot_morphing_comparison(
     ax_ymin = max_important_value / 10**magnitudes if log_y else 0.0000001
     # ax_ymin = 0.0000001
     ax_ymax = get_position(ax_ymin, max_important_value, factor=1 / (1 - whitespace_fraction), logscale=log_y)
-    # ax_ymax = 0.085
+    # ax_ymax = 0.0014  # 0.085
     style_config["ax_cfg"]["ylim"] = (ax_ymin, ax_ymax)
     style_config["rax_cfg"]["ylim"] = (0.41, 1.59)
     style_config["rax_cfg"]["ylabel"] = "Ratio"
@@ -435,7 +435,6 @@ def plot_bin_morphing(
         ax.plot(x, y, label="Parabola fit", color="black")
     else:
         ax.plot(x, y, label="Parabola fit with uncertainty", color="black")
-
 
     # calculate the chi2 of the fit
     chi2 = np.sum((parabola(np.array(guidance_points), *popt) -

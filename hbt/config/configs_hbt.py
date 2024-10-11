@@ -389,6 +389,12 @@ def add_config(
         "small_legend": {
             "legend_cfg": {"ncols": 2, "fontsize": 16, "columnspacing": 0.6},
         },
+        "very_small_legend": {
+            "legend_cfg": {"ncols": 2, "fontsize": 10, "columnspacing": 0.6},
+        },
+        "ultra_small_legend": {
+            "legend_cfg": {"ncols": 2, "fontsize": 8, "columnspacing": 0.6},
+        },
     }
     cfg.x.default_custom_style_config = "small_legend"
 
