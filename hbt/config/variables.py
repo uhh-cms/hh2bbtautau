@@ -264,3 +264,10 @@ def add_variables(config: od.Config) -> None:
             binning=(25, 0.0, 1.0),
             x_title=rf"{proc.upper()} output node, res. DNN",
         )
+
+        config.add_variable(
+            name=f"res_dnn_{proc}_fine",
+            expression=f"res_dnn_{proc}",
+            binning=(5000, 0.0, 1.0),
+            x_title=rf"{proc.upper()} output node, res. DNN",
+        )
