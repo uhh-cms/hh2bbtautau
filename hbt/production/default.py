@@ -72,5 +72,4 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         # trigger weights
         events = self[trigger_weights](events, **kwargs)
 
-
     return events

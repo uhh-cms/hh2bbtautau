@@ -94,7 +94,6 @@ def add_config(
         processes=[procs.n.ttv, procs.n.ttvv],
     )
 
-
     # add processes we are interested in
     process_names = [
         "data",

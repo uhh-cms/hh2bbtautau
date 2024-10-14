@@ -23,7 +23,6 @@ def default(self):
         mc_stats=8.0,
     )
 
-
     # self.add_category(
     #         "incl",
     #         config_category="incl__os__iso",
@@ -176,7 +175,6 @@ def default_no_shifts(self):
     #
 
     self.cleanup(keep_parameters="THU_HH")
-
 
 
 @inference_model
