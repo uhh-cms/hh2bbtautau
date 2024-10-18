@@ -315,6 +315,9 @@ def tau_selection(
         (events.Tau[get_tau_tagger("mu")] >= (wp_config.tau_vs_mu.vloose if is_any_cross_tau
                                             else wp_config.tau_vs_mu.tight)) &
         (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.loose)
+        # (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.vloose)
+        # (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.vvloose)
+
     )
 
     # remove taus with too close spatial separation to previously selected leptons
