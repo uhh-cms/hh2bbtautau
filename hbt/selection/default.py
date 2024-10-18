@@ -87,24 +87,25 @@ def default(
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
-        # pdf weights
-        if self.has_dep(pdf_weights):
-            events = self[pdf_weights](events, **kwargs)
+        if not self.dataset_inst.has_tag("qcd"):
+            # pdf weights
+            if self.has_dep(pdf_weights):
+                events = self[pdf_weights](events, **kwargs)
 
-        # renormalization/factorization scale weights
-        if self.has_dep(murmuf_weights):
-            events = self[murmuf_weights](events, **kwargs)
+            # renormalization/factorization scale weights
+            if self.has_dep(murmuf_weights):
+                events = self[murmuf_weights](events, **kwargs)
 
-        # pileup weights
-        events = self[pu_weight](events, **kwargs)
+            # pileup weights
+            events = self[pu_weight](events, **kwargs)
 
-        # btag weights
-        events = self[btag_weights](
-            events,
-            ak.fill_none(results.x.jet_mask, False, axis=-1),
-            negative_b_score_log_mode="none",
-            **kwargs,
-        )
+            # btag weights
+            events = self[btag_weights](
+                events,
+                ak.fill_none(results.x.jet_mask, False, axis=-1),
+                negative_b_score_log_mode="none",
+                **kwargs,
+            )
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
@@ -137,24 +138,25 @@ def default(
         weight_map["sum_mc_weight"] = events.mc_weight
         weight_map["sum_mc_weight_selected"] = (events.mc_weight, event_sel)
         weight_map["sum_mc_weight_selected_nobjet"] = (events.mc_weight, event_sel_nob)
-        # pu weights with variations
-        for name in sorted(self[pu_weight].produces):
-            weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
-        # pdf and murmuf weights with variations
-        if not self.dataset_inst.has_tag("no_lhe_weights"):
-            for v in ["", "_up", "_down"]:
-                weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
-                weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
-                weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
-                weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
-        # btag weights
-        for name in sorted(self[btag_weights].produces):
-            if not name.startswith("btag_weight"):
-                continue
-            weight_map[f"sum_{name}"] = events[name]
-            weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
-            weight_map[f"sum_{name}_selected_nobjet"] = (events[name], event_sel_nob)
-            weight_map[f"sum_mc_weight_{name}_selected_nobjet"] = (events.mc_weight * events[name], event_sel_nob)
+        if not self.dataset_inst.has_tag("qcd"):
+            # pu weights with variations
+            for name in sorted(self[pu_weight].produces):
+                weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
+            # pdf and murmuf weights with variations
+            if not self.dataset_inst.has_tag("no_lhe_weights"):
+                for v in ["", "_up", "_down"]:
+                    weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
+                    weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
+                    weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
+                    weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
+            # btag weights
+            for name in sorted(self[btag_weights].produces):
+                if not name.startswith("btag_weight"):
+                    continue
+                weight_map[f"sum_{name}"] = events[name]
+                weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
+                weight_map[f"sum_{name}_selected_nobjet"] = (events[name], event_sel_nob)
+                weight_map[f"sum_mc_weight_{name}_selected_nobjet"] = (events.mc_weight * events[name], event_sel_nob)
         # groups
         group_map = {
             **group_map,

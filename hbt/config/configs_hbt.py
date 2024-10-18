@@ -141,6 +141,8 @@ def add_config(
             continue
 
         # add tags to processes
+        if process_name.startswith("qcd"):
+            proc.add_tag("qcd")
         if process_name.startswith("hh_"):
             proc.add_tag("signal")
             proc.add_tag("nonresonant_signal")
@@ -252,6 +254,29 @@ def add_config(
             "zh_gg_zqq_hbb_powheg",
             "tth_hbb_powheg",
             "tth_hnonbb_powheg",
+            # qcd samples
+            "qcd_mu_pt15to20_pythia",
+            "qcd_mu_pt20to30_pythia",
+            "qcd_mu_pt30to50_pythia",
+            "qcd_mu_pt50to80_pythia",
+            "qcd_mu_pt80to120_pythia",
+            "qcd_mu_pt120to170_pythia",
+            "qcd_mu_pt170to300_pythia",
+            "qcd_mu_pt300to470_pythia",
+            "qcd_mu_pt470to600_pythia",
+            "qcd_mu_pt600to800_pythia",
+            "qcd_mu_pt800to1000_pythia",
+            "qcd_mu_pt1000toinf_pythia",
+            "qcd_em_pt10to30_pythia",
+            "qcd_em_pt30to50_pythia",
+            "qcd_em_pt50to80_pythia",
+            "qcd_em_pt80to120_pythia",
+            "qcd_em_pt120to170_pythia",
+            "qcd_em_pt170to300_pythia",
+            "qcd_em_pt300toinf_pythia",
+            "qcd_doubleem_pt30to40_mgg80toinf_pythia",
+            "qcd_doubleem_pt30toinf_mgg40to80_pythia",
+            "qcd_doubleem_pt40toinf_mgg80toinf_pythia",
         ]),
 
         # data
@@ -264,6 +289,8 @@ def add_config(
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
         # add tags to datasets
+        if dataset.name.startswith("qcd"):
+            dataset.add_tag("qcd")
         if dataset.name.startswith("tt"):
             dataset.add_tag(("has_top", "is_ttbar"))
         elif dataset.name.startswith("st"):
@@ -314,10 +341,10 @@ def add_config(
             "hh_ggf_hbb_htt_kl5_kt1",
         ],
         "backgrounds": (backgrounds := [
-            "h",
+            "qcd",
             "tt",
             "dy",
-            "qcd",
+            "h",
             "st",
             "v",
             "multiboson",
@@ -327,7 +354,7 @@ def add_config(
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
-        "sm_data": ["data"] + sm_group,
+        "sm_data": ["data"] + [*backgrounds],
     }
 
     # define inclusive datasets for the dy process identification with corresponding leaf processes
@@ -1106,7 +1133,7 @@ def add_config(
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
     if cfg.campaign.x("custom", {}).get("creator") == "uhh":
-        def get_dataset_lfns(
+        def get_dataset_lfns_custom_nanos(
             dataset_inst: od.Dataset,
             shift_inst: od.Shift,
             dataset_key: str,
@@ -1114,9 +1141,16 @@ def add_config(
             # destructure dataset_key into parts and create the lfn base directory
             dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
             main_campaign, sub_campaign = full_campaign.split("-", 1)
-            lfn_base = law.wlcg.WLCGDirectoryTarget(
-                f"/store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0",
+            path = f"/store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
+            local_base = law.LocalDirectoryTarget(path, fs=f"local_fs{cfg.campaign.x.custom['name']}")
+            wlcg_base = law.wlcg.WLCGDirectoryTarget(
+                path,
                 fs=f"wlcg_fs_{cfg.campaign.x.custom['name']}",
+            )
+            lfn_base = law.MirroredDirectoryTarget(
+                path=local_base.path,
+                remote_target=wlcg_base,
+                local_target=local_base,
             )
 
             # loop though files and interpret paths as lfns
@@ -1124,6 +1158,57 @@ def add_config(
                 lfn_base.child(basename, type="f").path
                 for basename in lfn_base.listdir(pattern="*.root")
             ]
+
+        def get_dataset_lfns_dasgoclient(
+            dataset_inst: od.Dataset,
+            shift_inst: od.Shift,
+            dataset_key: str,
+        ) -> list[str]:
+            """
+            Get the LNF information with the ``dasgoclient``.
+
+            :param dataset_inst: Current dataset instance, currently not used.
+            :param shift_inst: Current shift instance, currently not used.
+            :param dataset_key: DAS key identifier for the current dataset.
+            :raises Exception: If query with ``dasgoclient`` fails.
+            :return: The list of LFNs corresponding to the dataset with the identifier *dataset_key*.
+            """
+            local_base = law.LocalDirectoryTarget(dataset_key, fs="local_fs_desy_dcache")
+            final_list = []
+            if not local_base.exists():
+                import subprocess
+                code, out, _ = law.util.interruptable_popen(
+                    f"dasgoclient --query='file dataset={dataset_key}' --limit=0",
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    executable="/bin/bash",
+                )
+                if code != 0:
+                    raise Exception(f"dasgoclient query failed:\n{out}")
+
+                final_list = [
+                    line.strip()
+                    for line in out.strip().split("\n")
+                    if line.strip().endswith(".root")
+                ]
+            else:
+                final_list = [
+                    local_base.child(basename, type="f").path
+                    for basename in local_base.listdir(pattern="*.root")
+                ]
+            return final_list
+
+        def get_dataset_lfns(
+            dataset_inst: od.Dataset,
+            shift_inst: od.Shift,
+            dataset_key: str,
+        ) -> list[str]:
+            func = (
+                get_dataset_lfns_custom_nanos
+                if not dataset_inst.name.startswith("qcd")
+                else get_dataset_lfns_dasgoclient
+            )
+            return func(dataset_inst, shift_inst, dataset_key)
 
         # define the lfn retrieval function
         cfg.x.get_dataset_lfns = get_dataset_lfns
@@ -1135,6 +1220,8 @@ def add_config(
         cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: [
             f"local_fs_{cfg.campaign.x.custom['name']}",
             f"wlcg_fs_{cfg.campaign.x.custom['name']}",
+            "local_fs_desy_dcache",
+            "wlcg_fs_desy_dcache",
         ]
 
     return cfg
