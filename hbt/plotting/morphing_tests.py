@@ -720,6 +720,42 @@ def plot_ratios(
     # style_config["legend_cfg"]["frameon"] = True
     return fig, axs
 
+def plot_3d_morphing(
+    function_bin_search: Callable,
+    points: dict,
+    hists: OrderedDict,
+    config_inst: od.Config,
+    category_inst: od.Category,
+    variable_insts: list[od.Variable],
+    style_config: dict | None = None,
+    density: bool | None = False,
+    shape_norm: bool | None = False,
+    yscale: str | None = "",
+    hide_errors: bool | None = None,
+    process_settings: dict | None = None,
+    variable_settings: dict | None = None,
+    distance_measure: str = "chi2",
+    **kwargs,
+) -> plt.Figure:
+
+
+
+    fig, ax = plt.subplots()
+    axs = (ax,)
+    plt.style.use(mplhep.style.CMS)
+    # mplhep.style.use("CMS")
+
+    # put the cms logo and the lumi text on the top left corner
+    mplhep.cms.text(text="Private Work", fontsize=16, ax=ax)
+
+    ax.set_xlabel(r"$\kappa_\lambda$", fontsize=16)
+    # ax.set_ylabel(bin_type + " value", fontsize=16)
+    ax.set_ylabel(r"$\kappa_{2V}$", fontsize=16)
+    ax.legend(fontsize=16, loc="upper center")
+    ax.tick_params(axis="both", which="major", labelsize=16)
+    fig.tight_layout()
+    return fig, axs
+
 
 plot_max_bin_morphing = partial(
     plot_bin_morphing,
@@ -738,4 +774,64 @@ plot_bin_5_morphing = partial(
     function_bin_search=lambda x: 5,
     bin_type="Bin 5",
     production_channel="ggf",
+)
+
+plot_3d_morphing_2022_pre_chi2_sm_morphed = partial(
+    plot_3d_morphing,
+    function_bin_search=lambda x: 5,
+    points={
+        {"kv": 1., "k2v": 1., "kl": 1., "name"= "kv1_k2v1_kl1", "type"="morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name"= "kv1_k2v0_kl1", "type"=""},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type"=""},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type"=""},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type"=""},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type"=""},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type"=""},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type"=""},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type"=""},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type"=""},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type"=""},
+        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type"=""},
+    },
+    distance_measure="chi2",
+)
+
+plot_3d_morphing_2022_pre_ratio_sm_morphed = partial(
+    plot_3d_morphing,
+    function_bin_search=lambda x: 5,
+    points={
+        {"kv": 1., "k2v": 1., "kl": 1., "name"= "kv1_k2v1_kl1", "type"="morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name"= "kv1_k2v0_kl1", "type"=""},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type"=""},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type"=""},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type"=""},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type"=""},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type"=""},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type"=""},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type"=""},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type"=""},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type"=""},
+        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type"=""},
+    },
+    distance_measure="ratio",
+)
+
+plot_3d_morphing_2022_pre_chi2_all_morphed = partial(
+    plot_3d_morphing,
+    function_bin_search=lambda x: 5,
+    points={
+        {"kv": 1., "k2v": 1., "kl": 1., "name"= "kv1_k2v1_kl1", "type"="morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name"= "kv1_k2v0_kl1", "type"="morphed"},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type"="morphed"},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type"="morphed"},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type"="morphed"},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type"="morphed"},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type"="morphed"},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type"="morphed"},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type"="morphed"},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type"="morphed"},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type"="morphed"},
+        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type"="morphed"},
+    },
+    distance_measure="chi2",
 )
