@@ -500,7 +500,7 @@ def lepton_selection(
             # special case for cross tau vbf trigger:
             # to avoid overlap, with non-vbf triggers, only one tau is allowed to have pt > 40
             if trigger.has_tag("cross_tau_tau_vbf"):
-                is_tautau = is_tautau & (ak.num(events.Tau[tau_indices].pt > 40, axis=1) <= 1)
+                is_tautau = is_tautau & (ak.sum(events.Tau[tau_indices].pt > 40, axis=1) <= 1)
 
             is_iso = ak.sum(tau_iso_mask, axis=1) >= 2
             # tau_indices are sorted by highest isolation as cond. 1 and highest pt as cond. 2, so
