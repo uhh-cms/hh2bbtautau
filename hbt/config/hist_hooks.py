@@ -187,7 +187,7 @@ def add_hist_hooks(config: od.Config) -> None:
 
         return hists
 
-    def flat_s(task, hists: dict[hist.Histogram]) -> dict[hist.Histogram]:
+    def flat_s(task, hists: dict[od.Process, hist.Histogram]) -> dict[hist.Histogram]:
         """Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
 
         :param task: task instance that contains the process informations
