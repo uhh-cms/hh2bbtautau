@@ -5,4 +5,4 @@
 import hbt.tasks.base
 import hbt.tasks.stats
 import hbt.tasks.studies
-import hbt.tasks.sync_csv
+import hbt.tasks.sync

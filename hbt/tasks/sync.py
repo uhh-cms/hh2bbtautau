@@ -7,7 +7,6 @@ Task to create a single file csv file for framework sync with other frameworks.
 import luigi
 import law
 
-
 from columnflow.tasks.framework.base import Requirements, AnalysisTask, wrapper_factory
 from columnflow.tasks.framework.mixins import ProducersMixin, MLModelsMixin, ChunkedIOMixin, SelectorMixin
 from columnflow.tasks.framework.remote import RemoteWorkflow
@@ -243,19 +242,11 @@ class CreateSyncFile(
         self.output().dump(merged_pandas_framework, index=False, formatter="pandas")
 
 
-# overwrite class defaults
-check_finite_tasks = law.config.get_expanded("analysis", "check_finite_output", [], split_csv=True)
-CreateSyncFile.check_finite_output = ChunkedIOMixin.check_finite_output.copy(
-    default=CreateSyncFile.task_family in check_finite_tasks,
-    add_default_to_description=True,
-)
-
 check_overlap_tasks = law.config.get_expanded("analysis", "check_overlapping_inputs", [], split_csv=True)
 CreateSyncFile.check_overlapping_inputs = ChunkedIOMixin.check_overlapping_inputs.copy(
     default=CreateSyncFile.task_family in check_overlap_tasks,
     add_default_to_description=True,
 )
-
 
 CreateSyncFileWrapper = wrapper_factory(
     base_cls=AnalysisTask,
