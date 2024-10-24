@@ -363,7 +363,8 @@ def add_hist_hooks(config: od.Config) -> None:
                 if len(bin_edges) > n_bins:
                     raise RuntimeError(
                         "number of bins reached and initial bin edge"
-                        f"is not minimal bin edge (edges: {bin_edges})")
+                        f" is not minimal bin edge (edges: {bin_edges})",
+                    )
                 bin_edges.append(low_edge)
                 indices_gathering.append(num_events)
 
