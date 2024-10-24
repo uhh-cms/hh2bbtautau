@@ -189,24 +189,39 @@ def add_hist_hooks(config: od.Config) -> None:
 
     def flat_s(task, hists: dict[hist.Histogram]) -> dict[hist.Histogram]:
         """Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
-        Args:
 
-            task (TODO): task instance that contains the process informations
-            hists (Dict[hist.Histogram]): A dictionary of histograms using Process instances as keys
+        :param task: task instance that contains the process informations
+        :param hists: A dictionary of histograms using Process instances as keys
 
-        Returns:
-            Dict[hist.Histogram]: A dictionary of histograms using Process instances as keys
+        :raises RuntimeError: If the wanted number of bins is reached and the initial
+        bin edge is not minimal.
+        :raises Exception: If the number of actual bins ended up larger than requested.
+        :return: A dictionary of histograms using Process instances as keys
         """
         def find_edges(signal_histogram, background_histograms, variable, n_bins=10) -> tuple[np.ndarray, np.ndarray]:
             """
             Determine new bin edges that result in a flat signal distribution.
             The edges are determined by the signal distribution, while the background distribution
             is used to ensure that the background yield in each bin is sufficient.
+
+            :param signal_histogram: The histogram that describes the signal distribution.
+            :param background_histograms: A dictionary of histograms using the process as key
+            that describe the background distribution.
+            :param variable: The variable name that is rebinned.
+            :param n_bins: The number of bins that the signal distribution should be rebinned to.
+
+            :return: A tuple containing the new bin edges and the indices that define the new bin edges.
             """
             def get_integral(cumulative_weights, stop, offset=0):
                 """
                 Helper to calculate the integral of *cumulative_weights* between the *offset* (included)
                 and the *stop* index (not included)
+
+                :param cumulative_weights: The cumulative weights array.
+                :param stop: The index up to which the integral is calculated.
+                :param offset: The index from which the integral is calculated.
+
+                :return The integral of the weights between the given indices.
                 """
                 return cumulative_weights[stop - 1] - (0 if offset == 0 else cumulative_weights[offset - 1])
 
@@ -214,8 +229,9 @@ def add_hist_hooks(config: od.Config) -> None:
                 """
                 Helper to extract information from background histograms.
 
-                Returns:
-                    tuple[np.ndarray]: A tuple containing the array that describe bin yield,
+                :param histogram: A histogram that describes the background distribution.
+
+                :return: A tuple containing the array that describe bin yield,
                     the number of equivalent bins and the cumulative bin yield.
                 """
                 bin_yield = histogram.counts()
@@ -258,7 +274,7 @@ def add_hist_hooks(config: od.Config) -> None:
             # prepare background
 
             for process, histogram in background_histograms.items():
-                if process.name == "tt":
+                if process.name == "ttbar":
                     tt_y, tt_num_eq, cumulu_tt_y = prepare_background(histogram)
                 elif process.name == "dy":
                     dy_y, dy_num_eq, cumulu_dy_y = prepare_background(histogram)
@@ -288,10 +304,6 @@ def add_hist_hooks(config: od.Config) -> None:
                     # special case: remaining signal yield smaller than the expected per-bin yield,
                     # so find the last event
                     next_idx = offset + np.where(cumulu_y_signal[offset:])[0][-1] + 1
-
-                # advance the index until backgrounds constraints are met
-
-                # combine tt and dy histograms
 
                 # Background constraints
                 while next_idx < num_events:
@@ -349,7 +361,9 @@ def add_hist_hooks(config: od.Config) -> None:
             # make sure the lower dnn_output (max events) is included
             if bin_edges[-1] != low_edge:
                 if len(bin_edges) > n_bins:
-                    raise RuntimeError(f"number of bins reached and initial bin edge is not minimal bin edge (edges: {bin_edges})") # noqa
+                    raise RuntimeError(
+                        "number of bins reached and initial bin edge"
+                        f"is not minimal bin edge (edges: {bin_edges})")
                 bin_edges.append(low_edge)
                 indices_gathering.append(num_events)
 
@@ -368,20 +382,19 @@ def add_hist_hooks(config: od.Config) -> None:
             indices_gathering = (np.flip(indices_gathering) - num_events) * -1
             return np.flip(np.array(bin_edges), axis=-1), indices_gathering
 
-        def apply_edges(h: hist.Hist, edges: np.ndarray, indices: np.ndarray, variable: tuple[str]) -> hist.Hist:
+        def apply_edges(h: hist.Hist, edges: np.ndarray, indices: np.ndarray, variable: str) -> hist.Hist:
             """
-            Rebin the content axes determined by *variables* of a given hist histogram *h* to
+            Rebin the content axes determined by *variable* of a given hist histogram *h* to
             given *edges* and their *indices*.
             The rebinned histogram is returned.
 
-            Args:
-            h (hist.Hist): hist Histogram that is to be rebinned
-            edges (np.ndarray): a array of ascending bin edges
-            indices (np.ndarray): a array of indices that define the new bin edges
-            variables (str): variable name that is rebinned
 
-            Returns:
-                hist.Hist: rebinned hist histogram
+            :param h: hist Histogram that is to be rebinned
+            :param edges: a array of ascending bin edges
+            :param indices: a array of indices that define the new bin edges
+            :param variable: variable name that is rebinned
+
+            :return: rebinned hist histogram
             """
             # sort edges and indices, by default they are sorted
             ascending_order = np.argsort(edges)
