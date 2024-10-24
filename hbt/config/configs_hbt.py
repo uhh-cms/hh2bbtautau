@@ -147,6 +147,10 @@ def add_config(
         if process_name.startswith(("graviton_hh_", "radion_hh_")):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
+        if process_name.startswith("tt"):
+            proc.add_tag("ttbar")
+        if process_name.startswith("dy"):
+            proc.add_tag("dy")
 
         # add the process
         cfg.add_process(proc)
