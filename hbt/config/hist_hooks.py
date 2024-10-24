@@ -187,7 +187,7 @@ def add_hist_hooks(config: od.Config) -> None:
 
         return hists
 
-    def flat_s(task, hists: dict[od.Process, hist.Histogram]) -> dict[hist.Histogram]:
+    def flat_s(task, hists: dict[od.Process, hist.Histogram]) -> dict[od.Process, hist.Histogram]:
         """Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
 
         :param task: task instance that contains the process informations
@@ -388,7 +388,6 @@ def add_hist_hooks(config: od.Config) -> None:
             Rebin the content axes determined by *variable* of a given hist histogram *h* to
             given *edges* and their *indices*.
             The rebinned histogram is returned.
-
 
             :param h: hist Histogram that is to be rebinned
             :param edges: a array of ascending bin edges
