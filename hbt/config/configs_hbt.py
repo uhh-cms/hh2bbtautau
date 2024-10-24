@@ -148,9 +148,9 @@ def add_config(
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
         if process_name.startswith("tt"):
-            proc.add_tag("is_ttbar")
+            proc.add_tag("ttbar")
         if process_name.startswith("dy"):
-            proc.add_tag("is_dy")
+            proc.add_tag("dy")
 
         # add the process
         cfg.add_process(proc)
