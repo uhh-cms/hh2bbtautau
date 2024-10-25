@@ -56,19 +56,19 @@ def add_config(
     # helper to enable processes / datasets only for a specific era
     def if_era(
         *,
-        run: int | None = None,
-        year: int | None = None,
-        postfix: str | None = None,
-        tag: str | None = None,
-        values: list[str] | None = None,
+        run: int | set[int] | None = None,
+        year: int | set[int] | None = None,
+        postfix: str | set[int] | None = None,
+        tag: str | set[str] | None = None,
+        values: list[str | None] | None = None,
     ) -> list[str]:
         match = (
-            (run is None or campaign.x.run == run) and
-            (year is None or campaign.x.year == year) and
-            (postfix is None or campaign.x.postfix == postfix) and
-            (tag is None or campaign.has_tag(tag))
+            (run is None or campaign.x.run in law.util.make_set(run)) and
+            (year is None or campaign.x.year in law.util.make_set(year)) and
+            (postfix is None or campaign.x.postfix in law.util.make_set(postfix)) and
+            (tag is None or campaign.has_tag(tag, mode=any))
         )
-        return (values or []) if match else []
+        return list(filter(bool, values or [])) if match else []
 
     ################################################################################################
     # processes
@@ -94,7 +94,7 @@ def add_config(
         processes=[procs.n.ttv, procs.n.ttvv],
     )
 
-    # add processes we are interested in
+    # processes we are interested in
     process_names = [
         "data",
         "tt",
@@ -147,9 +147,9 @@ def add_config(
         if process_name.startswith(("graviton_hh_", "radion_hh_")):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
-        if process_name.startswith("tt"):
-            proc.add_tag("ttbar")
-        if process_name.startswith("dy"):
+        if process_name.startswith("tt_"):
+            proc.add_tag({"ttbar", "tt"})
+        if process_name.startswith("dy_"):
             proc.add_tag("dy")
 
         # add the process
@@ -172,6 +172,7 @@ def add_config(
             "hh_ggf_hbb_htt_kl0_kt1_powheg",
             "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
             "hh_ggf_hbb_htt_kl5_kt1_powheg",
+
             # vbf
             "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",
@@ -185,6 +186,7 @@ def add_config(
             "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
             "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
             "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+
             # some resonances
             "graviton_hh_ggf_hbb_htt_m450_madgraph",
             "graviton_hh_ggf_hbb_htt_m1200_madgraph",
@@ -192,17 +194,13 @@ def add_config(
         ]),
 
         # backgrounds
-        "tt_sl_powheg",
-        "tt_dl_powheg",
-        "tt_fh_powheg",
         *if_era(run=3, year=2022, values=[
-            "ttw_wlnu_amcatnlo",
-            "ttz_zqq_amcatnlo",
-            "ttz_zll_m4to50_amcatnlo",
-            "ttz_zll_m50toinf_amcatnlo",
-            "ttzz_madgraph",
-            "ttww_madgraph",
-            # "ttwz_madgraph",  # not available yet
+            # ttbar
+            "tt_sl_powheg",
+            "tt_dl_powheg",
+            "tt_fh_powheg",
+
+            # single top
             "st_tchannel_t_4f_powheg",
             "st_tchannel_tbar_4f_powheg",
             "st_twchannel_t_sl_powheg",
@@ -211,8 +209,23 @@ def add_config(
             "st_twchannel_tbar_dl_powheg",
             "st_twchannel_t_fh_powheg",
             "st_twchannel_tbar_fh_powheg",
-            # "st_schannel_t_lep_4f_amcatnlo",  # no cross section yet
-            # "st_schannel_tbar_lep_4f_amcatnlo",  # no cross section yet
+            "st_schannel_t_lep_4f_amcatnlo",
+            "st_schannel_tbar_lep_4f_amcatnlo",
+
+            # tt + v
+            "ttw_wlnu_amcatnlo",
+            "ttz_zqq_amcatnlo",
+            "ttz_zll_m4to50_amcatnlo",
+            "ttz_zll_m50toinf_amcatnlo",
+
+            # tt + vv
+            "ttww_madgraph",
+            *if_era(run=3, year=2022, tag="postEE", values=[
+                "ttwz_madgraph",  # exists for post, but not for pre
+            ]),
+            "ttzz_madgraph",
+
+            # dy
             "dy_m4to10_amcatnlo",
             "dy_m10to50_amcatnlo",
             "dy_m50toinf_amcatnlo",
@@ -229,31 +242,58 @@ def add_config(
             "dy_m50toinf_2j_pt200to400_amcatnlo",
             "dy_m50toinf_2j_pt400to600_amcatnlo",
             "dy_m50toinf_2j_pt600toinf_amcatnlo",
+
+            # w + jets
             "w_lnu_amcatnlo",
-            "z_qq_pt100to200_1j_amcatnlo",
-            "z_qq_pt100to200_2j_amcatnlo",
-            "z_qq_pt200to400_1j_amcatnlo",
-            "z_qq_pt200to400_2j_amcatnlo",  # literally no events selected above 400 GeV
+            "w_lnu_0j_amcatnlo",
+            "w_lnu_1j_amcatnlo",
+            "w_lnu_2j_amcatnlo",
+            "w_lnu_pt40to100_1j_amcatnlo",
+            "w_lnu_pt40to100_2j_amcatnlo",
+            "w_lnu_pt100to200_1j_amcatnlo",
+            "w_lnu_pt100to200_2j_amcatnlo",
+            "w_lnu_pt200to400_1j_amcatnlo",
+            "w_lnu_pt200to400_2j_amcatnlo",
+            "w_lnu_pt400to600_1j_amcatnlo",
+            "w_lnu_pt400to600_2j_amcatnlo",
+            "w_lnu_pt600toinf_1j_amcatnlo",
+            "w_lnu_pt600toinf_2j_amcatnlo",
+
+            # z + jets (not DY but qq)
+            # decided to drop z_qq for now as their contribution is negligible,
+            # but we should check that again at a much later stage
+            # "z_qq_pt100to200_1j_amcatnlo",
+            # "z_qq_pt100to200_2j_amcatnlo",
+            # "z_qq_pt200to400_1j_amcatnlo",
+            # "z_qq_pt200to400_2j_amcatnlo",
+
+            # vv
             "zz_pythia",
             "wz_pythia",
             "ww_pythia",
+
+            # vvv
             "zzz_amcatnlo",
             "wzz_amcatnlo",
             "wwz_4f_amcatnlo",
             "www_4f_amcatnlo",
+
+            # single H
             "h_ggf_htt_powheg",
             "h_vbf_htt_powheg",
             "vh_hnonbb_amcatnlo",
+            "wmh_wlnu_hbb_powheg",
+            "wph_wlnu_hbb_powheg",
+            "wph_htt_powheg",
+            "wmh_htt_powheg",
+            "wph_wqq_hbb_powheg",
+            "wmh_wqq_hbb_powheg",
             "zh_zll_hbb_powheg",
             "zh_zqq_hbb_powheg",
             "zh_htt_powheg",
-            "wph_htt_powheg",
-            "wmh_htt_powheg",
-            "wph_wlnu_hbb_powheg",
-            "wmh_wlnu_hbb_powheg",
             "zh_gg_zll_hbb_powheg",
-            "zh_gg_znunu_hbb_powheg",
             "zh_gg_zqq_hbb_powheg",
+            "zh_gg_znunu_hbb_powheg",
             "tth_hbb_powheg",
             "tth_hnonbb_powheg",
         ]),
@@ -262,18 +302,21 @@ def add_config(
         *if_era(run=3, year=2022, tag="preEE", values=[
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "cd"
         ]),
+        *if_era(run=3, year=2022, tag="postEE", values=[
+            f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "efg"
+        ]),
     ]
     for dataset_name in dataset_names:
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
         # add tags to datasets
-        if dataset.name.startswith("tt"):
-            dataset.add_tag(("has_top", "is_ttbar"))
-        elif dataset.name.startswith("st"):
-            dataset.add_tag(("has_top", "is_single_top"))
-        if dataset.name.startswith("dy"):
-            dataset.add_tag("is_dy")
+        if dataset.name.startswith("tt_"):
+            dataset.add_tag({"has_top", "ttbar", "tt"})
+        if dataset.name.startswith("st_"):
+            dataset.add_tag({"has_top", "single_top", "st"})
+        if dataset.name.startswith("dy_"):
+            dataset.add_tag("dy")
         if re.match(r"^(ww|wz|zz)_.*pythia$", dataset.name):
             dataset.add_tag("no_lhe_weights")
         if dataset_name.startswith("hh_"):
