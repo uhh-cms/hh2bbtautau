@@ -1,23 +1,28 @@
 # coding: utf-8
 
 """
-Task to create a single file csv file for framework sync with other frameworks.
+Tasks that create files for synchronization efforts with other frameworks.
 """
 
-import luigi
+from __future__ import annotations
+
 import law
 
 from columnflow.tasks.framework.base import Requirements, AnalysisTask, wrapper_factory
-from columnflow.tasks.framework.mixins import ProducersMixin, MLModelsMixin, ChunkedIOMixin, SelectorMixin
+from columnflow.tasks.framework.mixins import (
+    ProducersMixin, MLModelsMixin, ChunkedIOMixin, SelectorMixin,
+)
 from columnflow.tasks.framework.remote import RemoteWorkflow
 from columnflow.tasks.reduction import ReducedEventsUser
 from columnflow.tasks.production import ProduceColumns
 from columnflow.tasks.ml import MLEvaluation
-from columnflow.tasks.selection import MergeSelectionMasks
-from columnflow.util import dev_sandbox, DotDict
+from columnflow.util import dev_sandbox
+
+from hbt.tasks.base import HBTTask
 
 
-class CreateSyncFile(
+class CreateSyncFiles(
+    HBTTask,
     MLModelsMixin,
     ProducersMixin,
     ChunkedIOMixin,
@@ -28,19 +33,12 @@ class CreateSyncFile(
 ):
     sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
 
-    file_type = luigi.ChoiceParameter(
-        default="csv",
-        choices=("csv",),
-        description="the file type to create; choices: csv; default: csv",
-    )
-
     # upstream requirements
     reqs = Requirements(
         ReducedEventsUser.reqs,
         RemoteWorkflow.reqs,
         ProduceColumns=ProduceColumns,
         MLEvaluation=MLEvaluation,
-        MergeSelectionMasks=MergeSelectionMasks,
     )
 
     def workflow_requires(self):
@@ -85,110 +83,17 @@ class CreateSyncFile(
 
     @workflow_condition.output
     def output(self):
-        return self.target(f"sync_file_{self.branch}.{self.file_type}")
+        return self.target(f"sync_{self.dataset_inst.name}_{self.branch}.csv")
 
     @law.decorator.log
-    @law.decorator.localize(input=True, output=True)
-    @law.decorator.safe_output
+    @law.decorator.localize
     def run(self):
-        from columnflow.columnar_util import (
-            Route, RouteFilter, mandatory_coffea_columns, update_ak_array,
-            sort_ak_fields, EMPTY_FLOAT,
-        )
         import awkward as ak
-        import pandas as pd
-        def sync_columns():
-            columns = {
-                "physics_objects": {
-                    "Jet.{pt,eta,phi,mass}": 2,
-                },
-                "flat_objects": [
-                    "event",
-                    "run",
-                    "channel_id",
-                    "leptons_os",
-                    "luminosityBlock",
-                    "lep*",
-                ],
-            }
-            mapping = {
-                "luminosityBlock": "lumi",
-                "leptons_os": "is_os",
-            }
-            return columns, mapping
-
-        def lepton_selection(events, attributes=["pt", "eta", "phi", "charge"]):
-            first_lepton = ak.concatenate([events["Electron"], events["Muon"]], axis=1)
-            second_lepton = events["Tau"]
-            for attribute in attributes:
-                events[f"lep1_{attribute}"] = first_lepton[attribute]
-                events[f"lep2_{attribute}"] = second_lepton[attribute]
-            return events
-
-        def awkward_to_pandas(events, physics_objects, flat_objects=["event"]):
-            """Helper function to convert awkward arrays to pandas dataframes.
-
-            Args:
-                events (ak.array): Awkward array with nested structure.
-                physics_objects (Dict[str]): Dict of physics objects to consider, with value representing padding.
-                attributes (List[str]): List of attributes to consider.
-                flat_objects (List[str]): List of additional columns to consider, these are not padded.
-
-            Returns:
-                pd.DataFrame: Pandas dataframe with flattened structure of the awkward array.
-            """
-            events = sort_ak_fields(events)
-            f = DotDict()
-            # add meta columns (like event number, ...)
-            # these columns do not need padding
-
-            # columns that need no padding (like event number, ...)
-            # resolve glob patterns
-            for flat_object_pattern in flat_objects:
-                for field in events.fields:
-                    if law.util.fnmatch.fnmatch(field, flat_object_pattern):
-                        f[field] = events[field]
-
-            # add columns of physics objects
-            # columns are padded to given pad_length
-            for physics_pattern, pad_length in physics_objects.items():
-                physics_objects = law.util.brace_expand(physics_pattern)
-                for physics_object in physics_objects:
-                    physics_route = Route(physics_object)
-                    parts = physics_route.fields
-                    physics_array = physics_route.apply(events)
-                    physics_array = ak.pad_none(physics_array, pad_length)
-                    physics_array = ak.fill_none(physics_array, EMPTY_FLOAT)
-                    for pad_number in range(0, pad_length):
-                        full_name = f"{parts[0].lower()}{pad_number}_{parts[1].lower()}"
-                        f[full_name] = physics_array[:, pad_number]
-            return ak.to_dataframe(f)
+        from columnflow.columnar_util import update_ak_array, EMPTY_FLOAT
 
         # prepare inputs and outputs
         inputs = self.input()
-
-        # create a temp dir for saving intermediate files
-        tmp_dir = law.LocalDirectoryTarget(is_tmp=True)
-        tmp_dir.touch()
-
-        # define columns that will be written
-        write_columns: set[Route] = set()
-        skip_columns: set[str] = set()
-        for c in self.config_inst.x.keep_columns.get(self.task_family, ["*"]):
-            for r in self._expand_keep_column(c):
-                if r.has_tag("skip"):
-                    skip_columns.add(r.column)
-                else:
-                    write_columns.add(r)
-        write_columns = {
-            r for r in write_columns
-            if not law.util.multi_match(r.column, skip_columns, mode=any)
-        }
-        route_filter = RouteFilter(write_columns)
-
-        # define columns that need to be read
-        read_columns = write_columns | set(mandatory_coffea_columns)
-        read_columns = {Route(c) for c in read_columns}
+        output = self.output()
 
         # iterate over chunks of events and diffs
         files = [inputs["events"]["events"].abspath]
@@ -197,11 +102,35 @@ class CreateSyncFile(
         if self.ml_model_insts:
             files.extend([inp["mlcolumns"].abspath for inp in inputs["ml"]])
 
-        pandas_frameworks = []
+        # helper to replace our internal empty float placeholder with a custom one
+        empty_float = EMPTY_FLOAT  # points to same value for now, but can be changed
+        def replace_empty_float(arr):
+            if empty_float != EMPTY_FLOAT:
+                arr = ak.where(arr == EMPTY_FLOAT, empty_float, arr)
+            return arr
+
+        # helper to pad nested fields with an empty float if missing
+        def pad_nested(arr, n, *, axis=1):
+            return ak.fill_none(ak.pad_none(arr, n, axis=axis), empty_float)
+
+        # helper to pad and select the last element on the first inner axis
+        def select(arr, idx):
+            return replace_empty_float(pad_nested(arr, idx + 1, axis=1)[:, idx])
+
+        # TODO: use this helper
+        # def lepton_selection(events, attributes=["pt", "eta", "phi", "charge"]):
+        #     first_lepton = ak.concatenate([events["Electron"], events["Muon"]], axis=1)
+        #     second_lepton = events["Tau"]
+        #     for attribute in attributes:
+        #         events[f"lep1_{attribute}"] = first_lepton[attribute]
+        #         events[f"lep2_{attribute}"] = second_lepton[attribute]
+        #     return events
+
+        # event chunk loop
         for (events, *columns), pos in self.iter_chunked_io(
             files,
             source_type=len(files) * ["awkward_parquet"],
-            read_columns=len(files) * [read_columns],
+            pool_size=1,
         ):
             # optional check for overlapping inputs
             if self.check_overlapping_inputs:
@@ -210,46 +139,47 @@ class CreateSyncFile(
             # add additional columns
             events = update_ak_array(events, *columns)
 
-            # remove columns
-            events = route_filter(events)
-
             # optional check for finite values
             if self.check_finite_output:
                 self.raise_if_not_finite(events)
 
-            # construct first, second lepton columns
-            events = lepton_selection(
-                events,
-                attributes=["pt", "eta", "phi", "mass", "charge"],
+            # project into dataframe
+            df = ak.to_dataframe({
+                # index variables
+                "event": events.event,
+                "run": events.run,
+                "lumi": events.luminosityBlock,
+                # high-level events variables
+                "channel": events.channel_id,
+                "os": events.leptons_os * 1,
+                "iso": events.tau2_isolated * 1,
+                # jet variables
+                "jet1_pt": select(events.Jet.pt, 0),
+                "jet1_eta": select(events.Jet.eta, 0),
+                "jet2_pt": select(events.Jet.pt, 1),
+                "jet2_eta": select(events.Jet.eta, 1),
+                "jet8_eta": select(events.Jet.eta, 7),
+                # TODO: add additional variables
+            })
+
+            # save as csv in output, append if necessary
+            output.dump(
+                df,
+                formatter="pandas",
+                index=False,
+                header=pos.index == 0,
+                mode="w" if pos.index == 0 else "a",
             )
-
-            # convert to pandas dataframe
-            keep_columns, mapping = sync_columns()
-
-            events_pd = awkward_to_pandas(
-                events=events,
-                physics_objects=keep_columns["physics_objects"],
-                flat_objects=keep_columns["flat_objects"],
-            )
-
-            pandas_frameworks.append(events_pd)
-
-        # merge output files
-        merged_pandas_framework = pd.concat(
-            pandas_frameworks,
-            ignore_index=True,
-        ).rename(columns=mapping, inplace=False)
-        self.output().dump(merged_pandas_framework, index=False, formatter="pandas")
 
 
 check_overlap_tasks = law.config.get_expanded("analysis", "check_overlapping_inputs", [], split_csv=True)
-CreateSyncFile.check_overlapping_inputs = ChunkedIOMixin.check_overlapping_inputs.copy(
-    default=CreateSyncFile.task_family in check_overlap_tasks,
+CreateSyncFiles.check_overlapping_inputs = ChunkedIOMixin.check_overlapping_inputs.copy(
+    default=CreateSyncFiles.task_family in check_overlap_tasks,
     add_default_to_description=True,
 )
 
-CreateSyncFileWrapper = wrapper_factory(
+CreateSyncFilesWrapper = wrapper_factory(
     base_cls=AnalysisTask,
-    require_cls=CreateSyncFile,
+    require_cls=CreateSyncFiles,
     enable=["configs", "skip_configs", "datasets", "skip_datasets", "shifts", "skip_shifts"],
 )
