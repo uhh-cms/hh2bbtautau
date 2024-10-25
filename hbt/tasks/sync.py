@@ -156,9 +156,10 @@ class CreateSyncFiles(
                 # jet variables
                 "jet1_pt": select(events.Jet.pt, 0),
                 "jet1_eta": select(events.Jet.eta, 0),
+                "jet1_phi": select(events.Jet.phi, 0),
                 "jet2_pt": select(events.Jet.pt, 1),
                 "jet2_eta": select(events.Jet.eta, 1),
-                "jet8_eta": select(events.Jet.eta, 7),
+                "jet2_phi": select(events.Jet.phi, 1),
                 # TODO: add additional variables
             })
 
