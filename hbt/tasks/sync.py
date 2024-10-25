@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import law
 
-from columnflow.tasks.framework.base import Requirements, AnalysisTask, wrapper_factory
+from columnflow.tasks.framework.base import Requirements
 from columnflow.tasks.framework.mixins import (
     ProducersMixin, MLModelsMixin, ChunkedIOMixin, SelectorMixin,
 )
@@ -89,7 +89,7 @@ class CreateSyncFiles(
     @law.decorator.localize
     def run(self):
         import awkward as ak
-        from columnflow.columnar_util import update_ak_array, EMPTY_FLOAT
+        from columnflow.columnar_util import update_ak_array, EMPTY_FLOAT, set_ak_column
 
         # prepare inputs and outputs
         inputs = self.input()
@@ -117,14 +117,11 @@ class CreateSyncFiles(
         def select(arr, idx):
             return replace_empty_float(pad_nested(arr, idx + 1, axis=1)[:, idx])
 
-        # TODO: use this helper
-        # def lepton_selection(events, attributes=["pt", "eta", "phi", "charge"]):
-        #     first_lepton = ak.concatenate([events["Electron"], events["Muon"]], axis=1)
-        #     second_lepton = events["Tau"]
-        #     for attribute in attributes:
-        #         events[f"lep1_{attribute}"] = first_lepton[attribute]
-        #         events[f"lep2_{attribute}"] = second_lepton[attribute]
-        #     return events
+        # helper to select leptons
+        def lepton_selection(events):
+            # first event any lepton, second alsways tau
+            lepton = ak.concatenate([events["Electron"], events["Muon"], events["Tau"]], axis=1)
+            return set_ak_column(events, "Lepton", lepton)
 
         # event chunk loop
         for (events, *columns), pos in self.iter_chunked_io(
@@ -138,7 +135,7 @@ class CreateSyncFiles(
 
             # add additional columns
             events = update_ak_array(events, *columns)
-
+            events = lepton_selection(events)
             # optional check for finite values
             if self.check_finite_output:
                 self.raise_if_not_finite(events)
@@ -160,6 +157,14 @@ class CreateSyncFiles(
                 "jet2_pt": select(events.Jet.pt, 1),
                 "jet2_eta": select(events.Jet.eta, 1),
                 "jet2_phi": select(events.Jet.phi, 1),
+                "lep1_pt": select(events.Lepton.pt, 1),
+                "lep1_phi": select(events.Lepton.phi, 1),
+                "lep1_eta": select(events.Lepton.eta, 1),
+                "lep1_charge": select(events.Lepton.charge, 1),
+                "lep2_pt": select(events.Lepton.pt, 2),
+                "lep2_phi": select(events.Lepton.phi, 2),
+                "lep2_eta": select(events.Lepton.eta, 2),
+                "lep2_charge": select(events.Lepton.charge, 2),
                 # TODO: add additional variables
             })
 
@@ -177,10 +182,4 @@ check_overlap_tasks = law.config.get_expanded("analysis", "check_overlapping_inp
 CreateSyncFiles.check_overlapping_inputs = ChunkedIOMixin.check_overlapping_inputs.copy(
     default=CreateSyncFiles.task_family in check_overlap_tasks,
     add_default_to_description=True,
-)
-
-CreateSyncFilesWrapper = wrapper_factory(
-    base_cls=AnalysisTask,
-    require_cls=CreateSyncFiles,
-    enable=["configs", "skip_configs", "datasets", "skip_datasets", "shifts", "skip_shifts"],
 )
