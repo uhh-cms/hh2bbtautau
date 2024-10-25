@@ -118,10 +118,17 @@ class CreateSyncFiles(
             return replace_empty_float(pad_nested(arr, idx + 1, axis=1)[:, idx])
 
         # helper to select leptons
-        def lepton_selection(events):
-            # first event any lepton, second alsways tau
-            lepton = ak.concatenate([events["Electron"], events["Muon"], events["Tau"]], axis=1)
-            return set_ak_column(events, "Lepton", lepton)
+        def select_leptons(events: ak.Array, common_fields: dict[str, int | float]) -> ak.Array:
+            # ensure all lepton arrays have the same common fields
+            leptons = [events.Electron, events.Muon, events.Tau]
+            for i in range(len(leptons)):
+                lepton = leptons[i]
+                for field, default in common_fields.items():
+                    if field not in lepton.fields:
+                        lepton = set_ak_column(lepton, field, default)
+                leptons[i] = lepton
+            # concatenate (first event any lepton, second alsways tau) and add to events
+            return set_ak_column(events, "Lepton", ak.concatenate(leptons, axis=1))
 
         # event chunk loop
         for (events, *columns), pos in self.iter_chunked_io(
@@ -135,10 +142,9 @@ class CreateSyncFiles(
 
             # add additional columns
             events = update_ak_array(events, *columns)
-            events = lepton_selection(events)
-            # optional check for finite values
-            if self.check_finite_output:
-                self.raise_if_not_finite(events)
+
+            # insert leptons
+            events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty_float})
 
             # project into dataframe
             df = ak.to_dataframe({
@@ -157,14 +163,16 @@ class CreateSyncFiles(
                 "jet2_pt": select(events.Jet.pt, 1),
                 "jet2_eta": select(events.Jet.eta, 1),
                 "jet2_phi": select(events.Jet.phi, 1),
-                "lep1_pt": select(events.Lepton.pt, 1),
-                "lep1_phi": select(events.Lepton.phi, 1),
-                "lep1_eta": select(events.Lepton.eta, 1),
-                "lep1_charge": select(events.Lepton.charge, 1),
-                "lep2_pt": select(events.Lepton.pt, 2),
-                "lep2_phi": select(events.Lepton.phi, 2),
-                "lep2_eta": select(events.Lepton.eta, 2),
-                "lep2_charge": select(events.Lepton.charge, 2),
+                "lep1_pt": select(events.Lepton.pt, 0),
+                "lep1_phi": select(events.Lepton.phi, 0),
+                "lep1_eta": select(events.Lepton.eta, 0),
+                "lep1_charge": select(events.Lepton.charge, 0),
+                "lep1_deeptauvsjet": select(events.Lepton.rawDeepTau2018v2p5VSjet, 0),
+                "lep2_pt": select(events.Lepton.pt, 1),
+                "lep2_phi": select(events.Lepton.phi, 1),
+                "lep2_eta": select(events.Lepton.eta, 1),
+                "lep2_charge": select(events.Lepton.charge, 1),
+                "lep2_deeptauvsjet": select(events.Lepton.rawDeepTau2018v2p5VSjet, 1),
                 # TODO: add additional variables
             })
 
