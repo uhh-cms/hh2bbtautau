@@ -82,7 +82,7 @@ def jet_selection(
     hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
     # pad the indices to simplify creating the hhbjet mask
-    padded_hhbjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2][..., :2]
+    padded_hhbjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2]
     hhbjet_mask = ((li == padded_hhbjet_indices[..., [0]]) | (li == padded_hhbjet_indices[..., [1]]))
     # get indices for actual book keeping only for events with both lepton candidates and where at
     # least two jets pass the default mask (bjet candidates)
@@ -116,6 +116,7 @@ def jet_selection(
         cross_vbf_mask = ak.full_like(1 * events.event, False, dtype=bool)
     else:
         cross_vbf_masks = [events.trigger_ids == tid for tid in cross_vbf_ids]
+        # This combines "at least one cross trigger is fired" and "no other triggers are fired"
         cross_vbf_mask = ak.all(reduce(or_, cross_vbf_masks), axis=1)
     vbf_pair_mask = vbf_pair_mask & (
         (~cross_vbf_mask) | (
