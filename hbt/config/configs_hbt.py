@@ -33,6 +33,7 @@ def add_config(
     config_name: str | None = None,
     config_id: int | None = None,
     limit_dataset_files: int | None = None,
+    sync: bool = False,
 ) -> od.Config:
     # gather campaign data
     run = campaign.x.run
@@ -42,6 +43,10 @@ def add_config(
     # some validations
     assert run in {2, 3}
     assert year in {2016, 2017, 2018, 2022, 2023}
+
+    # renamings
+    sync_requested = sync
+    del sync
 
     # get all root processes
     procs = get_root_processes_from_campaign(campaign)
@@ -61,12 +66,14 @@ def add_config(
         postfix: str | set[int] | None = None,
         tag: str | set[str] | None = None,
         values: list[str | None] | None = None,
+        sync: bool = False,
     ) -> list[str]:
         match = (
             (run is None or campaign.x.run in law.util.make_set(run)) and
             (year is None or campaign.x.year in law.util.make_set(year)) and
             (postfix is None or campaign.x.postfix in law.util.make_set(postfix)) and
-            (tag is None or campaign.has_tag(tag, mode=any))
+            (tag is None or campaign.has_tag(tag, mode=any)) and
+            (sync is sync_requested)
         )
         return list(filter(bool, values or [])) if match else []
 
@@ -75,24 +82,25 @@ def add_config(
     ################################################################################################
 
     # add custom processes
-    cfg.add_process(
-        name="v",
-        id=7997,
-        label="W/Z",
-        processes=[procs.n.w, procs.n.z],
-    )
-    cfg.add_process(
-        name="multiboson",
-        id=7998,
-        label="Multiboson",
-        processes=[procs.n.vv, procs.n.vvv],
-    )
-    cfg.add_process(
-        name="tt_multiboson",
-        id=7999,
-        label=r"$t\bar{t}$ + Multiboson",
-        processes=[procs.n.ttv, procs.n.ttvv],
-    )
+    if not sync_requested:
+        cfg.add_process(
+            name="v",
+            id=7997,
+            label="W/Z",
+            processes=[procs.n.w, procs.n.z],
+        )
+        cfg.add_process(
+            name="multiboson",
+            id=7998,
+            label="Multiboson",
+            processes=[procs.n.vv, procs.n.vvv],
+        )
+        cfg.add_process(
+            name="tt_multiboson",
+            id=7999,
+            label=r"$t\bar{t}$ + Multiboson",
+            processes=[procs.n.ttv, procs.n.ttvv],
+        )
 
     # processes we are interested in
     process_names = [
@@ -125,9 +133,10 @@ def add_config(
             "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
             "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
         ]),
+        "radion_hh_ggf_hbb_htt_m450",
+        "radion_hh_ggf_hbb_htt_m1200",
         "graviton_hh_ggf_hbb_htt_m450",
         "graviton_hh_ggf_hbb_htt_m1200",
-        "radion_hh_ggf_hbb_htt_m700",
     ]
     for process_name in process_names:
         if process_name in procs:
@@ -188,9 +197,10 @@ def add_config(
             "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
 
             # some resonances
+            "radion_hh_ggf_hbb_htt_m450_madgraph",
+            "radion_hh_ggf_hbb_htt_m1200_madgraph",
             "graviton_hh_ggf_hbb_htt_m450_madgraph",
             "graviton_hh_ggf_hbb_htt_m1200_madgraph",
-            "radion_hh_ggf_hbb_htt_m700_madgraph",
         ]),
 
         # backgrounds
@@ -248,24 +258,28 @@ def add_config(
             "w_lnu_0j_amcatnlo",
             "w_lnu_1j_amcatnlo",
             "w_lnu_2j_amcatnlo",
-            "w_lnu_pt40to100_1j_amcatnlo",
-            "w_lnu_pt40to100_2j_amcatnlo",
-            "w_lnu_pt100to200_1j_amcatnlo",
-            "w_lnu_pt100to200_2j_amcatnlo",
-            "w_lnu_pt200to400_1j_amcatnlo",
-            "w_lnu_pt200to400_2j_amcatnlo",
-            "w_lnu_pt400to600_1j_amcatnlo",
-            "w_lnu_pt400to600_2j_amcatnlo",
-            "w_lnu_pt600toinf_1j_amcatnlo",
-            "w_lnu_pt600toinf_2j_amcatnlo",
+            "w_lnu_1j_pt40to100_amcatnlo",
+            "w_lnu_1j_pt100to200_amcatnlo",
+            "w_lnu_1j_pt200to400_amcatnlo",
+            "w_lnu_1j_pt400to600_amcatnlo",
+            "w_lnu_1j_pt600toinf_amcatnlo",
+            "w_lnu_2j_pt40to100_amcatnlo",
+            "w_lnu_2j_pt100to200_amcatnlo",
+            "w_lnu_2j_pt200to400_amcatnlo",
+            "w_lnu_2j_pt400to600_amcatnlo",
+            "w_lnu_2j_pt600toinf_amcatnlo",
 
             # z + jets (not DY but qq)
             # decided to drop z_qq for now as their contribution is negligible,
             # but we should check that again at a much later stage
-            # "z_qq_pt100to200_1j_amcatnlo",
-            # "z_qq_pt100to200_2j_amcatnlo",
-            # "z_qq_pt200to400_1j_amcatnlo",
-            # "z_qq_pt200to400_2j_amcatnlo",
+            # "z_qq_1j_pt100to200_amcatnlo",
+            # "z_qq_1j_pt200to400_amcatnlo",
+            # "z_qq_1j_pt400to600_amcatnlo",
+            # "z_qq_1j_pt600toinf_amcatnlo",
+            # "z_qq_2j_pt100to200_amcatnlo",
+            # "z_qq_2j_pt200to400_amcatnlo",
+            # "z_qq_2j_pt400to600_amcatnlo",
+            # "z_qq_2j_pt600toinf_amcatnlo",
 
             # vv
             "zz_pythia",
@@ -305,6 +319,11 @@ def add_config(
         *if_era(run=3, year=2022, tag="postEE", values=[
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "efg"
         ]),
+
+        # sync
+        *if_era(run=3, year=2022, tag="preEE", sync=True, values=[
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+        ]),
     ]
     for dataset_name in dataset_names:
         # add the dataset
@@ -322,16 +341,30 @@ def add_config(
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
             dataset.add_tag("nonresonant_signal")
+            if dataset_name.startswith("hh_ggf_"):
+                dataset.add_tag("ggf")
+            elif dataset_name.startswith("hh_vbf_"):
+                dataset.add_tag("vbf")
         if dataset_name.startswith(("graviton_hh_", "radion_hh_")):
             dataset.add_tag("signal")
             dataset.add_tag("resonant_signal")
+            if dataset_name.startswith(("graviton_hh_ggf_", "radion_hh_ggf")):
+                dataset.add_tag("ggf")
+            elif dataset_name.startswith(("graviton_hh_vbf_", "radion_hh_vbf")):
+                dataset.add_tag("vbf")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
             for info in dataset.info.values():
                 info.n_files = min(info.n_files, limit_dataset_files)
 
-    # verify that the root process of all datasets is part of any of the registered processes
+        # apply synchronization settings
+        if sync_requested:
+            # only first file per
+            for info in dataset.info.values():
+                info.n_files = 1
+
+    # verify that the root process of each dataset is part of any of the registered processes
     verify_config_processes(cfg, warn=True)
 
     ################################################################################################
@@ -377,8 +410,9 @@ def add_config(
         "sm_data": ["data"] + sm_group,
     }
 
-    # define inclusive datasets for the dy process identification with corresponding leaf processes
-    if run == 3:
+    # define inclusive datasets for the stitched process identification with corresponding leaf processes
+    if run == 3 and not sync_requested:
+        # drell-yan
         cfg.x.dy_stitching = {
             "m50toinf": {
                 "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
@@ -394,6 +428,8 @@ def add_config(
                 ],
             },
         }
+        # w+jets
+        # TODO: add
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
@@ -1149,7 +1185,7 @@ def add_config(
     cfg.x.get_dataset_lfns_sandbox = None
 
     # whether to validate the number of obtained LFNs in GetDatasetLFNs
-    cfg.x.validate_dataset_lfns = limit_dataset_files is None
+    cfg.x.validate_dataset_lfns = limit_dataset_files is None and not sync_requested
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
     if cfg.campaign.x("custom", {}).get("creator") == "uhh":
