@@ -33,7 +33,7 @@ def add_config(
     config_name: str | None = None,
     config_id: int | None = None,
     limit_dataset_files: int | None = None,
-    sync: bool = False,
+    sync_mode: bool = False,
 ) -> od.Config:
     # gather campaign data
     run = campaign.x.run
@@ -43,10 +43,6 @@ def add_config(
     # some validations
     assert run in {2, 3}
     assert year in {2016, 2017, 2018, 2022, 2023}
-
-    # renamings
-    sync_requested = sync
-    del sync
 
     # get all root processes
     procs = get_root_processes_from_campaign(campaign)
@@ -73,7 +69,7 @@ def add_config(
             (year is None or campaign.x.year in law.util.make_set(year)) and
             (postfix is None or campaign.x.postfix in law.util.make_set(postfix)) and
             (tag is None or campaign.has_tag(tag, mode=any)) and
-            (sync is sync_requested)
+            (sync is sync_mode)
         )
         return list(filter(bool, values or [])) if match else []
 
@@ -82,7 +78,7 @@ def add_config(
     ################################################################################################
 
     # add custom processes
-    if not sync_requested:
+    if not sync_mode:
         cfg.add_process(
             name="v",
             id=7997,
@@ -359,7 +355,7 @@ def add_config(
                 info.n_files = min(info.n_files, limit_dataset_files)
 
         # apply synchronization settings
-        if sync_requested:
+        if sync_mode:
             # only first file per
             for info in dataset.info.values():
                 info.n_files = 1
@@ -411,7 +407,7 @@ def add_config(
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
-    if run == 3 and not sync_requested:
+    if run == 3 and not sync_mode:
         # drell-yan
         cfg.x.dy_stitching = {
             "m50toinf": {
@@ -1185,7 +1181,7 @@ def add_config(
     cfg.x.get_dataset_lfns_sandbox = None
 
     # whether to validate the number of obtained LFNs in GetDatasetLFNs
-    cfg.x.validate_dataset_lfns = limit_dataset_files is None and not sync_requested
+    cfg.x.validate_dataset_lfns = limit_dataset_files is None and not sync_mode
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
     if cfg.campaign.x("custom", {}).get("creator") == "uhh":

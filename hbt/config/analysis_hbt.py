@@ -149,5 +149,5 @@ add_lazy_config(
     campaign_attr="campaign_run3_2022_preEE_nano_v12",
     config_name="run3_2022_preEE_sync",
     config_id=5001,
-    sync=True,
+    sync_mode=True,
 )
