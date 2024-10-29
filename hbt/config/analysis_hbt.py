@@ -87,38 +87,67 @@ def add_lazy_config(
 # Run 2 configs
 #
 
-# 2016 HIPM (also known as APV or preVFP)
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run2_2016_HIPM_nano_uhh_v12",
-    campaign_attr="campaign_run2_2016_HIPM_nano_uhh_v12",
-    config_name="run2_2016_HIPM_nano_uhh_v12",
-    config_id=1,
-)
+# 2016 HIPM (also known as APV or preVFP), TODO: campaign needs consistency and content check
+# add_lazy_config(
+#     campaign_module="cmsdb.campaigns.run2_2016_HIPM_nano_uhh_v12",
+#     campaign_attr="campaign_run2_2016_HIPM_nano_uhh_v12",
+#     config_name="run2_2016_HIPM_nano_uhh_v12",
+#     config_id=1,
+# )
 
-# 2016 (also known postVFP)
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run2_2016_nano_uhh_v12",
-    campaign_attr="campaign_run2_2016_nano_uhh_v12",
-    config_name="run2_2016_nano_uhh_v12",
-    config_id=2,
-)
+# 2016 (also known postVFP), TODO: campaign needs consistency and content check
+# add_lazy_config(
+#     campaign_module="cmsdb.campaigns.run2_2016_nano_uhh_v12",
+#     campaign_attr="campaign_run2_2016_nano_uhh_v12",
+#     config_name="run2_2016_nano_uhh_v12",
+#     config_id=2,
+# )
 
-# 2017
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run2_2017_nano_uhh_v11",
-    campaign_attr="campaign_run2_2017_nano_uhh_v11",
-    config_name="run2_2017_nano_uhh_v11",
-    config_id=3,
-)
+# 2017, old nano version, TODO: needs re-processing
+# add_lazy_config(
+#     campaign_module="cmsdb.campaigns.run2_2017_nano_uhh_v11",
+#     campaign_attr="campaign_run2_2017_nano_uhh_v11",
+#     config_name="run2_2017_nano_uhh_v11",
+#     config_id=3,
+# )
+
+# 2018, TODO: not processed yet
+# add_lazy_config(
+#     campaign_module="cmsdb.campaigns.run2_2018_nano_uhh_v12",
+#     campaign_attr="campaign_run2_2018_nano_uhh_v12",
+#     config_name="run2_2018_nano_uhh_v12",
+#     config_id=4,
+# )
 
 #
 # Run 3 configs
 #
 
+# 2022, preEE, TODO: disabled until re-production of missing datasets is done by Nathan
+# add_lazy_config(
+#     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v12",
+#     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
+#     config_name="run3_2022_preEE",
+#     config_id=5,
+# )
+
+# 2022, postEE
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v12",
+    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v12",
+    config_name="run3_2022_postEE",
+    config_id=6,
+)
+
+#
+# sync configs
+#
+
 # 2022, preEE
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v12",
-    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
-    config_name="run3_2022_preEE",
-    config_id=5,
+    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_v12",
+    campaign_attr="campaign_run3_2022_preEE_nano_v12",
+    config_name="run3_2022_preEE_sync",
+    config_id=5001,
+    sync_mode=True,
 )
