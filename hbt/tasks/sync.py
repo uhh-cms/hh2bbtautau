@@ -6,19 +6,76 @@ Tasks that create files for synchronization efforts with other frameworks.
 
 from __future__ import annotations
 
+import luigi
 import law
 
-from columnflow.tasks.framework.base import Requirements
+from columnflow.tasks.framework.base import Requirements, DatasetTask
 from columnflow.tasks.framework.mixins import (
     ProducersMixin, MLModelsMixin, ChunkedIOMixin, SelectorMixin,
 )
 from columnflow.tasks.framework.remote import RemoteWorkflow
+from columnflow.tasks.external import GetDatasetLFNs
 from columnflow.tasks.reduction import ReducedEventsUser
 from columnflow.tasks.production import ProduceColumns
 from columnflow.tasks.ml import MLEvaluation
 from columnflow.util import dev_sandbox
 
 from hbt.tasks.base import HBTTask
+
+
+class CheckExternalLFNOverlap(
+    HBTTask,
+    DatasetTask,
+):
+    lfn = luigi.Parameter(
+        description="local path to an external LFN to check for overlap with the dataset",
+        # fetched via nanogen's FetchLFN
+        default="/pnfs/desy.de/cms/tier2/store/user/mrieger/nanogen_store/FetchLFN/store/mc/Run3Summer22NanoAODv12/GluGlutoHHto2B2Tau_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/992697da-4a10-4435-b63a-413f6d33517e.root",  # noqa
+    )
+
+    # no versioning or required
+    version = None
+
+    # default sandbox, might be overwritten by calibrator function
+    sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
+
+    # upstream requirements
+    reqs = Requirements(
+        GetDatasetLFNs=GetDatasetLFNs,
+    )
+
+    def requires(self):
+        return self.reqs.GetDatasetLFNs.req(self)
+
+    def output(self):
+        return {
+            "overlap": self.target("lfn_overlap.json"),
+            "hashes": self.target("hashes.parquet"),
+        }
+
+    def run(self):
+        # load the index columns of the reference lfn
+        with self.publish_step("loading reference ids"):
+            ref_hashes = self.load_nano_index_hashes(law.LocalFileTarget(self.lfn))
+
+        # loop over all lfns in the dataset
+        n_files = self.dataset_inst.n_files
+        lfns_task = self.requires()
+        for i, lfn_target in lfns_task.iter_nano_files(self, lfn_indices=list(range(n_files))):
+            with self.publish_step(f"loading ids of file {i}"):
+                file_hashes = self.load_nano_index_hashes(lfn_target)
+
+            from IPython import embed; embed(header="debugger")
+
+    @classmethod
+    def load_nano_index_hashes(cls, lfn_target: law.FileSystemFileTarget) -> set[int]:
+        fields = ["event", "run", "luminosityBlock"]
+        arr = lfn_target.load(formatter="uproot")["Events"].arrays(fields)
+        # TODO: vectorize this?
+        return set(
+            hash(tuple(map(int, tpl)))
+            for tpl in zip(arr.event, arr.run, arr.luminosityBlock)
+        )
 
 
 class CreateSyncFiles(
