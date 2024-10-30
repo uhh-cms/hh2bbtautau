@@ -48,7 +48,14 @@ def add_config(
     procs = get_root_processes_from_campaign(campaign)
 
     # create a config by passing the campaign, so id and name will be identical
-    cfg = od.Config(name=config_name, id=config_id, campaign=campaign)
+    cfg = od.Config(
+        name=config_name,
+        id=config_id,
+        campaign=campaign,
+        aux={
+            "sync": sync_mode,
+        },
+    )
 
     ################################################################################################
     # helpers
