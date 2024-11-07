@@ -58,6 +58,7 @@ def IF_DATASET_IS_DY(
 
     return self.get() if func.dataset_inst.has_tag("is_dy") else None
 
+
 def hash_events(arr):
     """
     Helper function to create a hash value from the event, run and luminosityBlock columns.
