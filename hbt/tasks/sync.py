@@ -9,6 +9,7 @@ from __future__ import annotations
 import luigi
 import law
 
+
 from columnflow.tasks.framework.base import Requirements, DatasetTask
 from columnflow.tasks.framework.mixins import (
     ProducersMixin, MLModelsMixin, ChunkedIOMixin, SelectorMixin,
@@ -21,12 +22,14 @@ from columnflow.tasks.ml import MLEvaluation
 from columnflow.util import dev_sandbox
 
 from hbt.tasks.base import HBTTask
+from hbt.util import hash_events
 
 
 class CheckExternalLFNOverlap(
     HBTTask,
     DatasetTask,
 ):
+
     lfn = luigi.Parameter(
         description="local path to an external LFN to check for overlap with the dataset",
         # fetched via nanogen's FetchLFN
@@ -50,32 +53,65 @@ class CheckExternalLFNOverlap(
     def output(self):
         return {
             "overlap": self.target("lfn_overlap.json"),
-            "hashes": self.target("hashes.parquet"),
         }
 
     def run(self):
+        import awkward as ak
+        import numpy as np
+
         # load the index columns of the reference lfn
+        output = self.output()
+
         with self.publish_step("loading reference ids"):
-            ref_hashes = self.load_nano_index_hashes(law.LocalFileTarget(self.lfn))
+            ref_hashes = hash_events(self.load_nano_index(law.LocalFileTarget(self.lfn)))
 
         # loop over all lfns in the dataset
         n_files = self.dataset_inst.n_files
         lfns_task = self.requires()
+        overlap_relative = {}
+
         for i, lfn_target in lfns_task.iter_nano_files(self, lfn_indices=list(range(n_files))):
             with self.publish_step(f"loading ids of file {i}"):
-                file_hashes = self.load_nano_index_hashes(lfn_target)
+                file_arr = self.load_nano_index(lfn_target)
+                file_hashes = hash_events(file_arr)
 
-            from IPython import embed; embed(header="debugger")
+            # find unique hashes in the reference and the file
+            # faster than np.
+            overlapping_mask = np.isin(
+                file_hashes,
+                ref_hashes,
+                assume_unique=True,
+                kind="sort",
+            )
+
+            num_overlapping = np.sum(overlapping_mask)
+
+            if num_overlapping:
+                overlap_relative[i] = {}
+
+                # calculate the relative overlap
+                overlap_relative[i]["relative"] = np.sum(num_overlapping) / len(file_hashes)
+
+                # upcast to int64
+                file_arr = ak.values_astype(file_arr, np.int64)
+                # apply mask, convert record to regulare array via view
+                filtered_array = file_arr[overlapping_mask].to_numpy().view(np.int64).reshape(-1, 3)
+                # convert each entry to tuple to be saved in json
+                overlap_relative[i]["unique_tuple"] = [
+                    tuple(filtered_arr.tolist())
+                    for filtered_arr in filtered_array
+                ]
+
+        output["overlap"].dump(
+            overlap_relative,
+            formatter="json",
+        )
 
     @classmethod
-    def load_nano_index_hashes(cls, lfn_target: law.FileSystemFileTarget) -> set[int]:
+    def load_nano_index(cls, lfn_target: law.FileSystemFileTarget) -> set[int]:
         fields = ["event", "run", "luminosityBlock"]
         arr = lfn_target.load(formatter="uproot")["Events"].arrays(fields)
-        # TODO: vectorize this?
-        return set(
-            hash(tuple(map(int, tpl)))
-            for tpl in zip(arr.event, arr.run, arr.luminosityBlock)
-        )
+        return arr
 
 
 class CreateSyncFiles(
