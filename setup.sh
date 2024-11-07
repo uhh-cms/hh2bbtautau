@@ -28,7 +28,7 @@ setup_hbt() {
     #       A flag that is set to 1 after the setup was successful.
 
     # prevent repeated setups
-    if [ "${HBT_SETUP}" = "1" ]; then
+    if [ "${HBT_SETUP}" = "1" ] && [ "${CF_ON_SLURM}" != "1" ]; then
         >&2 echo "the HH -> bbtautau analysis was already succesfully setup"
         >&2 echo "re-running the setup requires a new shell"
         return "1"
@@ -139,6 +139,9 @@ setup_hbt() {
         if which law &> /dev/null; then
             # source law's bash completion scipt
             source "$( law completion )" ""
+
+            # add completion to the claw command
+            complete -o bashdefault -o default -F _law_complete claw
 
             # silently index
             law index -q
