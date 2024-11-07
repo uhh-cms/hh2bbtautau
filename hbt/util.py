@@ -62,15 +62,15 @@ def IF_DATASET_IS_DY(
 def hash_events(arr):
     """
     Helper function to create a hash value from the event, run and luminosityBlock columns.
-    The result is a number with 15 digits, where the first 7 digits are the luminosityBlock,
-    the next 5 digits are the event number and the last 3 digits are the run number.
+    The values are padded to specific lengths and concatenated to a single integer.
     """
-    # hash the array by pad the numbers to specific lengths by shifting them
-    # shift luminosityBlock: 10^3, event: 10^7
-    # example:
+    # TODO what is a good value here?
+    max_digits_run = 4
+    max_digits_luminosityBlock = 3 + max_digits_run
+
     hash_value = (
-        arr.event * 10**7 +
-        arr.luminosityBlock * 10**3 +
+        arr.event * 10**max_digits_luminosityBlock +
+        arr.luminosityBlock * 10**max_digits_run +
         arr.run
     )
     return hash_value
