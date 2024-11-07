@@ -109,7 +109,7 @@ class CheckExternalLFNOverlap(
 
     @classmethod
     def load_nano_index(cls, lfn_target: law.FileSystemFileTarget) -> set[int]:
-        fields = ["event", "run", "luminosityBlock"]
+        fields = ["event", "luminosityBlock", "run"]
         arr = lfn_target.load(formatter="uproot")["Events"].arrays(fields)
         return arr
 
