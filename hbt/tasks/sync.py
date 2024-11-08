@@ -70,7 +70,7 @@ class CheckExternalLFNOverlap(
         n_files = self.dataset_inst.n_files
         lfns_task = self.requires()
         relative_overlap = {}
-        overlapping_identifier = {}
+        overlapping_identifier = []
 
         for i, lfn_target in lfns_task.iter_nano_files(self, lfn_indices=list(range(n_files))):
             with self.publish_step(f"loading ids of file {i}"):
@@ -90,11 +90,10 @@ class CheckExternalLFNOverlap(
 
             if num_overlapping:
                 # calculate the relative overlap
-                relative_overlap[str(i)] = {}
-                relative_overlap[str(i)]["relative"] = np.sum(num_overlapping) / len(file_hashes)
+                relative_overlap[str(i)] = np.sum(num_overlapping) / len(file_hashes)
 
                 # apply mask and store the overlapping identifiers
-                overlapping_identifier[str(i)] = file_arr[overlapping_mask]
+                overlapping_identifier.extend(file_arr[overlapping_mask])
 
         output["overlap"].dump(
             relative_overlap,
@@ -105,6 +104,11 @@ class CheckExternalLFNOverlap(
             ak.Array(overlapping_identifier),
             formatter="awkward",
         )
+
+        print("Found overlap:")
+        for k, v in relative_overlap.items():
+            print(f"Chunk {k}: {v}")
+
 
     @classmethod
     def load_nano_index(cls, lfn_target: law.FileSystemFileTarget) -> set[int]:
@@ -267,7 +271,9 @@ class CreateSyncFiles(
                 )
 
                 # apply mask
+                previous_len = len(events)
                 events = events[mask]
+                print(f"Previous: {previous_len}, now:{len(events)} events in chunk {pos.index}")
 
             # insert leptons
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty_float})
