@@ -415,28 +415,61 @@ def add_config(
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
-        # drell-yan
-        cfg.x.dy_stitching = {
-            "m50toinf": {
-                "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-                "leaf_processes": [
-                    # the following processes cover the full njet and pt phasespace
-                    procs.n.dy_m50toinf_0j,
-                    *(
-                        procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
-                        for nj in [1, 2]
-                        for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                    ),
-                    procs.n.dy_m50toinf_ge3j,
-                ],
+        # stitchting definitions
+        # format:
+        # {
+        #   "dataset_tag": {
+        #       "dataset_to_stitch": {
+        #           "inclusive_dataset": dataset,
+        #           "leaf_processes": [proc1, proc2, ...],
+        #       },
+        #   }
+        # }
+        cfg.x.stitching = {
+            # DY stitching
+            "is_dy": {
+                "m50toinf": {
+                    "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                    "leaf_processes": [
+                        # the following processes cover the full njet and pt phasespace
+                        procs.n.dy_m50toinf_0j,
+                        *(
+                            procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
+                            for nj in [1, 2]
+                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                        ),
+                        procs.n.dy_m50toinf_ge3j,
+                    ],
+                },
             },
+            # w+jets
+            # TODO: add
         }
-        # w+jets
-        # TODO: add
+        
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
-    cfg.x.dataset_groups = {}
+    cfg.x.dataset_groups = {
+        "dy": [
+            # dy
+            "dy_m4to10_amcatnlo",
+            "dy_m10to50_amcatnlo",
+            "dy_m50toinf_amcatnlo",
+            "dy_m50toinf_0j_amcatnlo",
+            "dy_m50toinf_1j_amcatnlo",
+            "dy_m50toinf_2j_amcatnlo",
+            "dy_m50toinf_1j_pt40to100_amcatnlo",
+            "dy_m50toinf_1j_pt100to200_amcatnlo",
+            "dy_m50toinf_1j_pt200to400_amcatnlo",
+            "dy_m50toinf_1j_pt400to600_amcatnlo",
+            "dy_m50toinf_1j_pt600toinf_amcatnlo",
+            "dy_m50toinf_2j_pt40to100_amcatnlo",
+            "dy_m50toinf_2j_pt100to200_amcatnlo",
+            "dy_m50toinf_2j_pt200to400_amcatnlo",
+            "dy_m50toinf_2j_pt400to600_amcatnlo",
+            "dy_m50toinf_2j_pt600toinf_amcatnlo",
+        ],
+    }
 
     # category groups for conveniently looping over certain categories
     # (used during plotting)

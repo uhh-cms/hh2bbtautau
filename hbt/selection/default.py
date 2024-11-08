@@ -192,8 +192,9 @@ def default_init(self: Selector) -> None:
 
     self.process_ids_dy: process_ids_dy | None = None
     if self.dataset_inst.has_tag("is_dy"):
+        dy_stitching = self.config_inst.x.stitching["is_dy"]
         # check if this dataset is covered by any dy id producer
-        for name, dy_cfg in self.config_inst.x.dy_stitching.items():
+        for name, dy_cfg in dy_stitching.items():
             dataset_inst = dy_cfg["inclusive_dataset"]
             # the dataset is "covered" if its process is a subprocess of that of the dy dataset
             if dataset_inst.has_process(self.dataset_inst.processes.get_first()):
