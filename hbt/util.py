@@ -72,7 +72,7 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
         """
         digits = len(str(arr[field].to_numpy().max()))
         assert digits <= max_value, f"{field} digit count is {digits} and exceed max value {max_value}"
-
+    import awkward as ak
     max_digits_run = 6
     max_digits_luminosityBlock = 5
     max_digits_event = 7
@@ -80,10 +80,10 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
     assert_value(arr, "run", max_digits_run)
     assert_value(arr, "luminosityBlock", max_digits_luminosityBlock)
     assert_value(arr, "event", max_digits_event)
-
-    hash_value = (
+    # upcast to int64 to avoid overflow
+    arr = ak.values_astype(arr, np.int64)
+    return (
         arr.event * 10**(max_digits_luminosityBlock + max_digits_run) +
         arr.luminosityBlock * 10**max_digits_run +
         arr.run
     )
-    return hash_value
