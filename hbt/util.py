@@ -11,8 +11,6 @@ __all__ = []
 from columnflow.types import Any
 from columnflow.columnar_util import ArrayFunction, deferred_column
 
-import numpy as np
-
 
 @deferred_column
 def IF_NANO_V9(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
@@ -66,13 +64,16 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
     Helper function to create a hash value from the event, run and luminosityBlock columns.
     The values are padded to specific lengths and concatenated to a single integer.
     """
+    import awkward as ak
+    import numpy as np
+
     def assert_value(arr: np.ndarray, field: str, max_value: int) -> None:
         """
         Helper function to check if a column does not exceed a maximum value.
         """
         digits = len(str(arr[field].to_numpy().max()))
         assert digits <= max_value, f"{field} digit count is {digits} and exceed max value {max_value}"
-    import awkward as ak
+
     max_digits_run = 6
     max_digits_luminosityBlock = 5
     max_digits_event = 7
