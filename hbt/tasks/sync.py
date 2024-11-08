@@ -53,6 +53,7 @@ class CheckExternalLFNOverlap(
     def output(self):
         return {
             "overlap": self.target("lfn_overlap.json"),
+            "unique_identifiers": self.target("unique_identifiers.parquet"),
         }
 
     def run(self):
@@ -69,6 +70,7 @@ class CheckExternalLFNOverlap(
         n_files = self.dataset_inst.n_files
         lfns_task = self.requires()
         overlap_relative = {}
+        overlap_identifiers = {}
 
         for i, lfn_target in lfns_task.iter_nano_files(self, lfn_indices=list(range(n_files))):
             with self.publish_step(f"loading ids of file {i}"):
@@ -87,24 +89,28 @@ class CheckExternalLFNOverlap(
             num_overlapping = np.sum(overlapping_mask)
 
             if num_overlapping:
-                overlap_relative[i] = {}
+                overlap_relative[str(i)] = {}
 
                 # calculate the relative overlap
-                overlap_relative[i]["relative"] = np.sum(num_overlapping) / len(file_hashes)
+                overlap_relative[str(i)]["relative"] = np.sum(num_overlapping) / len(file_hashes)
 
                 # upcast to int64
                 file_arr = ak.values_astype(file_arr, np.int64)
                 # apply mask, convert record to regulare array via view
-                filtered_array = file_arr[overlapping_mask].to_numpy().view(np.int64).reshape(-1, 3)
+                overlap_identifiers[str(i)] = file_arr[overlapping_mask]
                 # convert each entry to tuple to be saved in json
-                overlap_relative[i]["unique_tuple"] = [
-                    tuple(filtered_arr.tolist())
-                    for filtered_arr in filtered_array
-                ]
+
+
 
         output["overlap"].dump(
             overlap_relative,
             formatter="json",
+        )
+
+        overlap_identifiers = ak.Array(overlap_identifiers)
+        output["unique_identifiers"].dump(
+            overlap_identifiers,
+            formatter="awkward",
         )
 
     @classmethod
@@ -124,6 +130,11 @@ class CreateSyncFiles(
     law.LocalWorkflow,
     RemoteWorkflow,
 ):
+    overlap_file = luigi.Parameter(
+    description="local path to an optional json file created by CheckExternalLFNOverlap task",
+    default=None,
+    )
+
     sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
 
     # upstream requirements
@@ -182,6 +193,7 @@ class CreateSyncFiles(
     @law.decorator.localize
     def run(self):
         import awkward as ak
+        import numpy as np
         from columnflow.columnar_util import update_ak_array, EMPTY_FLOAT, set_ak_column
 
         # prepare inputs and outputs
@@ -224,17 +236,49 @@ class CreateSyncFiles(
             return set_ak_column(events, "Lepton", ak.concatenate(leptons, axis=1))
 
         # event chunk loop
+
+        # optional filter to get only the events that overlap with given external LFN
+        if self.overlap_file:
+            with self.publish_step("loading reference ids"):
+                overlap = law.LocalFileTarget(self.overlap_file).load(formatter="awkward")
+                overlap_chunks = overlap.fields
+
         for (events, *columns), pos in self.iter_chunked_io(
             files,
             source_type=len(files) * ["awkward_parquet"],
             pool_size=1,
         ):
+            # skip chunk if not in overlap
+            # TODO maybe filter bad pos before loop to prevent loading
+            if str(pos.index) not in overlap_chunks:
+                self.publish_step(f"skipping chunk {pos.index}, no overlap")
+                continue
+
             # optional check for overlapping inputs
             if self.check_overlapping_inputs:
                 self.raise_if_overlapping([events] + list(columns))
 
             # add additional columns
             events = update_ak_array(events, *columns)
+
+            if str(pos.index) in overlap_chunks:
+                # filter events by overlap
+                overlap_events = overlap[str(pos.index)]
+
+                # calculate hashes
+                chunk_hashes = hash_events(events)
+                overlap_hashes = hash_events(overlap_events)
+
+                # calculate the mask
+                overlapping_mask = np.isin(
+                chunk_hashes,
+                overlap_hashes,
+                assume_unique=True,
+                kind="sort",
+            )
+
+            # apply mask
+            events = events[overlapping_mask]
 
             # insert leptons
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty_float})
