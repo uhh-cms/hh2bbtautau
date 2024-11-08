@@ -10,6 +10,9 @@ __all__ = []
 
 from columnflow.types import Any
 from columnflow.columnar_util import ArrayFunction, deferred_column
+from columnflow.util import maybe_import
+
+np = maybe_import("numpy")
 
 
 @deferred_column
@@ -65,7 +68,6 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
     The values are padded to specific lengths and concatenated to a single integer.
     """
     import awkward as ak
-    import numpy as np
 
     def assert_value(arr: np.ndarray, field: str, max_value: int) -> None:
         """
