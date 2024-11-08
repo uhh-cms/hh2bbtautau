@@ -98,9 +98,6 @@ class CheckExternalLFNOverlap(
                 file_arr = ak.values_astype(file_arr, np.int64)
                 # apply mask, convert record to regulare array via view
                 overlap_identifiers[str(i)] = file_arr[overlapping_mask]
-                # convert each entry to tuple to be saved in json
-
-
 
         output["overlap"].dump(
             overlap_relative,
@@ -131,8 +128,8 @@ class CreateSyncFiles(
     RemoteWorkflow,
 ):
     overlap_file = luigi.Parameter(
-    description="local path to an optional json file created by CheckExternalLFNOverlap task",
-    default=None,
+        description="local path to an optional json file created by CheckExternalLFNOverlap task",
+        default=None,
     )
 
     sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
@@ -271,11 +268,11 @@ class CreateSyncFiles(
 
                 # calculate the mask
                 overlapping_mask = np.isin(
-                chunk_hashes,
-                overlap_hashes,
-                assume_unique=True,
-                kind="sort",
-            )
+                    chunk_hashes,
+                    overlap_hashes,
+                    assume_unique=True,
+                    kind="sort",
+                )
 
             # apply mask
             events = events[overlapping_mask]
