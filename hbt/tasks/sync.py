@@ -87,7 +87,6 @@ class CheckExternalLFNOverlap(
             )
 
             num_overlapping = np.sum(overlapping_mask)
-
             if num_overlapping:
                 # calculate the relative overlap
                 relative_overlap[str(i)] = np.sum(num_overlapping) / len(file_hashes)
@@ -104,11 +103,6 @@ class CheckExternalLFNOverlap(
             ak.Array(overlapping_identifier),
             formatter="awkward",
         )
-
-        print("Found overlap:")
-        for k, v in relative_overlap.items():
-            print(f"Chunk {k}: {v}")
-
 
     @classmethod
     def load_nano_index(cls, lfn_target: law.FileSystemFileTarget) -> set[int]:
@@ -238,17 +232,13 @@ class CreateSyncFiles(
         if self.filter_file:
             with self.publish_step("loading reference ids"):
                 events_to_filter = law.LocalFileTarget(self.filter_file).load(formatter="awkward")
-                chunk_to_filter = events_to_filter.fields
+                filter_events = hash_events(events_to_filter)
 
         for (events, *columns), pos in self.iter_chunked_io(
             files,
             source_type=len(files) * ["awkward_parquet"],
             pool_size=1,
         ):
-            # TODO: maybe filter bad pos before loop to prevent loading unnecessary events
-            if str(pos.index) not in chunk_to_filter:
-                with self.publish_step(f"filter all events in chunk {pos.index}"):
-                    continue
 
             # optional check for overlapping inputs
             if self.check_overlapping_inputs:
@@ -258,22 +248,17 @@ class CreateSyncFiles(
             events = update_ak_array(events, *columns)
 
             # apply mask if optional filter is given
-            if str(pos.index) in chunk_to_filter:
-                # filter events by overlap
-                filter_events = events_to_filter[str(pos.index)]
-
-                # calculate mask by using 1D hash values
+            # calculate mask by using 1D hash values
+            if self.filter_file:
                 mask = np.isin(
                     hash_events(events),
-                    hash_events(filter_events),
+                    filter_events,
                     assume_unique=True,
                     kind="sort",
                 )
 
                 # apply mask
-                previous_len = len(events)
                 events = events[mask]
-                print(f"Previous: {previous_len}, now:{len(events)} events in chunk {pos.index}")
 
             # insert leptons
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty_float})
