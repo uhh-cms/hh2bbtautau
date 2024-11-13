@@ -76,7 +76,6 @@ class CheckExternalLFNOverlap(
             with self.publish_step(f"loading ids of file {i}"):
                 file_arr = self.load_nano_index(lfn_target)
                 file_hashes = hash_events(file_arr)
-
             # find unique hashes in the reference and the file
             # faster than np.
             overlapping_mask = np.isin(
@@ -123,7 +122,7 @@ class CreateSyncFiles(
 ):
     filter_file = luigi.Parameter(
         description="local path to a file containing event unique identifier to filter them out",
-        default=None,
+        default="",
     )
 
     sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
