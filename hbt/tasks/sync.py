@@ -210,7 +210,10 @@ class CreateSyncFiles(
 
         # helper to pad and select the last element on the first inner axis
         def select(arr, idx):
-            return replace_empty_float(pad_nested(arr, idx + 1, axis=1)[:, idx])
+            if arr.ndim == 1:
+                return replace_empty_float(pad_nested(arr, idx + 1, axis=-1))
+            else:
+                return replace_empty_float(pad_nested(arr, idx + 1, axis=1)[:, idx])
 
         # helper to select leptons
         def select_leptons(events: ak.Array, common_fields: dict[str, int | float]) -> ak.Array:
