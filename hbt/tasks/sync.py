@@ -293,6 +293,68 @@ class CreateSyncFiles(
                 "lep2_charge": select(events.Lepton.charge, 1),
                 "lep2_deeptauvsjet": select(events.Lepton.rawDeepTau2018v2p5VSjet, 1),
                 # TODO: add additional variables
+                "electron1_charge": select(events.Electron.charge, 0),
+                "electron1_eta": select(events.Electron.eta, 0),
+                "electron1_mass": select(events.Electron.mass, 0),
+                "electron1_phi": select(events.Electron.phi, 0),
+                "electron1_pt": select(events.Electron.pt, 0),
+                "electron2_charge": select(events.Electron.charge, 1),
+                "electron2_eta": select(events.Electron.eta, 1),
+                "electron2_mass": select(events.Electron.mass, 1),
+                "electron2_phi": select(events.Electron.phi, 1),
+                "electron2_pt": select(events.Electron.pt, 1),
+
+                "muon1_charge": select(events.Muon.charge, 0),
+                "muon1_eta": select(events.Muon.eta, 0),
+                "muon1_mass": select(events.Muon.mass, 0),
+                "muon1_phi": select(events.Muon.phi, 0),
+                "muon1_pt": select(events.Muon.pt, 0),
+                "muon2_charge": select(events.Muon.charge, 1),
+                "muon2_eta": select(events.Muon.eta, 1),
+                "muon2_mass": select(events.Muon.mass, 1),
+                "muon2_phi": select(events.Muon.phi, 1),
+                "muon2_pt": select(events.Muon.pt, 1),
+
+                "tau1_charge": select(events.Tau.charge, 0),
+                "tau1_eta": select(events.Tau.eta, 0),
+                "tau1_mass": select(events.Tau.mass, 0),
+                "tau1_phi": select(events.Tau.phi, 0),
+                "tau1_pt": select(events.Tau.pt, 0),
+                "tau2_charge": select(events.Tau.charge, 1),
+                "tau2_eta": select(events.Tau.eta, 1),
+                "tau2_mass": select(events.Tau.mass, 1),
+                "tau2_phi": select(events.Tau.phi, 1),
+                "tau2_pt": select(events.Tau.pt, 1),
+
+                "met1_covXX": select(events.MET.covXX, 0),
+                "met1_covXY": select(events.MET.covXY, 0),
+                "met1_covYY": select(events.MET.covYY, 0),
+                "met1_phi": select(events.MET.phi, 0),
+                "met1_pt": select(events.MET.pt, 0),
+                "met1_significance": select(events.MET.significance, 0),
+
+                "fatjet1_eta": select(events.FatJet.eta, 0),
+                "fatjet1_mass": select(events.FatJet.mass, 0),
+                "fatjet1_phi": select(events.FatJet.phi, 0),
+                "fatjet1_pt": select(events.FatJet.pt, 0),
+                "fatjet1_tau1": select(events.FatJet.tau1, 0),
+                "fatjet1_tau2": select(events.FatJet.tau2, 0),
+                "fatjet1_tau3": select(events.FatJet.tau3, 0),
+                "fatjet1_tau4": select(events.FatJet.tau4, 0),
+
+                "fatjet2_eta": select(events.FatJet.eta, 1),
+                "fatjet2_mass": select(events.FatJet.mass, 1),
+                "fatjet2_phi": select(events.FatJet.phi, 1),
+                "fatjet2_pt": select(events.FatJet.pt, 1),
+                "fatjet2_tau1": select(events.FatJet.tau1, 1),
+                "fatjet2_tau2": select(events.FatJet.tau2, 1),
+                "fatjet2_tau3": select(events.FatJet.tau3, 1),
+                "fatjet2_tau4": select(events.FatJet.tau4, 1),
+
+
+
+
+
             })
 
             # save as csv in output, append if necessary
