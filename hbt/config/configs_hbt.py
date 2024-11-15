@@ -22,6 +22,8 @@ from columnflow.config_util import (
     verify_config_processes,
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
+from columnflow.production.cms.muon import MuonSFConfig
+from columnflow.production.cms.electron import ElectronSFConfig
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -594,6 +596,11 @@ def add_config(
             "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
             "wp80iso",
         )
+        cfg.x.electron_trigger_sf_names = ElectronSFConfig(
+            correction="Electron-HLT-SF",
+            campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            hlt_path="HLT_SF_Ele30_TightID",
+        )
     else:
         assert False
 
@@ -615,6 +622,10 @@ def add_config(
         cfg.x.muon_sf_names = (
             "NUM_TightPFIso_DEN_TightID",
             "2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
+        )
+        cfg.x.muon_trigger_sf_names = MuonSFConfig(
+            correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
+            campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
         )
     else:
         assert False
@@ -976,8 +987,10 @@ def add_config(
         if year == 2022 and campaign.has_tag("preEE"):
             # muon scale factors
             add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
+            add_external("muon_trigger_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
             # electron scale factors
             add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+            add_external("electron_trigger_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronHlt.json.gz", "v1"))
             # tau energy correction and scale factors
             # TODO: remove tag pog mirror once integrated centrally
             json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"

@@ -2,15 +2,104 @@
 
 """
 Definition of triggers
+
+Convention for Ids:
+- 1xx: single muon triggers
+- 2xx: single electron triggers
+- 3xx: mu-tau triggers
+- 4xx: e-tau triggers
+- 5xx: tau-tau triggers
+- 6xx: vbf triggers
+- 7xx: tau tau jet triggers
+- 8xx: quadjet triggers
+
+Starting from xx = 01 and with a unique name for each path across all years.
+
+Current status:
+"HLT_IsoMu22"
+id=101
+"HLT_IsoMu22_eta2p1"
+id=102
+"HLT_IsoTkMu22"
+id=103
+"HLT_IsoTkMu22_eta2p1"
+id=104
+"HLT_IsoMu24"
+id=105
+"HLT_IsoMu27"
+id=106
+
+"HLT_Ele25_eta2p1_WPTight_Gsf"
+id=201
+"HLT_Ele32_WPTight_Gsf"
+id=202
+"HLT_Ele32_WPTight_Gsf_L1DoubleEG"
+id=203
+"HLT_Ele35_WPTight_Gsf"
+id=204
+"HLT_Ele30_WPTight_Gsf"
+id=205
+
+"HLT_IsoMu19_eta2p1_LooseIsoPFTau20"
+id=301
+"HLT_IsoMu19_eta2p1_LooseIsoPFTau20_SingleL1"
+id=302
+"HLT_IsoMu20_eta2p1_LooseChargedIsoPFTau27_eta2p1_CrossL1"
+id=303
+"HLT_IsoMu20_eta2p1_LooseDeepTauPFTauHPS27_eta2p1_CrossL1"
+id=304
+
+"HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau20_SingleL1"
+id=401
+"HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau20"
+id=402
+"HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau30"
+id=403
+"HLT_Ele24_eta2p1_WPTight_Gsf_LooseChargedIsoPFTau30_eta2p1_CrossL1"
+id=404
+"HLT_Ele24_eta2p1_WPTight_Gsf_LooseDeepTauPFTauHPS30_eta2p1_CrossL1"
+id=405
+
+"HLT_DoubleMediumIsoPFTau35_Trk1_eta2p1_Reg"
+id=501
+"HLT_DoubleMediumCombinedIsoPFTau35_Trk1_eta2p1_Reg"
+id=502
+"HLT_DoubleMediumChargedIsoPFTau35_Trk1_eta2p1_Reg"
+id=503
+"HLT_DoubleTightChargedIsoPFTau35_Trk1_TightID_eta2p1_Reg"
+id=504
+"HLT_DoubleMediumChargedIsoPFTau40_Trk1_TightID_eta2p1_Reg"
+id=505
+"HLT_DoubleTightChargedIsoPFTau40_Trk1_eta2p1_Reg"
+id=506
+"HLT_DoubleMediumDeepTauPFTauHPS35_L2NN_eta2p1"
+id=507
+"HLT_DoubleMediumChargedIsoPFTauHPS40_Trk1_eta2p1"
+id=508
+"HLT_DoubleMediumChargedIsoDisplacedPFTauHPS32_Trk1_eta2p1"
+id=509
+
+"HLT_VBF_DoubleLooseChargedIsoPFTau20_Trk1_eta2p1_Reg"
+id=601
+"HLT_VBF_DoubleMediumDeepTauPFTauHPS20_eta2p1"
+id=602
+"HLT_VBF_DoubleLooseChargedIsoPFTauHPS20_Trk1_eta2p1"
+id=603
+"HLT_DoublePFJets40_Mass500_MediumDeepTauPFTauHPS45_L2NN_MediumDeepTauPFTauHPS20_eta2p1"
+id=604
+
+"HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60"
+id=701
+"HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet75"
+id=702
 """
 
 import order as od
 
 from hbt.config.util import Trigger, TriggerLeg
 
+
 # 2016 triggers as per AN of CMS-HIG-20-010 (AN2018_121_v11-1)
-
-
 def add_triggers_2016(config: od.Config) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
@@ -22,7 +111,7 @@ def add_triggers_2016(config: od.Config) -> None:
         # used the triggers from https://twiki.cern.ch/twiki/bin/view/CMS/TauTrigger#Tau_Triggers_in_NanoAOD_2016
         Trigger(
             name="HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau20_SingleL1",
-            id=710,  # TODO
+            id=401,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -47,7 +136,7 @@ def add_triggers_2016(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau20",
-            id=711,  # TODO
+            id=402,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -72,7 +161,7 @@ def add_triggers_2016(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau30",
-            id=712,  # TODO
+            id=403,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -101,7 +190,7 @@ def add_triggers_2016(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu19_eta2p1_LooseIsoPFTau20",
-            id=706,  # TODO
+            id=301,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -122,7 +211,7 @@ def add_triggers_2016(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_IsoMu19_eta2p1_LooseIsoPFTau20_SingleL1",
-            id=707,  # TODO
+            id=302,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -147,7 +236,7 @@ def add_triggers_2016(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_DoubleMediumIsoPFTau35_Trk1_eta2p1_Reg",
-            id=708,  # TODO
+            id=501,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -171,7 +260,7 @@ def add_triggers_2016(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_DoubleMediumCombinedIsoPFTau35_Trk1_eta2p1_Reg",
-            id=709,  # TODO
+            id=502,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -203,7 +292,7 @@ def add_triggers_2016(config: od.Config) -> None:
         #
         config.x.triggers.add(
             name="HLT_Ele25_eta2p1_WPTight_Gsf",
-            id=701,  # TODO
+            id=201,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -220,7 +309,7 @@ def add_triggers_2016(config: od.Config) -> None:
         #
         config.x.triggers.add(
             name="HLT_IsoMu22",
-            id=702,  # TODO
+            id=101,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -234,7 +323,7 @@ def add_triggers_2016(config: od.Config) -> None:
         )
         config.x.triggers.add(
             name="HLT_IsoMu22_eta2p1",
-            id=703,  # TODO
+            id=102,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -248,7 +337,7 @@ def add_triggers_2016(config: od.Config) -> None:
         )
         config.x.triggers.add(
             name="HLT_IsoTkMu22",
-            id=704,  # TODO
+            id=103,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -262,7 +351,7 @@ def add_triggers_2016(config: od.Config) -> None:
         )
         config.x.triggers.add(
             name="HLT_IsoTkMu22_eta2p1",
-            id=705,  # TODO
+            id=104,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -287,7 +376,7 @@ def add_triggers_2017(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_Ele32_WPTight_Gsf",
-            id=201,
+            id=202,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -302,7 +391,7 @@ def add_triggers_2017(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_Ele32_WPTight_Gsf_L1DoubleEG",
-            id=202,
+            id=203,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -317,7 +406,7 @@ def add_triggers_2017(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_Ele35_WPTight_Gsf",
-            id=203,
+            id=204,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -335,7 +424,7 @@ def add_triggers_2017(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu24",
-            id=101,
+            id=105,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -349,7 +438,7 @@ def add_triggers_2017(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_IsoMu27",
-            id=102,
+            id=106,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -367,7 +456,7 @@ def add_triggers_2017(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseChargedIsoPFTau30_eta2p1_CrossL1",
-            id=401,
+            id=404,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -394,7 +483,7 @@ def add_triggers_2017(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu20_eta2p1_LooseChargedIsoPFTau27_eta2p1_CrossL1",
-            id=301,
+            id=303,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -421,7 +510,7 @@ def add_triggers_2017(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_DoubleMediumChargedIsoPFTau35_Trk1_eta2p1_Reg",
-            id=501,
+            id=503,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -442,7 +531,7 @@ def add_triggers_2017(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau35_Trk1_TightID_eta2p1_Reg",
-            id=502,
+            id=504,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -464,7 +553,7 @@ def add_triggers_2017(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_DoubleMediumChargedIsoPFTau40_Trk1_TightID_eta2p1_Reg",
-            id=503,
+            id=505,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -486,7 +575,7 @@ def add_triggers_2017(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau40_Trk1_eta2p1_Reg",
-            id=504,
+            id=506,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -556,7 +645,7 @@ def add_triggers_2018(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_Ele32_WPTight_Gsf",
-            id=201,
+            id=202,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -571,7 +660,7 @@ def add_triggers_2018(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_Ele35_WPTight_Gsf",
-            id=203,
+            id=204,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -589,7 +678,7 @@ def add_triggers_2018(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu24",
-            id=101,
+            id=105,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -603,7 +692,7 @@ def add_triggers_2018(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_IsoMu27",
-            id=102,
+            id=106,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -621,7 +710,7 @@ def add_triggers_2018(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseChargedIsoPFTau30_eta2p1_CrossL1",
-            id=401,
+            id=404,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -650,7 +739,7 @@ def add_triggers_2018(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu20_eta2p1_LooseChargedIsoPFTau27_eta2p1_CrossL1",
-            id=301,
+            id=303,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -679,7 +768,7 @@ def add_triggers_2018(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau35_Trk1_TightID_eta2p1_Reg",
-            id=502,
+            id=504,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -701,7 +790,7 @@ def add_triggers_2018(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_DoubleMediumChargedIsoPFTau40_Trk1_TightID_eta2p1_Reg",
-            id=503,
+            id=505,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -723,7 +812,7 @@ def add_triggers_2018(config: od.Config) -> None:
         ),
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau40_Trk1_eta2p1_Reg",
-            id=504,
+            id=506,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -799,7 +888,7 @@ def add_triggers_2022(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_Ele30_WPTight_Gsf",
-            id=201,
+            id=205,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -814,7 +903,7 @@ def add_triggers_2022(config: od.Config) -> None:
         # Currently disabled
         # Trigger(
         #     name="HLT_Ele35_WPTight_Gsf",
-        #     id=203,
+        #     id=204,
         #     legs=[
         #         TriggerLeg(
         #             pdg_id=11,
@@ -832,7 +921,7 @@ def add_triggers_2022(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu24",
-            id=101,
+            id=105,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -847,7 +936,7 @@ def add_triggers_2022(config: od.Config) -> None:
         # Currently disabled
         # Trigger(
         #     name="HLT_IsoMu27",
-        #     id=102,
+        #     id=106,
         #     legs=[
         #         TriggerLeg(
         #             pdg_id=13,
@@ -865,7 +954,7 @@ def add_triggers_2022(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseDeepTauPFTauHPS30_eta2p1_CrossL1",
-            id=401,
+            id=405,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -892,7 +981,7 @@ def add_triggers_2022(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu20_eta2p1_LooseDeepTauPFTauHPS27_eta2p1_CrossL1",
-            id=301,
+            id=304,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -919,7 +1008,7 @@ def add_triggers_2022(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_DoubleMediumDeepTauPFTauHPS35_L2NN_eta2p1",
-            id=505,
+            id=507,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -941,7 +1030,7 @@ def add_triggers_2022(config: od.Config) -> None:
         # Currently disabled
         # Trigger(
         #     name="HLT_DoubleMediumChargedIsoPFTauHPS40_Trk1_eta2p1",
-        #     id=506,
+        #     id=508,
         #     legs=[
         #         TriggerLeg(
         #             pdg_id=15,
@@ -962,7 +1051,7 @@ def add_triggers_2022(config: od.Config) -> None:
 
         # Trigger(
         #     name="HLT_DoubleMediumChargedIsoDisplacedPFTauHPS32_Trk1_eta2p1",
-        #     id=507,
+        #     id=509,
         #     legs=[
         #         TriggerLeg(
         #             pdg_id=15,
@@ -988,7 +1077,7 @@ def add_triggers_2022(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_VBF_DoubleMediumDeepTauPFTauHPS20_eta2p1",
-            id=603,
+            id=602,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -1027,7 +1116,7 @@ def add_triggers_2022(config: od.Config) -> None:
         # currently disabled
         # Trigger(
         #     name="HLT_VBF_DoubleLooseChargedIsoPFTauHPS20_Trk1_eta2p1",
-        #     id=602,
+        #     id=603,
         #     legs=[
         #         TriggerLeg(
         #             pdg_id=15,
@@ -1199,7 +1288,7 @@ def add_triggers_2023(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_Ele30_WPTight_Gsf",
-            id=201,
+            id=205,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -1217,7 +1306,7 @@ def add_triggers_2023(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu24",
-            id=101,
+            id=105,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -1235,7 +1324,7 @@ def add_triggers_2023(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseDeepTauPFTauHPS30_eta2p1_CrossL1",
-            id=401,
+            id=405,
             legs=[
                 TriggerLeg(
                     pdg_id=11,
@@ -1262,7 +1351,7 @@ def add_triggers_2023(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_IsoMu20_eta2p1_LooseDeepTauPFTauHPS27_eta2p1_CrossL1",
-            id=301,
+            id=304,
             legs=[
                 TriggerLeg(
                     pdg_id=13,
@@ -1289,7 +1378,7 @@ def add_triggers_2023(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_DoubleMediumDeepTauPFTauHPS35_L2NN_eta2p1",
-            id=505,
+            id=507,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
@@ -1314,7 +1403,7 @@ def add_triggers_2023(config: od.Config) -> None:
         #
         Trigger(
             name="HLT_VBF_DoubleMediumDeepTauPFTauHPS20_eta2p1",
-            id=603,
+            id=602,
             legs=[
                 TriggerLeg(
                     pdg_id=15,
