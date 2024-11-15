@@ -241,7 +241,7 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     # function to determine the correction file
     get_tau_file=(lambda self, external_files: external_files.tau_sf),
 )
-def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
     Producer for trigger scale factors derived by the TAU POG. Requires an external file in the
     config under ``tau_sf``:
@@ -328,8 +328,8 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     return events
 
 
-@trigger_weights.requires
-def trigger_weights_requires(self: Producer, reqs: dict) -> None:
+@tau_trigger_weights.requires
+def tau_trigger_weights_requires(self: Producer, reqs: dict) -> None:
     if "external_files" in reqs:
         return
 
@@ -337,8 +337,8 @@ def trigger_weights_requires(self: Producer, reqs: dict) -> None:
     reqs["external_files"] = BundleExternalFiles.req(self.task)
 
 
-@trigger_weights.setup
-def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+@tau_trigger_weights.setup
+def tau_trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors
