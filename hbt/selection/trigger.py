@@ -63,9 +63,11 @@ def trigger_selection(
             # pdg id selection
             if leg.pdg_id is not None:
                 leg_mask = leg_mask & (abs(events.TrigObj.id) == leg.pdg_id)
-            # pt cut
-            if leg.min_pt is not None:
-                leg_mask = leg_mask & (events.TrigObj.pt >= leg.min_pt)
+            # no pt cut on Trig objects for now in the run 3 analysis (stand: 19.11.2024)
+            if self.config_inst.campaign.x.run == 2:
+                # pt cut
+                if leg.min_pt is not None:
+                    leg_mask = leg_mask & (events.TrigObj.pt >= leg.min_pt)
             # trigger bits match
             if leg.trigger_bits is not None:
                 # OR across bits themselves, AND between all decision in the list
