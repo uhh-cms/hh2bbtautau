@@ -25,7 +25,7 @@ logger = law.logger.get_logger(__name__)
 def trigger_object_matching(
     vectors1: ak.Array,
     vectors2: ak.Array,
-    threshold: float = 0.25,
+    threshold: float = 0.5,
     axis: int = 2,
 ) -> ak.Array:
     """
@@ -125,10 +125,10 @@ def electron_selection(
     default_mask = None
     default_indices = None
     if is_single or is_cross:
-        min_pt = 26.0 if is_2016 else (33.0 if is_single else 25.0)
+        min_pt = 26.0 if is_2016 else (31.0 if is_single else 25.0)
         default_mask = (
             (mva_iso_wp80 == 1) &
-            (abs(events.Electron.eta) < 2.1) &
+            (abs(events.Electron.eta) < 2.5) if is_single else (abs(events.Electron.eta) < 2.1) &
             (abs(events.Electron.dxy) < 0.045) &
             (abs(events.Electron.dz) < 0.2) &
             (events.Electron.pt > min_pt) &
@@ -210,10 +210,10 @@ def muon_selection(
         if is_2016:
             min_pt = 23.0 if is_single else 20.0
         else:
-            min_pt = 33.0 if is_single else 25.0
+            min_pt = 26.0 if is_single else 22.0
         default_mask = (
             (events.Muon.tightId == 1) &
-            (abs(events.Muon.eta) < 2.1) &
+            (abs(events.Muon.eta) < 2.4) &
             (abs(events.Muon.dxy) < 0.045) &
             (abs(events.Muon.dz) < 0.2) &
             (events.Muon.pfRelIso04_all < 0.15) &
@@ -226,7 +226,7 @@ def muon_selection(
 
     # veto muon mask
     veto_mask = (
-        (events.Muon.mediumId == 1) &
+        ((events.Muon.mediumId == 1) | (events.Muon.tightId == 1)) &
         (abs(events.Muon.eta) < 2.4) &
         (abs(events.Muon.dxy) < 0.045) &
         (abs(events.Muon.dz) < 0.2) &
@@ -305,37 +305,30 @@ def tau_selection(
         matches_leg1 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks[1]])
 
     # determine minimum pt and maximum eta
+    max_eta = 2.5
     if is_single_e or is_single_mu:
         min_pt = 20.0
-        max_eta = 2.3
     elif is_cross_e:
         # only existing after 2016
         min_pt = 0.0 if is_2016 else 35.0
-        max_eta = 2.1
     elif is_cross_mu:
         min_pt = 25.0 if is_2016 else 32.0
-        max_eta = 2.1
     elif is_cross_tau:
         min_pt = 40.0
-        max_eta = 2.1
     elif is_cross_tau_vbf:
         # only existing after 2016
         min_pt = 0.0 if is_2016 else 25.0
-        max_eta = 2.1
     elif is_cross_tau_jet:
         min_pt = None if not is_run3 else 35.0
-        max_eta = 2.1
 
     # base tau mask for default and qcd sideband tau
     base_mask = (
         (abs(events.Tau.eta) < max_eta) &
         (events.Tau.pt > min_pt) &
         (abs(events.Tau.dz) < 0.2) &
-        (events.Tau[get_tau_tagger("e")] >= (wp_config.tau_vs_e.vvloose if is_any_cross_tau
-                                            else wp_config.tau_vs_e.vloose)) &
-        (events.Tau[get_tau_tagger("mu")] >= (wp_config.tau_vs_mu.vloose if is_any_cross_tau
-                                            else wp_config.tau_vs_mu.tight)) &
-        (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.loose)
+        (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vloose) &
+        (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.tight) &
+        (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.vvvloose)
     )
 
     # remove taus with too close spatial separation to previously selected leptons
