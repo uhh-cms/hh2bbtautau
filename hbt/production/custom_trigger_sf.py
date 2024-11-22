@@ -8,9 +8,10 @@ import functools
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
-from columnflow.columnar_util import set_ak_column
+from columnflow.columnar_util import set_ak_column, EMPTY_FLOAT, Route
 from colmnflow.production.cms.muon import muon_weights
 from columnflow.production.cms.electron import electron_weights
+
 
 from hbt.production.tau import tau_trigger_weights
 # TODO: check if tau_trigger_weights really do what we want, looks like way too much for me, maybe need
@@ -208,7 +209,6 @@ def build_etau_mutau_trigger_weights(
             "cross_muon_trigger_sf": "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c/POG/MUO/2017_UL/muon_z.json.gz",  # noqa
         })
     """
-    from IPython import embed; embed(header="trigger scale factors")
 
     # TODO: TOCHECK: if necessary, make it an object mask using e.g. "& events.Muon.pt > 0.0"
     single_electron_triggered = (events.channel_id == self.config_inst.channels.n.etau.id) & events.single_triggered
@@ -220,33 +220,103 @@ def build_etau_mutau_trigger_weights(
     # TODO: check if it works with event level mask (creation of new column with less entries?)
     # else use object level mask and use the mulitplication in calculate_ditrigger_efficiency to make it
     # a 1d array in a new column
+
+    # first, create the efficiencies for the data
+    # create the columns
+    from IPython import embed; embed(header="trigger scale factors")
     events = self[single_muon_trigger_data_effs](events, single_muon_triggered, **kwargs)
     events = self[cross_muon_trigger_data_effs](events, cross_muon_triggered, **kwargs)
     events = self[cross_mutau_trigger_data_effs](events, cross_muon_triggered, **kwargs)
     events = self[single_electron_trigger_data_effs](events, single_electron_triggered, **kwargs)
     events = self[cross_electron_trigger_data_effs](events, cross_electron_triggered, **kwargs)
     events = self[cross_etau_trigger_data_effs](events, cross_electron_triggered, **kwargs)
-    single_muon_trigger_data_efficiencies = events.single_muon_trigger_data_effs(
-        events,
-        single_muon_triggered,
-        **kwargs,
-    )
-    cross_muon_trigger_data_efficiencies = events.cross_muon_trigger_data_effs(events, cross_muon_triggered, **kwargs)
-    cross_mutau_trigger_data_efficiencies = events.cross_mutau_trigger_data_effs(events, cross_muon_triggered, **kwargs)
 
-    # compute the trigger weights
-    muon_trigger_efficiency_data = calculate_ditrigger_efficiency(
-        single_muon_triggered,
-        cross_muon_triggered,
-        single_muon_trigger_data_efficiencies,
-        cross_muon_trigger_data_efficiencies,
-        cross_mutau_trigger_data_efficiencies,
-    )
+    # do the same for MC efficiencie
+    # create the columns
+    events = self[single_muon_trigger_mc_effs](events, single_muon_triggered, **kwargs)
+    events = self[cross_muon_trigger_mc_effs](events, cross_muon_triggered, **kwargs)
+    events = self[single_electron_trigger_mc_effs](events, single_electron_triggered, **kwargs)
+    events = self[cross_electron_trigger_mc_effs](events, cross_electron_triggered, **kwargs)
+    events = self[cross_mutau_trigger_mc_effs](events, cross_muon_triggered, **kwargs)
+    events = self[cross_etau_trigger_mc_effs](events, cross_electron_triggered, **kwargs)
 
-    # TODO: same for MC
+    for postfix in ["", "_up", "_down"]:
+        # take the columns to change the format if necessary in data
+        single_muon_trigger_data_efficiencies = Route(
+            f"single_muon_trigger_data_effs{postfix}",
+        ).apply(events, EMPTY_FLOAT)
+        cross_muon_trigger_data_efficiencies = Route(
+            f"cross_muon_trigger_data_effs{postfix}",
+        ).apply(events, EMPTY_FLOAT)
+        single_electron_trigger_data_efficiencies = Route(
+            f"single_electron_trigger_data_effs{postfix}",
+        ).apply(events, EMPTY_FLOAT)
+        cross_electron_trigger_data_efficiencies = Route(
+            f"cross_electron_trigger_data_effs{postfix}",
+        ).apply(events, EMPTY_FLOAT)
+        # the tau efficiency used is always nominal, even when the SF should be varied
+        # since the variation concerns the muon or electron leg
+        cross_mutau_trigger_data_efficiencies = events.cross_mutau_trigger_data_effs
+        cross_etau_trigger_data_efficiencies = events.cross_etau_trigger_data_effs
 
-    # TODO: calculate SFs
+        # the same in MC
+        single_muon_trigger_mc_efficiencies = Route(
+            f"single_muon_trigger_mc_effs{postfix}",
+        ).apply(events, EMPTY_FLOAT)
+        cross_muon_trigger_mc_efficiencies = Route(
+            f"cross_muon_trigger_mc_effs{postfix}",
+        ).apply(events, EMPTY_FLOAT)
+        single_electron_trigger_mc_efficiencies = Route(
+            f"single_electron_trigger_mc_effs{postfix}",
+        ).apply(events, EMPTY_FLOAT)
+        cross_electron_trigger_mc_efficiencies = Route(
+            f"cross_electron_trigger_mc_effs{postfix}",
+        ).apply(events, EMPTY_FLOAT)
+        cross_mutau_trigger_mc_efficiencies = events.cross_mutau_trigger_mc_effs
+        cross_etau_trigger_mc_efficiencies = events.cross_etau_trigger_mc_effs
 
-    # TODO: same for electrons
+        # compute the trigger weights
+        muon_trigger_efficiency_data = calculate_ditrigger_efficiency(
+            single_muon_triggered,
+            cross_muon_triggered,
+            single_muon_trigger_data_efficiencies,
+            cross_muon_trigger_data_efficiencies,
+            cross_mutau_trigger_data_efficiencies,
+        )
+
+        electron_trigger_efficiency_data = calculate_ditrigger_efficiency(
+            single_electron_triggered,
+            cross_electron_triggered,
+            single_electron_trigger_data_efficiencies,
+            cross_electron_trigger_data_efficiencies,
+            cross_etau_trigger_data_efficiencies,
+        )
+
+        muon_trigger_efficiency_mc = calculate_ditrigger_efficiency(
+            single_muon_triggered,
+            cross_muon_triggered,
+            single_muon_trigger_mc_efficiencies,
+            cross_muon_trigger_mc_efficiencies,
+            cross_mutau_trigger_mc_efficiencies,
+        )
+
+        electron_trigger_efficiency_mc = calculate_ditrigger_efficiency(
+            single_electron_triggered,
+            cross_electron_triggered,
+            single_electron_trigger_mc_efficiencies,
+            cross_electron_trigger_mc_efficiencies,
+            cross_etau_trigger_mc_efficiencies,
+        )
+
+        # calculate SFs
+
+        # muon
+        muon_trigger_sf = muon_trigger_efficiency_data / muon_trigger_efficiency_mc
+
+        # electron
+        electron_trigger_sf = electron_trigger_efficiency_data / electron_trigger_efficiency_mc
+
+        events = set_ak_column_f32(events, f"mutau_trigger_weight{postfix}", muon_trigger_sf)
+        events = set_ak_column_f32(events, f"etau_trigger_weight{postfix}", electron_trigger_sf)
 
     return events
