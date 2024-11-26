@@ -77,18 +77,18 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
         assert digits <= max_value, f"{field} digit count is {digits} and exceed max value {max_value}"
 
     max_digits_run = 6
-    max_digits_luminosityBlock = 5
+    max_digits_luminosityBlock = 6
     max_digits_event = 8
     assert_value(arr, "run", max_digits_run)
     assert_value(arr, "luminosityBlock", max_digits_luminosityBlock)
     assert_value(arr, "event", max_digits_event)
 
     max_digits_hash = max_digits_event + max_digits_luminosityBlock + max_digits_run
-    assert max_digits_hash <= 19, "sum of digits exceeds int64"
+    assert max_digits_hash <= 20, "sum of digits exceeds int64"
 
     # upcast to int64 to avoid overflow
     return (
-        ak.values_astype(arr.event, np.int64) * 10**(max_digits_luminosityBlock + max_digits_run) +
-        ak.values_astype(arr.luminosityBlock, np.int64) * 10**max_digits_run +
-        ak.values_astype(arr.run, np.int64)
+        ak.values_astype(arr.run, np.int64) * 10**(max_digits_luminosityBlock + max_digits_event) +
+        ak.values_astype(arr.luminosityBlock, np.int64) * 10**max_digits_event +
+        ak.values_astype(arr.event, np.int64)
     )
