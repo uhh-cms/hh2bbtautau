@@ -16,23 +16,7 @@ def add_met_filters(config: od.Config) -> None:
     Resources:
     https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2?rev=157#UL_data
     """
-    if config.campaign.x.year == 2016:
-        filters = [
-            "Flag.goodVertices",
-            "Flag.globalSuperTightHalo2016Filter",
-            "Flag.HBHENoiseFilter",
-            "Flag.HBHENoiseIsoFilter",
-            "Flag.EcalDeadCellTriggerPrimitiveFilter",
-            "Flag.BadPFMuonFilter",
-            "Flag.BadPFMuonDzFilter",
-            "Flag.eeBadScFilter",
-        ]
-        # same filter for mc and data, but still separate
-        filters = {
-            "mc": filters,
-            "data": filters,
-        }
-    else:
+    if config.campaign.x.run == 2:
         filters = [
             "Flag.goodVertices",
             "Flag.globalSuperTightHalo2016Filter",
@@ -45,6 +29,32 @@ def add_met_filters(config: od.Config) -> None:
             "Flag.eeBadScFilter",
             "Flag.ecalBadCalibFilter",
         ]
+
+        # remove filters that are not present in 2016
+        if config.campaign.x.year == 2016:
+            filters.remove("Flag.hfNoisyHitsFilter")
+            filters.remove("Flag.ecalBadCalibFilter")
+
+        # same filter for mc and data, but still separate
+        filters = {
+            "mc": filters,
+            "data": filters,
+        }
+
+    if config.campaign.x.run == 3:
+        filters = [
+            "Flag.goodVertices",
+            "Flag.globalSuperTightHalo2016Filter",
+            "Flag.EcalDeadCellTriggerPrimitiveFilter",
+            "Flag.BadPFMuonFilter",
+            "Flag.BadPFMuonDzFilter",
+            "Flag.hfNoisyHitsFilter",
+            "Flag.eeBadScFilter",
+        ]
+
+        if config.campaign.x.year == 2022 and config.campaign.has_tag("preEE"):
+            filters.append("Flag.ecalBadCalibFilter")
+
         # same filter for mc and data, but still separate
         filters = {
             "mc": filters,
