@@ -65,7 +65,7 @@ def jet_selection(
     # common ak4 jet mask for normal and vbf jets
     ak4_mask = (
         (events.Jet.jetId == 6) &  # tight plus lepton veto
-        ak.all(events.Jet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2)
+        ak.all(events.Jet.metric_table(lepton_results.x.leading_taus) > 0.4, axis=2)
     )
 
     if self.config_inst.campaign.x.run == 2:
@@ -75,7 +75,7 @@ def jet_selection(
     default_mask = (
         ak4_mask &
         (events.Jet.pt > 20.0) &
-        (abs(events.Jet.eta) < 2.4)
+        (abs(events.Jet.eta) < 2.5)
     )
 
     # get the scores of the hhbtag and per event get the two indices corresponding to the best pick
@@ -89,16 +89,46 @@ def jet_selection(
     valid_score_mask = (
         default_mask &
         (ak.sum(default_mask, axis=1) >= 2) &
-        (ak.num(lepton_results.x.lepton_pair, axis=1) == 2)
+        (ak.num(lepton_results.x.lepton_pair, axis=1) >= 2)
     )
     hhbjet_indices = score_indices[valid_score_mask[score_indices]][..., :2]
+
+    # fat jets
+    fatjet_mask = (
+        (events.FatJet.jetId == 6) &  # tight plus lepton veto
+        (events.FatJet.msoftdrop > 30.0) &
+        (events.FatJet.pt > 250.0) &  # ParticleNet not trained for lower values
+        (abs(events.FatJet.eta) < 2.5) &
+        ak.all(events.FatJet.metric_table(lepton_results.x.leading_taus) > 0.8, axis=2) &
+        (events.FatJet.subJetIdx1 >= 0) &
+        (events.FatJet.subJetIdx2 >= 0)
+    )
+
+    # store fatjet and subjet indices
+    fatjet_indices = ak.local_index(events.FatJet.pt)[fatjet_mask]
+    subjet_indices = ak.concatenate(
+        [
+            events.FatJet[fatjet_mask].subJetIdx1[..., None],
+            events.FatJet[fatjet_mask].subJetIdx2[..., None],
+        ],
+        axis=2,
+    )
+
+    # discard the event in case the (first) fatjet with matching subjets is found
+    # but they are not b-tagged (TODO: move to deepjet when available for subjets)
+    if self.config_inst.campaign.x.run == 3:
+        wp = self.config_inst.x.btag_working_points.particleNet.loose
+    else:
+        wp = self.config_inst.x.btag_working_points.deepcsv.loose
+    subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # vbf jets
     vbf_mask = (
         ak4_mask &
-        (events.Jet.pt > 30.0) &
+        (events.Jet.pt > 20.0) &
         (abs(events.Jet.eta) < 4.7) &
-        (~hhbjet_mask)
+        (~hhbjet_mask) &
+        ak.all(events.Jet.metric_table(events.SubJet[subjet_indices]) > 0.4, axis=2)
     )
 
     # build vectors of vbf jets representing all combinations and apply selections
@@ -141,42 +171,6 @@ def jet_selection(
     )
     vbfjet_indices = li[vbf_mask][vbf_indices_local]
     vbfjet_indices = vbfjet_indices[ak.argsort(events.Jet[vbfjet_indices].pt, axis=1, ascending=False)]
-
-    # check whether the two bjets were matched by fatjet subjets to mark it as boosted
-    fatjet_mask = (
-        (events.FatJet.jetId == 6) &  # tight plus lepton veto
-        (events.FatJet.msoftdrop > 30.0) &
-        (abs(events.FatJet.eta) < 2.4) &
-        ak.all(events.FatJet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2) &
-        (events.FatJet.subJetIdx1 >= 0) &
-        (events.FatJet.subJetIdx2 >= 0)
-    )
-
-    # unique subjet matching
-    metrics = events.FatJet.subjets.metric_table(events.Jet[hhbjet_indices])
-    subjets_match = (
-        ak.all(ak.sum(metrics < 0.4, axis=3) == 1, axis=2) &
-        (ak.num(hhbjet_indices, axis=1) == 2)
-    )
-    fatjet_mask = fatjet_mask & subjets_match
-
-    # store fatjet and subjet indices
-    fatjet_indices = ak.local_index(events.FatJet.pt)[fatjet_mask]
-    subjet_indices = ak.concatenate(
-        [
-            events.FatJet[fatjet_mask].subJetIdx1[..., None],
-            events.FatJet[fatjet_mask].subJetIdx2[..., None],
-        ],
-        axis=2,
-    )
-
-    # discard the event in case the (first) fatjet with matching subjets is found
-    # but they are not b-tagged (TODO: move to deepjet when available for subjets)
-    if self.config_inst.campaign.x.run == 3:
-        wp = self.config_inst.x.btag_working_points.particleNet.loose
-    else:
-        wp = self.config_inst.x.btag_working_points.deepcsv.loose
-    subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # pt sorted indices to convert mask
     jet_indices = sorted_indices_from_mask(default_mask, events.Jet.pt, ascending=False)
