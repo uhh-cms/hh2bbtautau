@@ -36,7 +36,7 @@ class CheckExternalLFNOverlap(
         default="/pnfs/desy.de/cms/tier2/store/user/mrieger/nanogen_store/FetchLFN/store/mc/Run3Summer22NanoAODv12/GluGlutoHHto2B2Tau_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/992697da-4a10-4435-b63a-413f6d33517e.root",  # noqa
     )
 
-    # no versioning or required
+    # no versioning required
     version = None
 
     # default sandbox, might be overwritten by calibrator function
@@ -210,10 +210,8 @@ class CreateSyncFiles(
 
         # helper to pad and select the last element on the first inner axis
         def select(arr, idx):
-            if arr.ndim == 1:
-                return replace_empty_float(pad_nested(arr, idx + 1, axis=-1))
-            else:
-                return replace_empty_float(pad_nested(arr, idx + 1, axis=1)[:, idx])
+            padded = pad_nested(arr, idx + 1, axis=-1)
+            return replace_empty_float(padded if arr.ndim == 1 else padded[:, idx])
 
         # helper to select leptons
         def select_leptons(events: ak.Array, common_fields: dict[str, int | float]) -> ak.Array:
@@ -292,7 +290,6 @@ class CreateSyncFiles(
                 "lep2_eta": select(events.Lepton.eta, 1),
                 "lep2_charge": select(events.Lepton.charge, 1),
                 "lep2_deeptauvsjet": select(events.Lepton.rawDeepTau2018v2p5VSjet, 1),
-                # TODO: add additional variables
                 "electron1_charge": select(events.Electron.charge, 0),
                 "electron1_eta": select(events.Electron.eta, 0),
                 "electron1_mass": select(events.Electron.mass, 0),
@@ -350,11 +347,6 @@ class CreateSyncFiles(
                 "fatjet2_tau2": select(events.FatJet.tau2, 1),
                 "fatjet2_tau3": select(events.FatJet.tau3, 1),
                 "fatjet2_tau4": select(events.FatJet.tau4, 1),
-
-
-
-
-
             })
 
             # save as csv in output, append if necessary
