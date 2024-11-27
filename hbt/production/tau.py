@@ -240,6 +240,7 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     mc_only=True,
     # function to determine the correction file
     get_tau_file=(lambda self, external_files: external_files.tau_sf),
+    get_tau_corrector=(lambda self: self.config_inst.x.tau_trigger_corrector),
 )
 def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
@@ -346,10 +347,12 @@ def tau_trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_t
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
 
     # load the correction set
+    from IPython import embed; embed(header="tau_trigger_weights_setup")
     correction_set = correctionlib.CorrectionSet.from_string(
         self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
     )
-    self.trigger_corrector = correction_set["tau_trigger"]
+    corrector_string = self.get_tau_corrector()
+    self.trigger_corrector = correction_set[corrector_string]
 
     # check versions
     assert self.trigger_corrector.version in [0, 1]

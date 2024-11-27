@@ -321,6 +321,7 @@ def add_config(
         *if_era(run=3, year=2022, tag="preEE", values=[
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "cd"
         ]),
+        # TODO: Add SingleMuon dataset for preEE -> which dataset name for it?
         *if_era(run=3, year=2022, tag="postEE", values=[
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "efg"
         ]),
@@ -661,6 +662,10 @@ def add_config(
         "trigger_corr": "VVLoose",
     })
 
+    # tau trigger correctors
+    cfg.x.tau_trigger_corrector = "tau_trigger"
+    cfg.x.cclub_tau_corrector = "tauTriggerSF"
+
     ################################################################################################
     # electron settings
     ################################################################################################
@@ -682,10 +687,30 @@ def add_config(
             "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
             "wp80iso",
         )
-        cfg.x.electron_trigger_sf_names = ElectronSFConfig(
-            correction="Electron-HLT-SF",
+        # cfg.x.electron_trigger_sf_names = ElectronSFConfig(
+        #     correction="Electron-HLT-SF",
+        #     campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+        #     hlt_path="HLT_SF_Ele30_TightID",
+        # )
+        cfg.x.single_electron_trigger_data_effs_names = ElectronSFConfig(
+            correction="Electron-HLT-DataEff",
             campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
             hlt_path="HLT_SF_Ele30_TightID",
+        )
+        cfg.x.single_electron_trigger_mc_effs_names = ElectronSFConfig(
+            correction="Electron-HLT-McEff",
+            campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            hlt_path="HLT_SF_Ele30_TightID",
+        )
+        cfg.x.cross_electron_trigger_data_effs_names = ElectronSFConfig(
+            correction="Electron-HLT-DataEff",
+            campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            hlt_path="HLT_SF_Ele24_TightID",
+        )
+        cfg.x.cross_electron_trigger_mc_effs_names = ElectronSFConfig(
+            correction="Electron-HLT-McEff",
+            campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            hlt_path="HLT_SF_Ele24_TightID",
         )
     else:
         assert False
@@ -709,10 +734,27 @@ def add_config(
             "NUM_TightPFIso_DEN_TightID",
             "2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
         )
-        cfg.x.muon_trigger_sf_names = MuonSFConfig(
-            correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
+        # cfg.x.muon_trigger_sf_names = MuonSFConfig(
+        #     correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
+        #     campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
+        # )
+        cfg.x.single_muon_trigger_data_effs_names = MuonSFConfig(
+            correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
             campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
         )
+        cfg.x.single_muon_trigger_mc_effs_names = MuonSFConfig(
+            correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
+            campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
+        )
+        cfg.x.cross_muon_trigger_data_effs_names = MuonSFConfig(
+            correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
+            campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
+        )
+        cfg.x.cross_muon_trigger_mc_effs_names = MuonSFConfig(
+            correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
+            campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
+        )
+
     else:
         assert False
 
@@ -1019,6 +1061,17 @@ def add_config(
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
         json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-6ce37404"
+        trigger_json_mirror = "/nfs/dust/cms/user/prouvost/cclub_gitlab/AnalysisCore/data/TriggerScaleFactors"
+        cfg.x.campaign_tag = ""
+        for tag in ("preEE", "postEE", "preBPix", "postBPix"):
+            if campaign.has_tag(tag, mode=any):
+                if cfg.x.campaign_tag:
+                    raise ValueError(f"Multiple campaign tags found: {cfg.x.campaign_tag} and {tag}")
+                cfg.x.campaign_tag = tag
+        cclub_eras = (
+            f"{year}"
+            f"{cfg.x.campaign_tag}"
+        )
     else:
         assert False
 
@@ -1073,15 +1126,21 @@ def add_config(
         if year == 2022 and campaign.has_tag("preEE"):
             # muon scale factors
             add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
-            add_external("muon_trigger_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
+            # muon trigger scale factors
+            add_external("muon_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/temporary_MuHlt_abseta_pt.json", "v1"))  # noqa
+            add_external("cross_muon_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossMuTauHlt.json", "v1"))
             # electron scale factors
             add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
-            add_external("electron_trigger_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronHlt.json.gz", "v1"))
+            # electron trigger scale factors
+            add_external("electron_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/electronHlt.json", "v1"))
+            add_external("cross_electron_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossEleTauHlt.json", "v1"))
             # tau energy correction and scale factors
             # TODO: remove tag pog mirror once integrated centrally
             json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
             add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa
+            # tau trigger scale factors
+            add_external("tau_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_2022preEE.json", "v1"))  # noqa
     else:
         assert False
 

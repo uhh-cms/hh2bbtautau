@@ -9,7 +9,7 @@ import functools
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, EMPTY_FLOAT, Route
-from colmnflow.production.cms.muon import muon_weights
+from columnflow.production.cms.muon import muon_weights
 from columnflow.production.cms.electron import electron_weights
 
 
@@ -65,7 +65,7 @@ cross_etau_trigger_data_effs = tau_trigger_weights.derive(
     "cross_etau_trigger_data_effs",
     cls_dict={
         "get_tau_file": (lambda self, external_files: external_files.tau_trigger_sf),
-        "get_tau_config": (lambda self: self.config_inst.x.cross_etau_trigger_data_effs_names),
+        "get_tau_corrector": (lambda self: self.config_inst.x.cclub_tau_corrector),
         "weight_name": "cross_etau_trigger_data_effs",
     },
 )
@@ -74,7 +74,7 @@ cross_etau_trigger_mc_effs = tau_trigger_weights.derive(
     "cross_etau_trigger_mc_effs",
     cls_dict={
         "get_tau_file": (lambda self, external_files: external_files.tau_trigger_sf),
-        "get_tau_config": (lambda self: self.config_inst.x.cross_etau_trigger_mc_effs_names),
+        "get_tau_corrector": (lambda self: self.config_inst.x.cclub_tau_corrector),
         "weight_name": "cross_etau_trigger_mc_effs",
     },
 )
@@ -121,7 +121,7 @@ cross_mutau_trigger_data_effs = tau_trigger_weights.derive(
     "cross_mutau_trigger_data_effs",
     cls_dict={
         "get_tau_file": (lambda self, external_files: external_files.tau_trigger_sf),
-        "get_tau_config": (lambda self: self.config_inst.x.cross_mutau_trigger_data_effs_names),
+        "get_tau_corrector": (lambda self: self.config_inst.x.cclub_tau_corrector),
         "weight_name": "cross_mutau_trigger_data_effs",
     },
 )
@@ -130,7 +130,7 @@ cross_mutau_trigger_mc_effs = tau_trigger_weights.derive(
     "cross_mutau_trigger_mc_effs",
     cls_dict={
         "get_tau_file": (lambda self, external_files: external_files.tau_trigger_sf),
-        "get_tau_config": (lambda self: self.config_inst.x.cross_mutau_trigger_mc_effs_names),
+        "get_tau_corrector": (lambda self: self.config_inst.x.cclub_tau_corrector),
         "weight_name": "cross_mutau_trigger_mc_effs",
     },
 )
