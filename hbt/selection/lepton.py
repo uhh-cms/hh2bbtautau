@@ -553,8 +553,6 @@ def lepton_selection(
     events = set_ak_column(events, "single_triggered", single_triggered)
     events = set_ak_column(events, "cross_triggered", cross_triggered)
 
-    from IPython import embed; embed(header="lepton_selection")
-
     return events, SelectionResult(
         steps={
             "lepton": channel_id != 0,
