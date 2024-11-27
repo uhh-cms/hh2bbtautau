@@ -333,6 +333,12 @@ def add_config(
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
         # add tags to datasets
+        if dataset.name.startswith("data_e_"):
+            dataset.add_tag({"etau", "emu"})
+        if dataset.name.startswith("data_mu_"):
+            dataset.add_tag({"mutau", "emu", "mumu"})
+        if dataset.name.startswith("data_tau_"):
+            dataset.add_tag({"tautau"})
         if dataset.name.startswith("tt_"):
             dataset.add_tag({"has_top", "ttbar", "tt"})
         if dataset.name.startswith("st_"):

@@ -215,6 +215,8 @@ class Trigger(UniqueObject, TagMixin):
     @typed
     def applies_to_dataset(self, func: Callable | bool | Any) -> Callable:
         if not callable(func):
+            if func is not None:
+                raise TypeError(f"invalid applies_to_dataset: {func}")
             decision = True if func is None else bool(func)
             func = lambda dataset_inst: decision
 

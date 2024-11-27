@@ -809,23 +809,13 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("etau") or
+                dataset_inst.has_tag("emu")
+            ),
             tags={"single_trigger", "single_e", "channel_e_tau"},
         ),
-        # Currently disabled
-        # Trigger(
-        #     name="HLT_Ele35_WPTight_Gsf",
-        #     id=203,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=11,
-        #             # min_pt=36.0,
-        #             # filter names:
-        #             # hltEle35noerWPTightGsfTrackIsoFilter (Single e WPTight)
-        #             trigger_bits=2,
-        #         ),
-        #     ],
-        #     tags={"single_trigger", "single_e", "channel_e_tau"},
-        # ),
 
         #
         # single muon
@@ -842,23 +832,14 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=2 + 8,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("mutau") or
+                dataset_inst.has_tag("emu") or
+                dataset_inst.has_tag("mumu")
+            ),
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
         ),
-        # Currently disabled
-        # Trigger(
-        #     name="HLT_IsoMu27",
-        #     id=102,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=13,
-        #             # min_pt=28.0,
-        #             # filter names:
-        #             # hltL3crIsoL1sMu22Or25L1f0L2f10QL3f27QL3trkIsoFiltered0p08 (1mu + Iso)
-        #             trigger_bits=2 + 8,
-        #         ),
-        #     ],
-        #     tags={"single_trigger", "single_mu", "channel_mu_tau"},
-        # ),
 
         #
         # e tauh
@@ -884,6 +865,11 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("etau") or
+                dataset_inst.has_tag("emu")
+            ),
             tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
         ),
 
@@ -911,6 +897,12 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("mutau") or
+                dataset_inst.has_tag("emu") or
+                dataset_inst.has_tag("mumu")
+            ),
             tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
         ),
 
@@ -936,52 +928,12 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
-        # Currently disabled
-        # Trigger(
-        #     name="HLT_DoubleMediumChargedIsoPFTauHPS40_Trk1_eta2p1",
-        #     id=506,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             # min_pt=45.0,
-        #             # filter names:
-        #             trigger_bits=2 + 32 + 64,
-        #         ),
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             # min_pt=45.0,
-        #             # filter names:
-        #             trigger_bits=2 + 32 + 64,
-        #         ),
-        #     ],
-        #     applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "E"),
-        #     tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
-        # ),
-
-        # Trigger(
-        #     name="HLT_DoubleMediumChargedIsoDisplacedPFTauHPS32_Trk1_eta2p1",
-        #     id=507,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             # min_pt=45.0,
-        #             # filter names:
-        #             # hltHpsDoubleMediumChargedIsoDisplPFTau32Dxy0p005
-        #             trigger_bits=2 + 32 + 64 + 32768,
-        #         ),
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             # min_pt=45.0,
-        #             # filter names:
-        #             # hltHpsDoubleMediumChargedIsoDisplPFTau32Dxy0p005
-        #             trigger_bits=2 + 32 + 64 + 32768,
-        #         ),
-        #     ],
-        #     applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and dataset_inst.x.era < "E"),
-        #     tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
-        # ),
 
         #
         # vbf
@@ -1020,48 +972,12 @@ def add_triggers_2022(config: od.Config) -> None:
                 #     trigger_bits=1,
                 # ),
             ],
-            # applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and config.has_tag("pre")),
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
-
-        # currently disabled
-        # Trigger(
-        #     name="HLT_VBF_DoubleLooseChargedIsoPFTauHPS20_Trk1_eta2p1",
-        #     id=602,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             # min_pt=25.0,
-        #             # filter names:
-        #             # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleLooseChargedIsoPFTauHPS20 (LooseChargedIso + HPS + run 3 VBF+ditau) # noqa
-        #             # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleLooseChargedIsoPFTauHPS20
-        #             # hltHpsDoublePFTau20TrackLooseChargedIso
-        #             trigger_bits=1 + 32 + 4096,
-        #         ),
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             # min_pt=25.0,
-        #             # filter names:
-        #             # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleLooseChargedIsoPFTauHPS20 (LooseChargedIso + HPS + run 3 VBF+ditau)  # noqa
-        #             # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleLooseChargedIsoPFTauHPS20
-        #             # hltHpsDoublePFTau20TrackLooseChargedIso
-        #             trigger_bits=1 + 32 + 4096,
-        #         ),
-        #         # additional leg infos for vbf jets
-        #         TriggerLeg(  # TODO
-        #             # min_pt=115.0,
-        #             # filter names:
-        #             trigger_bits=None,
-        #         ),
-        #         TriggerLeg(
-        #             # min_pt=40.0,
-        #             # filter names:
-        #             trigger_bits=None,
-        #         ),
-        #     ],
-        #     applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc and config.has_tag("pre")),
-        #     tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
-        # ),
 
         # Currently disabled since it may not be needed
         # Trigger(
@@ -1112,40 +1028,12 @@ def add_triggers_2022(config: od.Config) -> None:
                 #     trigger_bits=1,
                 # ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
         ),
-        # Currently disabled
-        # Trigger(
-        #     name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet75",
-        #     id=702,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             # min_pt=35.0,
-        #             # filter names:
-        #             # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet75 (Deeptau + HPS + di-tau + PFJet)
-        #             # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
-        #             # hlt1PFJet75L1HLTMatched
-        #             trigger_bits=8 + 32 + 16384,
-        #         ),
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             # min_pt=35.0,
-        #             # filter names:
-        #             # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet75
-        #             # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
-        #             # hlt1PFJet75L1HLTMatched
-        #             trigger_bits=8 + 32 + 16384,
-        #         ),
-        #         TriggerLeg(
-        #             # min_pt=75.0,
-        #             # filter names:
-        #             # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet75
-        #             trigger_bits=None,
-        #         ),
-        #     ],
-        #     tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
-        # ),
     ])
 
 
@@ -1170,6 +1058,11 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("etau") or
+                dataset_inst.has_tag("emu")
+            ),
             tags={"single_trigger", "single_e", "channel_e_tau"},
         ),
 
@@ -1188,6 +1081,12 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=2 + 8,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("mutau") or
+                dataset_inst.has_tag("emu") or
+                dataset_inst.has_tag("mumu")
+            ),
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
         ),
 
@@ -1215,6 +1114,11 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("etau") or
+                dataset_inst.has_tag("emu")
+            ),
             tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
         ),
 
@@ -1242,6 +1146,12 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("mutau") or
+                dataset_inst.has_tag("emu") or
+                dataset_inst.has_tag("mumu")
+            ),
             tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
         ),
 
@@ -1267,6 +1177,10 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
 
@@ -1297,7 +1211,10 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=8 + 32 + 4096,
                 ),
             ],
-            # applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and config.has_tag("pre")),
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
 
@@ -1324,6 +1241,10 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=16 + 16384,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
         ),
     ])
