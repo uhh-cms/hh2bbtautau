@@ -1,0 +1,5 @@
+# version 1
+
+-r ../modules/columnflow/sandboxes/columnar.txt
+
+torch~=2.5.1
