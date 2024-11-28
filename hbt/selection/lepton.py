@@ -415,7 +415,7 @@ def lepton_selection(
     leptons_os = false_mask
     single_triggered = false_mask
     cross_triggered = false_mask
-    empty_indices = ak.zeros_like(1 * events.event, dtype=np.uint16)[..., None][..., :0]
+    empty_indices = events.Tau[:, :0].charge * 1  # ak.zeros_like(1 * events.event, dtype=np.uint16)[..., None][..., :0]
     sel_electron_indices = empty_indices
     sel_muon_indices = empty_indices
     sel_tau_indices = empty_indices
@@ -455,7 +455,10 @@ def lepton_selection(
 
         # lepton pair selecton per trigger via lepton counting
 
-        if trigger.has_tag({"single_e", "cross_e_tau"}):
+        if trigger.has_tag({"single_e", "cross_e_tau"}) and (
+            self.dataset_inst.is_mc or
+            self.dataset_inst.has_tag("etau"),
+        ):
             # expect 1 electron, 1 veto electron (the same one), 0 veto muons, and at least one tau
             is_etau = (
                 trigger_fired &
@@ -479,7 +482,10 @@ def lepton_selection(
             sel_tau_indices = ak.where(is_etau, tau_indices, sel_tau_indices)
             leading_taus = ak.where(is_etau, events.Tau[tau_indices[:, :1]], leading_taus)
 
-        elif trigger.has_tag({"single_mu", "cross_mu_tau"}):
+        elif trigger.has_tag({"single_mu", "cross_mu_tau"}) and (
+            self.dataset_inst.is_mc or
+            self.dataset_inst.has_tag("mutau"),
+        ):
             # expect 1 muon, 1 veto muon (the same one), 0 veto electrons, and at least one tau
             is_mutau = (
                 trigger_fired &
@@ -503,7 +509,10 @@ def lepton_selection(
             sel_tau_indices = ak.where(is_mutau, tau_indices, sel_tau_indices)
             leading_taus = ak.where(is_mutau, events.Tau[tau_indices[:, :1]], leading_taus)
 
-        elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}):
+        elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}) and (
+            self.dataset_inst.is_mc or
+            self.dataset_inst.has_tag("tautau"),
+        ):
             # expect 0 veto electrons, 0 veto muons and at least two taus of which one is isolated
             is_tautau = (
                 trigger_fired &
@@ -532,6 +541,7 @@ def lepton_selection(
             cross_triggered = ak.where(is_tautau & is_cross, True, cross_triggered)
             sel_tau_indices = ak.where(is_tautau, tau_indices, sel_tau_indices)
             leading_taus = ak.where(is_tautau, events.Tau[tau_indices[:, :2]], leading_taus)
+        # add here additional channels emu and mumu
 
     # some final type conversions
     channel_id = ak.values_astype(channel_id, np.uint8)
