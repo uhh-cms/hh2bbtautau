@@ -15,8 +15,6 @@ from columnflow.columnar_util import set_ak_column
 
 from hbt.util import IF_RUN_2, IF_RUN_3
 from hbt.production.hhbtag import hhbtag
-from hbt.config.util import Trigger
-from hbt.selection.lepton import trigger_object_matching
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
