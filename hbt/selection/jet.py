@@ -122,18 +122,14 @@ def jet_selection(
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # vbf jets
-    try:
-        vbf_mask = (
-            ak4_mask &
-            (events.Jet.pt > 20.0) &
-            (abs(events.Jet.eta) < 4.7) &
-            (~hhbjet_mask) &
-            ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 0]]) > 0.4, axis=2) &
-            ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 1]]) > 0.4, axis=2)
-        )
-    except:
-        from IPython import embed
-        embed()
+    vbf_mask = (
+        ak4_mask &
+        (events.Jet.pt > 20.0) &
+        (abs(events.Jet.eta) < 4.7) &
+        (~hhbjet_mask) &
+        ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 0]]) > 0.4, axis=2) &
+        ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 1]]) > 0.4, axis=2)
+    )
 
     # build vectors of vbf jets representing all combinations and apply selections
     vbf1, vbf2 = ak.unzip(ak.combinations(events.Jet[vbf_mask], 2, axis=1))
