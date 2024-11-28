@@ -15,7 +15,8 @@ from columnflow.columnar_util import set_ak_column
 
 from hbt.util import IF_RUN_2, IF_RUN_3
 from hbt.production.hhbtag import hhbtag
-
+from hbt.config.util import Trigger
+from hbt.selection.lepton import trigger_object_matching
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -27,7 +28,7 @@ ak = maybe_import("awkward")
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
-        # "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId",
+        "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
         "Jet.{pt,eta,phi,mass,jetId}",
         IF_RUN_2("Jet.puId"),
         "Jet.btagDeepFlavB",
@@ -75,7 +76,7 @@ def jet_selection(
     default_mask = (
         ak4_mask &
         (events.Jet.pt > 20.0) &
-        (abs(events.Jet.eta) < 2.5)
+        (abs(events.Jet.eta) < 2.4)
     )
 
     # get the scores of the hhbtag and per event get the two indices corresponding to the best pick
@@ -89,7 +90,7 @@ def jet_selection(
     valid_score_mask = (
         default_mask &
         (ak.sum(default_mask, axis=1) >= 2) &
-        (ak.num(lepton_results.x.lepton_pair, axis=1) >= 2)
+        (ak.num(lepton_results.x.lepton_pair, axis=1) == 2)
     )
     hhbjet_indices = score_indices[valid_score_mask[score_indices]][..., :2]
 
@@ -123,13 +124,18 @@ def jet_selection(
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # vbf jets
-    vbf_mask = (
-        ak4_mask &
-        (events.Jet.pt > 20.0) &
-        (abs(events.Jet.eta) < 4.7) &
-        (~hhbjet_mask) &
-        ak.all(events.Jet.metric_table(events.SubJet[subjet_indices]) > 0.4, axis=2)
-    )
+    try:
+        vbf_mask = (
+            ak4_mask &
+            (events.Jet.pt > 20.0) &
+            (abs(events.Jet.eta) < 4.7) &
+            (~hhbjet_mask) &
+            ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 0]]) > 0.4, axis=2) &
+            ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 1]]) > 0.4, axis=2)
+        )
+    except:
+        from IPython import embed
+        embed()
 
     # build vectors of vbf jets representing all combinations and apply selections
     vbf1, vbf2 = ak.unzip(ak.combinations(events.Jet[vbf_mask], 2, axis=1))
