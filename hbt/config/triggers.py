@@ -957,20 +957,22 @@ def add_triggers_2022(config: od.Config) -> None:
                     # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
                     trigger_bits=8 + 32 + 4096,
                 ),
-                # # additional leg infos for vbf jets
-                # TriggerLeg(
-                #     # min_pt=115.0,
-                #     # filter names:
-                #     # The filters are applied to the lepton
-                #     # Taking the loosest filter for the Jets with the pt cut
-                #     trigger_bits=1,
-                # ),
-                # TriggerLeg(
-                #     # min_pt=40.0,
-                #     # filter names:
-                #     # The filters are applied to the lepton
-                #     trigger_bits=1,
-                # ),
+                # additional leg infos for vbf jets
+                TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=115.0,
+                    # filter names:
+                    # The filters are applied to the lepton
+                    # Taking the loosest filter for the Jets with the pt cut
+                    trigger_bits=1,
+                ),
+                TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=40.0,
+                    # filter names:
+                    # The filters are applied to the lepton
+                    trigger_bits=1,
+                ),
             ],
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
@@ -1020,13 +1022,14 @@ def add_triggers_2022(config: od.Config) -> None:
                     # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
                     trigger_bits=16 + 16384,
                 ),
-                # TriggerLeg(
-                #     # min_pt=65.0,
-                #     # filter names:
-                #     # Filters are applied to the leptons
-                #     # Taking the loosest filter for the Jets with the pt cut
-                #     trigger_bits=1,
-                # ),
+                TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=65.0,
+                    # filter names:
+                    # Filters are applied to the leptons
+                    # Taking the loosest filter for the Jets with the pt cut
+                    trigger_bits=1,
+                ),
             ],
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or

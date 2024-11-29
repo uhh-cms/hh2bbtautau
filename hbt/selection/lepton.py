@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import law
 
+from operator import or_
+from functools import reduce
+
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import maybe_import
@@ -407,6 +410,8 @@ def lepton_selection(
     ch_etau = self.config_inst.get_channel("etau")
     ch_mutau = self.config_inst.get_channel("mutau")
     ch_tautau = self.config_inst.get_channel("tautau")
+    ch_mumu = self.config_inst.get_channel("mumu")
+    ch_emu = self.config_inst.get_channel("emu")
 
     # prepare vectors for output vectors
     false_mask = (abs(events.event) < 0)
@@ -455,10 +460,7 @@ def lepton_selection(
 
         # lepton pair selecton per trigger via lepton counting
 
-        if trigger.has_tag({"single_e", "cross_e_tau"}) and (
-            self.dataset_inst.is_mc or
-            self.dataset_inst.has_tag("etau"),
-        ):
+        if trigger.has_tag({"single_e", "cross_e_tau"}):
             # expect 1 electron, 1 veto electron (the same one), 0 veto muons, and at least one tau
             is_etau = (
                 trigger_fired &
@@ -482,10 +484,7 @@ def lepton_selection(
             sel_tau_indices = ak.where(is_etau, tau_indices, sel_tau_indices)
             leading_taus = ak.where(is_etau, events.Tau[tau_indices[:, :1]], leading_taus)
 
-        elif trigger.has_tag({"single_mu", "cross_mu_tau"}) and (
-            self.dataset_inst.is_mc or
-            self.dataset_inst.has_tag("mutau"),
-        ):
+        elif trigger.has_tag({"single_mu", "cross_mu_tau"}):
             # expect 1 muon, 1 veto muon (the same one), 0 veto electrons, and at least one tau
             is_mutau = (
                 trigger_fired &
@@ -509,10 +508,7 @@ def lepton_selection(
             sel_tau_indices = ak.where(is_mutau, tau_indices, sel_tau_indices)
             leading_taus = ak.where(is_mutau, events.Tau[tau_indices[:, :1]], leading_taus)
 
-        elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}) and (
-            self.dataset_inst.is_mc or
-            self.dataset_inst.has_tag("tautau"),
-        ):
+        elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}):
             # expect 0 veto electrons, 0 veto muons and at least two taus of which one is isolated
             is_tautau = (
                 trigger_fired &
@@ -541,7 +537,76 @@ def lepton_selection(
             cross_triggered = ak.where(is_tautau & is_cross, True, cross_triggered)
             sel_tau_indices = ak.where(is_tautau, tau_indices, sel_tau_indices)
             leading_taus = ak.where(is_tautau, events.Tau[tau_indices[:, :2]], leading_taus)
-        # add here additional channels emu and mumu
+        # add here additional channels for control regions emu and mumu
+        if trigger.has_tag({"single_mu"}):
+            # expect 2 muons, 2 veto muons, 0 veto electrons, and ignore the taus
+            is_mumu = (
+                trigger_fired &
+                (ak.num(muon_indices, axis=1) == 2) &
+                (ak.num(muon_veto_indices, axis=1) == 2) &
+                (ak.num(electron_veto_indices, axis=1) == 0) &
+                (ak.num(tau_indices, axis=1) >= 0)  # to remove?
+            )
+            # store necessary global variables
+            channel_id = update_channel_ids(events, channel_id, ch_mumu.id, is_mumu)
+            sel_muon_indices = ak.where(is_mumu, muon_indices, sel_muon_indices)
+            single_triggered = ak.where(is_mumu & is_single, True, single_triggered)
+            cross_triggered = ak.where(is_mumu & is_cross, True, cross_triggered)
+
+            # TODO: discuss if regions necessary and if so, how to implement them
+            # # define fake iso regions for mumu, as there is not necessarily a tau to be isolated
+            # is_iso = ak.sum(tau_iso_mask, axis=1) >= 0
+            # # determine the os/ss charge sign relation
+            # mu1_charge = ak.firsts(events.Muon[muon_indices].charge, axis=1)
+            # mu2_charge = ak.firsts(events.Muon[muon_indices].charge[..., 1:], axis=1)
+            # is_os = mu1_charge == -mu2_charge
+            # # store global variables
+            # tau2_isolated = ak.where(is_mumu, is_iso, tau2_isolated)
+            # leptons_os = ak.where(is_mumu, is_os, leptons_os)
+
+        if trigger.has_tag({"single_e", "single_mu"}):
+            # expect 1 electron, 1 muon, 1 veto electron, 1 veto muon, and ignore taus
+            # add check for the muon trigger in the EGamma dataset to avoid double counting
+            if trigger.has_tag("single_e"):
+                muon_triggers_fire_list = []
+                for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data:
+                    if trigger.has_tag("single_mu"):
+                        muon_triggers_fire_list += [trigger_fired]
+                muon_trigger_fired = reduce(
+                    or_,
+                    muon_triggers_fire_list,
+                )
+                not_muon_in_e_trigger_fired = ~muon_trigger_fired
+            else:
+                not_muon_in_e_trigger_fired = True
+                # need to add electron matching here?
+
+            is_emu = (
+                trigger_fired & not_muon_in_e_trigger_fired &
+                (ak.num(electron_indices, axis=1) == 1) &
+                (ak.num(electron_veto_indices, axis=1) == 1) &
+                (ak.num(muon_indices, axis=1) == 1) &
+                (ak.num(muon_veto_indices, axis=1) == 1) &
+                (ak.num(tau_indices, axis=1) >= 0)  # to remove?
+            )
+
+            # store necessary global variables
+            channel_id = update_channel_ids(events, channel_id, ch_emu.id, is_emu)
+            sel_electron_indices = ak.where(is_emu, electron_indices, sel_electron_indices)
+            sel_muon_indices = ak.where(is_emu, muon_indices, sel_muon_indices)
+            single_triggered = ak.where(is_emu & is_single, True, single_triggered)
+            cross_triggered = ak.where(is_emu & is_cross, True, cross_triggered)
+
+            # TODO: discuss if regions necessary and if so, how to implement them
+            # # define fake iso regions for emu, as there is not necessarily a tau to be isolated
+            # is_iso = ak.sum(tau_iso_mask, axis=1) >= 0
+            # # determine the os/ss charge sign relation
+            # mu_charge = ak.firsts(events.Muon[muon_indices].charge, axis=1)
+            # e_charge = ak.firsts(events.Electron[electron_indices].charge, axis=1)
+            # is_os = mu_charge == -e_charge
+            # # store global variables
+            # tau2_isolated = ak.where(is_mumu, is_iso, tau2_isolated)
+            # leptons_os = ak.where(is_mumu, is_os, leptons_os)
 
     # some final type conversions
     channel_id = ak.values_astype(channel_id, np.uint8)

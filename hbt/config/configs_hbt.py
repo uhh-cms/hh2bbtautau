@@ -1148,7 +1148,8 @@ def add_config(
     cfg.add_channel(name="mutau", id=1)
     cfg.add_channel(name="etau", id=2)
     cfg.add_channel(name="tautau", id=3)
-    # cfg.add_channel(name="mumu", id=4)
+    cfg.add_channel(name="mumu", id=4)
+    cfg.add_channel(name="emu", id=5)
 
     # add categories
     from hbt.config.categories import add_categories
