@@ -247,6 +247,7 @@ def muon_selection(
     uses={
         # nano columns
         "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz",
+        "Tau.decayMode",
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
         "Electron.pt", "Electron.eta", "Electron.phi",
         "Muon.pt", "Muon.eta", "Muon.phi",
@@ -267,8 +268,6 @@ def tau_selection(
     Tau selection returning a set of indices for taus that are at least VVLoose isolated (vs jet)
     and a second mask to select the action Medium isolated ones, eventually to separate normal and
     iso inverted taus for QCD estimations.
-
-    TODO: there is no decay mode selection yet, but this should be revisited!
     """
     # return empty mask if no tagged taus exists in the chunk
     if ak.all(ak.num(events.Tau) == 0):
@@ -324,11 +323,22 @@ def tau_selection(
     elif is_cross_tau_jet:
         min_pt = None if not is_run3 else 35.0
 
+    # select which decay modes to consider
+    decay_mode_mask = reduce(or_,
+        [
+            events.Tau.decayMode == 0,
+            events.Tau.decayMode == 1,
+            events.Tau.decayMode == 10,
+            events.Tau.decayMode == 11,
+        ],
+    )
+
     # base tau mask for default and qcd sideband tau
     base_mask = (
         (abs(events.Tau.eta) < max_eta) &
         (events.Tau.pt > min_pt) &
         (abs(events.Tau.dz) < 0.2) &
+        decay_mode_mask &
         (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vloose) &
         (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.tight) &
         (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.vvvloose)
