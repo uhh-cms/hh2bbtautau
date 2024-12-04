@@ -159,7 +159,7 @@ def add_config(
         if process_name.startswith(("graviton_hh_", "radion_hh_")):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
-        if process_name.startswith("tt_"):
+        if process_name.startswith("tt"):
             proc.add_tag({"ttbar", "tt"})
         if process_name.startswith("dy_"):
             proc.add_tag("dy")
@@ -200,10 +200,10 @@ def add_config(
             "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
 
             # some resonances
-            "radion_hh_ggf_hbb_htt_m450_madgraph",
-            "radion_hh_ggf_hbb_htt_m1200_madgraph",
-            "graviton_hh_ggf_hbb_htt_m450_madgraph",
-            "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+            # "radion_hh_ggf_hbb_htt_m450_madgraph",
+            # "radion_hh_ggf_hbb_htt_m1200_madgraph",
+            # "graviton_hh_ggf_hbb_htt_m450_madgraph",
+            # "graviton_hh_ggf_hbb_htt_m1200_madgraph",
         ]),
 
         # backgrounds
@@ -222,8 +222,8 @@ def add_config(
             "st_twchannel_tbar_dl_powheg",
             "st_twchannel_t_fh_powheg",
             "st_twchannel_tbar_fh_powheg",
-            "st_schannel_t_lep_4f_amcatnlo",
-            "st_schannel_tbar_lep_4f_amcatnlo",
+            # "st_schannel_t_lep_4f_amcatnlo",
+            # "st_schannel_tbar_lep_4f_amcatnlo",
 
             # tt + v
             "ttw_wlnu_amcatnlo",
@@ -258,19 +258,19 @@ def add_config(
 
             # w + jets
             "w_lnu_amcatnlo",
-            "w_lnu_0j_amcatnlo",
-            "w_lnu_1j_amcatnlo",
-            "w_lnu_2j_amcatnlo",
-            "w_lnu_1j_pt40to100_amcatnlo",
-            "w_lnu_1j_pt100to200_amcatnlo",
-            "w_lnu_1j_pt200to400_amcatnlo",
-            "w_lnu_1j_pt400to600_amcatnlo",
-            "w_lnu_1j_pt600toinf_amcatnlo",
-            "w_lnu_2j_pt40to100_amcatnlo",
-            "w_lnu_2j_pt100to200_amcatnlo",
-            "w_lnu_2j_pt200to400_amcatnlo",
-            "w_lnu_2j_pt400to600_amcatnlo",
-            "w_lnu_2j_pt600toinf_amcatnlo",
+            # "w_lnu_0j_amcatnlo",
+            # "w_lnu_1j_amcatnlo",
+            # "w_lnu_2j_amcatnlo",
+            # "w_lnu_1j_pt40to100_amcatnlo",
+            # "w_lnu_1j_pt100to200_amcatnlo",
+            # "w_lnu_1j_pt200to400_amcatnlo",
+            # "w_lnu_1j_pt400to600_amcatnlo",
+            # "w_lnu_1j_pt600toinf_amcatnlo",
+            # "w_lnu_2j_pt40to100_amcatnlo",
+            # "w_lnu_2j_pt100to200_amcatnlo",
+            # "w_lnu_2j_pt200to400_amcatnlo",
+            # "w_lnu_2j_pt400to600_amcatnlo",
+            # "w_lnu_2j_pt600toinf_amcatnlo",
 
             # z + jets (not DY but qq)
             # decided to drop z_qq for now as their contribution is negligible,
@@ -303,8 +303,8 @@ def add_config(
             "wph_wlnu_hbb_powheg",
             "wph_htt_powheg",
             "wmh_htt_powheg",
-            "wph_wqq_hbb_powheg",
-            "wmh_wqq_hbb_powheg",
+            # "wph_wqq_hbb_powheg",
+            # "wmh_wqq_hbb_powheg",
             "zh_zll_hbb_powheg",
             "zh_zqq_hbb_powheg",
             "zh_htt_powheg",
@@ -464,7 +464,7 @@ def add_config(
     }
     cfg.x.default_custom_style_config = "small_legend"
 
-    cfg.x.default_blinding_threshold = 3e-4
+    cfg.x.default_blinding_threshold = None
 
     ################################################################################################
     # luminosity and normalization

@@ -98,7 +98,17 @@ def add_variables(config: od.Config) -> None:
         expression="Electron.pt",
         null_value=EMPTY_FLOAT,
         binning=(400, 0, 400),
+        unit="GeV",
         x_title=r"Electron p$_{T}$",
+    )
+
+    config.add_variable(
+        name="tau_pt",
+        expression="Tau.pt",
+        null_value=EMPTY_FLOAT,
+        binning=(80, 20, 100),
+        unit="GeV",
+        x_title=r"Tau p$_{T}$",
     )
 
     # weights
