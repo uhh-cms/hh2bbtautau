@@ -80,6 +80,17 @@ def jet_selection(
     # get the scores of the hhbtag and per event get the two indices corresponding to the best pick
     hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
+
+    # hhb-jets
+    # only consider tautau events for which the tau_tau_jet trigger fired and no other tau tau trigger
+    trigger_mask = (events.channel_id == 3) & ~ak.any((events.trigger_ids == 505) | (events.trigger_ids == 603), axis=1) & ak.any(events.trigger_ids == 701, axis=1)
+
+    # score of the hhbtag for each jet within events passing the trigger mask
+    # score_indices = score_indices[trigger_mask]
+
+    # ids of the objects which fired the tau_tau_jet trigger
+    # obj_ids = trigger_results.x.trigger_data[-1][-1][-1][trigger_mask]
+
     # pad the indices to simplify creating the hhbjet mask
     padded_hhbjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2]
     hhbjet_mask = ((li == padded_hhbjet_indices[..., [0]]) | (li == padded_hhbjet_indices[..., [1]]))
