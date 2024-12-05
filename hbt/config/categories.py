@@ -60,3 +60,6 @@ def add_categories(config: od.Config) -> None:
         }
 
     create_category_combinations(config, categories, name_fn, kwargs_fn)
+
+    add_category(config, name="mumu", id=4, selection="cat_mumu", label=r"$\mu\mu$")
+    add_category(config, name="emu", id=5, selection="cat_emu", label=r"$e\mu$")
