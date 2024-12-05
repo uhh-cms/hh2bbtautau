@@ -648,7 +648,7 @@ def lepton_selection(
         ):
 
             # behavior for Single Muon dataset
-            if trigger.has_tag({"single_mu"}) and self.dataset_inst.has_tag("emu_from_mu"):
+            if trigger.has_tag({"single_mu"}) and (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_mu")):
                 for trigger_emu, trigger_fired_emu, leg_masks_emu in trigger_results.x.trigger_data:
                     # verify that the single electron trigger is matched if the single electron trigger is fired
                     # if not, the matching is not verified in the selection.
@@ -668,7 +668,7 @@ def lepton_selection(
                 not_muon_in_e_trigger_fired = True
 
             # behavior for Single Electron dataset
-            elif trigger.has_tag({"single_e"}) and self.dataset_inst.has_tag("emu_from_e"):
+            elif trigger.has_tag({"single_e"}) and (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_e")):
                 muon_indices, muon_veto_indices = self[muon_selection](
                     events,
                     trigger,
