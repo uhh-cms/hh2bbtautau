@@ -15,6 +15,7 @@ from columnflow.columnar_util import set_ak_column
 
 from hbt.util import IF_RUN_2, IF_RUN_3
 from hbt.production.hhbtag import hhbtag
+from hbt.selection.lepton import trigger_object_matching
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -85,11 +86,33 @@ def jet_selection(
     # only consider tautau events for which the tau_tau_jet trigger fired and no other tau tau trigger
     trigger_mask = (events.channel_id == 3) & ~ak.any((events.trigger_ids == 505) | (events.trigger_ids == 603), axis=1) & ak.any(events.trigger_ids == 701, axis=1)
 
-    # score of the hhbtag for each jet within events passing the trigger mask
-    # score_indices = score_indices[trigger_mask]
+    # score of the hhbtag for each jet of events passing the trigger mask
+    sel_score_indices = score_indices[trigger_mask]
 
-    # ids of the objects which fired the tau_tau_jet trigger
-    # obj_ids = trigger_results.x.trigger_data[-1][-1][-1][trigger_mask]
+    # ids of the objects which fired the 3rd leg of the tau_tau_jet trigger (last leg, last trigger FOR NOW !)
+    obj_ids = trigger_results.x.trigger_data[-1][-1][-1][trigger_mask]
+    # trigger objects corresponding to the above ids
+    sel_trig_objs = events.TrigObj[trigger_mask][obj_ids]
+
+    # mask that checks wheather or not the selected hhbjets matches the trigger object
+    matching_mask = trigger_object_matching(events[trigger_mask].Jet[sel_score_indices], sel_trig_objs)
+
+    # mask that checks which of the matched hhbjets has the highest hhbtaged score
+    sel_hhbjet = sel_score_indices[matching_mask]==ak.min(sel_score_indices[matching_mask])
+
+    # remove selected matched hhbjet from all hhbjets
+    # example for the first event:
+    # i = sel_indices[0][1] # index of the selected hhbjet in the first event
+
+    # remove the selected hhbjet from the list of all hhbjets
+    # remaining_hhbjets = ak.concatenate([sel_score_indices[0][:i], sel_score_indices[0][i+1:]])
+    # from the remaining hhbjets select the one with the highest hhbtag score
+    # sel_hhbjet2 = remaining_hhbjets==ak.min(remaining_hhbjets)
+
+    from IPython import embed; embed()
+
+    # from all matched hhbjet, choose the one with the highest hhtbtag score
+    # matched_hhbjet = ak.min(score_indices[matching_mask])
 
     # pad the indices to simplify creating the hhbjet mask
     padded_hhbjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2]
