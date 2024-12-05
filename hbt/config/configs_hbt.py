@@ -334,9 +334,9 @@ def add_config(
 
         # add tags to datasets
         if dataset.name.startswith("data_e_"):
-            dataset.add_tag({"etau", "emu"})
+            dataset.add_tag({"etau", "emu_from_e"})
         if dataset.name.startswith("data_mu_"):
-            dataset.add_tag({"mutau", "emu", "mumu"})
+            dataset.add_tag({"mutau", "emu_from_mu", "mumu"})
         if dataset.name.startswith("data_tau_"):
             dataset.add_tag({"tautau"})
         if dataset.name.startswith("tt_"):
