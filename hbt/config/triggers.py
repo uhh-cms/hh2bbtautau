@@ -805,14 +805,15 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=11,
                     # min_pt=31.0,
                     # filter names:
-                    # hltEle30WPTightGsfTrackIsoFilter
+                    # hltEle30WPTightGsfTrackIsoFilter (WPTightTrackIso)
                     trigger_bits=2,
                 ),
             ],
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
                 dataset_inst.has_tag("etau") or
-                dataset_inst.has_tag("emu")
+                dataset_inst.has_tag("emu_from_e") or
+                dataset_inst.has_tag("emu_from_mu")
             ),
             tags={"single_trigger", "single_e", "channel_e_tau"},
         ),
@@ -835,7 +836,8 @@ def add_triggers_2022(config: od.Config) -> None:
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
                 dataset_inst.has_tag("mutau") or
-                dataset_inst.has_tag("emu") or
+                dataset_inst.has_tag("emu_from_e") or
+                dataset_inst.has_tag("emu_from_mu") or
                 dataset_inst.has_tag("mumu")
             ),
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
@@ -852,23 +854,21 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=11,
                     # min_pt=25.0,
                     # filter names:
-                    # hltOverlapFilterIsoEle24IsoTau30WPTightGsfCaloJet5 # TODO Twiki has no matches
-                    # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (OverlapFilter) # TODO Twiki sugests 8 + 64  # noqa
-                    trigger_bits=8,
+                    # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (DeepTau + OverlapFilter) # TODO Twiki sugests 8 + 64, but 64 not enough?  # noqa
+                    trigger_bits=8 + 64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     # min_pt=35.0,
                     # filter names:
-                    # (DeepTau + HPS) # TODO Twiki sugests 8 + 32 + 256
+                    # (DeepTau + HPS + Overlap) # TODO Twiki sugests 8 + 32 + 256
                     # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
-                    trigger_bits=8 + 32,
+                    trigger_bits=8 + 32 + 256,
                 ),
             ],
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
-                dataset_inst.has_tag("etau") or
-                dataset_inst.has_tag("emu")
+                dataset_inst.has_tag("etau")
             ),
             tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
         ),
@@ -886,22 +886,20 @@ def add_triggers_2022(config: od.Config) -> None:
                     # filter names:
                     # hltL3crIsoBigORMu18erTauXXer2p1L1f0L2f10QL3f20QL3trkIsoFiltered  # TODO Twiki sugests 2
                     # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded (OverlapFilter PFTau) # TODO Twiki sugests 4 + 64  # noqa
-                    trigger_bits=4,
+                    trigger_bits=4 + 64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     # min_pt=32.0,
                     # filter names:
-                    # (DeepTau + HPS) # TODO Twiki sugests 8 + 32 + 512 + 262144
+                    # (DeepTau + HPS + Overlap + L1Seeded) # TODO Twiki sugests 8 + 32 + 512 + 262144
                     # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded
-                    trigger_bits=8 + 32,
+                    trigger_bits=8 + 32 + 512 + 262144,
                 ),
             ],
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
-                dataset_inst.has_tag("mutau") or
-                dataset_inst.has_tag("emu") or
-                dataset_inst.has_tag("mumu")
+                dataset_inst.has_tag("mutau")
             ),
             tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
         ),
@@ -917,15 +915,15 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     # min_pt=40.0,
                     # filter names:
-                    # hltHpsDoublePFTau35MediumDitauWPDeepTauDz02 (Deeptau + HPS)
-                    trigger_bits=8 + 32,
+                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS + DeepTauDiTau)
+                    trigger_bits=8 + 32 + 128,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     # min_pt=40.0,
                     # filter names:
-                    # hltHpsDoublePFTau35MediumDitauWPDeepTauDz02 (Deeptau + HPS)
-                    trigger_bits=8 + 32,
+                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS + DeepTauDiTau)
+                    trigger_bits=8 + 32 + 128,
                 ),
             ],
             applies_to_dataset=(
@@ -947,14 +945,14 @@ def add_triggers_2022(config: od.Config) -> None:
                     # min_pt=25.0,
                     # filter names:
                     # (DeepTau + HPS + run 3 VBF+ditau) # TODO Twiki sugests 8
-                    # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
+                    # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                     trigger_bits=8 + 32 + 4096,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     # min_pt=25.0,
                     # filter names:
-                    # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
+                    # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                     trigger_bits=8 + 32 + 4096,
                 ),
                 # additional leg infos for vbf jets
@@ -964,14 +962,20 @@ def add_triggers_2022(config: od.Config) -> None:
                     # filter names:
                     # The filters are applied to the lepton
                     # Taking the loosest filter for the Jets with the pt cut
-                    trigger_bits=1,
+
+                    # maybe hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                    # (VBF cross-cleaned from medium deeptau PFTau)
+                    trigger_bits=262144,
                 ),
                 TriggerLeg(
                     pdg_id=1,
                     # min_pt=40.0,
                     # filter names:
                     # The filters are applied to the lepton
-                    trigger_bits=1,
+
+                    # maybe hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                    # (VBF cross-cleaned from medium deeptau PFTau)
+                    trigger_bits=262144,
                 ),
             ],
             applies_to_dataset=(
@@ -1011,16 +1015,16 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     # min_pt=35.0,
                     # filter names:
-                    # (TightOOSCPhotons + di-tau + PFJet) # TODO Twiki sugests 8 + 32 + 16384
+                    # (DeepTau + Hps + ditau+PFJet) # TODO Twiki sugests 8 + 32 + 16384
                     # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
-                    trigger_bits=16 + 16384,
+                    trigger_bits=8 + 32 + 16384,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     # min_pt=35.0,
                     # filter names:
                     # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
-                    trigger_bits=16 + 16384,
+                    trigger_bits=8 + 32 + 16384,
                 ),
                 TriggerLeg(
                     pdg_id=1,
@@ -1028,7 +1032,10 @@ def add_triggers_2022(config: od.Config) -> None:
                     # filter names:
                     # Filters are applied to the leptons
                     # Taking the loosest filter for the Jets with the pt cut
-                    trigger_bits=1,
+
+                    # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
+                    # (DoubleTau + Jet) -> 17
+                    trigger_bits=131072,
                 ),
             ],
             applies_to_dataset=(
@@ -1064,7 +1071,8 @@ def add_triggers_2023(config: od.Config) -> None:
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
                 dataset_inst.has_tag("etau") or
-                dataset_inst.has_tag("emu")
+                dataset_inst.has_tag("emu_from_e") or
+                dataset_inst.has_tag("emu_from_mu")
             ),
             tags={"single_trigger", "single_e", "channel_e_tau"},
         ),
@@ -1087,7 +1095,8 @@ def add_triggers_2023(config: od.Config) -> None:
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
                 dataset_inst.has_tag("mutau") or
-                dataset_inst.has_tag("emu") or
+                dataset_inst.has_tag("emu_from_e") or
+                dataset_inst.has_tag("emu_from_mu") or
                 dataset_inst.has_tag("mumu")
             ),
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
@@ -1119,8 +1128,7 @@ def add_triggers_2023(config: od.Config) -> None:
             ],
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
-                dataset_inst.has_tag("etau") or
-                dataset_inst.has_tag("emu")
+                dataset_inst.has_tag("etau")
             ),
             tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
         ),
@@ -1151,9 +1159,7 @@ def add_triggers_2023(config: od.Config) -> None:
             ],
             applies_to_dataset=(
                 lambda dataset_inst: dataset_inst.is_mc or
-                dataset_inst.has_tag("mutau") or
-                dataset_inst.has_tag("emu") or
-                dataset_inst.has_tag("mumu")
+                dataset_inst.has_tag("mutau")
             ),
             tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
         ),
