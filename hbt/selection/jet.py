@@ -78,45 +78,70 @@ def jet_selection(
         (abs(events.Jet.eta) < 2.4)
     )
 
-    # get the scores of the hhbtag and per event get the two indices corresponding to the best pick
+    # hhb-jets
+    # --------------------------------------------------------------------------------------------
+    # get the hhbtag values per jet per event
     hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
+
+    # get the score indices (and local indices) of each hhbtag value
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
 
-    # hhb-jets
     # only consider tautau events for which the tau_tau_jet trigger fired and no other tau tau trigger
     trigger_mask = (events.channel_id == 3) & ~ak.any((events.trigger_ids == 505) | (events.trigger_ids == 603), axis=1) & ak.any(events.trigger_ids == 701, axis=1)
 
-    # score of the hhbtag for each jet of events passing the trigger mask
+    # score of the hhbtag for each jet coming from events which passed the trigger mask
     sel_score_indices = score_indices[trigger_mask]
+    sel_score_indices_li = ak.local_index(sel_score_indices, axis=1)
 
     # ids of the objects which fired the 3rd leg of the tau_tau_jet trigger (last leg, last trigger FOR NOW !)
     obj_ids = trigger_results.x.trigger_data[-1][-1][-1][trigger_mask]
     # trigger objects corresponding to the above ids
     sel_trig_objs = events.TrigObj[trigger_mask][obj_ids]
 
-    # mask that checks wheather or not the selected hhbjets matches the trigger object
+    # mask that checks wheather or not the selected hhbjets *matches* the trigger object
     matching_mask = trigger_object_matching(events[trigger_mask].Jet[sel_score_indices], sel_trig_objs)
 
-    # mask that checks which of the matched hhbjets has the highest hhbtaged score
-    sel_hhbjet = sel_score_indices[matching_mask]==ak.min(sel_score_indices[matching_mask])
+    # index of the highest scored hhbjet *matching* the trigger object
+    sel_hhbjet_idx = ak.argmax(matching_mask, axis=1)
 
-    # remove selected matched hhbjet from all hhbjets
-    # example for the first event:
-    # i = sel_indices[0][1] # index of the selected hhbjet in the first event
+    # create mask to remove all jets except the highest scored hhbjet *matching* the trigger object
+    first_hhbjet_idx = sel_score_indices_li != sel_hhbjet_idx
 
-    # remove the selected hhbjet from the list of all hhbjets
-    # remaining_hhbjets = ak.concatenate([sel_score_indices[0][:i], sel_score_indices[0][i+1:]])
-    # from the remaining hhbjets select the one with the highest hhbtag score
-    # sel_hhbjet2 = remaining_hhbjets==ak.min(remaining_hhbjets)
+    # hhbtag score of the highest scored hhbjet *matching* the trigger object
+    sel_hhbjets_score_indices = sel_score_indices[~first_hhbjet_idx]
 
-    from IPython import embed; embed()
+    # select the highest scored hhbjet of the remaining *matched and unmatched* hhbjets
+    remaining_hhbjets_score_indices = sel_score_indices[first_hhbjet_idx]
+    second_hhbjet_idx = ak.singletons((ak.firsts(remaining_hhbjets_score_indices)))
 
-    # from all matched hhbjet, choose the one with the highest hhtbtag score
-    # matched_hhbjet = ak.min(score_indices[matching_mask])
+    # concatenate both selected hhbjet indices; 1st index is *matched*; 2nd can be *matched* or *unmatched*
+    sel_hhbjets_score_indices = ak.concatenate([sel_hhbjets_score_indices, second_hhbjet_idx], axis=1)
+    # sort the selected score indices (now the *matched* hhbjet can be in either position)
+    sorted_sel_hhbjets_score_indices = ak.sort(sel_hhbjets_score_indices, axis=1)
 
-    # pad the indices to simplify creating the hhbjet mask
-    padded_hhbjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2]
+    # when only 1 hhbjet was found fill the second index with None
+    sel_hhbjets_score_indices = ak.pad_none(sel_hhbjets_score_indices, 2, axis=1)
+    sorted_sel_hhbjets_score_indices = ak.pad_none(sorted_sel_hhbjets_score_indices, 2, axis=1)
+
+    # all event indices
+    event_idx = ak.local_index(score_indices, axis=0)
+    # indices of events passing the trigger mask
+    sel_event_idx = event_idx[trigger_mask]
+
+    # store the selected hhbjet score indices in the corresponding event indices
+    temp_mask = (event_idx[:, None] == sel_event_idx)
+    pos_mask = ak.any(temp_mask, axis=1)
+    match_index = ak.argmax(temp_mask, axis=1)
+
+    # initializing a None array
+    none = ak.Array([[None, None]])
+    none_expanded = ak.broadcast_arrays(none, event_idx)[0]
+
+    # save selected hhbjet scores for the selected events and save [None, None] to the remaining events
+    padded_hhbjet_indices = ak.where(pos_mask, sel_hhbjets_score_indices[match_index], none_expanded)
     hhbjet_mask = ((li == padded_hhbjet_indices[..., [0]]) | (li == padded_hhbjet_indices[..., [1]]))
+    # --------------------------------------------------------------------------------------------
+
     # get indices for actual book keeping only for events with both lepton candidates and where at
     # least two jets pass the default mask (bjet candidates)
     valid_score_mask = (
