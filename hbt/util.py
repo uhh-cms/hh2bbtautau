@@ -10,6 +10,9 @@ __all__ = []
 
 from columnflow.types import Any
 from columnflow.columnar_util import ArrayFunction, deferred_column
+from columnflow.util import maybe_import
+
+np = maybe_import("numpy")
 
 
 @deferred_column
@@ -57,3 +60,35 @@ def IF_DATASET_IS_DY(
         return self.get()
 
     return self.get() if func.dataset_inst.has_tag("is_dy") else None
+
+
+def hash_events(arr: np.ndarray) -> np.ndarray:
+    """
+    Helper function to create a hash value from the event, run and luminosityBlock columns.
+    The values are padded to specific lengths and concatenated to a single integer.
+    """
+    import awkward as ak
+
+    def assert_value(arr: np.ndarray, field: str, max_value: int) -> None:
+        """
+        Helper function to check if a column does not exceed a maximum value.
+        """
+        digits = len(str(arr[field].to_numpy().max()))
+        assert digits <= max_value, f"{field} digit count is {digits} and exceed max value {max_value}"
+
+    max_digits_run = 6
+    max_digits_luminosityBlock = 6
+    max_digits_event = 8
+    assert_value(arr, "run", max_digits_run)
+    assert_value(arr, "luminosityBlock", max_digits_luminosityBlock)
+    assert_value(arr, "event", max_digits_event)
+
+    max_digits_hash = max_digits_event + max_digits_luminosityBlock + max_digits_run
+    assert max_digits_hash <= 20, "sum of digits exceeds int64"
+
+    # upcast to int64 to avoid overflow
+    return (
+        ak.values_astype(arr.run, np.int64) * 10**(max_digits_luminosityBlock + max_digits_event) +
+        ak.values_astype(arr.luminosityBlock, np.int64) * 10**max_digits_event +
+        ak.values_astype(arr.event, np.int64)
+    )
