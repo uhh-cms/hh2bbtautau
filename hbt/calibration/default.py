@@ -20,18 +20,18 @@ ak = maybe_import("awkward")
 # derive calibrators to add settings
 jec_full = jec.derive("jec_full", cls_dict={"mc_only": True, "nominal_only": True})
 
-# remove GenPart.pt from object_count_columns, this column differs between central and custom Nano
-
+# custom seed producer skipping GenPart fields
 custom_deterministic_event_seeds = deterministic_event_seeds.derive(
     "custom_deterministic_event_seeds",
     cls_dict={"object_count_columns": [
-        route for route in deterministic_event_seeds.object_count_columns
-        if route != "GenPart.pt"
+        route
+        for route in deterministic_event_seeds.object_count_columns
+        if not str(route).startswith("GenPart.")
     ]},
 
 )
 # version of jer that uses the first random number from deterministic_seeds
-deterministic_jer = jer.derive("deterministic_jer", cls_dict={"deterministic_seed_index": 1})
+deterministic_jer = jer.derive("deterministic_jer", cls_dict={"deterministic_seed_index": 0})
 
 
 @calibrator(
@@ -48,8 +48,12 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
+    # seed producers
+    # !! as this is the first step, the object collections should still be pt-sorted,
+    # !! so no manual sorting needed here (but necessary if, e.g., jec is applied before)
     events = self[custom_deterministic_event_seeds](events, **kwargs)
     events = self[deterministic_jet_seeds](events, **kwargs)
+
     if self.dataset_inst.is_data or not self.global_shift_inst.is_nominal:
         events = self[jec_nominal](events, **kwargs)
     else:
