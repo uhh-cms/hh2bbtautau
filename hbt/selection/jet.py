@@ -87,7 +87,11 @@ def jet_selection(
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
 
     # only consider tautau events for which the tau_tau_jet trigger fired and no other tau tau trigger
-    trigger_mask = (events.channel_id == 3) & ~ak.any((events.trigger_ids == 505) | (events.trigger_ids == 603), axis=1) & ak.any(events.trigger_ids == 701, axis=1)
+    trigger_mask = (
+        (events.channel_id == 3) &
+        ~ak.any((events.trigger_ids == 505) | (events.trigger_ids == 603), axis=1) &
+        ak.any(events.trigger_ids == 701, axis=1)
+    )
 
     # score (and local index) of the hhbtag for each jet coming from events which passed the trigger mask
     sel_score_indices = score_indices[trigger_mask]
