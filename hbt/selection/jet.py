@@ -83,39 +83,45 @@ def jet_selection(
     # get the hhbtag values per jet per event
     hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
 
-    # get the score indices (and local indices) of each hhbtag value
+    # get the score indices of each hhbtag value
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
 
     # only consider tautau events for which the tau_tau_jet trigger fired and no other tau tau trigger
     trigger_mask = (events.channel_id == 3) & ~ak.any((events.trigger_ids == 505) | (events.trigger_ids == 603), axis=1) & ak.any(events.trigger_ids == 701, axis=1)
 
-    # score of the hhbtag for each jet coming from events which passed the trigger mask
+    # score (and local index) of the hhbtag for each jet coming from events which passed the trigger mask
     sel_score_indices = score_indices[trigger_mask]
     sel_score_indices_li = ak.local_index(sel_score_indices, axis=1)
 
-    # ids of the objects which fired the 3rd leg of the tau_tau_jet trigger (last leg, last trigger FOR NOW !)
-    obj_ids = trigger_results.x.trigger_data[-1][-1][-1][trigger_mask]
+    # ids of the objects which fired the jet leg of the cross_tau_tau_jet trigger
+    for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data:
+        if trigger.has_tag("cross_tau_tau_jet"):
+            # Zip the trigger legs with their corresponding masks
+            for leg, mask in zip(trigger.legs, leg_masks):
+                if leg.pdg_id == 1:
+                    obj_ids = mask[trigger_mask]
+
     # trigger objects corresponding to the above ids
     sel_trig_objs = events.TrigObj[trigger_mask][obj_ids]
 
-    # mask that checks wheather or not the selected hhbjets *matches* the trigger object
+    # mask that checks wheather or not the selected hhbjets *matches* the trigger object with delta R < 0.5
     matching_mask = trigger_object_matching(events[trigger_mask].Jet[sel_score_indices], sel_trig_objs)
 
     # index of the highest scored hhbjet *matching* the trigger object
     sel_hhbjet_idx = ak.argmax(matching_mask, axis=1)
 
     # create mask to remove all jets except the highest scored hhbjet *matching* the trigger object
-    first_hhbjet_idx = sel_score_indices_li != sel_hhbjet_idx
+    unselected_hhbjet_idx = sel_score_indices_li != sel_hhbjet_idx
 
     # hhbtag score of the highest scored hhbjet *matching* the trigger object
-    sel_hhbjets_score_indices = sel_score_indices[~first_hhbjet_idx]
+    first_hhbjet_idx = sel_score_indices[~unselected_hhbjet_idx]
 
     # select the highest scored hhbjet of the remaining *matched and unmatched* hhbjets
-    remaining_hhbjets_score_indices = sel_score_indices[first_hhbjet_idx]
+    remaining_hhbjets_score_indices = sel_score_indices[unselected_hhbjet_idx]
     second_hhbjet_idx = ak.singletons((ak.firsts(remaining_hhbjets_score_indices)))
 
     # concatenate both selected hhbjet indices; 1st index is *matched*; 2nd can be *matched* or *unmatched*
-    sel_hhbjets_score_indices = ak.concatenate([sel_hhbjets_score_indices, second_hhbjet_idx], axis=1)
+    sel_hhbjets_score_indices = ak.concatenate([first_hhbjet_idx, second_hhbjet_idx], axis=1)
     # sort the selected score indices (now the *matched* hhbjet can be in either position)
     sorted_sel_hhbjets_score_indices = ak.sort(sel_hhbjets_score_indices, axis=1)
 
