@@ -361,6 +361,10 @@ def add_config(
                 dataset.add_tag("ggf")
             elif dataset_name.startswith(("graviton_hh_vbf_", "radion_hh_vbf")):
                 dataset.add_tag("vbf")
+        # bad ecalBadCalibFilter MET filter in 2022 data
+        # see https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
+        if year == 2022 and dataset.is_data and dataset.x.era in "FG":
+            dataset.add_tag("broken_ecalBadCalibFilter")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
@@ -552,72 +556,76 @@ def add_config(
         assert False
 
     cfg.x.jec = DotDict.wrap({
-        "campaign": jec_campaign,
-        "version": jec_version,
-        "jet_type": jet_type,
-        "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
-        "levels_for_type1_met": ["L1FastJet"],
-        "uncertainty_sources": [
-            # "AbsoluteStat",
-            # "AbsoluteScale",
-            # "AbsoluteSample",
-            # "AbsoluteFlavMap",
-            # "AbsoluteMPFBias",
-            # "Fragmentation",
-            # "SinglePionECAL",
-            # "SinglePionHCAL",
-            # "FlavorQCD",
-            # "TimePtEta",
-            # "RelativeJEREC1",
-            # "RelativeJEREC2",
-            # "RelativeJERHF",
-            # "RelativePtBB",
-            # "RelativePtEC1",
-            # "RelativePtEC2",
-            # "RelativePtHF",
-            # "RelativeBal",
-            # "RelativeSample",
-            # "RelativeFSR",
-            # "RelativeStatFSR",
-            # "RelativeStatEC",
-            # "RelativeStatHF",
-            # "PileUpDataMC",
-            # "PileUpPtRef",
-            # "PileUpPtBB",
-            # "PileUpPtEC1",
-            # "PileUpPtEC2",
-            # "PileUpPtHF",
-            # "PileUpMuZero",
-            # "PileUpEnvelope",
-            # "SubTotalPileUp",
-            # "SubTotalRelative",
-            # "SubTotalPt",
-            # "SubTotalScale",
-            # "SubTotalAbsolute",
-            # "SubTotalMC",
-            "Total",
-            # "TotalNoFlavor",
-            # "TotalNoTime",
-            # "TotalNoFlavorNoTime",
-            # "FlavorZJet",
-            # "FlavorPhotonJet",
-            # "FlavorPureGluon",
-            # "FlavorPureQuark",
-            # "FlavorPureCharm",
-            # "FlavorPureBottom",
-            "CorrelationGroupMPFInSitu",
-            "CorrelationGroupIntercalibration",
-            "CorrelationGroupbJES",
-            "CorrelationGroupFlavor",
-            "CorrelationGroupUncorrelated",
-        ],
+        "Jet": {
+            "campaign": jec_campaign,
+            "version": jec_version,
+            "jet_type": jet_type,
+            "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
+            "levels_for_type1_met": ["L1FastJet"],
+            "uncertainty_sources": [
+                # "AbsoluteStat",
+                # "AbsoluteScale",
+                # "AbsoluteSample",
+                # "AbsoluteFlavMap",
+                # "AbsoluteMPFBias",
+                # "Fragmentation",
+                # "SinglePionECAL",
+                # "SinglePionHCAL",
+                # "FlavorQCD",
+                # "TimePtEta",
+                # "RelativeJEREC1",
+                # "RelativeJEREC2",
+                # "RelativeJERHF",
+                # "RelativePtBB",
+                # "RelativePtEC1",
+                # "RelativePtEC2",
+                # "RelativePtHF",
+                # "RelativeBal",
+                # "RelativeSample",
+                # "RelativeFSR",
+                # "RelativeStatFSR",
+                # "RelativeStatEC",
+                # "RelativeStatHF",
+                # "PileUpDataMC",
+                # "PileUpPtRef",
+                # "PileUpPtBB",
+                # "PileUpPtEC1",
+                # "PileUpPtEC2",
+                # "PileUpPtHF",
+                # "PileUpMuZero",
+                # "PileUpEnvelope",
+                # "SubTotalPileUp",
+                # "SubTotalRelative",
+                # "SubTotalPt",
+                # "SubTotalScale",
+                # "SubTotalAbsolute",
+                # "SubTotalMC",
+                "Total",
+                # "TotalNoFlavor",
+                # "TotalNoTime",
+                # "TotalNoFlavorNoTime",
+                # "FlavorZJet",
+                # "FlavorPhotonJet",
+                # "FlavorPureGluon",
+                # "FlavorPureQuark",
+                # "FlavorPureCharm",
+                # "FlavorPureBottom",
+                "CorrelationGroupMPFInSitu",
+                "CorrelationGroupIntercalibration",
+                "CorrelationGroupbJES",
+                "CorrelationGroupFlavor",
+                "CorrelationGroupUncorrelated",
+            ],
+        },
     })
 
     # JER
     cfg.x.jer = DotDict.wrap({
-        "campaign": jer_campaign,
-        "version": jer_version,
-        "jet_type": jet_type,
+        "Jet": {
+            "campaign": jer_campaign,
+            "version": jer_version,
+            "jet_type": jet_type,
+        },
     })
 
     ################################################################################################
@@ -867,7 +875,7 @@ def add_config(
     cfg.add_shift(name="top_pt_down", id=10, type="shape")
     add_shift_aliases(cfg, "top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})
 
-    for jec_source in cfg.x.jec.uncertainty_sources:
+    for jec_source in cfg.x.jec.Jet.uncertainty_sources:
         idx = all_jec_sources.index(jec_source)
         cfg.add_shift(
             name=f"jec_{jec_source}_up",
@@ -1215,13 +1223,18 @@ def add_config(
             shift_inst: od.Shift,
             dataset_key: str,
         ) -> list[str]:
-            # destructure dataset_key into parts and create the lfn base directory
+            # destructure dataset_key into parts and create the store path
             dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
             main_campaign, sub_campaign = full_campaign.split("-", 1)
-            lfn_base = law.wlcg.WLCGDirectoryTarget(
-                f"/store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0",
-                fs=f"wlcg_fs_{cfg.campaign.x.custom['name']}",
-            )
+            path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
+
+            # create the lfn base directory, local or remote
+            dir_cls = law.LocalDirectoryTarget
+            fs = f"local_fs_{cfg.campaign.x.custom['name']}"
+            if not law.config.has_section(fs):
+                dir_cls = law.wlcg.WLCGDirectoryTarget
+                fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+            lfn_base = dir_cls(path, fs=fs)
 
             # loop though files and interpret paths as lfns
             return [
