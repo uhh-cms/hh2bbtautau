@@ -28,8 +28,8 @@ def patch_ecalBadCalibFilter(
 
     Resources:
     - Discussion: https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
-    - TWiki: https://twiki.cern.ch/twiki/bin/viewauth/CMS/MissingETOptionalFiltersRun2?rev=172
-    """
+    - TWiki: https://twiki.cern.ch/twiki/bin/viewauth/CMS/MissingETOptionalFiltersRun2?rev=172#ECal_BadCalibration_Filter_Flag
+    """  # noqa
     reject = (
         (events.PuppiMET.pt > 100) &
         ak.any(
