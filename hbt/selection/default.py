@@ -28,6 +28,7 @@ from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
 from hbt.production.processes import process_ids_dy
+from hbt.production.patches import patch_ecalBadCalibFilter
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
 np = maybe_import("numpy")
@@ -38,7 +39,7 @@ ak = maybe_import("awkward")
     uses={
         json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
         pu_weight, btag_weights, process_ids, cutflow_features, increment_stats,
-        attach_coffea_behavior,
+        attach_coffea_behavior, patch_ecalBadCalibFilter,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
@@ -69,6 +70,14 @@ def default(
 
     # met filter selection
     events, met_filter_results = self[met_filters](events, **kwargs)
+    # patch for the broken "Flag_ecalBadCalibFilter" MET filter in prompt data (tag set in config)
+    if self.dataset_inst.has_tag("broken_ecalBadCalibFilter"):
+        # fold decision into met filter results
+        events = self[patch_ecalBadCalibFilter](events, **kwargs)
+        met_filter_results.steps.met_filter = (
+            met_filter_results.steps.met_filter &
+            events.patchedEcalBadCalibFilter
+        )
     results += met_filter_results
 
     # trigger selection

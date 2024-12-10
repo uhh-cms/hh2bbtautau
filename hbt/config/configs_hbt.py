@@ -355,6 +355,10 @@ def add_config(
                 dataset.add_tag("ggf")
             elif dataset_name.startswith(("graviton_hh_vbf_", "radion_hh_vbf")):
                 dataset.add_tag("vbf")
+        # bad ecalBadCalibFilter MET filter in 2022 data
+        # see https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
+        if year == 2022 and dataset.is_data and dataset.x.era in "FG":
+            dataset.add_tag("broken_ecalBadCalibFilter")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
