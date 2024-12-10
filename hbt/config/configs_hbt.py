@@ -1201,13 +1201,18 @@ def add_config(
             shift_inst: od.Shift,
             dataset_key: str,
         ) -> list[str]:
-            # destructure dataset_key into parts and create the lfn base directory
+            # destructure dataset_key into parts and create the store path
             dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
             main_campaign, sub_campaign = full_campaign.split("-", 1)
-            lfn_base = law.wlcg.WLCGDirectoryTarget(
-                f"/store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0",
-                fs=f"wlcg_fs_{cfg.campaign.x.custom['name']}",
-            )
+            path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
+
+            # create the lfn base directory, local or remote
+            dir_cls = law.LocalDirectoryTarget
+            fs = f"local_fs_{cfg.campaign.x.custom['name']}"
+            if not law.config.has_section(fs):
+                dir_cls = law.wlcg.WLCGDirectoryTarget
+                fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+            lfn_base = dir_cls(path, fs=fs)
 
             # loop though files and interpret paths as lfns
             return [
