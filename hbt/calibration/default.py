@@ -17,9 +17,6 @@ from hbt.util import IF_RUN_2
 ak = maybe_import("awkward")
 
 
-# derive calibrators to add settings
-jec_full = jec.derive("jec_full", cls_dict={"mc_only": True, "nominal_only": True})
-
 # custom seed producer skipping GenPart fields
 custom_deterministic_event_seeds = deterministic_event_seeds.derive(
     "custom_deterministic_event_seeds",
@@ -30,18 +27,14 @@ custom_deterministic_event_seeds = deterministic_event_seeds.derive(
     ]},
 
 )
-# version of jer that uses the first random number from deterministic_seeds
-deterministic_jer = jer.derive("deterministic_jer", cls_dict={"deterministic_seed_index": 0})
 
 
 @calibrator(
     uses={
-        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds, jec_nominal, jec_full,
-        deterministic_jer, tec_nominal, tec, IF_RUN_2(met_phi),
+        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
     },
     produces={
-        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds, jec_nominal, jec_full,
-        deterministic_jer, tec_nominal, tec, IF_RUN_2(met_phi),
+        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
     },
 )
 def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
@@ -55,18 +48,60 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     events = self[deterministic_jet_seeds](events, **kwargs)
 
     if self.dataset_inst.is_data or not self.global_shift_inst.is_nominal:
-        events = self[jec_nominal](events, **kwargs)
+        events = self[self.jec_nominal_cls](events, **kwargs)
     else:
-        events = self[jec_full](events, **kwargs)
-        events = self[deterministic_jer](events, **kwargs)
+        events = self[self.jec_full_cls](events, **kwargs)
+        events = self[self.deterministic_jer_cls](events, **kwargs)
 
     if self.config_inst.campaign.x.run == 2:
-        events = self[met_phi](events, **kwargs)
+        events = self[self.met_phi_cls](events, **kwargs)
 
     if self.dataset_inst.is_mc:
         if self.global_shift_inst.is_nominal:
-            events = self[tec](events, **kwargs)
+            events = self[self.tec_cls](events, **kwargs)
         else:
-            events = self[tec_nominal](events, **kwargs)
+            events = self[self.tec_nominal_cls](events, **kwargs)
 
     return events
+
+
+@default.init
+def default_init(self: Calibrator) -> None:
+    # set the name of the met collection to use
+    met_name = self.config_inst.x.met_name
+    raw_met_name = self.config_inst.x.raw_met_name
+
+    # derive calibrators to add settings
+    self.jec_full_cls = jec.derive(
+        "jec_full",
+        cls_dict={"mc_only": True, "nominal_only": True, "met_name": met_name, "raw_met_name": raw_met_name},
+    )
+    self.jec_nominal_cls = jec_nominal.derive(
+        "jec_nominal",
+        cls_dict={"met_name": met_name, "raw_met_name": raw_met_name},
+    )
+
+    # version of jer that uses the first random number from deterministic_seeds
+    self.deterministic_jer_cls = jer.derive(
+        "deterministic_jer",
+        cls_dict={"deterministic_seed_index": 0, "met_name": met_name},
+    )
+
+    # derive tec calibrators
+    self.tec_cls = tec.derive("tec", cls_dict={"met_name": met_name})
+    self.tec_nominal_cls = tec_nominal.derive("tec_nominal", cls_dict={"met_name": met_name})
+
+    # derive met_phi calibrator (currently only for run 2)
+    self.met_phi_cls = met_phi.derive("met_phi", cls_dict={"met_name": met_name})
+
+    # collect derived calibrators and add them to the calibrator uses and produces
+    derived_calibrators = {
+        self.jec_full_cls,
+        self.jec_nominal_cls,
+        self.deterministic_jer_cls,
+        self.tec_cls,
+        self.tec_nominal_cls,
+        IF_RUN_2(self.met_phi_cls),
+    }
+    self.uses |= derived_calibrators
+    self.produces |= derived_calibrators

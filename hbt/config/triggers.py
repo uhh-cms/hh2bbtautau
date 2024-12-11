@@ -26,14 +26,14 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=26.0,  # TODO
+                    # min_pt=26.0,  # TODO
                     # filter names:
                     #
                     trigger_bits=None,  # TODO
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=22.0,  # TODO
+                    # min_pt=22.0,  # TODO
                     # filter names:
                     #
                     trigger_bits=None,  # TODO
@@ -51,14 +51,14 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=26.0,  # TODO
+                    # min_pt=26.0,  # TODO
                     # filter names:
                     #
                     trigger_bits=None,  # TODO
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=22.0,  # TODO
+                    # min_pt=22.0,  # TODO
                     # filter names:
                     #
                     trigger_bits=None,  # TODO
@@ -76,14 +76,14 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=26.0,  # TODO
+                    # min_pt=26.0,  # TODO
                     # filter names:
                     #
                     trigger_bits=None,  # TODO
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=32.0,  # TODO
+                    # min_pt=32.0,  # TODO
                     # filter names:
                     #
                     trigger_bits=None,  # TODO
@@ -105,14 +105,14 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=22,  # TODO
+                    # min_pt=22,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=23,  # TODO
+                    # min_pt=23,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -126,14 +126,14 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=22,  # TODO
+                    # min_pt=22,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=23,  # TODO
+                    # min_pt=23,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -151,14 +151,14 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=38,  # TODO
+                    # min_pt=38,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=38,  # TODO
+                    # min_pt=38,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -175,14 +175,14 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=38,  # TODO
+                    # min_pt=38,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=38,  # TODO
+                    # min_pt=38,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -207,7 +207,7 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=28,  # TODO
+                    # min_pt=28,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -224,7 +224,7 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=25,  # TODO
+                    # min_pt=25,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -238,7 +238,7 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=25,  # TODO
+                    # min_pt=25,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -252,7 +252,7 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=25,  # TODO
+                    # min_pt=25,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -266,7 +266,7 @@ def add_triggers_2016(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=25,  # TODO
+                    # min_pt=25,  # TODO
                     # filter names:
                     # TODO
                     trigger_bits=None,  # TODO
@@ -291,7 +291,7 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # hltEle32WPTightGsfTrackIsoFilter
                     trigger_bits=2,
@@ -306,7 +306,7 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # hltEle32L1DoubleEGWPTightGsfTrackIsoFilter
                     # hltEGL1SingleEGOrFilter
@@ -321,7 +321,7 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=38.0,
+                    # min_pt=38.0,
                     # filter names:
                     # hltEle35noerWPTightGsfTrackIsoFilter
                     trigger_bits=2,
@@ -339,7 +339,7 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=26.0,
+                    # min_pt=26.0,
                     # filter names:
                     # hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered0p07
                     trigger_bits=2,
@@ -353,7 +353,7 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=29.0,
+                    # min_pt=29.0,
                     # filter names:
                     # hltL3crIsoL1sMu22Or25L1f0L2f10QL3f27QL3trkIsoFiltered0p07
                     trigger_bits=2,
@@ -371,7 +371,7 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=27.0,
+                    # min_pt=27.0,
                     # filter names:
                     # hltEle24erWPTightGsfTrackIsoFilterForTau
                     # hltOverlapFilterIsoEle24WPTightGsfLooseIsoPFTau30
@@ -379,7 +379,7 @@ def add_triggers_2017(config: od.Config) -> None:
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # hltSelectedPFTau30LooseChargedIsolationL1HLTMatched
                     # hltOverlapFilterIsoEle24WPTightGsfLooseIsoPFTau30
@@ -398,7 +398,7 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=22.0,
+                    # min_pt=22.0,
                     # filter names:
                     # hltL3crIsoL1sMu18erTau24erIorMu20erTau24erL1f0L2f10QL3f20QL3trkIsoFiltered0p07
                     # hltOverlapFilterIsoMu20LooseChargedIsoPFTau27L1Seeded
@@ -406,7 +406,7 @@ def add_triggers_2017(config: od.Config) -> None:
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=32.0,
+                    # min_pt=32.0,
                     # filter names:
                     # hltSelectedPFTau27LooseChargedIsolationAgainstMuonL1HLTMatched or
                     # hltOverlapFilterIsoMu20LooseChargedIsoPFTau27L1Seeded
@@ -425,14 +425,14 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltDoublePFTau35TrackPt1MediumChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltDoublePFTau35TrackPt1MediumChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
@@ -446,14 +446,14 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltDoublePFTau35TrackPt1TightChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltDoublePFTau35TrackPt1TightChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
@@ -468,14 +468,14 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=45.0,
+                    # min_pt=45.0,
                     # filter names:
                     # hltDoublePFTau40TrackPt1MediumChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=45.0,
+                    # min_pt=45.0,
                     # filter names:
                     # hltDoublePFTau40TrackPt1MediumChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
@@ -490,14 +490,14 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=45.0,
+                    # min_pt=45.0,
                     # filter names:
                     # hltDoublePFTau40TrackPt1TightChargedIsolationDz02Reg
                     trigger_bits=64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=45.0,
+                    # min_pt=45.0,
                     # filter names:
                     # hltDoublePFTau40TrackPt1TightChargedIsolationDz02Reg
                     trigger_bits=64,
@@ -516,14 +516,14 @@ def add_triggers_2017(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # hltDoublePFTau20TrackPt1LooseChargedIsolation
                     trigger_bits=2048,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # hltDoublePFTau20TrackPt1LooseChargedIsolation
                     trigger_bits=2048,
@@ -531,13 +531,13 @@ def add_triggers_2017(config: od.Config) -> None:
                 # additional leg infos for vbf jets
                 # TODO check if vbf legs are needed
                 TriggerLeg(
-                    min_pt=115.0,
+                    # min_pt=115.0,
                     # filter names:
                     # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleLooseChargedIsoPFTau20
                     trigger_bits=1,
                 ),
                 TriggerLeg(
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleLooseChargedIsoPFTau20
                     trigger_bits=1,
@@ -560,7 +560,7 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # hltEle32WPTightGsfTrackIsoFilter
                     trigger_bits=2,
@@ -575,7 +575,7 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=38.0,
+                    # min_pt=38.0,
                     # filter names:
                     # hltEle35noerWPTightGsfTrackIsoFilter
                     trigger_bits=2,
@@ -593,7 +593,7 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=26.0,
+                    # min_pt=26.0,
                     # filter names:
                     # hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered0p07
                     trigger_bits=2,
@@ -607,7 +607,7 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=29.0,
+                    # min_pt=29.0,
                     # filter names:
                     # hltL3crIsoL1sMu22Or25L1f0L2f10QL3f27QL3trkIsoFiltered0p07
                     trigger_bits=2,
@@ -625,7 +625,7 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=27.0,
+                    # min_pt=27.0,
                     # filter names:
                     # hltEle24erWPTightGsfTrackIsoFilterForTau
                     # hltOverlapFilterIsoEle24WPTightGsfLooseIsoPFTau30
@@ -633,7 +633,7 @@ def add_triggers_2018(config: od.Config) -> None:
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # hltSelectedPFTau30LooseChargedIsolationL1HLTMatched
                     # hltOverlapFilterIsoEle24WPTightGsfLooseIsoPFTau30
@@ -654,7 +654,7 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=22.0,
+                    # min_pt=22.0,
                     # filter names:
                     # hltL3crIsoL1sMu18erTau24erIorMu20erTau24erL1f0L2f10QL3f20QL3trkIsoFiltered0p07
                     # hltOverlapFilterIsoMu20LooseChargedIsoPFTau27L1Seeded
@@ -662,7 +662,7 @@ def add_triggers_2018(config: od.Config) -> None:
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=32.0,
+                    # min_pt=32.0,
                     # filter names:
                     # hltSelectedPFTau27LooseChargedIsolationAgainstMuonL1HLTMatched or
                     # hltOverlapFilterIsoMu20LooseChargedIsoPFTau27L1Seeded
@@ -683,14 +683,14 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltDoublePFTau35TrackPt1TightChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltDoublePFTau35TrackPt1TightChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
@@ -705,14 +705,14 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=45.0,
+                    # min_pt=45.0,
                     # filter names:
                     # hltDoublePFTau40TrackPt1MediumChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=45.0,
+                    # min_pt=45.0,
                     # filter names:
                     # hltDoublePFTau40TrackPt1MediumChargedIsolationAndTightOOSCPhotonsDz02Reg
                     trigger_bits=64,
@@ -727,14 +727,14 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=45.0,
+                    # min_pt=45.0,
                     # filter names:
                     # hltDoublePFTau40TrackPt1TightChargedIsolationDz02Reg
                     trigger_bits=64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=45.0,
+                    # min_pt=45.0,
                     # filter names:
                     # hltDoublePFTau40TrackPt1TightChargedIsolationDz02Reg
                     trigger_bits=64,
@@ -753,27 +753,27 @@ def add_triggers_2018(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # hltDoublePFTau20TrackPt1LooseChargedIsolation
                     trigger_bits=2048,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # hltDoublePFTau20TrackPt1LooseChargedIsolation
                     trigger_bits=2048,
                 ),
                 # additional leg infos for vbf jets
                 TriggerLeg(
-                    min_pt=115.0,
+                    # min_pt=115.0,
                     # filter names:
                     # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleLooseChargedIsoPFTau20
                     trigger_bits=1,
                 ),
                 TriggerLeg(
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleLooseChargedIsoPFTau20
                     trigger_bits=1,
@@ -803,29 +803,20 @@ def add_triggers_2022(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=31.0,
+                    # min_pt=31.0,
                     # filter names:
-                    # hltEle30WPTightGsfTrackIsoFilter
+                    # hltEle30WPTightGsfTrackIsoFilter (WPTightTrackIso)
                     trigger_bits=2,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("etau") or
+                dataset_inst.has_tag("emu_from_e") or
+                dataset_inst.has_tag("emu_from_mu")
+            ),
             tags={"single_trigger", "single_e", "channel_e_tau"},
         ),
-        # Currently disabled
-        # Trigger(
-        #     name="HLT_Ele35_WPTight_Gsf",
-        #     id=203,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=11,
-        #             min_pt=36.0,
-        #             # filter names:
-        #             # hltEle35noerWPTightGsfTrackIsoFilter (Single e WPTight)
-        #             trigger_bits=2,
-        #         ),
-        #     ],
-        #     tags={"single_trigger", "single_e", "channel_e_tau"},
-        # ),
 
         #
         # single muon
@@ -836,29 +827,21 @@ def add_triggers_2022(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=26.0,
+                    # min_pt=26.0,
                     # filter names:
                     # hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered0p08 (1mu + Iso)
                     trigger_bits=2 + 8,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("mutau") or
+                dataset_inst.has_tag("emu_from_e") or
+                dataset_inst.has_tag("emu_from_mu") or
+                dataset_inst.has_tag("mumu")
+            ),
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
         ),
-        # Currently disabled
-        # Trigger(
-        #     name="HLT_IsoMu27",
-        #     id=102,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=13,
-        #             min_pt=28.0,
-        #             # filter names:
-        #             # hltL3crIsoL1sMu22Or25L1f0L2f10QL3f27QL3trkIsoFiltered0p08 (1mu + Iso)
-        #             trigger_bits=2 + 8,
-        #         ),
-        #     ],
-        #     tags={"single_trigger", "single_mu", "channel_mu_tau"},
-        # ),
 
         #
         # e tauh
@@ -869,21 +852,24 @@ def add_triggers_2022(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
-                    # hltOverlapFilterIsoEle24IsoTau30WPTightGsfCaloJet5 # TODO Twiki has no matches
-                    # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (OverlapFilter) # TODO Twiki sugests 8 + 64  # noqa
-                    trigger_bits=8,
+                    # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (DeepTau + OverlapFilter) # TODO Twiki sugests 8 + 64, but 64 not enough?  # noqa
+                    trigger_bits=8 + 64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
-                    # (DeepTau + HPS) # TODO Twiki sugests 8 + 32 + 256
+                    # (DeepTau + HPS + Overlap) # TODO Twiki sugests 8 + 32 + 256
                     # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
-                    trigger_bits=8 + 32,
+                    trigger_bits=8 + 32 + 256,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("etau")
+            ),
             tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
         ),
 
@@ -896,21 +882,25 @@ def add_triggers_2022(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=22.0,
+                    # min_pt=22.0,
                     # filter names:
                     # hltL3crIsoBigORMu18erTauXXer2p1L1f0L2f10QL3f20QL3trkIsoFiltered  # TODO Twiki sugests 2
                     # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded (OverlapFilter PFTau) # TODO Twiki sugests 4 + 64  # noqa
-                    trigger_bits=4,
+                    trigger_bits=4 + 64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=32.0,
+                    # min_pt=32.0,
                     # filter names:
-                    # (DeepTau + HPS) # TODO Twiki sugests 8 + 32 + 512 + 262144
+                    # (DeepTau + HPS + Overlap + L1Seeded) # TODO Twiki sugests 8 + 32 + 512 + 262144
                     # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded
-                    trigger_bits=8 + 32,
+                    trigger_bits=8 + 32 + 512 + 262144,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("mutau")
+            ),
             tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
         ),
 
@@ -923,65 +913,25 @@ def add_triggers_2022(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
-                    # hltHpsDoublePFTau35MediumDitauWPDeepTauDz02 (Deeptau + HPS)
-                    trigger_bits=8 + 32,
+                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS + DeepTauDiTau)
+                    trigger_bits=8 + 32 + 128,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
-                    # hltHpsDoublePFTau35MediumDitauWPDeepTauDz02 (Deeptau + HPS)
-                    trigger_bits=8 + 32,
+                    # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS + DeepTauDiTau)
+                    trigger_bits=8 + 32 + 128,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
-        # Currently disabled
-        # Trigger(
-        #     name="HLT_DoubleMediumChargedIsoPFTauHPS40_Trk1_eta2p1",
-        #     id=506,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             min_pt=45.0,
-        #             # filter names:
-        #             trigger_bits=2 + 32 + 64,
-        #         ),
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             min_pt=45.0,
-        #             # filter names:
-        #             trigger_bits=2 + 32 + 64,
-        #         ),
-        #     ],
-        #     applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "E"),
-        #     tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
-        # ),
-
-        # Trigger(
-        #     name="HLT_DoubleMediumChargedIsoDisplacedPFTauHPS32_Trk1_eta2p1",
-        #     id=507,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             min_pt=45.0,
-        #             # filter names:
-        #             # hltHpsDoubleMediumChargedIsoDisplPFTau32Dxy0p005
-        #             trigger_bits=2 + 32 + 64 + 32768,
-        #         ),
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             min_pt=45.0,
-        #             # filter names:
-        #             # hltHpsDoubleMediumChargedIsoDisplPFTau32Dxy0p005
-        #             trigger_bits=2 + 32 + 64 + 32768,
-        #         ),
-        #     ],
-        #     applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and dataset_inst.x.era < "E"),
-        #     tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
-        # ),
 
         #
         # vbf
@@ -992,76 +942,48 @@ def add_triggers_2022(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # (DeepTau + HPS + run 3 VBF+ditau) # TODO Twiki sugests 8
-                    # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
+                    # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                     trigger_bits=8 + 32 + 4096,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
-                    # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
+                    # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                     trigger_bits=8 + 32 + 4096,
                 ),
-                # # additional leg infos for vbf jets
-                # TriggerLeg(
-                #     min_pt=115.0,
-                #     # filter names:
-                #     # The filters are applied to the lepton
-                #     # Taking the loosest filter for the Jets with the pt cut
-                #     trigger_bits=1,
-                # ),
-                # TriggerLeg(
-                #     min_pt=40.0,
-                #     # filter names:
-                #     # The filters are applied to the lepton
-                #     trigger_bits=1,
-                # ),
+                # additional leg infos for vbf jets
+                TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=115.0,
+                    # filter names:
+                    # The filters are applied to the lepton
+                    # Taking the loosest filter for the Jets with the pt cut
+
+                    # maybe hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                    # (VBF cross-cleaned from medium deeptau PFTau)
+                    trigger_bits=262144,
+                ),
+                TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=40.0,
+                    # filter names:
+                    # The filters are applied to the lepton
+
+                    # maybe hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                    # (VBF cross-cleaned from medium deeptau PFTau)
+                    trigger_bits=262144,
+                ),
             ],
-            # applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and config.has_tag("pre")),
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
-
-        # currently disabled
-        # Trigger(
-        #     name="HLT_VBF_DoubleLooseChargedIsoPFTauHPS20_Trk1_eta2p1",
-        #     id=602,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             min_pt=25.0,
-        #             # filter names:
-        #             # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleLooseChargedIsoPFTauHPS20 (LooseChargedIso + HPS + run 3 VBF+ditau) # noqa
-        #             # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleLooseChargedIsoPFTauHPS20
-        #             # hltHpsDoublePFTau20TrackLooseChargedIso
-        #             trigger_bits=1 + 32 + 4096,
-        #         ),
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             min_pt=25.0,
-        #             # filter names:
-        #             # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleLooseChargedIsoPFTauHPS20 (LooseChargedIso + HPS + run 3 VBF+ditau)  # noqa
-        #             # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleLooseChargedIsoPFTauHPS20
-        #             # hltHpsDoublePFTau20TrackLooseChargedIso
-        #             trigger_bits=1 + 32 + 4096,
-        #         ),
-        #         # additional leg infos for vbf jets
-        #         TriggerLeg(  # TODO
-        #             min_pt=115.0,
-        #             # filter names:
-        #             trigger_bits=None,
-        #         ),
-        #         TriggerLeg(
-        #             min_pt=40.0,
-        #             # filter names:
-        #             trigger_bits=None,
-        #         ),
-        #     ],
-        #     applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc and config.has_tag("pre")),
-        #     tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
-        # ),
 
         # Currently disabled since it may not be needed
         # Trigger(
@@ -1070,12 +992,12 @@ def add_triggers_2022(config: od.Config) -> None:
         #     legs=[
         #         TriggerLeg(
         #             pdg_id=15,
-        #             min_pt=25.0,
+        #             # min_pt=25.0,
         #             trigger_bits=None,
         #         ),
         #         TriggerLeg(
         #             pdg_id=15,
-        #             min_pt=25.0,
+        #             # min_pt=25.0,
         #             # filter names:
         #             trigger_bits=None,
         #         )
@@ -1091,61 +1013,37 @@ def add_triggers_2022(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
-                    # (TightOOSCPhotons + di-tau + PFJet) # TODO Twiki sugests 8 + 32 + 16384
+                    # (DeepTau + Hps + ditau+PFJet) # TODO Twiki sugests 8 + 32 + 16384
                     # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
-                    trigger_bits=16 + 16384,
+                    trigger_bits=8 + 32 + 16384,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
-                    trigger_bits=16 + 16384,
+                    trigger_bits=8 + 32 + 16384,
                 ),
-                # TriggerLeg(
-                #     min_pt=65.0,
-                #     # filter names:
-                #     # Filters are applied to the leptons
-                #     # Taking the loosest filter for the Jets with the pt cut
-                #     trigger_bits=1,
-                # ),
+                TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=65.0,
+                    # filter names:
+                    # Filters are applied to the leptons
+                    # Taking the loosest filter for the Jets with the pt cut
+
+                    # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
+                    # (DoubleTau + Jet) -> 17
+                    trigger_bits=131072,
+                ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
         ),
-        # Currently disabled
-        # Trigger(
-        #     name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet75",
-        #     id=702,
-        #     legs=[
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             min_pt=35.0,
-        #             # filter names:
-        #             # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet75 (Deeptau + HPS + di-tau + PFJet)
-        #             # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
-        #             # hlt1PFJet75L1HLTMatched
-        #             trigger_bits=8 + 32 + 16384,
-        #         ),
-        #         TriggerLeg(
-        #             pdg_id=15,
-        #             min_pt=35.0,
-        #             # filter names:
-        #             # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet75
-        #             # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
-        #             # hlt1PFJet75L1HLTMatched
-        #             trigger_bits=8 + 32 + 16384,
-        #         ),
-        #         TriggerLeg(
-        #             min_pt=75.0,
-        #             # filter names:
-        #             # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet75
-        #             trigger_bits=None,
-        #         ),
-        #     ],
-        #     tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
-        # ),
     ])
 
 
@@ -1164,12 +1062,18 @@ def add_triggers_2023(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=31.0,
+                    # min_pt=31.0,
                     # filter names:
                     # WPTightTrackIso
                     trigger_bits=2,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("etau") or
+                dataset_inst.has_tag("emu_from_e") or
+                dataset_inst.has_tag("emu_from_mu")
+            ),
             tags={"single_trigger", "single_e", "channel_e_tau"},
         ),
 
@@ -1182,12 +1086,19 @@ def add_triggers_2023(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered0p08 (1mu + Iso)
                     trigger_bits=2 + 8,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("mutau") or
+                dataset_inst.has_tag("emu_from_e") or
+                dataset_inst.has_tag("emu_from_mu") or
+                dataset_inst.has_tag("mumu")
+            ),
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
         ),
 
@@ -1200,7 +1111,7 @@ def add_triggers_2023(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # hltEle24erWPTightGsfTrackIsoFilterForTau
                     # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (OverlapFilter)
@@ -1208,13 +1119,17 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # hltHpsSelectedPFTau30LooseETauWPDeepTauL1HLTMatched (DeepTau + HPS)
                     # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("etau")
+            ),
             tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
         ),
 
@@ -1227,7 +1142,7 @@ def add_triggers_2023(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt=21.0,
+                    # min_pt=21.0,
                     # filter names:
                     # hltL3crIsoBigORMu18erTauXXer2p1L1f0L2f10QL3f20QL3trkIsoFiltered0p08
                     # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded (OverlapFilter PFTau)
@@ -1235,13 +1150,17 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=32.0,
+                    # min_pt=32.0,
                     # filter names:
                     # hltHpsSelectedPFTau27LooseMuTauWPDeepTauVsJetsAgainstMuonL1HLTMatched (DeepTau + HPS)
                     # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("mutau")
+            ),
             tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
         ),
 
@@ -1254,19 +1173,23 @@ def add_triggers_2023(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
                     trigger_bits=8 + 32,
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=40.0,
+                    # min_pt=40.0,
                     # filter names:
                     # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
                     trigger_bits=8 + 32,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
 
@@ -1279,7 +1202,7 @@ def add_triggers_2023(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # (DeepTau + HPS + run 3 VBF+ditau)
                     # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
@@ -1289,7 +1212,7 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=25.0,
+                    # min_pt=25.0,
                     # filter names:
                     # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                     # hltMatchedVBFOnePFJet2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20
@@ -1297,7 +1220,10 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=8 + 32 + 4096,
                 ),
             ],
-            # applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and config.has_tag("pre")),
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
 
@@ -1310,7 +1236,7 @@ def add_triggers_2023(config: od.Config) -> None:
             legs=[
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # (TightOOSCPhotons + di-tau + PFJet)
                     # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
@@ -1318,12 +1244,16 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
                 TriggerLeg(
                     pdg_id=15,
-                    min_pt=35.0,
+                    # min_pt=35.0,
                     # filter names:
                     # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
                     trigger_bits=16 + 16384,
                 ),
             ],
+            applies_to_dataset=(
+                lambda dataset_inst: dataset_inst.is_mc or
+                dataset_inst.has_tag("tautau")
+            ),
             tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
         ),
     ])

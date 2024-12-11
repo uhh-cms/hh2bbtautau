@@ -25,9 +25,7 @@ logger = law.logger.get_logger(__name__)
         "channel_id",
         # nano columns
         "event",
-        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", IF_RUN_2("Jet.puId"),
-        "Jet.btagDeepFlavB",
-        "MET.pt", "MET.phi",
+        "Jet.{pt,eta,phi,mass,jetId,btagDeepFlavB}", IF_RUN_2("Jet.puId"),
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
 )
@@ -53,7 +51,7 @@ def hhbtag(
     jets = events.Jet[jet_mask][event_mask][..., :n_jets_max]
     leps = lepton_pair[event_mask][..., [0, 1]]
     htt = leps[..., 0] + leps[..., 1]
-    met = events[event_mask].MET
+    met = events[event_mask][self.met_name]
     jet_shape = abs(jets.pt) >= 0
     n_jets_capped = ak.num(jets, axis=1)
 
@@ -170,3 +168,13 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     with self.task.publish_step("loading hhbtag models ..."):
         self.hhbtag_model_even = tf.saved_model.load(repo_dir.child(f"{model_path}_0").path)
         self.hhbtag_model_odd = tf.saved_model.load(repo_dir.child(f"{model_path}_1").path)
+
+
+@hhbtag.init
+def hhbtag_init(self: Producer, **kwargs) -> None:
+    """
+    Add MET columns
+    """
+    self.met_name = self.config_inst.x.met_name
+
+    self.uses.add(f"{self.met_name}.{{pt,phi}}")

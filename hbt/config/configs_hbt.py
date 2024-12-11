@@ -333,6 +333,12 @@ def add_config(
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
         # add tags to datasets
+        if dataset.name.startswith("data_e_"):
+            dataset.add_tag({"etau", "emu_from_e"})
+        if dataset.name.startswith("data_mu_"):
+            dataset.add_tag({"mutau", "emu_from_mu", "mumu"})
+        if dataset.name.startswith("data_tau_"):
+            dataset.add_tag({"tautau"})
         if dataset.name.startswith("tt_"):
             dataset.add_tag({"has_top", "ttbar", "tt"})
         if dataset.name.startswith("st_"):
@@ -621,6 +627,19 @@ def add_config(
             "jet_type": jet_type,
         },
     })
+
+    ################################################################################################
+    # MET settings
+    ################################################################################################
+
+    if run == 2:
+        cfg.x.met_name = "MET"
+        cfg.x.raw_met_name = "RawMET"
+    elif run == 3:
+        cfg.x.met_name = "PuppiMET"
+        cfg.x.raw_met_name = "RawPuppiMET"
+    else:
+        assert False
 
     ################################################################################################
     # tau settings
@@ -1150,7 +1169,8 @@ def add_config(
     cfg.add_channel(name="mutau", id=1)
     cfg.add_channel(name="etau", id=2)
     cfg.add_channel(name="tautau", id=3)
-    # cfg.add_channel(name="mumu", id=4)
+    cfg.add_channel(name="mumu", id=4)
+    cfg.add_channel(name="emu", id=5)
 
     # add categories
     from hbt.config.categories import add_categories
