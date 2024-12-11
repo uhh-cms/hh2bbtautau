@@ -332,17 +332,17 @@ def add_hist_hooks(config: od.Config) -> None:
         return hists
 
     def closure_test(task, hists):
-
-        print("------------------------------------------")
-        print("------ Entering closure test hook --------")
-        print("------------------------------------------")
-
         if not hists:
             return hists
 
         # get the qcd process
         qcd_proc = config.get_process("qcd", default=None)
         if not qcd_proc:
+            return hists
+
+        # get the data process
+        data_proc = config.get_process("data", default=None)
+        if not data_proc:
             return hists
 
         # extract all unique category ids and verify that the axis order is exactly
@@ -379,28 +379,34 @@ def add_hist_hooks(config: od.Config) -> None:
         if not complete_groups:
             return hists
 
-        # sum up mc, use MC qcd as pseudo data and stop early when either is empty
-        mc_hists = [h for p, h in hists.items() if p.is_mc and not p.has_tag("signal") and not p.has_tag("qcd")]
-        data_qcd_hists = [h for p, h in hists.items() if p.has_tag("qcd")]
-        if not mc_hists or not data_qcd_hists:
+        # get mc, data and ttbar histograms
+        mc_hists = [h for p, h in hists.items() if p.is_mc and not p.has_tag("signal")]
+        tt_hists = [h for p, h in hists.items() if p.has_tag("ttbar")]
+        data_hists = [h for p, h in hists.items() if p.is_data]
+
+        # sum up hists, stop early when empty
+        if not mc_hists or not tt_hists or not data_hists:
             return hists
         mc_hist = sum(mc_hists[1:], mc_hists[0].copy())
-        data_qcd_hists = sum(data_qcd_hists[1:], mc_hists[0].copy())
-        data_hist_tmp = data_qcd_hists + mc_hist
-
-        data_hists = [h for p, h in hists.items() if p.is_data]
+        tt_hist = sum(tt_hists[1:], tt_hists[0].copy())
         data_hist = sum(data_hists[1:], data_hists[0].copy())
-        data_qcd_hist = data_hist.copy().reset()
-        data_qcd_hist.fill(data_hist_tmp)
 
-        print("")
-        print("mc_hist len: ", len(mc_hist))
-        print("data_qcd_hists len: ", len(data_qcd_hists))
-        print("data_qcd_hist len: ", len(data_qcd_hist))
-        print("")
+        # use MC with twice ttbar as pseudo data for the closure test
+        data_hist = mc_hist + tt_hist
 
         # start by copying the mc hist and reset it, then fill it at specific category slices
         hists[qcd_proc] = qcd_hist = mc_hist.copy().reset()
+        hists[data_proc] = data_hist
+
+        # remove the original data histogram from hists
+        hists_to_delete = []
+        for idx, (p, h) in enumerate(hists.items()):
+            if p.is_data and idx == 0:
+                hists_to_delete.append(p)
+
+        for h in hists_to_delete:
+            del hists[h]
+
         for group_name in complete_groups:
             group = qcd_groups[group_name]
 
@@ -411,9 +417,9 @@ def add_hist_hooks(config: od.Config) -> None:
             os_noniso_mc = hist_to_num(get_hist(mc_hist, "os_noniso"), "os_noniso_mc")
             ss_noniso_mc = hist_to_num(get_hist(mc_hist, "ss_noniso"), "ss_noniso_mc")
             ss_iso_mc = hist_to_num(get_hist(mc_hist, "ss_iso"), "ss_iso_mc")
-            os_noniso_data = hist_to_num(get_hist(data_qcd_hist, "os_noniso"), "os_noniso_data")
-            ss_noniso_data = hist_to_num(get_hist(data_qcd_hist, "ss_noniso"), "ss_noniso_data")
-            ss_iso_data = hist_to_num(get_hist(data_qcd_hist, "ss_iso"), "ss_iso_data")
+            os_noniso_data = hist_to_num(get_hist(data_hist, "os_noniso"), "os_noniso_data")
+            ss_noniso_data = hist_to_num(get_hist(data_hist, "ss_noniso"), "ss_noniso_data")
+            ss_iso_data = hist_to_num(get_hist(data_hist, "ss_iso"), "ss_iso_data")
 
             # estimate qcd shapes in the three sideband regions
             # shapes: (SHIFT, VAR)
