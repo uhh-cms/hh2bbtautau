@@ -27,13 +27,11 @@ ak = maybe_import("awkward")
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
-        "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
-        "Jet.{pt,eta,phi,mass,jetId}",
+        "TrigObj.{pt,eta,phi}",
+        "Jet.{pt,eta,phi,mass,jetId,btagDeepFlavB}",
         IF_RUN_2("Jet.puId"),
-        "Jet.btagDeepFlavB",
-        "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
-        "FatJet.jetId", "FatJet.subJetIdx1", "FatJet.subJetIdx2",
-        "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
+        "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
+        "SubJet.{pt,eta,phi,mass,btagDeepB}",
     },
     produces={
         # new columns

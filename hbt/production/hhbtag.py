@@ -25,8 +25,7 @@ logger = law.logger.get_logger(__name__)
         "channel_id",
         # nano columns
         "event",
-        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", IF_RUN_2("Jet.puId"),
-        "Jet.btagDeepFlavB",
+        "Jet.{pt,eta,phi,mass,jetId,btagDeepFlavB}", IF_RUN_2("Jet.puId"),
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
 )
@@ -178,4 +177,4 @@ def hhbtag_init(self: Producer, **kwargs) -> None:
     """
     self.met_name = self.config_inst.x.met_name
 
-    self.uses |= {f"{self.met_name}.pt", f"{self.met_name}.phi"}
+    self.uses.add(f"{self.met_name}.{{pt,phi}}")

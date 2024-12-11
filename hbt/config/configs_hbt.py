@@ -634,8 +634,10 @@ def add_config(
 
     if run == 2:
         cfg.x.met_name = "MET"
-    elif run == 3 and year == 2022:
+        cfg.x.raw_met_name = "RawMET"
+    elif run == 3:
         cfg.x.met_name = "PuppiMET"
+        cfg.x.raw_met_name = "RawPuppiMET"
     else:
         assert False
 
