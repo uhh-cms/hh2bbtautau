@@ -178,8 +178,7 @@ empty = default.derive("empty", cls_dict={})
 
 @empty.init
 def empty_init(self: Selector) -> None:
-    # super(empty, self)
-    default.init_func(self)  # TODO: fix that in cf
+    super(empty, self).init_func()
 
     # remove unused dependencies
     unused = {
