@@ -115,6 +115,15 @@ def default(
             **kwargs,
         )
 
+    # create process ids
+    if self.process_ids_dy is not None:
+        events = self[self.process_ids_dy](events, **kwargs)
+    else:
+        events = self[process_ids](events, **kwargs)
+
+    # some cutflow features
+    events = self[cutflow_features](events, results.objects, **kwargs)
+
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
     results.event = event_sel
@@ -125,70 +134,15 @@ def default(
         [mask for step_name, mask in results.steps.items() if step_name != "bjet"],
     )
 
-    # create process ids
-    if self.process_ids_dy is not None:
-        events = self[self.process_ids_dy](events, **kwargs)
-    else:
-        events = self[process_ids](events, **kwargs)
-
-    # some cutflow features
-    events = self[cutflow_features](events, results.objects, **kwargs)
-
     # increment stats
-    weight_map = {
-        "num_events": Ellipsis,
-        "num_events_selected": event_sel,
-        "num_events_selected_nobjet": event_sel_nob,
-    }
-    group_map = {}
-    group_combinations = []
-    if self.dataset_inst.is_mc:
-        weight_map["sum_mc_weight"] = events.mc_weight
-        weight_map["sum_mc_weight_selected"] = (events.mc_weight, event_sel)
-        weight_map["sum_mc_weight_selected_nobjet"] = (events.mc_weight, event_sel_nob)
-        # pu weights with variations
-        for name in sorted(self[pu_weight].produces):
-            weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
-        # pdf and murmuf weights with variations
-        if not self.dataset_inst.has_tag("no_lhe_weights"):
-            for v in ["", "_up", "_down"]:
-                weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
-                weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
-                weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
-                weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
-        # btag weights
-        for name in sorted(self[btag_weights].produces):
-            if not name.startswith("btag_weight"):
-                continue
-            weight_map[f"sum_{name}"] = events[name]
-            weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
-            weight_map[f"sum_{name}_selected_nobjet"] = (events[name], event_sel_nob)
-            weight_map[f"sum_mc_weight_{name}_selected_nobjet"] = (events.mc_weight * events[name], event_sel_nob)
-        # groups
-        group_map = {
-            **group_map,
-            # per process
-            "process": {
-                "values": events.process_id,
-                "mask_fn": (lambda v: events.process_id == v),
-            },
-            # per jet multiplicity
-            "njet": {
-                "values": results.x.n_central_jets,
-                "mask_fn": (lambda v: results.x.n_central_jets == v),
-            },
-        }
-        # combinations
-        group_combinations.append(("process", "njet"))
-
-    events, results = self[increment_stats](
-        events,
-        results,
-        stats,
-        weight_map=weight_map,
-        group_map=group_map,
-        group_combinations=group_combinations,
-        **kwargs,
+    events, results = setup_and_increment_stats(
+        self,
+        events=events,
+        results=results,
+        stats=stats,
+        event_sel=event_sel,
+        event_sel_nob=event_sel_nob,
+        njets=results.x.n_central_jets,
     )
 
     return events, results
@@ -240,7 +194,7 @@ def empty_init(self: Selector) -> None:
     self.uses -= unused
     self.produces -= unused
 
-    # hotfix
+    # TODO: this should be fixed on coffea
     self.uses.add("Jet.{pt,eta,phi,mass}")
 
 
@@ -289,10 +243,10 @@ def empty_call(
         events = self[process_ids](events, **kwargs)
 
     # fake channel_id
-    events = set_ak_column(events, "channel_id", ak.zeros_like(events), value_type=np.uint8)
+    events = set_ak_column(events, "channel_id", np.zeros(len(events), dtype=np.uint8))
 
     # trivial selection mask capturing all events
-    results.event = ak.ones_like(events, dtype=bool)
+    results.event = np.ones(len(events), dtype=bool)
 
     # increment stats
     events, results = setup_and_increment_stats(
@@ -319,6 +273,19 @@ def setup_and_increment_stats(
     njets: np.ndarray | ak.Array | None = None,
     **kwargs,
 ) -> tuple[ak.Array, SelectionResult]:
+    """
+    Helper function that sets up the weight and group maps for the increment_stats task, invokes it
+    and returns the updated events and results objects.
+
+    :param self: The selector instance.
+    :param events: The events array.
+    :param results: The current selection results.
+    :param stats: The stats dictionary.
+    :param event_sel: The general event selection mask.
+    :param event_sel_nob: The event selection mask without the bjet step.
+    :param njets: The number of central jets.
+    :return: The updated events and results objects in a tuple.
+    """
     # start creating a weight, group and group combination map
     weight_map = {
         "num_events": Ellipsis,
