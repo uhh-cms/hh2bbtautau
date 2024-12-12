@@ -313,11 +313,15 @@ def setup_and_increment_stats(
             name = str(route)
             weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
 
-        # pdf and murmuf weights with variations
-        if not self.dataset_inst.has_tag("no_lhe_weights"):
+        # pdf weights with variations
+        if self.has_dep(pdf_weights):
             for v in ["", "_up", "_down"]:
                 weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
                 weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
+
+        # mur/muf weights with variations
+        if self.has_dep(murmuf_weights):
+            for v in ["", "_up", "_down"]:
                 weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
                 weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
 
