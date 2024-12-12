@@ -194,10 +194,8 @@ def empty_init(self: Selector) -> None:
     self.produces -= unused
 
     # add custom columns
+    self.uses.add("Jet.phi")  # needed by vector behavior in btag_weights for accessing pt
     self.produces.add("channel_id")
-
-    # TODO: this should be fixed on coffea
-    self.uses.add("Jet.{pt,eta,phi,mass}")
 
 
 @empty.call
