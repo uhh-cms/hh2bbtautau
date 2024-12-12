@@ -195,7 +195,7 @@ def empty_init(self: Selector) -> None:
 
     # add custom columns
     self.uses.add("Jet.phi")  # needed by vector behavior for accessing pt in btag_weights
-    self.produces.add("channel_id")
+    self.produces |= {"channel_id", "leptons_os", "tau2_isolated"}
 
 
 @empty.call
@@ -247,8 +247,10 @@ def empty_call(
     else:
         events = self[process_ids](events, **kwargs)
 
-    # fake channel_id
+    # fake lepton selection results
     events = set_ak_column(events, "channel_id", np.zeros(len(events), dtype=np.uint8))
+    events = set_ak_column(events, "lepton_os", np.zeros(len(events), dtype=np.uint8))
+    events = set_ak_column(events, "tau2_isolated", np.zeros(len(events), dtype=np.uint8))
 
     # trivial selection mask capturing all events
     results.event = np.ones(len(events), dtype=bool)
