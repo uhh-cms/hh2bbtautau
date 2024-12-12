@@ -193,6 +193,9 @@ def empty_init(self: Selector) -> None:
     self.uses -= unused
     self.produces -= unused
 
+    # add custom columns
+    self.produces.add("channel_id")
+
     # TODO: this should be fixed on coffea
     self.uses.add("Jet.{pt,eta,phi,mass}")
 
