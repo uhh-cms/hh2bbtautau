@@ -194,7 +194,7 @@ def empty_init(self: Selector) -> None:
     self.produces -= unused
 
     # add custom columns
-    self.uses.add("Jet.phi")  # needed by vector behavior in btag_weights for accessing pt
+    self.uses.add("Jet.phi")  # needed by vector behavior for accessing pt in btag_weights
     self.produces.add("channel_id")
 
 
