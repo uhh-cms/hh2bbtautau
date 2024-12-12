@@ -204,6 +204,11 @@ def empty_call(
     stats: defaultdict,
     **kwargs,
 ) -> tuple[ak.Array, SelectionResult]:
+    """
+    An empty selection that does not perform selection steps but only invokes producers that are
+    necessary to create columns that are required downstream, e.g. for ProduceColumns with our
+    "default" producer.
+    """
     from columnflow.columnar_util import set_ak_column
 
     # ensure coffea behavior
