@@ -249,8 +249,8 @@ def empty_call(
 
     # fake lepton selection results
     events = set_ak_column(events, "channel_id", np.zeros(len(events), dtype=np.uint8))
-    events = set_ak_column(events, "lepton_os", np.zeros(len(events), dtype=np.uint8))
-    events = set_ak_column(events, "tau2_isolated", np.zeros(len(events), dtype=np.uint8))
+    events = set_ak_column(events, "leptons_os", np.zeros(len(events), dtype=bool))
+    events = set_ak_column(events, "tau2_isolated", np.zeros(len(events), dtype=bool))
 
     # trivial selection mask capturing all events
     results.event = np.ones(len(events), dtype=bool)
