@@ -69,6 +69,12 @@ law run cf.ReduceEventsWrapper \
 - [GrASP](https://cms-pdmv-prod.web.cern.ch/grasp/)
 - [XSDB](https://xsdb-temp.app.cern.ch)
 - [DAS](https://cmsweb.cern.ch/das)
+- BTV
+  - [Docs](https://btv-wiki.docs.cern.ch)
+- TAU
+  - [Run 2 Twiki](https://twiki.cern.ch/twiki/bin/viewauth/CMS/TauIDRecommendationForRun2)
+  - [Run 3 Twiki](https://twiki.cern.ch/twiki/bin/viewauth/CMS/TauIDRecommendationForRun3)
+  - [Correctionlib files](https://gitlab.cern.ch/cms-tau-pog/jsonpog-integration/-/tree/TauPOG_v2_deepTauV2p5/POG/TAU?ref_type=heads)
 
 ## Development
 

@@ -1,0 +1,4 @@
+# version 1
+
+# "correction summary" does not work with correctionlib >= 2.6, so keep an old version
+correctionlib==2.5.0

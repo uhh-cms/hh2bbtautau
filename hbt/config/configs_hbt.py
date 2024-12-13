@@ -683,25 +683,25 @@ def add_config(
 
     # names of electron correction sets and working points
     # (used in the electron_sf producer)
-    from columnflow.producer.cms.electron import ElectronSFConfig
+    from columnflow.production.cms.electron import ElectronSFConfig
     if run == 2:
         e_postfix = ""
         if year == 2016:
             e_postfix = "preVFP" if campaign.has_tag("preVFP") else "postVFP"
-        cfg.x.electron_sf_names = (
-            "UL-Electron-ID-SF",
-            f"{year}{e_postfix}",
-            "wp80iso",
+        cfg.x.electron_sf_names = ElectronSFConfig(
+            correction="UL-Electron-ID-SF",
+            campaign=f"{year}{e_postfix}",
+            working_point="wp80iso",
         )
     elif run == 3:
         if year == 2022:
-            year_str = "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG"
+            cmpgn = "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG"
         elif year == 2023:
-            year_str = "2023PromptC" if campaign.has_tag("preBPix") else "2023PromptD"
-        cfg.x.electron_sf_names = (
-            "Electron-ID-SF",
-            year_str,
-            "wp80iso",
+            cmpgn = "2023PromptC" if campaign.has_tag("preBPix") else "2023PromptD"
+        cfg.x.electron_sf_names = ElectronSFConfig(
+            correction="UL-Electron-ID-SF",
+            campaign=cmpgn,
+            working_point="wp80iso",
         )
     else:
         assert False
@@ -712,19 +712,14 @@ def add_config(
 
     # names of muon correction sets and working points
     # (used in the muon producer)
-    from columnflow.producer.cms.muon import MuonSFConfig
+    from columnflow.production.cms.muon import MuonSFConfig
     if run == 2:
-        mu_postfix = ""
-        if year == 2016:
-            mu_postfix = "preVFP" if campaign.has_tag("preVFP") else "postVFP"
-        cfg.x.muon_sf_names = (
-            "NUM_TightRelIso_DEN_TightIDandIPCut",
-            f"{year}{mu_postfix}_UL",
+        cfg.x.muon_sf_names = MuonSFConfig(
+            correction="NUM_TightRelIso_DEN_TightIDandIPCut",
         )
-    elif run == 3 and year == 2022:
-        cfg.x.muon_sf_names = (
-            "NUM_TightPFIso_DEN_TightID",
-            "2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
+    elif run == 3:
+        cfg.x.muon_sf_names = MuonSFConfig(
+            correction="NUM_TightPFIso_DEN_TightID",
         )
     else:
         assert False
@@ -735,7 +730,8 @@ def add_config(
 
     # name of the MET phi correction set
     # (used in the met_phi calibrator)
-    cfg.x.met_phi_correction_set = r"{variable}_metphicorr_pfmet_{data_source}"
+    if run == 2:
+        cfg.x.met_phi_correction_set = r"{variable}_metphicorr_pfmet_{data_source}"
 
     ################################################################################################
     # b tagging
@@ -761,31 +757,31 @@ def add_config(
             },
         })
     elif run == 3:
-        assert year == 2022
-        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22/
-        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE/
-        # TODO later: complete WP when data becomes available
+        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22
+        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE
+        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23
+        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23BPix
         cfg.x.btag_working_points = DotDict.wrap({
             "deepjet": {
-                "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0, "2024": 0.0}[btag_key],
-                "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.0, "2024": 0.0}[btag_key],
-                "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.0, "2024": 0.0}[btag_key],
-                "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.0, "2024": 0.0}[btag_key],
-                "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.0, "2024": 0.0}[btag_key],
-            },
-            "robustParticleTransformer": {
-                "loose": {"2022": 0.0849, "2022EE": 0.0897, "2023": 0.0, "2024": 0.0}[btag_key],
-                "medium": {"2022": 0.4319, "2022EE": 0.451, "2023": 0.0, "2024": 0.0}[btag_key],
-                "tight": {"2022": 0.8482, "2022EE": 0.8604, "2023": 0.0, "2024": 0.0}[btag_key],
-                "xtight": {"2022": 0.9151, "2022EE": 0.9234, "2023": 0.0, "2024": 0.0}[btag_key],
-                "xxtight": {"2022": 0.9874, "2022EE": 0.9893, "2023": 0.0, "2024": 0.0}[btag_key],
+                "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048}[btag_key],
+                "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.2431, "2023BPix": 0.2435}[btag_key],
+                "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.6553, "2023BPix": 0.6563}[btag_key],
+                "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.7667, "2023BPix": 0.7671}[btag_key],
+                "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.9459, "2023BPix": 0.9483}[btag_key],
             },
             "particleNet": {
-                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0, "2024": 0.0}[btag_key],
-                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.0, "2024": 0.0}[btag_key],
-                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.0, "2024": 0.0}[btag_key],
-                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.0, "2024": 0.0}[btag_key],
-                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.0, "2024": 0.0}[btag_key],
+                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359}[btag_key],
+                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919}[btag_key],
+                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133}[btag_key],
+                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544}[btag_key],
+                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688}[btag_key],
+            },
+            "robustParticleTransformer": {
+                "loose": {"2022": 0.0849, "2022EE": 0.0897, "2023": 0.0681, "2023BPix": 0.0683}[btag_key],
+                "medium": {"2022": 0.4319, "2022EE": 0.451, "2023": 0.3487, "2023BPix": 0.3494}[btag_key],
+                "tight": {"2022": 0.8482, "2022EE": 0.8604, "2023": 0.7969, "2023BPix": 0.7994}[btag_key],
+                "xtight": {"2022": 0.9151, "2022EE": 0.9234, "2023": 0.8882, "2023BPix": 0.8877}[btag_key],
+                "xxtight": {"2022": 0.9874, "2022EE": 0.9893, "2023": 0.9883, "2023BPix": 0.9883}[btag_key],
             },
         })
     else:
@@ -833,13 +829,18 @@ def add_config(
         "TimePtEta",
     ]
 
-    # TODO: what? what about run 2? really pnet??
     from columnflow.production.cms.btag import BTagSFConfig
-    cfg.x.btag_sf = BTagSFConfig(
-        correction_set="particleNet_shape",  # TODO:
+    cfg.x.btag_sf_deepjet = BTagSFConfig(
+        correction_set="deepJet_shape",
         jec_sources=cfg.x.btag_sf_jec_sources,
-        discriminator="btagPNetB",
+        discriminator="btagDeepFlavB",
     )
+    if run == 3:
+        cfg.x.btag_sf_pnet = BTagSFConfig(
+            correction_set="particleNet_shape",
+            jec_sources=cfg.x.btag_sf_jec_sources,
+            discriminator="btagPNetB",
+        )
 
     ################################################################################################
     # shifts
@@ -1044,17 +1045,19 @@ def add_config(
             2016: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt", "v1"),  # noqa
             2017: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt", "v1"),  # noqa
             2018: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt", "v1"),  # noqa,
-            # TODO: document source
-            2022: ("/afs/cern.ch/user/a/anhaddad/public/Collisions22/Cert_Collisions2022_355100_362760_Golden.json", "v1"),  # noqa
-            2023: ("/afs/cern.ch/user/a/anhaddad/public/Collisions23/Cert_Collisions2023_366442_370790_Golden.json", "v1"),  # noqa
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2022
+            2022: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions22/Cert_Collisions2022_355100_362760_Golden.json", "v1"),  # noqa
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
+            2023: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions23/Cert_Collisions2023_366442_370790_Golden.json", "v1"),  # noqa
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2017: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2018: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
-            # TODO: check
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2022
             2022: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
-            2023: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
+            2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
         }[year],
     })
     # pileup weight corrections
@@ -1085,16 +1088,20 @@ def add_config(
         # met phi correction
         add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
     elif run == 3:
-        if year == 2022 and campaign.has_tag("preEE"):
-            # muon scale factors
-            add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
-            # electron scale factors
-            add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
-            # tau energy correction and scale factors
-            # TODO: remove tag pog mirror once integrated centrally
-            json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
+        # muon scale factors
+        add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
+        # electron scale factors
+        add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+        # tau energy correction and scale factors
+        # TODO: remove tag pog mirror once integrated centrally
+        json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
+        if year == 2022:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
-            add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa
+            tau_pog_dir = tau_pog_era
+        elif year == 2023:
+            tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
+            tau_pog_dir = str(year)  # yes, it's inconsistent
+        add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_dir}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa
     else:
         assert False
 
@@ -1168,7 +1175,6 @@ def add_config(
     cfg.add_channel(name="mutau", id=1)
     cfg.add_channel(name="etau", id=2)
     cfg.add_channel(name="tautau", id=3)
-    # cfg.add_channel(name="mumu", id=4)
 
     # add categories
     from hbt.config.categories import add_categories

@@ -19,17 +19,17 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
-from columnflow.production.cms.btag import btag_weights
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import
 
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
-from hbt.production.features import cutflow_features
 from hbt.production.processes import process_ids_dy
+from hbt.production.btag import btag_weights_deepjet, btag_weights_pnet
+from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -38,14 +38,14 @@ ak = maybe_import("awkward")
 @selector(
     uses={
         json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
-        pu_weight, btag_weights, process_ids, cutflow_features, increment_stats,
-        attach_coffea_behavior, patch_ecalBadCalibFilter,
+        pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
+        increment_stats, attach_coffea_behavior, patch_ecalBadCalibFilter,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, btag_weights,
-        process_ids, cutflow_features, increment_stats,
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight,
+        btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
+        increment_stats, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
 )
@@ -108,12 +108,20 @@ def default(
         events = self[pu_weight](events, **kwargs)
 
         # btag weights
-        events = self[btag_weights](
+        btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
+        events = self[btag_weights_deepjet](
             events,
-            jet_mask=ak.fill_none(results.x.jet_mask, False, axis=-1),
+            jet_mask=btag_weight_jet_mask,
             negative_b_score_log_mode="none",
             **kwargs,
         )
+        if self.has_dep(btag_weights_pnet):
+            events = self[btag_weights_pnet](
+                events,
+                jet_mask=btag_weight_jet_mask,
+                negative_b_score_log_mode="none",
+                **kwargs,
+            )
 
     # create process ids
     if self.process_ids_dy is not None:
@@ -234,12 +242,20 @@ def empty_call(
         events = self[pu_weight](events, **kwargs)
 
         # btag weights
-        events = self[btag_weights](
+        btag_weight_jet_mask = abs(events.Jet["eta"]) < 2.5
+        events = self[btag_weights_deepjet](
             events,
-            jet_mask=abs(events.Jet["eta"]) < 2.5,
+            jet_mask=btag_weight_jet_mask,
             negative_b_score_log_mode="none",
             **kwargs,
         )
+        if self.has_dep(btag_weights_pnet):
+            events = self[btag_weights_pnet](
+                events,
+                jet_mask=btag_weight_jet_mask,
+                negative_b_score_log_mode="none",
+                **kwargs,
+            )
 
     # create process ids
     if self.process_ids_dy is not None:
@@ -328,13 +344,17 @@ def setup_and_increment_stats(
                 weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
 
         # btag weights
-        for route in sorted(self[btag_weights].produced_columns):
-            name = str(route)
-            if not name.startswith("btag_weight"):
+        for prod in (btag_weights_deepjet, btag_weights_pnet):
+            if not self.has_dep(prod):
                 continue
-            weight_map[f"sum_{name}"] = events[name]
-            weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
-            if event_sel_nob is not None:
+            for route in sorted(self[prod].produced_columns):
+                name = str(route)
+                if not name.startswith("btag_weight"):
+                    continue
+                weight_map[f"sum_{name}"] = events[name]
+                weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
+                if event_sel_nob is None:
+                    continue
                 weight_map[f"sum_{name}_selected_nobjet"] = (events[name], event_sel_nob)
                 weight_map[f"sum_mc_weight_{name}_selected_nobjet"] = (events.mc_weight * events[name], event_sel_nob)
 

@@ -21,6 +21,15 @@ ak = maybe_import("awkward")
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
+# custom btag weight producer for deepjet and pnet configs
+btag_weights_deepjet = btag_weights.derive("btag_weights_deepjet", cls_dict={
+    "get_btag_config": (lambda self: self.config_inst.x.btag_sf_deepjet),
+})
+btag_weights_pnet = btag_weights.derive("btag_weights_pnet", cls_dict={
+    "get_btag_config": (lambda self: self.config_inst.x.btag_sf_pnet),
+})
+
+
 @producer(
     uses={
         btag_weights.PRODUCES,
