@@ -62,13 +62,17 @@ law run cf.ReduceEventsWrapper \
 ## Useful links
 
 - [columnflow documentation](https://columnflow.readthedocs.io/en/latest/index.html)
-- [Nano documentation](https://gitlab.cern.ch/cms-nanoAOD/nanoaod-doc)
-- [Correctionlib files](https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration)
-- [HLT info browser](https://cmshltinfo.app.cern.ch/path/HLT_MediumChargedIsoPFTau180HighPtRelaxedIso_Trk50_eta2p1_v)
-- [HLT config browser](https://cmshltcfg.app.cern.ch/open?db=online&cfg=%2Fcdaq%2Fphysics%2FRun2018%2F2e34%2Fv2.1.5%2FHLT%2FV2)
-- [GrASP](https://cms-pdmv-prod.web.cern.ch/grasp/)
-- [XSDB](https://xsdb-temp.app.cern.ch)
-- [DAS](https://cmsweb.cern.ch/das)
+- CMS services
+  - [HLT info browser](https://cmshltinfo.app.cern.ch/path/HLT_MediumChargedIsoPFTau180HighPtRelaxedIso_Trk50_eta2p1_v)
+  - [HLT config browser](https://cmshltcfg.app.cern.ch/open?db=online&cfg=%2Fcdaq%2Fphysics%2FRun2018%2F2e34%2Fv2.1.5%2FHLT%2FV2)
+  - [GrASP](https://cms-pdmv-prod.web.cern.ch/grasp/)
+  - [XSDB](https://xsdb-temp.app.cern.ch)
+  - [DAS](https://cmsweb.cern.ch/das)
+NanoAOD:
+  - [Nano documentation](https://gitlab.cern.ch/cms-nanoAOD/nanoaod-doc)
+  - [Correctionlib files](https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration)
+- JME
+  - [Docs](https://cms-jerc.web.cern.ch)
 - BTV
   - [Docs](https://btv-wiki.docs.cern.ch)
 - TAU

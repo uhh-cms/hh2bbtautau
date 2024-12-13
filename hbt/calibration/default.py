@@ -72,20 +72,22 @@ def default_init(self: Calibrator) -> None:
     raw_met_name = self.config_inst.x.raw_met_name
 
     # derive calibrators to add settings
-    self.jec_full_cls = jec.derive(
-        "jec_full",
-        cls_dict={"mc_only": True, "nominal_only": True, "met_name": met_name, "raw_met_name": raw_met_name},
-    )
-    self.jec_nominal_cls = jec_nominal.derive(
-        "jec_nominal",
-        cls_dict={"met_name": met_name, "raw_met_name": raw_met_name},
-    )
+    self.jec_full_cls = jec.derive("jec_full", cls_dict={
+        "mc_only": True,
+        "nominal_only": True,
+        "met_name": met_name,
+        "raw_met_name": raw_met_name,
+    })
+    self.jec_nominal_cls = jec_nominal.derive("jec_nominal", cls_dict={
+        "met_name": met_name,
+        "raw_met_name": raw_met_name,
+    })
 
     # version of jer that uses the first random number from deterministic_seeds
-    self.deterministic_jer_cls = jer.derive(
-        "deterministic_jer",
-        cls_dict={"deterministic_seed_index": 0, "met_name": met_name},
-    )
+    self.deterministic_jer_cls = jer.derive("deterministic_jer", cls_dict={
+        "deterministic_seed_index": 0,
+        "met_name": met_name,
+    })
 
     # derive tec calibrators
     self.tec_cls = tec.derive("tec", cls_dict={"met_name": met_name})

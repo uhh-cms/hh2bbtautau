@@ -12,7 +12,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import maybe_import
 
-from hbt.util import IF_NANO_V9, IF_NANO_V11, IF_NANO_V12
+from hbt.util import IF_NANO_V9, IF_NANO_GE_V10
 from hbt.config.util import Trigger
 
 np = maybe_import("numpy")
@@ -69,8 +69,7 @@ def update_channel_ids(
         "Electron.pt", "Electron.eta", "Electron.phi", "Electron.dxy", "Electron.dz",
         "Electron.pfRelIso03_all",
         IF_NANO_V9("Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90"),
-        IF_NANO_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
-        IF_NANO_V12("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
+        IF_NANO_GE_V10("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
     exposed=False,
