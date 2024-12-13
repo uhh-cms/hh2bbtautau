@@ -24,12 +24,8 @@ ak = maybe_import("awkward")
 @selector(
     uses={
         hhbtag, IF_RUN_3(jet_veto_map),
-        # custom columns created upstream, probably by a selector
-        "trigger_ids",
-        # nano columns
-        "TrigObj.{pt,eta,phi}",
-        "Jet.{pt,eta,phi,mass,jetId,btagDeepFlavB}",
-        IF_RUN_2("Jet.puId"),
+        "trigger_ids", "TrigObj.{pt,eta,phi}",
+        "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
         "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
         "SubJet.{pt,eta,phi,mass,btagDeepB}",
     },
@@ -272,7 +268,8 @@ def jet_selection(
             # the btag weight normalization requires a selection with everything but the bjet
             # selection, so add this step here
             # note: there is currently no b-tag discriminant cut at this point, so take jet_sel
-            "bjet": jet_sel,
+            "bjet_deepjet": jet_sel,
+            "bjet_pnet": jet_sel,  # no need in run 2
         },
         objects={
             "Jet": {
