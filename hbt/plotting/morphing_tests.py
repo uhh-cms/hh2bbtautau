@@ -720,6 +720,7 @@ def plot_ratios(
     # style_config["legend_cfg"]["frameon"] = True
     return fig, axs
 
+
 def plot_3d_morphing(
     function_bin_search: Callable,
     points: dict,
@@ -734,16 +735,124 @@ def plot_3d_morphing(
     hide_errors: bool | None = None,
     process_settings: dict | None = None,
     variable_settings: dict | None = None,
-    distance_measure: str = "chi2",
+    distance_measure: str = "bin_val",
     **kwargs,
 ) -> plt.Figure:
 
+    """
+    Plot the morphing for vbf depending on 3 parameters.
+    kl is the x-axis, k2v is the y-axis and kv is the marker axis.
 
+    The color of the markers is the value of the chosen bin (default) if the distance_measure is "bin_val".
+    Else, the color corresponds to the the distance measure given in distance_measure.
 
+    The distance_measure "chi2" is the chi2 value obtained for each point during the fit of the
+    corresponding morphed histogram. If a point comes from a non morphed histogram, the color of the marker is the value 1.
+
+    The distance_measure "ratio" is the ratio of the morphed histogram to the non morphed one in the chosen bin.
+    If a point comes from a non morphed histogram, the color of the marker is the value 1.
+
+    The points dictionary must contain the parameter values of the points to be plotted, as well as
+    the name of the unmorphed histogram and if the histogram to be plotted is the morphed one or not.
+
+    This function works only if a single histogram is given for each vbf parameters point in points.
+    Additionally, this function works only if a single morphed histogram exists for each vbf parameters point.
+
+    """
+
+    # def vbf_function(param_values, a, b, c, d, e, f):
+    #     kv, k2v, kl = param_values
+    # return a * kv**4 + b * k2v**2 + c * (kv**2) * (kl**2) + d * (kv**2) * k2v + e * (kv**3) * kl + f * k2v * kv * kl  # noqa
+
+    variable_inst = variable_insts[0]
+    list_of_markers = ["o", "s", "D", "v", "^", "<", ">", "P", "*", "X", "d", "+", "x", "1"]
+
+    # get all histograms and their values for the chosen bin
+    hists_to_plot = {}
+    bin_hists_to_plot = {}
+    for vbf_point in points:
+        if "kv" not in vbf_point or "k2v" not in vbf_point or "kl" not in vbf_point:
+            raise ValueError("Not all points have the correct keys.")
+        for key, hist in hists.items():
+            if f"hh_vbf_hbb_htt_{vbf_point['name']}" in key.name and vbf_point["type"] in key.name:
+                if vbf_point["name"] in hists_to_plot.keys():
+                    raise ValueError("Trying to plot multiple histograms for the same point.")
+                hists_to_plot[vbf_point["name"]] = hist
+
+        # get the values for the chosen bin
+        bin_hists_to_plot[vbf_point["name"]] = np.array([
+            hists_to_plot[vbf_point["name"]].values()[..., function_bin_search(hists_to_plot[vbf_point["name"]].values())][0],
+            hists_to_plot[vbf_point["name"]].variances()[..., function_bin_search(hists_to_plot[vbf_point["name"]].values())][0],
+        ])
+        from IPython import embed; embed(header="verifying the chosen bin")
+
+    if distance_measure == "chi2":
+        # get all non morphed histograms
+        non_morphed_hists = {}
+        for vbf_point in points:
+            for key, hist in hists.items():
+                if f"hh_vbf_hbb_htt_{vbf_point['name']}" in key.name and "morphed" not in key.name:
+                    non_morphed_hists[vbf_point["name"]] = hist
+            if vbf_point["name"] not in non_morphed_hists.keys():
+                raise ValueError(f"No non morphed histogram found for point {vbf_point['name']}.")
+
+    # calculate the value to plot
+    values_to_plot = {}
+    for vbf_point in points:
+        if distance_measure == "bin_val":
+            value_to_plot = bin_hists_to_plot[vbf_point["name"]]
+        elif distance_measure == "ratio":
+            if "morphed" in vbf_point["type"]:
+                for key, hist in hists.items():
+                    if f"hh_vbf_hbb_htt_{vbf_point['name']}" in key.name and "morphed" not in key.name:
+                        non_morphed_hist = hist
+
+                # get the values for the chosen bin
+                bin_hist_non_morphed = np.array([
+                    non_morphed_hist.values()[..., function_bin_search(non_morphed_hist.values())][0],
+                    non_morphed_hist.variances()[..., function_bin_search(non_morphed_hist.values())][0],
+                ])
+
+                ratio = bin_hists_to_plot[vbf_point["name"]][0] / bin_hist_non_morphed[0]
+                ratio_unc = np.sqrt(
+                    (bin_hists_to_plot[vbf_point["name"]][1] / bin_hist_non_morphed[0]**2) +
+                    (bin_hist_non_morphed[1] * bin_hists_to_plot[vbf_point["name"]][0]**2 / bin_hist_non_morphed[0]**4)
+                )
+                value_to_plot = np.array([ratio, ratio_unc])
+            else:
+                value_to_plot = np.array([1, 0])
+        elif distance_measure == "chi2":
+            raise NotImplementedError("Chi2 not implemented yet")
+            # TODO: think about what kind of chi2 do here. Several possibilities:
+            # 1. Calculate the chi2 for the morphed histograms without considering that they might
+            # come from different fits, as the guidance points might be different (only meaningful
+            # if every point comes from the same fit)
+            # 2. Calculate the chi2 for the morphed histograms for each point with the corresponding
+            # guidance points used for the original fit
+            # 3. Do both, depending on additional information in the points dictionary
+            # 4. Find a way to propagate this selection from the hist_hooks to the plotting function
+
+            # TODO: Decide which error to use for the chi2 calculation. The error of the bin value
+            # of the morphed histogram? some combination of the errors of the guidance points and the
+            # morphed histogram? The error of the bin value of the non-morphed histogram?
+            # might depend on which method is chosen above.
+
+            # TODO: implement my solution: calculate the chi2 for the morphed histograms for each point
+            # in the hist_hooks and propagate the chi2 values to the plotting function as auxiliary data
+            # in the process instance from the hists dictionary
+
+            chi2 = np.sum((hists_to_plot[vbf_point["name"]].values() - non_morphed_hists["name"].values())**2 /
+                hists_to_plot[vbf_point["name"]].variances())
+            value_to_plot = chi2
+        values_to_plot[vbf_point["name"]] = value_to_plot
+
+    # plot the values
     fig, ax = plt.subplots()
     axs = (ax,)
     plt.style.use(mplhep.style.CMS)
     # mplhep.style.use("CMS")
+
+    # TODO: implement the scatter plot with colorbar, errors as text
 
     # put the cms logo and the lumi text on the top left corner
     mplhep.cms.text(text="Private Work", fontsize=16, ax=ax)
@@ -780,38 +889,58 @@ plot_3d_morphing_2022_pre_chi2_sm_morphed = partial(
     plot_3d_morphing,
     function_bin_search=lambda x: 5,
     points={
-        {"kv": 1., "k2v": 1., "kl": 1., "name"= "kv1_k2v1_kl1", "type"="morphed"},
-        {"kv": 1., "k2v": 0., "kl": 1., "name"= "kv1_k2v0_kl1", "type"=""},
-        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type"=""},
-        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type"=""},
-        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type"=""},
-        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type"=""},
-        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type"=""},
-        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type"=""},
-        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type"=""},
-        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type"=""},
-        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type"=""},
-        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type"=""},
+        {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": ""},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": ""},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type": ""},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type": ""},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type": ""},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type": ""},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type": ""},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
+        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
     },
     distance_measure="chi2",
+)
+
+plot_3d_morphing_2022_pre_binval_sm_morphed = partial(
+    plot_3d_morphing,
+    function_bin_search=lambda x: 5,
+    points={
+        {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": ""},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": ""},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type": ""},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type": ""},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type": ""},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type": ""},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type": ""},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
+        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
+    },
+    distance_measure="bin_val",
 )
 
 plot_3d_morphing_2022_pre_ratio_sm_morphed = partial(
     plot_3d_morphing,
     function_bin_search=lambda x: 5,
     points={
-        {"kv": 1., "k2v": 1., "kl": 1., "name"= "kv1_k2v1_kl1", "type"="morphed"},
-        {"kv": 1., "k2v": 0., "kl": 1., "name"= "kv1_k2v0_kl1", "type"=""},
-        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type"=""},
-        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type"=""},
-        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type"=""},
-        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type"=""},
-        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type"=""},
-        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type"=""},
-        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type"=""},
-        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type"=""},
-        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type"=""},
-        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type"=""},
+        {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": ""},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": ""},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type": ""},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type": ""},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type": ""},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type": ""},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type": ""},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
+        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
     },
     distance_measure="ratio",
 )
@@ -820,18 +949,38 @@ plot_3d_morphing_2022_pre_chi2_all_morphed = partial(
     plot_3d_morphing,
     function_bin_search=lambda x: 5,
     points={
-        {"kv": 1., "k2v": 1., "kl": 1., "name"= "kv1_k2v1_kl1", "type"="morphed"},
-        {"kv": 1., "k2v": 0., "kl": 1., "name"= "kv1_k2v0_kl1", "type"="morphed"},
-        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type"="morphed"},
-        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type"="morphed"},
-        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type"="morphed"},
-        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type"="morphed"},
-        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type"="morphed"},
-        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type"="morphed"},
-        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type"="morphed"},
-        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type"="morphed"},
-        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type"="morphed"},
-        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type"="morphed"},
+        {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": "morphed"},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type": "morphed"},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type": "morphed"},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type": "morphed"},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type": "morphed"},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type": "morphed"},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": "morphed"},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
+        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
     },
     distance_measure="chi2",
+)
+
+plot_3d_morphing_2022_pre_ratio_all_morphed = partial(
+    plot_3d_morphing,
+    function_bin_search=lambda x: 5,
+    points={
+        {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": "morphed"},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type": "morphed"},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type": "morphed"},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type": "morphed"},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type": "morphed"},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type": "morphed"},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": "morphed"},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
+        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
+    },
+    distance_measure="ratio",
 )

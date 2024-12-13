@@ -642,7 +642,7 @@ def add_hist_hooks(config: od.Config) -> None:
             )
 
         # create the new hist
-        hists[new_proc] = model_hists[0].copy().reset()
+        new_hist = model_hists[0].copy().reset()
 
         # prepare morphing here
         # be careful with the order, the categories can be shuffled around in the different histograms
@@ -655,7 +655,7 @@ def add_hist_hooks(config: od.Config) -> None:
             model_hists[i].view().variance[np.argsort(model_hists[i].axes[0])] for i in range(len(guidance_points))
         ])
 
-        original_hist_shape = hists[new_proc].view().value.shape
+        original_hist_shape = new_hist.view().value.shape
 
         if morphing_type == "exact" or morphing_type == "average":
             # build guidance matrix from guidance points
@@ -1015,6 +1015,9 @@ def add_hist_hooks(config: od.Config) -> None:
         # reshape the values to the correct categorization
         morphed_values_correct_categorization = morphed_values[np.argsort(np.argsort(model_hists[0].axes[0]))]
         morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
+
+        # insert the new hist into the hists dict
+        hist[new_proc] = new_hist
 
         # insert values into the new histogram
         hists[new_proc].view().value = morphed_values_correct_categorization
