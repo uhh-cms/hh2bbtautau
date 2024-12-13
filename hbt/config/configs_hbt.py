@@ -85,7 +85,7 @@ def add_config(
     ################################################################################################
 
     # add custom processes
-    if not sync_mode:
+    if not sync_mode and year == 2022:  # TODO: remove year check once 2023 datasets are available
         cfg.add_process(
             name="v",
             id=7997,
@@ -117,7 +117,7 @@ def add_config(
         "qcd",
         "h",
         "hh_ggf_hbb_htt_kl1_kt1",
-        *if_era(run=3, year=2022, values=[
+        *if_era(run=3, year=[2022, 2023], values=[
             "hh_ggf_hbb_htt_kl0_kt1",
             "hh_ggf_hbb_htt_kl2p45_kt1",
             "hh_ggf_hbb_htt_kl5_kt1",
@@ -204,6 +204,12 @@ def add_config(
             "radion_hh_ggf_hbb_htt_m1200_madgraph",
             "graviton_hh_ggf_hbb_htt_m450_madgraph",
             "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+        ]),
+
+        # TODO: merge with above block (using year=[2022, 2023]) once 2023 datasets are available
+        *if_era(run=3, year=2023, values=[
+            # ggf
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
         ]),
 
         # backgrounds
@@ -324,7 +330,7 @@ def add_config(
         ]),
 
         # sync
-        *if_era(run=3, year=2022, tag="preEE", sync=True, values=[
+        *if_era(run=3, year=[2022, 2023], sync=True, values=[
             "hh_ggf_hbb_htt_kl1_kt1_powheg",
         ]),
     ]
@@ -418,7 +424,7 @@ def add_config(
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
-    if run == 3 and not sync_mode:
+    if run == 3 and not sync_mode and year == 2022:  # TODO: remove year check once 2023 datasets are available
         # drell-yan
         cfg.x.dy_stitching = {
             "m50toinf": {
@@ -530,21 +536,25 @@ def add_config(
     ################################################################################################
 
     # common jec/jer settings configuration
-    # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201
-    # https://twiki.cern.ch/twiki/bin/view/CMS/JetResolution?rev=107
     if run == 2:
-        # TODO: check versions
+        # https://cms-jerc.web.cern.ch/Recommendations/#run-2
+        # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=204
+        # https://twiki.cern.ch/twiki/bin/view/CMS/JetResolution?rev=109
         jec_campaign = f"Summer19UL{year2}{campaign.x.postfix}"
         jec_version = {2016: "V7", 2017: "V5", 2018: "V5"}[year]
         jer_campaign = f"Summer{'20' if year == 2016 else '19'}UL{year2}{campaign.x.postfix}"
         jer_version = "JR" + {2016: "V3", 2017: "V2", 2018: "V2"}[year]
         jet_type = "AK4PFchs"
-    elif run == 3 and year == 2022:
-        # TODO: check versions
-        jec_campaign = f"Summer{year2}{campaign.x.postfix}_22Sep2023"
-        jec_version = {2022: "V2"}[year]
-        jer_campaign = f"Summer{year2}{campaign.x.postfix}_22Sep2023"
-        jer_version = "JR" + {2022: "V1"}[year]
+    elif run == 3:
+        # https://cms-jerc.web.cern.ch/Recommendations/#run-2
+        jerc_postfix = {2022: "_22Sep2023", 2023: "Prompt23"}[year]
+        jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
+        jec_version = {2022: "V2", 2023: "V1"}[year]
+        jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
+        # special "Run" fragment in 2023 jer campaign
+        if year == 2023:
+            jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
+        jer_version = "JR" + {2022: "V1", 2023: "V1"}[year]
         jet_type = "AK4PFPuppi"
     else:
         assert False
@@ -632,7 +642,7 @@ def add_config(
         # TODO: still correct? what about 2p5?
         cfg.x.tau_tagger = "DeepTau2017v2p1"
     elif run == 3:
-        # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3
+        # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3?rev=9
         cfg.x.tau_tagger = "DeepTau2018v2p5"
     else:
         assert False
@@ -673,6 +683,7 @@ def add_config(
 
     # names of electron correction sets and working points
     # (used in the electron_sf producer)
+    from columnflow.producer.cms.electron import ElectronSFConfig
     if run == 2:
         e_postfix = ""
         if year == 2016:
@@ -682,10 +693,14 @@ def add_config(
             f"{year}{e_postfix}",
             "wp80iso",
         )
-    elif run == 3 and year == 2022:
+    elif run == 3:
+        if year == 2022:
+            year_str = "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG"
+        elif year == 2023:
+            year_str = "2023PromptC" if campaign.has_tag("preBPix") else "2023PromptD"
         cfg.x.electron_sf_names = (
             "Electron-ID-SF",
-            "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            year_str,
             "wp80iso",
         )
     else:
@@ -697,6 +712,7 @@ def add_config(
 
     # names of muon correction sets and working points
     # (used in the muon producer)
+    from columnflow.producer.cms.muon import MuonSFConfig
     if run == 2:
         mu_postfix = ""
         if year == 2016:
@@ -745,6 +761,7 @@ def add_config(
             },
         })
     elif run == 3:
+        assert year == 2022
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22/
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE/
         # TODO later: complete WP when data becomes available
@@ -816,6 +833,7 @@ def add_config(
         "TimePtEta",
     ]
 
+    # TODO: what? what about run 2? really pnet??
     from columnflow.production.cms.btag import BTagSFConfig
     cfg.x.btag_sf = BTagSFConfig(
         correction_set="particleNet_shape",
@@ -1012,10 +1030,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-6ce37404"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7511f12e"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-6ce37404"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7511f12e"
     else:
         assert False
 
