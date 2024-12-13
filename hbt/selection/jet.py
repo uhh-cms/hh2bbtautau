@@ -207,7 +207,8 @@ def jet_selection(
             # the btag weight normalization requires a selection with everything but the bjet
             # selection, so add this step here
             # note: there is currently no b-tag discriminant cut at this point, so take jet_sel
-            "bjet": jet_sel,
+            "bjet_deepjet": jet_sel,
+            "bjet_pnet": jet_sel,  # no need in run 2
         },
         objects={
             "Jet": {

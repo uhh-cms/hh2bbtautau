@@ -712,7 +712,7 @@ def add_config(
         elif year == 2023:
             cmpgn = "2023PromptC" if campaign.has_tag("preBPix") else "2023PromptD"
         cfg.x.electron_sf_names = ElectronSFConfig(
-            correction="UL-Electron-ID-SF",
+            correction="Electron-ID-SF",
             campaign=cmpgn,
             working_point="wp80iso",
         )

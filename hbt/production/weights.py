@@ -24,7 +24,7 @@ np = maybe_import("numpy")
     mc_only=True,
 )
 def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for route in self[pu_weight].produces:
+    for route in self[pu_weight].produced_columns:
         weight_name = str(route)
         if not weight_name.startswith("pu_weight"):
             continue
