@@ -836,7 +836,7 @@ def add_config(
     # TODO: what? what about run 2? really pnet??
     from columnflow.production.cms.btag import BTagSFConfig
     cfg.x.btag_sf = BTagSFConfig(
-        correction_set="particleNet_shape",
+        correction_set="particleNet_shape",  # TODO:
         jec_sources=cfg.x.btag_sf_jec_sources,
         discriminator="btagPNetB",
     )

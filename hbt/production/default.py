@@ -11,7 +11,6 @@ from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
 from columnflow.util import maybe_import
 
-from hbt.production.features import features
 from hbt.production.weights import (
     normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight,
 )
@@ -24,12 +23,12 @@ ak = maybe_import("awkward")
 
 @producer(
     uses={
-        category_ids, features, stitched_normalization_weights, normalized_pu_weight,
+        category_ids, stitched_normalization_weights, normalized_pu_weight,
         normalized_btag_weights, tau_weights, electron_weights, muon_weights, trigger_weights,
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
     },
     produces={
-        category_ids, features, stitched_normalization_weights, normalized_pu_weight,
+        category_ids, stitched_normalization_weights, normalized_pu_weight,
         normalized_btag_weights, tau_weights, electron_weights, muon_weights, trigger_weights,
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
     },
@@ -37,9 +36,6 @@ ak = maybe_import("awkward")
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # category ids
     events = self[category_ids](events, **kwargs)
-
-    # features
-    events = self[features](events, **kwargs)
 
     # mc-only weights
     if self.dataset_inst.is_mc:

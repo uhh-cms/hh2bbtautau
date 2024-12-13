@@ -110,10 +110,19 @@ def default(
         # btag weights
         events = self[btag_weights](
             events,
-            ak.fill_none(results.x.jet_mask, False, axis=-1),
+            jet_mask=ak.fill_none(results.x.jet_mask, False, axis=-1),
             negative_b_score_log_mode="none",
             **kwargs,
         )
+
+    # create process ids
+    if self.process_ids_dy is not None:
+        events = self[self.process_ids_dy](events, **kwargs)
+    else:
+        events = self[process_ids](events, **kwargs)
+
+    # some cutflow features
+    events = self[cutflow_features](events, results.objects, **kwargs)
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
@@ -125,70 +134,15 @@ def default(
         [mask for step_name, mask in results.steps.items() if step_name != "bjet"],
     )
 
-    # create process ids
-    if self.process_ids_dy is not None:
-        events = self[self.process_ids_dy](events, **kwargs)
-    else:
-        events = self[process_ids](events, **kwargs)
-
-    # some cutflow features
-    events = self[cutflow_features](events, results.objects, **kwargs)
-
     # increment stats
-    weight_map = {
-        "num_events": Ellipsis,
-        "num_events_selected": event_sel,
-        "num_events_selected_nobjet": event_sel_nob,
-    }
-    group_map = {}
-    group_combinations = []
-    if self.dataset_inst.is_mc:
-        weight_map["sum_mc_weight"] = events.mc_weight
-        weight_map["sum_mc_weight_selected"] = (events.mc_weight, event_sel)
-        weight_map["sum_mc_weight_selected_nobjet"] = (events.mc_weight, event_sel_nob)
-        # pu weights with variations
-        for name in sorted(self[pu_weight].produces):
-            weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
-        # pdf and murmuf weights with variations
-        if not self.dataset_inst.has_tag("no_lhe_weights"):
-            for v in ["", "_up", "_down"]:
-                weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
-                weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
-                weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
-                weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
-        # btag weights
-        for name in sorted(self[btag_weights].produces):
-            if not name.startswith("btag_weight"):
-                continue
-            weight_map[f"sum_{name}"] = events[name]
-            weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
-            weight_map[f"sum_{name}_selected_nobjet"] = (events[name], event_sel_nob)
-            weight_map[f"sum_mc_weight_{name}_selected_nobjet"] = (events.mc_weight * events[name], event_sel_nob)
-        # groups
-        group_map = {
-            **group_map,
-            # per process
-            "process": {
-                "values": events.process_id,
-                "mask_fn": (lambda v: events.process_id == v),
-            },
-            # per jet multiplicity
-            "njet": {
-                "values": results.x.n_central_jets,
-                "mask_fn": (lambda v: results.x.n_central_jets == v),
-            },
-        }
-        # combinations
-        group_combinations.append(("process", "njet"))
-
-    events, results = self[increment_stats](
-        events,
-        results,
-        stats,
-        weight_map=weight_map,
-        group_map=group_map,
-        group_combinations=group_combinations,
-        **kwargs,
+    events, results = setup_and_increment_stats(
+        self,
+        events=events,
+        results=results,
+        stats=stats,
+        event_sel=event_sel,
+        event_sel_nob=event_sel_nob,
+        njets=results.x.n_central_jets,
     )
 
     return events, results
@@ -217,3 +171,198 @@ def default_init(self: Selector) -> None:
 
                 # stop after the first match
                 break
+
+
+empty = default.derive("empty", cls_dict={})
+
+
+@empty.init
+def empty_init(self: Selector) -> None:
+    super(empty, self).init_func()
+
+    # remove unused dependencies
+    unused = {
+        json_filter,
+        met_filters,
+        cutflow_features,
+        patch_ecalBadCalibFilter,
+        jet_selection,
+        lepton_selection,
+        trigger_selection,
+    }
+    self.uses -= unused
+    self.produces -= unused
+
+    # add custom columns
+    self.uses.add("Jet.phi")  # needed by vector behavior for accessing pt in btag_weights
+    self.produces |= {"channel_id", "leptons_os", "tau2_isolated"}
+
+
+@empty.call
+def empty_call(
+    self: Selector,
+    events: ak.Array,
+    stats: defaultdict,
+    **kwargs,
+) -> tuple[ak.Array, SelectionResult]:
+    """
+    An empty selection that does not perform selection steps but only invokes producers that are
+    necessary to create columns that are required downstream, e.g. for ProduceColumns with our
+    "default" producer.
+    """
+    from columnflow.columnar_util import set_ak_column
+
+    # ensure coffea behavior
+    events = self[attach_coffea_behavior](events, **kwargs)
+
+    # prepare the selection results that are updated at every step
+    results = SelectionResult()
+
+    # mc-only functions
+    if self.dataset_inst.is_mc:
+        events = self[mc_weight](events, **kwargs)
+
+        # pdf weights
+        if self.has_dep(pdf_weights):
+            events = self[pdf_weights](events, **kwargs)
+
+        # renormalization/factorization scale weights
+        if self.has_dep(murmuf_weights):
+            events = self[murmuf_weights](events, **kwargs)
+
+        # pileup weights
+        events = self[pu_weight](events, **kwargs)
+
+        # btag weights
+        events = self[btag_weights](
+            events,
+            jet_mask=abs(events.Jet["eta"]) < 2.5,
+            negative_b_score_log_mode="none",
+            **kwargs,
+        )
+
+    # create process ids
+    if self.process_ids_dy is not None:
+        events = self[self.process_ids_dy](events, **kwargs)
+    else:
+        events = self[process_ids](events, **kwargs)
+
+    # fake lepton selection results
+    events = set_ak_column(events, "channel_id", np.zeros(len(events), dtype=np.uint8))
+    events = set_ak_column(events, "leptons_os", np.zeros(len(events), dtype=bool))
+    events = set_ak_column(events, "tau2_isolated", np.zeros(len(events), dtype=bool))
+
+    # trivial selection mask capturing all events
+    results.event = np.ones(len(events), dtype=bool)
+
+    # increment stats
+    events, results = setup_and_increment_stats(
+        self,
+        events=events,
+        results=results,
+        stats=stats,
+        event_sel=results.event,
+        event_sel_nob=results.event,
+        njets=ak.num(events.Jet, axis=1),
+    )
+
+    return events, results
+
+
+def setup_and_increment_stats(
+    self: Selector,
+    *,
+    events: ak.Array,
+    results: SelectionResult,
+    stats: defaultdict,
+    event_sel: np.ndarray | ak.Array,
+    event_sel_nob: np.ndarray | ak.Array | None = None,
+    njets: np.ndarray | ak.Array | None = None,
+    **kwargs,
+) -> tuple[ak.Array, SelectionResult]:
+    """
+    Helper function that sets up the weight and group maps for the increment_stats task, invokes it
+    and returns the updated events and results objects.
+
+    :param self: The selector instance.
+    :param events: The events array.
+    :param results: The current selection results.
+    :param stats: The stats dictionary.
+    :param event_sel: The general event selection mask.
+    :param event_sel_nob: The event selection mask without the bjet step.
+    :param njets: The number of central jets.
+    :return: The updated events and results objects in a tuple.
+    """
+    # start creating a weight, group and group combination map
+    weight_map = {
+        "num_events": Ellipsis,
+        "num_events_selected": event_sel,
+    }
+    if event_sel_nob is not None:
+        weight_map["num_events_selected_nobjet"] = event_sel_nob
+    group_map = {}
+    group_combinations = []
+
+    # add mc info
+    if self.dataset_inst.is_mc:
+        weight_map["sum_mc_weight"] = events.mc_weight
+        weight_map["sum_mc_weight_selected"] = (events.mc_weight, event_sel)
+        if event_sel_nob is not None:
+            weight_map["sum_mc_weight_selected_nobjet"] = (events.mc_weight, event_sel_nob)
+
+        # pu weights with variations
+        for route in sorted(self[pu_weight].produced_columns):
+            name = str(route)
+            weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
+
+        # pdf weights with variations
+        if self.has_dep(pdf_weights):
+            for v in ["", "_up", "_down"]:
+                weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
+                weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
+
+        # mur/muf weights with variations
+        if self.has_dep(murmuf_weights):
+            for v in ["", "_up", "_down"]:
+                weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
+                weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
+
+        # btag weights
+        for route in sorted(self[btag_weights].produced_columns):
+            name = str(route)
+            if not name.startswith("btag_weight"):
+                continue
+            weight_map[f"sum_{name}"] = events[name]
+            weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
+            if event_sel_nob is not None:
+                weight_map[f"sum_{name}_selected_nobjet"] = (events[name], event_sel_nob)
+                weight_map[f"sum_mc_weight_{name}_selected_nobjet"] = (events.mc_weight * events[name], event_sel_nob)
+
+        # groups
+        group_map = {
+            **group_map,
+            # per process
+            "process": {
+                "values": events.process_id,
+                "mask_fn": (lambda v: events.process_id == v),
+            },
+        }
+        # per jet multiplicity
+        if njets is not None:
+            group_map["njet"] = {
+                "values": njets,
+                "mask_fn": (lambda v: njets == v),
+            }
+
+        # combinations
+        group_combinations.append(("process", "njet"))
+
+    return self[increment_stats](
+        events,
+        results,
+        stats,
+        weight_map=weight_map,
+        group_map=group_map,
+        group_combinations=group_combinations,
+        **kwargs,
+    )
