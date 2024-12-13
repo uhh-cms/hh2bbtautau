@@ -136,19 +136,14 @@ def default(
     event_sel = reduce(and_, results.steps.values())
     results.event = event_sel
 
-    # combined event seleciton after all but the bjet step
-    tagger_name = btag_weights_deepjet.tagger_name
-    event_sel_nob_deepjet = results.steps[f"all_but_bjet_{tagger_name}"] = reduce(and_, [
-        mask for step_name, mask in results.steps.items()
-        if step_name != f"bjet_{tagger_name}"
-    ])
-    event_sel_nob_pnet = None
-    if self.has_dep(btag_weights_pnet):
-        tagger_name = btag_weights_pnet.tagger_name
-        event_sel_nob_pnet = results.steps[f"all_but_bjet_{tagger_name}"] = reduce(and_, [
+    # combined event selection after all but the bjet step
+    def event_sel_nob(btag_weight_cls):
+        tagger_name = btag_weights_deepjet.tagger_name
+        var_sel = results.steps[f"all_but_bjet_{tagger_name}"] = reduce(and_, [
             mask for step_name, mask in results.steps.items()
             if step_name != f"bjet_{tagger_name}"
         ])
+        return var_sel
 
     # increment stats
     events, results = setup_and_increment_stats(
@@ -157,8 +152,10 @@ def default(
         results=results,
         stats=stats,
         event_sel=event_sel,
-        event_sel_nob_deepjet=event_sel_nob_deepjet,
-        event_sel_nob_pnet=event_sel_nob_pnet,
+        event_sel_variations={
+            "nob_deepjet": event_sel_nob(btag_weights_deepjet),
+            "nob_pnet": event_sel_nob(btag_weights_pnet) if self.has_dep(btag_weights_pnet) else None,
+        },
         njets=results.x.n_central_jets,
     )
 
@@ -287,8 +284,10 @@ def empty_call(
         results=results,
         stats=stats,
         event_sel=results.event,
-        event_sel_nob_deepjet=results.event,
-        event_sel_nob_pnet=results.event if self.has_dep(btag_weights_pnet) else None,
+        event_sel_variations={
+            "nob_deepjet": results.event,
+            "nob_pnet": results.event if self.has_dep(btag_weights_pnet) else None,
+        },
         njets=ak.num(events.Jet, axis=1),
     )
 
@@ -302,8 +301,7 @@ def setup_and_increment_stats(
     results: SelectionResult,
     stats: defaultdict,
     event_sel: np.ndarray | ak.Array,
-    event_sel_nob_deepjet: np.ndarray | ak.Array | None = None,
-    event_sel_nob_pnet: np.ndarray | ak.Array | None = None,
+    event_sel_variations: dict[str, np.ndarray | ak.Array] | None = None,
     njets: np.ndarray | ak.Array | None = None,
     **kwargs,
 ) -> tuple[ak.Array, SelectionResult]:
@@ -316,20 +314,22 @@ def setup_and_increment_stats(
     :param results: The current selection results.
     :param stats: The stats dictionary.
     :param event_sel: The general event selection mask.
-    :param event_sel_nob_deepjet: The event selection mask without the bjet step for deepjet.
+    :param event_sel_variations: Named variations of the event selection mask for additional stats.
     :param event_sel_nob_pnet: The event selection mask without the bjet step for pnet.
     :param njets: The number of central jets.
     :return: The updated events and results objects in a tuple.
     """
+    if event_sel_variations is None:
+        event_sel_variations = {}
+    event_sel_variations = {n: s for n, s in event_sel_variations.items() if s is not None}
+
     # start creating a weight, group and group combination map
     weight_map = {
         "num_events": Ellipsis,
         "num_events_selected": event_sel,
     }
-    if event_sel_nob_deepjet is not None:
-        weight_map["num_events_selected_nobjet_deepjet"] = event_sel_nob_deepjet
-    if event_sel_nob_pnet is not None:
-        weight_map["num_events_selected_nobjet_pnet"] = event_sel_nob_pnet
+    for var_name, var_sel in event_sel_variations.items():
+        weight_map[f"num_events_selected_{var_name}"] = var_sel
     group_map = {}
     group_combinations = []
 
@@ -337,10 +337,8 @@ def setup_and_increment_stats(
     if self.dataset_inst.is_mc:
         weight_map["sum_mc_weight"] = events.mc_weight
         weight_map["sum_mc_weight_selected"] = (events.mc_weight, event_sel)
-        if event_sel_nob_deepjet is not None:
-            weight_map["sum_mc_weight_selected_nobjet_deepjet"] = (events.mc_weight, event_sel_nob_deepjet)
-        if event_sel_nob_pnet is not None:
-            weight_map["sum_mc_weight_selected_nobjet_pnet"] = (events.mc_weight, event_sel_nob_pnet)
+        for var_name, var_sel in event_sel_variations.items():
+            weight_map[f"sum_mc_weight_selected_{var_name}"] = (events.mc_weight, var_sel)
 
         # pu weights with variations
         for route in sorted(self[pu_weight].produced_columns):
@@ -364,17 +362,14 @@ def setup_and_increment_stats(
             if not self.has_dep(prod):
                 continue
             for route in sorted(self[prod].produced_columns):
-                name = str(route)
-                if not name.startswith(prod.weight_name):
+                weight_name = str(route)
+                if not weight_name.startswith(prod.weight_name):
                     continue
-                weight_map[f"sum_{name}"] = events[name]
-                weight_map[f"sum_{name}_selected"] = (events[name], event_sel)
-                if event_sel_nob_deepjet is not None:
-                    weight_map[f"sum_{name}_selected_nobjet_deepjet"] = (events[name], event_sel_nob_deepjet)
-                    weight_map[f"sum_mc_weight_{name}_selected_nobjet_deepjet"] = (events.mc_weight * events[name], event_sel_nob_deepjet)  # noqa: E501
-                if event_sel_nob_pnet is not None:
-                    weight_map[f"sum_{name}_selected_nobjet_pnet"] = (events[name], event_sel_nob_pnet)
-                    weight_map[f"sum_mc_weight_{name}_selected_nobjet_pnet"] = (events.mc_weight * events[name], event_sel_nob_pnet)  # noqa: E501
+                weight_map[f"sum_{weight_name}"] = events[weight_name]
+                weight_map[f"sum_{weight_name}_selected"] = (events[weight_name], event_sel)
+                for var_name, var_sel in event_sel_variations.items():
+                    weight_map[f"sum_{weight_name}_selected_{var_name}"] = (events[weight_name], var_sel)
+                    weight_map[f"sum_mc_weight_{weight_name}_selected_{var_name}"] = (events.mc_weight * events[weight_name], var_sel)  # noqa: E501
 
         # groups
         group_map = {

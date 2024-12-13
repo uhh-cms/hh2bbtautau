@@ -110,54 +110,46 @@ def _normalized_btag_weights_setup(self: Producer, reqs: dict, inputs: dict, rea
     )
 
     # get the unique process ids in that dataset
-    key = f"sum_mc_weight_selected_nobjet_{self.tagger_name}_per_process_and_njet"
+    key = f"sum_mc_weight_selected_nob_{self.tagger_name}_per_process_and_njet"
     self.unique_process_ids = list(map(int, selection_stats[key].keys()))
 
     # get the maximum numbers of jets
     max_n_jets = max(map(int, sum((list(d.keys()) for d in selection_stats[key].values()), [])))
 
-    # helper to get numerators and denominators
-    def numerator_per_pid(pid):
-        key = f"sum_mc_weight_selected_nobjet_{self.tagger_name}_per_process"
+    # helper to get sums of mc weights per pid and njet, with an optional weight name
+    def sum_per_pid(pid, weight_name="", /):
+        if weight_name:
+            weight_name += "_"
+        key = f"sum_mc_weight_{weight_name}selected_nob_{self.tagger_name}_per_process"
         return selection_stats[key].get(str(pid), 0.0)
 
-    def denominator_per_pid(weight_name, pid):
-        key = f"sum_mc_weight_{weight_name}_selected_nobjet_{self.tagger_name}_per_process"
-        return selection_stats[key].get(str(pid), 0.0)
+    def sum_per_pid_njet(pid, n_jets, weight_name="", /):
+        if weight_name:
+            weight_name += "_"
+        key = f"sum_mc_weight_{weight_name}selected_nob_{self.tagger_name}_per_process_and_njet"
+        return selection_stats[key].get(str(pid), {}).get(str(n_jets), 0.0)
 
-    def numerator_per_pid_njet(pid, n_jets):
-        key = f"sum_mc_weight_selected_nobjet_{self.tagger_name}_per_process_and_njet"
-        d = selection_stats[key].get(str(pid), {})
-        return d.get(str(n_jets), 0.0)
-
-    def denominator_per_pid_njet(weight_name, pid, n_jets):
-        key = f"sum_mc_weight_{weight_name}_selected_nobjet_{self.tagger_name}_per_process_and_njet"
-        d = selection_stats[key].get(str(pid), {})
-        return d.get(str(n_jets), 0.0)
-
-    # extract the ratio per weight and pid
-    self.ratio_per_pid = {
-        weight_name: {
-            pid: safe_div(numerator_per_pid(pid), denominator_per_pid(weight_name, pid))
+    # ratio per weight and pid
+    # extract the ratio per weight, pid and also the jet multiplicity, using the latter as in index
+    self.ratio_per_pid = {}
+    self.ratio_per_pid_njet = {}
+    for route in self[self.btag_weights_cls].produced_columns:
+        weight_name = str(route)
+        if not weight_name.startswith(self.btag_weights_cls.weight_name):
+            continue
+        # normal ratio
+        self.ratio_per_pid[weight_name] = {
+            pid: safe_div(sum_per_pid(pid), sum_per_pid(pid, weight_name))
             for pid in self.unique_process_ids
         }
-        for weight_name in (str(route) for route in self[self.btag_weights_cls].produced_columns)
-        if weight_name.startswith(self.btag_weights_cls.weight_name)
-    }
-
-    # extract the ratio per weight, pid and also the jet multiplicity, using the latter as in index
-    # for a lookup table (since it naturally starts at 0)
-    self.ratio_per_pid_njet = {
-        weight_name: {
+        # per jet multiplicity ratio
+        self.ratio_per_pid_njet[weight_name] = {
             pid: np.array([
-                safe_div(numerator_per_pid_njet(pid, n_jets), denominator_per_pid_njet(weight_name, pid, n_jets))
+                safe_div(sum_per_pid_njet(pid, n_jets), sum_per_pid_njet(pid, n_jets, weight_name))
                 for n_jets in range(max_n_jets + 1)
             ])
             for pid in self.unique_process_ids
         }
-        for weight_name in (str(route) for route in self[self.btag_weights_cls].produced_columns)
-        if weight_name.startswith(self.btag_weights_cls.weight_name)
-    }
 
 
 # derive for btaggers

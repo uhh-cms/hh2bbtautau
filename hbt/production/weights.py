@@ -105,12 +105,8 @@ def normalized_pu_weight_setup(
 
 
 @producer(
-    uses={
-        "pdf_weight", "pdf_weight_up", "pdf_weight_down",
-    },
-    produces={
-        "normalized_pdf_weight", "normalized_pdf_weight_up", "normalized_pdf_weight_down",
-    },
+    uses={"pdf_weight{,_up,_down}"},
+    produces={"normalized_pdf_weight{,_up,_down}"},
     # only run on mc
     mc_only=True,
 )
@@ -158,12 +154,8 @@ def normalized_pdf_weight_setup(
 
 
 @producer(
-    uses={
-        "murmuf_weight", "murmuf_weight_up", "murmuf_weight_down",
-    },
-    produces={
-        "normalized_murmuf_weight", "normalized_murmuf_weight_up", "normalized_murmuf_weight_down",
-    },
+    uses={"murmuf_weight{,_up,_down}"},
+    produces={"normalized_murmuf_weight{,_up,_down}"},
     # only run on mc
     mc_only=True,
 )

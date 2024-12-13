@@ -922,8 +922,10 @@ def add_config(
                 cfg,
                 f"jec_{jec_source}",
                 {
-                    "normalized_btag_weight": "normalized_btag_weight_{name}",
-                    "normalized_njet_btag_weight": "normalized_njet_btag_weight_{name}",
+                    "normalized_btag_deepjet_weight": "normalized_btag_deepjet_weight_{name}",
+                    "normalized_njet_btag_deepjet_weight": "normalized_njet_btag_deepjet_weight_{name}",
+                    "normalized_btag_pnet_weight": "normalized_btag_pnet_weight_{name}",
+                    "normalized_njet_btag_pnet_weight": "normalized_njet_btag_pnet_weight_{name}",
                 },
             )
 
@@ -1000,8 +1002,9 @@ def add_config(
             cfg,
             f"btag_{unc}",
             {
-                "normalized_btag_weight": f"normalized_btag_weight_{unc}_" + "{direction}",
-                "normalized_njet_btag_weight": f"normalized_njet_btag_weight_{unc}_" + "{direction}",
+                "normalized_btag_deepjet_weight": f"normalized_btag_deepjet_weight_{unc}_" + "{direction}",
+                "normalized_njet_btag_deepjet_weight": f"normalized_njet_btag_deepjet_weight_{unc}_" + "{direction}",
+                # TODO: pnet here, or is this another shift? probably the latter
             },
         )
 
@@ -1168,7 +1171,7 @@ def add_config(
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
-        "normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
+        # "normalized_njet_btag_deepjet_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
