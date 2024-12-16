@@ -98,7 +98,7 @@ def default(
 
         # pdf weights
         if self.has_dep(pdf_weights):
-            events = self[pdf_weights](events, **kwargs)
+            events = self[pdf_weights](events, outlier_log_mode="debug", **kwargs)
 
         # renormalization/factorization scale weights
         if self.has_dep(murmuf_weights):
