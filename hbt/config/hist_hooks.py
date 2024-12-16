@@ -872,6 +872,7 @@ def add_hist_hooks(config: od.Config) -> None:
 
             pcovs = []
             # minuit_pcovs = []
+            chi2_infos = {}
 
             # loop over bins and calculate the morphed value
             for cat_ in range(len(model_hists[0].axes[0].centers)):
@@ -1017,6 +1018,7 @@ def add_hist_hooks(config: od.Config) -> None:
         morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
 
         # insert the new hist into the hists dict
+        new_proc.x.chi2_infos = chi2_infos
         hist[new_proc] = new_hist
 
         # insert values into the new histogram

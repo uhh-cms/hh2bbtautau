@@ -837,9 +837,14 @@ def plot_3d_morphing(
             # morphed histogram? The error of the bin value of the non-morphed histogram?
             # might depend on which method is chosen above.
 
-            # TODO: implement my solution: calculate the chi2 for the morphed histograms for each point
-            # in the hist_hooks and propagate the chi2 values to the plotting function as auxiliary data
-            # in the process instance from the hists dictionary
+            # TODO: implement my solution: propagate the points used for the fit from the hist_hooks
+            # then calculate the chi2 for each point with the corresponding guidance points
+            # BUT IS IT EVEN NECESSARY?
+
+            # -> for which fit do we want the chi 2? fit all the points in the histogram (= different coupling values)
+            # without caring about how they were created? or only the points that were used for the fit of the histogram
+            # at this specific coupling constant value (=points used for the morphing)?
+
 
             chi2 = np.sum((hists_to_plot[vbf_point["name"]].values() - non_morphed_hists["name"].values())**2 /
                 hists_to_plot[vbf_point["name"]].variances())
