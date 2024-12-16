@@ -473,15 +473,15 @@ def add_config(
         },
     }
     cfg.x.default_custom_style_config = "small_legend"
-
     cfg.x.default_blinding_threshold = 3e-4
 
     ################################################################################################
     # luminosity and normalization
     ################################################################################################
 
-    # lumi values in inverse pb
-    # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2?rev=2#Combination_and_correlations
+    # lumi values in 1/pb (= 1000/fb)
+    # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2?rev=7
+    # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun3?rev=25
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     # difference pre-post VFP: https://cds.cern.ch/record/2854610/files/DP2023_006.pdf
     if year == 2016 and campaign.has_tag("preVFP"):
@@ -514,20 +514,38 @@ def add_config(
         cfg.x.luminosity = Number(26_671.7, {
             "lumi_13p6TeV_correlated": 0.014j,
         })
-    elif year == 2023:
-        cfg.x.luminosity = Number(27_208, {
-            "lumi_13p6TeV_correlated": 0.0j,
+    elif year == 2023 and campaign.has_tag("preBPix"):
+        cfg.x.luminosity = Number(17_794, {
+            "lumi_13p6TeV_correlated": 0.013j,
         })
-    elif year == 2024:
-        cfg.x.luminosity = Number(0, {
-            "lumi_13p6TeV_correlated": 0.0j,
+    elif year == 2023 and campaign.has_tag("postBPix"):
+        cfg.x.luminosity = Number(9_451, {
+            "lumi_13p6TeV_correlated": 0.013j,
         })
     else:
         assert False
 
     # minimum bias cross section in mb (milli) for creating PU weights, values from
-    # https://twiki.cern.ch/twiki/bin/view/CMS/PileupJSONFileforData?rev=45#Recommended_cross_section
+    # https://twiki.cern.ch/twiki/bin/view/CMS/PileupJSONFileforData?rev=52#Recommended_cross_section
     cfg.x.minbias_xs = Number(69.2, 0.046j)
+
+    ################################################################################################
+    # met settings
+    ################################################################################################
+
+    if run == 2:
+        cfg.x.met_name = "MET"
+        cfg.x.raw_met_name = "RawMET"
+    elif run == 3:
+        cfg.x.met_name = "PuppiMET"
+        cfg.x.raw_met_name = "RawPuppiMET"
+    else:
+        assert False
+
+    # name of the MET phi correction set
+    # (used in the met_phi calibrator)
+    if run == 2:
+        cfg.x.met_phi_correction_set = r"{variable}_metphicorr_pfmet_{data_source}"
 
     ################################################################################################
     # jet settings
@@ -633,19 +651,6 @@ def add_config(
     })
 
     ################################################################################################
-    # MET settings
-    ################################################################################################
-
-    if run == 2:
-        cfg.x.met_name = "MET"
-        cfg.x.raw_met_name = "RawMET"
-    elif run == 3:
-        cfg.x.met_name = "PuppiMET"
-        cfg.x.raw_met_name = "RawPuppiMET"
-    else:
-        assert False
-
-    ################################################################################################
     # tau settings
     ################################################################################################
 
@@ -736,15 +741,6 @@ def add_config(
         )
     else:
         assert False
-
-    ################################################################################################
-    # met settings
-    ################################################################################################
-
-    # name of the MET phi correction set
-    # (used in the met_phi calibrator)
-    if run == 2:
-        cfg.x.met_phi_correction_set = r"{variable}_metphicorr_pfmet_{data_source}"
 
     ################################################################################################
     # b tagging
@@ -912,8 +908,8 @@ def add_config(
             {
                 "Jet.pt": "Jet.pt_{name}",
                 "Jet.mass": "Jet.mass_{name}",
-                "MET.pt": "MET.pt_{name}",
-                "MET.phi": "MET.phi_{name}",
+                f"{cfg.x.met_name}.pt": f"{cfg.x.met_name}.pt_{{name}}",
+                f"{cfg.x.met_name}.phi": f"{cfg.x.met_name}.phi_{{name}}",
             },
         )
         # TODO: check the JEC de/correlation across years and the interplay with btag weights
@@ -937,8 +933,8 @@ def add_config(
         {
             "Jet.pt": "Jet.pt_{name}",
             "Jet.mass": "Jet.mass_{name}",
-            "MET.pt": "MET.pt_{name}",
-            "MET.phi": "MET.phi_{name}",
+            f"{cfg.x.met_name}.pt": f"{cfg.x.met_name}.pt_{{name}}",
+            f"{cfg.x.met_name}.phi": f"{cfg.x.met_name}.phi_{{name}}",
         },
     )
 
@@ -951,8 +947,8 @@ def add_config(
             {
                 "Tau.pt": "Tau.pt_{name}",
                 "Tau.mass": "Tau.mass_{name}",
-                "MET.pt": "MET.pt_{name}",
-                "MET.phi": "MET.phi_{name}",
+                f"{cfg.x.met_name}.pt": f"{cfg.x.met_name}.pt_{{name}}",
+                f"{cfg.x.met_name}.phi": f"{cfg.x.met_name}.phi_{{name}}",
             },
         )
 
@@ -1055,7 +1051,7 @@ def add_config(
         assert False
 
     # common files
-    # lumi files
+    # (versions in the end are for hashing in cases where file contents changed but paths did not)
     add_external("lumi", {
         "golden": {
             2016: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt", "v1"),  # noqa
@@ -1143,7 +1139,7 @@ def add_config(
             "Electron.*",
             "Muon.*",
             "Tau.*",
-            "MET.{pt,phi,significance,covXX,covXY,covYY}",
+            f"{cfg.x.met_name}.{{pt,phi,significance,covXX,covXY,covYY}}",
             "PV.npvs",
             "FatJet.*",
             # keep all columns added during selection, but skip cutflow feature
@@ -1171,6 +1167,7 @@ def add_config(
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
+        # TODO: enable again once we have btag cuts
         # "normalized_njet_btag_deepjet_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
@@ -1260,7 +1257,7 @@ def add_config(
 
             # loop though files and interpret paths as lfns
             return [
-                lfn_base.child(basename, type="f").path
+                "/" + lfn_base.child(basename, type="f").path.lstrip("/")
                 for basename in lfn_base.listdir(pattern="*.root")
             ]
 
