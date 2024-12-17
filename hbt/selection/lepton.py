@@ -213,15 +213,6 @@ def muon_selection(
         assert abs(trigger.legs[0].pdg_id) == 13
         # match leg 0
         matches_leg0 = trigger_object_matching(events.Muon, events.TrigObj[leg_masks[0]])
-        if mumu_selection:
-            # TODO: check with Jona if the first Muon matched to trigger
-            # is the one with highest pt before or after selection cuts
-            matches_leg0 = ak.where(
-                ak.local_index(events.Muon) == 0,
-                trigger_object_matching(events.Muon, events.TrigObj[leg_masks[0]]),
-                False,
-            )
-            matches_second_muon = ~matches_leg0
     elif is_cross:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) == 2
@@ -232,6 +223,9 @@ def muon_selection(
         matches_leg0 = events.Muon.pt > -1
 
     # pt sorted indices for converting masks to indices
+    # TODO: Why not local index? they should be sorted anyway so yes the results should be the same
+    # but if there is a problem with the sorting, we are selecting the wrong muons, since the
+    # masks below are created with the default sorting
     sorted_indices = ak.argsort(events.Muon.pt, axis=-1, ascending=False)
 
     # default muon mask, only required for single and cross triggers with muon leg
@@ -251,10 +245,34 @@ def muon_selection(
             (events.Muon.pt > min_pt)
         )
 
-        default_mask = default_mask_wo_trigger & matches_leg0
-
         if mumu_selection:
+            # for mumu selection, the matched muon should the one with the highest pt among the two
+            # otherwise selected muons. We check the number of muons only afterwards but should still
+            # apply the trigger matching to only selected muons
+
+            # first mask the array with the default mask without trigger, the non-matched muon will
+            # become None and will return False in the trigger matching and be put at the end of the
+            # list when sorted by pt
+            masked_muons = ak.mask(events.Muon, default_mask_wo_trigger)
+
+            # then sort the selected muons by pt to push the non-selected ones to the end
+            sorted_masked_muons = masked_muons[ak.argsort(masked_muons.pt, ascending=False)]
+
+            # apply trigger matching to the first muon of the selected muons
+            matches_first_selected_muons = ak.where(
+                ak.local_index(sorted_masked_muons) == 0,
+                trigger_object_matching(sorted_masked_muons, events.TrigObj[leg_masks[0]]),
+                False,
+            )
+
+            # bring the muons back in the original position in the array
+            matches_leg0 = matches_first_selected_muons[ak.argsort(ak.argsort(masked_muons.pt, ascending=False))]
+
+            # for mumu selection, the second muon should not be the same as the first one
+            matches_second_muon = ~matches_leg0
             default_mask_second_muon = default_mask_wo_trigger & matches_second_muon
+
+        default_mask = default_mask_wo_trigger & matches_leg0
 
         # convert to sorted indices
         default_indices = sorted_indices[default_mask[sorted_indices]]
@@ -601,8 +619,6 @@ def lepton_selection(
             self.dataset_inst.is_mc or
             self.dataset_inst.has_tag("mumu")
         ):
-            # TODO: Ask Jona if trigger should be matched to the muon with highest pt before or after selection cuts
-            # muon selection
             first_muon_indices, second_muon_indices, muon_veto_indices = self[muon_selection](
                 events,
                 trigger,
@@ -638,7 +654,6 @@ def lepton_selection(
             # store global variables
             tau2_isolated = ak.where(is_mumu, is_iso, tau2_isolated)
             leptons_os = ak.where(is_mumu, is_os, leptons_os)
-            print("number events in mumu channel", ak.sum(is_mumu))
 
         # emu channel
         if (
@@ -713,7 +728,7 @@ def lepton_selection(
             # store global variables
             tau2_isolated = ak.where(is_emu, is_iso, tau2_isolated)
             leptons_os = ak.where(is_emu, is_os, leptons_os)
-            print("number events in emu channel", ak.sum(is_emu))
+            # print("number events in emu channel", ak.sum(is_emu))
 
     # some final type conversions
     channel_id = ak.values_astype(channel_id, np.uint8)
