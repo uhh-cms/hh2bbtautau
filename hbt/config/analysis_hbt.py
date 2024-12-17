@@ -179,8 +179,8 @@ add_lazy_config(
 
 # 2023, preBPix
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_v12",
-    campaign_attr="campaign_run3_2023_preBPix_nano_v12",
+    campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_v13",
+    campaign_attr="campaign_run3_2023_preBPix_nano_v13",
     config_name="run3_2023_preBPix_sync",
     config_id=5007,
     sync_mode=True,
@@ -188,8 +188,8 @@ add_lazy_config(
 
 # 2023, postBPix
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_v12",
-    campaign_attr="campaign_run3_2023_postBPix_nano_v12",
+    campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_v13",
+    campaign_attr="campaign_run3_2023_postBPix_nano_v13",
     config_name="run3_2023_postBPix_sync",
     config_id=5008,
     sync_mode=True,
