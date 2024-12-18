@@ -104,8 +104,10 @@ import order as od
 from hbt.config.util import Trigger, TriggerLeg
 
 # TODO: better use the name or the Trig_obj_id for the keys?
-# Use the CCLub names for the trigger bits
+# Use the CCLub names for the trigger bits and improve them when necessary
 trigger_bit_matching = {
+    # checked with https://github.com/cms-sw/cmssw/blob/CMSSW_13_0_X/PhysicsTools/NanoAOD/python/triggerObjects_cff.py
+    # and in particular https://github.com/cms-sw/cmssw/blob/2defd844e96613d2438b690d10b79c773e02ab57/PhysicsTools/NanoAOD/python/triggerObjects_cff.py  # noqa
     "NanoAODv12": {
         # electron legs
         "Electron": {
@@ -172,10 +174,10 @@ trigger_bit_matching = {
             "4PFCentralJetTightIDPt35": 16,  # 4
             "QuadCentralJet30": 32,  # 5
             "2PixelOnlyPFCentralJetTightIDPt40": 64,  # 6
-            "VBFIo": 128,  # 7
+            "L1sTripleJetVBF_orHTT_orDoubleJet_orSingleJet": 128,  # 7
             "3PFCentralJetTightIDPt40": 256,  # 8
             "3PFCentralJetTightIDPt45": 512,  # 9
-            "QuadJetsHT": 1024,  # 10
+            "L1sQuadJetsHT": 1024,  # 10
             "BTagCaloDeepCSVp17Double": 2048,  # 11
             "PFCentralJetLooseIDQuad30": 4096,  # 12
             "1PFCentralJetLooseID75": 8192,  # 13
@@ -183,8 +185,129 @@ trigger_bit_matching = {
             "3PFCentralJetLooseID45": 32768,  # 15
             "4PFCentralJetLooseID40": 65536,  # 16
             "DoubleTau+Jet": 131072,  # 17
-            "VBFcrossCleanedDeepTauPFTau)": 262144,  # 18
-            "VBFcrossCleanedDijet": 524288,  # 19
+            "VBFcrossCleanedDeepTauPFTau": 262144,  # 18  TODO: change name? idea comes from v14
+            "VBFcrossCleanedUsingDijetCorr": 524288,  # 19  TODO: change name? idea comes from v14
+            "MonitoringMuon+Tau+Jet": 1048576,  # 20
+            "2PFCentralJetTightIDPt50": 2097152,  # 21
+            "1PixelOnlyPFCentralJetTightIDPt60": 4194304,  # 22
+            "1PFCentralJetTightIDPt70": 8388608,  # 23
+            "BTagPFDeepJet1p5Single": 16777216,  # 24
+            "BTagPFDeepJet4p5Triple": 33554432,  # 25
+            "2BTagSumOR2BTagMeanPaths": 67108864,  # 26
+            "2/1PixelOnlyPFCentralJetTightIDPt20/50": 134217728,  # 27
+            "2PFCentralJetTightIDPt30": 268435456,  # 28
+            "1PFCentralJetTightIDPt60": 536870912,  # 29
+            "PF2CentralJetPt30PNet2BTagMean0p50": 1073741824,  # 30
+        },
+    },
+    # v13 not done, pb e.g. for the Tau leg, where different bits have same name
+    # see: https://github.com/cms-sw/cmssw/blob/b8c94e8ceb9c8060a613aa1f2f5d327db2e8cee5/PhysicsTools/NanoAOD/python/triggerObjects_cff.py#L162C11-L163C64  # noqa
+    # or in general the 13_3_X branch of cmssw https://github.com/cms-sw/cmssw/blob/CMSSW_13_3_X/PhysicsTools/NanoAOD/python/triggerObjects_cff.py  # noqa
+
+    # v14
+    # from https://github.com/cms-sw/cmssw/tree/f50cf84669608dbe67fd8430660abe651d5b46fd/PhysicsTools/NanoAOD/python/triggerObjects_cff.py  # noqa
+    # last update in https://github.com/cms-sw/cmssw/blob/CMSSW_14_0_X/PhysicsTools/NanoAOD/python/triggerObjects_cff.py
+    "NanoAODv14": {
+        # electron legs
+        "Electron": {
+            "CaloIdLTrackIdLIsoVL": 1,  # 0
+            "WPTightTrackIso": 2,  # 1
+            "WPLooseTrackIso": 4,  # 2
+            "OverlapFilterPFTau": 8,  # 3
+            "DiElectronLeg1": 16,  # 4
+            "DiElectronLeg2": 32,  # 5
+            "MuEle": 64,  # 6
+            "EleTau": 128,  # 7
+            "TripleElectron": 256,  # 8
+            "SingleMuonDiEle": 512,  # 9
+            "DiMuonSingleEle": 1024,  # 10
+            "SingleEle_L1DoubleAndSingleEle": 2048,  # 11
+            "SingleEle_CaloIdVT_GsfTrkIdT": 4096,  # 12
+            "SingleEle_PFJet": 8192,  # 13
+            "Photon175_Photon200": 16384,  # 14
+            "DoubleEle_CaloIdL_MW_seeded": 32768,  # 15
+            "DoubleEle_CaloIdL_MW_unseeded": 65536,  # 16
+            "EleTauPNet": 131072,  # 17
+        },
+        # muon legs
+        "Muon": {
+            "TrkIsoVVL": 1,  # 0
+            "Iso": 2,  # 1
+            "OverlapFilterPFTau": 4,  # 2
+            "SingleMuon": 8,  # 3
+            "DiMuon": 16,  # 4
+            "MuEle": 32,  # 5
+            "MuTau": 64,  # 6
+            "TripleMuon": 128,  # 7
+            "DiMuonSingleEle": 256,  # 8
+            "SingleMuonDiEle": 512,  # 9
+            "Mu50": 1024,  # 10
+            "Mu100": 2048,  # 11
+            "SingleMuonSinglePhoton": 4096,  # 12
+            "MuTauPNet": 8192,  # 13
+        },
+        # tau legs
+        "Tau": {
+            "Loose": 1,  # 0
+            "Medium": 2,  # 1
+            "Tight": 4,  # 2
+            "DeepTau": 8,  # 3
+            "PNet": 16,  # 4
+            "ChargedIso": 32,  # 5
+            "Dxy": 64,  # 6
+            "ETauFilter": 128,  # 7
+            "MuTauFilter": 256,  # 8
+            "SingleTau": 512,  # 9
+            "VBFDiTau": 1024,  # 10
+            "DiTau": 2048,  # 11
+            "OverlapFilterIsoEle": 4096,  # 12  # TODO: change name? not overlap filter if PNet, just EleTau
+            "OverlapFilterIsoMu": 8192,  # 13  # TODO: change name? not overlap filter if PNet, just MuTau
+            "DiTauAndPFJet": 16384,  # 14
+            "ETauDisplaced": 32768,  # 15
+            "MuTauDisplaced": 65536,  # 16
+            "DiTauDisplaced": 131072,  # 17
+            "Monitoring": 262144,  # 18
+            "MonitoringForVBFIsoTau": 524288,  # 19
+            "MonitoringDiTauAndPFJet": 1048576,  # 20
+            "MonitoringMuTauDisplaced": 2097152,  # 21
+            "OneProng": 4194304,  # 22
+            "MonitoringDiTau": 8388608,  # 23
+            # TODO: check if MonitoringDiTau (23) will change: filtered are
+            # "hltHpsOverlapFilterIsoMu24*DitauWPDeepTauPFTau35Monitoring" -> ditau+muon?
+            # and "hltSinglePFJet30PNetTauhTag*WPL2MuXXTauYY" -> single tau from pfjet and something with muons?
+            # this does not seem like it is monitoring Ditau at all, but ok... we don't use it anyway
+            "OverlapFilter": 16777216,  # 24
+            "VBFDoubleTauMonitoring": 33554432,  # 25
+            "MonitoringSingleTau": 67108864,  # 26
+            "MatchL1HLT": 134217728,  # 27
+            "Hps": 268435456,  # 28
+            "SinglePFTauFilter": 536870912,  # 29
+            "VBFSingleTau": 1073741824,  # 30
+            # manually created bit combinations for NanoAOD version compatibility
+            "DeeptauDiTau": 2048 + 8,  # 11,3
+        },
+        # jet legs
+        "Jet": {
+            "4PixelOnlyPFCentralJetTightIDPt20": 1,  # 0
+            "3PixelOnlyPFCentralJetTightIDPt30": 2,  # 1
+            "PFJetFilterTwoC30": 4,  # 2
+            "4PFCentralJetTightIDPt30": 8,  # 3
+            "4PFCentralJetTightIDPt35": 16,  # 4
+            "QuadCentralJet30": 32,  # 5
+            "2PixelOnlyPFCentralJetTightIDPt40": 64,  # 6
+            "L1sTripleJetVBF_orHTT_orDoubleJet_orSingleJet": 128,  # 7
+            "3PFCentralJetTightIDPt40": 256,  # 8
+            "3PFCentralJetTightIDPt45": 512,  # 9
+            "L1sQuadJetsHT": 1024,  # 10
+            "BTagCaloDeepCSVp17Double": 2048,  # 11
+            "PFCentralJetLooseIDQuad30": 4096,  # 12
+            "1PFCentralJetLooseID75": 8192,  # 13
+            "2PFCentralJetLooseID60": 16384,  # 14
+            "3PFCentralJetLooseID45": 32768,  # 15
+            "4PFCentralJetLooseID40": 65536,  # 16
+            "DoubleTau+Jet": 131072,  # 17  # now also contains PNet paths
+            "VBFcrossCleanedDeepTauPFTau": 262144,  # 18  # now more general VBFDiTauJets  TODO: change name?
+            "VBFcrossCleanedUsingDijetCorr": 524288,  # 19  # now more general VBFSingleTauJets  TODO: change name?
             "MonitoringMuon+Tau+Jet": 1048576,  # 20
             "2PFCentralJetTightIDPt50": 2097152,  # 21
             "1PixelOnlyPFCentralJetTightIDPt60": 4194304,  # 22
