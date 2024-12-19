@@ -69,7 +69,7 @@ class CheckExternalLFNOverlap(
         # loop over all lfns in the dataset
         n_files = self.dataset_inst.n_files
         lfns_task = self.requires()
-        relative_overlap = {}
+        relative_overlap = {"rel_to_file": {}, "rel_to_ref": {}}
         overlapping_identifier = []
 
         for i, lfn_target in lfns_task.iter_nano_files(self, lfn_indices=list(range(n_files))):
@@ -87,11 +87,18 @@ class CheckExternalLFNOverlap(
 
             num_overlapping = np.sum(overlapping_mask)
             if num_overlapping:
-                # calculate the relative overlap
-                relative_overlap[str(i)] = np.sum(num_overlapping) / len(file_hashes)
-
+                # calculate the relative overlaps
+                # relative to file indicates how many events of the reference are within the files
+                relative_overlap["rel_to_file"][str(i)] = np.sum(num_overlapping) / len(file_hashes)
+                relative_overlap["rel_to_ref"][str(i)] = np.sum(num_overlapping) / len(ref_hashes)
                 # apply mask and store the overlapping identifiers
                 overlapping_identifier.extend(file_arr[overlapping_mask])
+
+        # sanity checks
+        assert relative_overlap["rel_to_file"], "no overlap between reference and files found"
+
+        reference_sum = np.sum([ref_value for ref_value in relative_overlap["rel_to_ref"].values()])
+        assert reference_sum.item() == 1, f"reference sum is not 1 but {reference_sum.item()}"
 
         output["overlap"].dump(
             relative_overlap,
