@@ -246,7 +246,6 @@ class CreateSyncFiles(
             source_type=len(files) * ["awkward_parquet"],
             pool_size=1,
         ):
-
             # optional check for overlapping inputs
             if self.check_overlapping_inputs:
                 self.raise_if_overlapping([events] + list(columns))
@@ -271,11 +270,13 @@ class CreateSyncFiles(
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty_float})
 
             # project into dataframe
+            met_name = self.config_inst.x.met_name
             df = ak.to_dataframe({
                 # index variables
                 "event": events.event,
                 "run": events.run,
                 "lumi": events.luminosityBlock,
+                "deterministic_seed": np.asarray(events.deterministic_seed, dtype=np.str_),
                 # high-level events variables
                 "channel": events.channel_id,
                 "os": events.leptons_os * 1,
@@ -330,12 +331,14 @@ class CreateSyncFiles(
                 "tau2_phi": select(events.Tau.phi, 1),
                 "tau2_pt": select(events.Tau.pt, 1),
 
-                "met1_covXX": select(events.MET.covXX, 0),
-                "met1_covXY": select(events.MET.covXY, 0),
-                "met1_covYY": select(events.MET.covYY, 0),
-                "met1_phi": select(events.MET.phi, 0),
-                "met1_pt": select(events.MET.pt, 0),
-                "met1_significance": select(events.MET.significance, 0),
+                "met1_pt": select(events[met_name].pt, 0),
+                "met1_phi": select(events[met_name].phi, 0),
+                **({} if self.config_inst.campaign.x.version < 14 else {
+                    "met1_significance": select(events[met_name].significance, 0),
+                    "met1_covXX": select(events[met_name].covXX, 0),
+                    "met1_covXY": select(events[met_name].covXY, 0),
+                    "met1_covYY": select(events[met_name].covYY, 0),
+                }),
 
                 "fatjet1_eta": select(events.FatJet.eta, 0),
                 "fatjet1_mass": select(events.FatJet.mass, 0),
