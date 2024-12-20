@@ -271,11 +271,7 @@ trigger_bit_matching = {
             "MonitoringDiTauAndPFJet": 1048576,  # 20
             "MonitoringMuTauDisplaced": 2097152,  # 21
             "OneProng": 4194304,  # 22
-            "MonitoringDiTau": 8388608,  # 23
-            # TODO: check if MonitoringDiTau (23) will change: filtered are
-            # "hltHpsOverlapFilterIsoMu24*DitauWPDeepTauPFTau35Monitoring" -> ditau+muon?
-            # and "hltSinglePFJet30PNetTauhTag*WPL2MuXXTauYY" -> single tau from pfjet and something with muons?
-            # this does not seem like it is monitoring Ditau at all, but ok... we don't use it anyway
+            "MonitoringDiTau": 8388608,  # 23  # surprising filters, but we don't use it anyway
             "OverlapFilter": 16777216,  # 24
             "VBFDoubleTauMonitoring": 33554432,  # 25
             "MonitoringSingleTau": 67108864,  # 26
@@ -1099,7 +1095,7 @@ def add_triggers_2018(config: od.Config) -> None:
     ])
 
 
-def add_triggers_2022(config: od.Config) -> None:
+def add_triggers_2022(config: od.Config, nano_version: str) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
     https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
@@ -1120,6 +1116,8 @@ def add_triggers_2022(config: od.Config) -> None:
                     # min_pt=31.0,
                     # filter names:
                     # hltEle30WPTightGsfTrackIsoFilter (WPTightTrackIso)
+                    # Tight works too for v14, but redundant
+                    # trigger_bits=WPTightTrackIso,
                     trigger_bits=2,
                 ),
             ],
@@ -1144,6 +1142,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     # min_pt=26.0,
                     # filter names:
                     # hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered0p08 (1mu + Iso)
+                    # trigger_bits=Iso + SingleMuon,
                     trigger_bits=2 + 8,
                 ),
             ],
@@ -1168,15 +1167,22 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=11,
                     # min_pt=25.0,
                     # filter names:
-                    # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (DeepTau + OverlapFilter)
+                    # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (OverlapFilter, EleTau)
+                    # trigger_bits= OverlapFilterPFTau + EleTau, # 8 +128 for v14
                     trigger_bits=8 + 64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     # min_pt=35.0,
                     # filter names:
-                    # (DeepTau + HPS + Overlap)
+                    # (DeepTau + HPS + OverlapFilterIsoEle)
                     # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
+                    # full trigger_bits= Tight + DeepTau + ETauFilter + OverlapFilterIsoEle + OverlapFilter + HPS # 4 + 8 + 128 + 4096 + 16777216 + 268435456 for v14  # noqa
+                    # well Loose would work too v14 but it's the Electron that's loose so it's just dumb...
+                    # actually needed:
+                    # trigger_bits=DeepTau + HPS + OverlapFilterIsoEle # 8 + 32 + 256 for v12,
+                    # trigger_bits=DeepTau + ETauFilter + OverlapFilterIsoEle # 8 + 128 + 4096 for v14,
+                    # proposal: DeepTau + HPS + OverlapFilterIsoEle + if_exist(ETauFilter)
                     trigger_bits=8 + 32 + 256,
                 ),
             ],
@@ -1198,15 +1204,22 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=13,
                     # min_pt=22.0,
                     # filter names:
-                    # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded (OverlapFilter PFTau)
+                    # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded (OverlapFilter PFTau, MuTau)
+                    # trigger_bits= OverlapFilterPFTau + MuTau, # 4 + 64
                     trigger_bits=4 + 64,
                 ),
                 TriggerLeg(
                     pdg_id=15,
                     # min_pt=32.0,
                     # filter names:
-                    # (DeepTau + HPS + Overlap + L1Seeded)
+                    # (DeepTau + HPS + OverlapFilterIsoMu + L1Seeded)
                     # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded
+                    # full trigger_bits= DeepTau + MuTauFilter + OverlapFilterIsoMu + OverlapFilter + MatchL1HLT + HPS # 8 + 256 + 8192 + 16777216 + 134217728 + 268435456 for v14  # noqa
+                    # well Loose would work too v14 but it's the Muon that's loose so it's just dumb...
+                    # actually needed:
+                    # trigger_bits=DeepTau + HPS + OverlapFilterIsoMu + L1Seeded # 8 + 32 + 512 + 262144 for v12,
+                    # trigger_bits=DeepTau + MuTauFilter + OverlapFilterIsoMu + MatchL1HLT  # 8 + 256 + 8192 + 134217728 for v14,  # noqa
+                    # proposal: DeepTau + HPS + OverlapFilterIsoMu + if_exist(MuTauFilter) + L1Seeded and create L1Seeded for v14  # noqa
                     trigger_bits=8 + 32 + 512 + 262144,
                 ),
             ],
@@ -1229,6 +1242,8 @@ def add_triggers_2022(config: od.Config) -> None:
                     # min_pt=40.0,
                     # filter names:
                     # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS + DeepTauDiTau)
+                    # full trigger_bits= Medium + DeepTau + DiTau +  MatchL1HLT + HPS # 2 + 8 + 2048 + 134217728 + 268435456 for v14  # noqa
+                    # proposal: DeepTauDiTau + HPS and create DeepTauDiTau for v14
                     trigger_bits=8 + 32 + 128,
                 ),
                 TriggerLeg(
@@ -1236,6 +1251,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     # min_pt=40.0,
                     # filter names:
                     # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS + DeepTauDiTau)
+                    # same as above
                     trigger_bits=8 + 32 + 128,
                 ),
             ],
@@ -1257,8 +1273,10 @@ def add_triggers_2022(config: od.Config) -> None:
                     pdg_id=15,
                     # min_pt=25.0,
                     # filter names:
-                    # (DeepTau + HPS + run 3 VBF+ditau)
+                    # (DeepTau + HPS + run 3 VBF+ditau)  # TODO: remove run 3 VBF+ditau, doesn't match
                     # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
+                    # full trigger_bits= DeepTau + VBFDiTau + HPS # 8 + 1024 + 268435456 for v14
+                    # proposal: if_exist(VBFDiTau) + HPS + DeepTau (last two actually useless for v14)
                     trigger_bits=8 + 32 + 4096,
                 ),
                 TriggerLeg(
@@ -1266,7 +1284,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     # min_pt=25.0,
                     # filter names:
                     # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
-                    trigger_bits=8 + 32 + 4096,
+                    trigger_bits=8 + 32 + 4096,  # TODO: remove run 3 VBF+ditau, doesn't match
                 ),
                 # additional leg infos for vbf jets
                 TriggerLeg(
@@ -1278,7 +1296,8 @@ def add_triggers_2022(config: od.Config) -> None:
 
                     # maybe hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
                     # (VBF cross-cleaned from medium deeptau PFTau)
-                    # trigger_bits=262144,  # does not work in v12 and v13  # TODO: add it for v14
+                    # trigger_bits=VBFcrossCleanedDeepTauPFTau # 262144,  # does not work in v12 and v13  # TODO: add it for v14  # noqa
+
                 ),
                 TriggerLeg(
                     pdg_id=1,
@@ -1288,7 +1307,7 @@ def add_triggers_2022(config: od.Config) -> None:
 
                     # maybe hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
                     # (VBF cross-cleaned from medium deeptau PFTau)
-                    # trigger_bits=262144,  # does not work in v12 and v13  # TODO: add it for v14
+                    # trigger_bits=VBFcrossCleanedDeepTauPFTau # 262144,  # does not work in v12 and v13  # TODO: add it for v14  # noqa
                 ),
             ],
             applies_to_dataset=(
@@ -1330,6 +1349,9 @@ def add_triggers_2022(config: od.Config) -> None:
                     # filter names:
                     # (DeepTau + Hps + ditau+PFJet)
                     # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
+                    # full trigger_bits= DeepTau + DiTauAndPFJet + OverlapFilter + HPS # 8 + 16384 + 16777216 + 268435456 for v14  # noqa
+                    # proposal: DiTauAndPFJet # 16384
+
                     trigger_bits=8 + 32 + 16384,
                 ),
                 TriggerLeg(
@@ -1347,7 +1369,8 @@ def add_triggers_2022(config: od.Config) -> None:
                     # Taking the loosest filter for the Jets with the pt cut
 
                     # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
-                    # (DoubleTau + Jet) -> 17
+                    # (DoubleTau+Jet) -> 17
+                    # trigger_bits=DoubleTau+Jet,
                     trigger_bits=131072,
                 ),
             ],
@@ -1360,7 +1383,7 @@ def add_triggers_2022(config: od.Config) -> None:
     ])
 
 
-def add_triggers_2023(config: od.Config) -> None:
+def add_triggers_2023(config: od.Config, nano_version) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
     https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
