@@ -572,7 +572,7 @@ def add_config(
         jer_version = "JR" + {2016: "V3", 2017: "V2", 2018: "V2"}[year]
         jet_type = "AK4PFchs"
     elif run == 3:
-        # https://cms-jerc.web.cern.ch/Recommendations/#run-2
+        # https://cms-jerc.web.cern.ch/Recommendations/#2022
         jerc_postfix = {2022: "_22Sep2023", 2023: "Prompt23"}[year]
         jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         jec_version = {2022: "V2", 2023: "V1"}[year]
@@ -1051,10 +1051,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7511f12e"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7439b936"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7511f12e"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7439b936"
     else:
         assert False
 
@@ -1120,7 +1120,7 @@ def add_config(
             tau_pog_dir = tau_pog_era
         elif year == 2023:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
-            tau_pog_dir = str(year)  # yes, it's inconsistent
+            tau_pog_dir = str(year)  # yes, it's inconsistent w.r.t. 2022
         add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_dir}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa
     else:
         assert False
