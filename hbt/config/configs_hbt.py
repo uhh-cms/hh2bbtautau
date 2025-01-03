@@ -325,10 +325,10 @@ def add_config(
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "efg"
         ]),
         *if_era(year=2023, tag="preBPix", values=[
-            f"data_{stream}_c_{v}" for stream in ["mu", "e", "tau", "met"] for v in "1234"
+            f"data_{stream}_c{v}" for stream in ["mu", "e", "tau", "met"] for v in "1234"
         ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d_{v}" for stream in ["mu", "e", "tau", "met"] for v in "12"
+            f"data_{stream}_d{v}" for stream in ["mu", "e", "tau", "met"] for v in "12"
         ]),
 
         # sync
