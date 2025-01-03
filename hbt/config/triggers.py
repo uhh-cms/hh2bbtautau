@@ -1095,7 +1095,7 @@ def add_triggers_2018(config: od.Config) -> None:
     ])
 
 
-def add_triggers_2022(config: od.Config, nano_version: str) -> None:
+def add_triggers_2022(config: od.Config) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
     https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
@@ -1383,7 +1383,7 @@ def add_triggers_2022(config: od.Config, nano_version: str) -> None:
     ])
 
 
-def add_triggers_2023(config: od.Config, nano_version) -> None:
+def add_triggers_2023(config: od.Config) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
     https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
