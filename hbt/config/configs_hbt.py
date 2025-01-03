@@ -190,7 +190,7 @@ def add_config(
         # hh vbf
         "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
         "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-        *if_era(run=3, year=2022, values=[
+        *if_era(year=2022, values=[
             "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",
         ]),
@@ -204,7 +204,7 @@ def add_config(
         "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
 
         # x -> hh resonances
-        *if_era(run=3, year=2022, values=[
+        *if_era(year=2022, values=[
             "radion_hh_ggf_hbb_htt_m450_madgraph",
             "radion_hh_ggf_hbb_htt_m1200_madgraph",
             "graviton_hh_ggf_hbb_htt_m450_madgraph",
@@ -220,10 +220,7 @@ def add_config(
         "st_tchannel_t_4f_powheg",
         "st_tchannel_tbar_4f_powheg",
         "st_twchannel_t_sl_powheg",
-        # TODO: nano v14 currently running
-        *if_not_era(run=3, year=2023, tag="preBPix", values=[
-            "st_twchannel_tbar_sl_powheg",
-        ]),
+        "st_twchannel_tbar_sl_powheg",
         "st_twchannel_t_dl_powheg",
         "st_twchannel_tbar_dl_powheg",
         "st_twchannel_t_fh_powheg",
@@ -233,16 +230,13 @@ def add_config(
 
         # tt + v
         "ttw_wlnu_amcatnlo",
-        # TODO: nano v14 currently running
-        *if_not_era(run=3, year=2023, tag="preBPix", values=[
-            "ttz_zqq_amcatnlo",
-        ]),
+        "ttz_zqq_amcatnlo",
         "ttz_zll_m4to50_amcatnlo",
         "ttz_zll_m50toinf_amcatnlo",
 
         # tt + vv
         "ttww_madgraph",
-        *if_not_era(run=3, year=2022, tag="preEE", values=[
+        *if_not_era(year=2022, tag="preEE", values=[
             "ttwz_madgraph",  # not available in 22pre
         ]),
         "ttzz_madgraph",
@@ -324,21 +318,21 @@ def add_config(
         "tth_hnonbb_powheg",
 
         # data
-        *if_era(run=3, year=2022, tag="preEE", values=[
+        *if_era(year=2022, tag="preEE", values=[
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "cd"
         ]),
-        *if_era(run=3, year=2022, tag="postEE", values=[
+        *if_era(year=2022, tag="postEE", values=[
             f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "efg"
         ]),
-        *if_era(run=3, year=2023, tag="preBPix", values=[
+        *if_era(year=2023, tag="preBPix", values=[
             f"data_{stream}_c_{v}" for stream in ["mu", "e", "tau", "met"] for v in "1234"
         ]),
-        *if_era(run=3, year=2023, tag="postBPix", values=[
+        *if_era(year=2023, tag="postBPix", values=[
             f"data_{stream}_d_{v}" for stream in ["mu", "e", "tau", "met"] for v in "12"
         ]),
 
         # sync
-        *if_era(run=3, year=[2022, 2023], sync=True, values=[
+        *if_era(year=[2022, 2023], sync=True, values=[
             "hh_ggf_hbb_htt_kl1_kt1_powheg",
         ]),
     ]

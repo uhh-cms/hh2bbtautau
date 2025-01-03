@@ -91,13 +91,13 @@ def add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v12",
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
-    config_name="run3_22pre_v12",
+    config_name="22pre_v12",
     config_id=5012,
 )
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
-    config_name="run3_22pre_v14",
+    config_name="22pre_v14",
     config_id=5014,
 )
 
@@ -106,7 +106,7 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v12",
     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v12",
-    config_name="run3_22post_v12",
+    config_name="22post_v12",
     config_id=6012,
 )
 # TODO: enable when available
@@ -121,7 +121,7 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_uhh_v14",
     campaign_attr="campaign_run3_2023_preBPix_nano_uhh_v14",
-    config_name="run3_23pre_v14",
+    config_name="23pre_v14",
     config_id=7014,
 )
 
@@ -129,7 +129,7 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_uhh_v14",
     campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14",
-    config_name="run3_23post_v14",
+    config_name="23post_v14",
     config_id=8014,
 )
 
@@ -141,7 +141,7 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_v12",
     campaign_attr="campaign_run3_2022_preEE_nano_v12",
-    config_name="run3_22pre_v12_sync",
+    config_name="22pre_v12_sync",
     config_id=5112,
     add_limited=False,
     sync_mode=True,
@@ -151,7 +151,7 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_v12",
     campaign_attr="campaign_run3_2022_postEE_nano_v12",
-    config_name="run3_22post_v12_sync",
+    config_name="22post_v12_sync",
     config_id=6112,
     add_limited=False,
     sync_mode=True,
@@ -161,7 +161,7 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_v13",
     campaign_attr="campaign_run3_2023_preBPix_nano_v13",
-    config_name="run3_23pre_v13_sync",
+    config_name="23pre_v13_sync",
     config_id=7113,
     add_limited=False,
     sync_mode=True,
@@ -171,7 +171,7 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_v13",
     campaign_attr="campaign_run3_2023_postBPix_nano_v13",
-    config_name="run3_23post_v13_sync",
+    config_name="23post_v13_sync",
     config_id=8113,
     add_limited=False,
     sync_mode=True,
