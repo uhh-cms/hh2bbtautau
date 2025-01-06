@@ -113,7 +113,7 @@ add_lazy_config(
 # add_lazy_config(
 #     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
 #     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
-#     config_name="run3_22post_v14",
+#     config_name="22post_v14",
 #     config_id=6014,
 # )
 

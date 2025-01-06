@@ -97,8 +97,16 @@ def add_variables(config: od.Config) -> None:
         name="e_pt",
         expression="Electron.pt",
         null_value=EMPTY_FLOAT,
-        binning=(400, 0, 400),
+        binning=(40, 0, 400),
         x_title=r"Electron p$_{T}$",
+    )
+
+    config.add_variable(
+        name="mu1_pt",
+        expression="Muon.pt[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0, 400),
+        x_title=r"Muon 1 p$_{T}$",
     )
 
     # weights
