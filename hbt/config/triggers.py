@@ -63,10 +63,59 @@ Current status:
 702 -> HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet75
 """
 
+from dataclasses import dataclass
+
 import order as od
 
 from columnflow.util import DotDict
+from columnflow.types import ClassVar
+
 from hbt.config.util import Trigger, TriggerLeg
+
+
+@dataclass
+class Bits:
+    v12: int | None = None
+    v14: int | None = None
+
+    supported_versions: ClassVar[set[int]] = {12, 14}
+
+    def get(self, nano_version: int) -> int:
+        if nano_version not in self.supported_versions:
+            raise ValueError(f"nano_version {nano_version} not supported")
+        return getattr(self, f"v{nano_version}")
+
+
+# # use the CCLub names for the trigger bits and improve them when necessary
+# trigger_bits = DotDict.wrap({
+#     # checked with https://github.com/cms-sw/cmssw/blob/CMSSW_13_0_X/PhysicsTools/NanoAOD/python/triggerObjects_cff.py
+#     # and in particular https://github.com/cms-sw/cmssw/blob/2defd844e96613d2438b690d10b79c773e02ab57/PhysicsTools/NanoAOD/python/triggerObjects_cff.py  # noqa
+#     "e": {
+#         "CaloIdLTrackIdLIsoVL": Bits(v12=1),
+#         "CaloIdLTrackIdLIsoVVVL": Bits(v14=1),
+#         "WPTightTrackIso": 2,
+#         "WPLooseTrackIso": 4,
+#         "OverlapFilterPFTau": 8,
+#         "DiElectron": 16,
+#         "MuEle": 32,
+#         "EleTau": 64,
+#         "TripleElectron": 128,
+#         "SingleMuonDiEle": 256,
+#         "DiMuonSingleEle": 512,
+#         "SingleEle_L1DoubleAndSingleEle": 1024,
+#         "SingleEle_CaloIdVT_GsfTrkIdT": 2048,
+#         "SingleEle_PFJet": 4096,
+#         "Photon175_Photon200": 8192,
+#     },
+# })
+
+
+def get_bit_sum(nano_version: int, obj_name: str, names: list[str | None]) -> int:
+    return sum(
+        trigger_bits[obj_name][name].get(nano_version)
+        for name in names
+        if name is not None
+    )
 
 
 # use the CCLub names for the trigger bits and improve them when necessary
@@ -125,6 +174,7 @@ trigger_bits = DotDict.wrap({
             "Monitoring": 65536,
             "RegionalPaths": 131072,
             "L1SeededPaths": 262144,
+            # "MatchL1HLT": 262144,  # alias for v14 compatibility
             "1Prong": 524288,
         },
         "jet": {
