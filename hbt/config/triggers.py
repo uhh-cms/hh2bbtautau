@@ -78,7 +78,7 @@ class Bits:
     v12: int | None = None
     v14: int | None = None
 
-    supported_versions = ClassVar({12, 14})
+    supported_versions: ClassVar[set[int]] = {12, 14}
 
     def get(self, nano_version: int) -> int:
         if nano_version not in self.supported_versions:
