@@ -63,6 +63,7 @@ Current status:
 702 -> HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet75
 """
 
+from __future__ import annotations
 from dataclasses import dataclass
 
 import order as od
