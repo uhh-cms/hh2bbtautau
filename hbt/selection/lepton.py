@@ -80,7 +80,7 @@ def electron_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
-    leg_masks: list[ak.Array],
+    leg_masks: dict[str, ak.Array],
     trigger_fire_list: list[bool] | None = None,
     **kwargs,
 ) -> tuple[ak.Array, ak.Array]:
@@ -98,15 +98,15 @@ def electron_selection(
     if is_single:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) == 1
-        assert abs(trigger.legs[0].pdg_id) == 11
+        assert abs(trigger.legs["e"].pdg_id) == 11
         # match leg 0
-        matches_leg0 = trigger_object_matching(events.Electron, events.TrigObj[leg_masks[0]])
+        matches_leg0 = trigger_object_matching(events.Electron, events.TrigObj[leg_masks["e"]])
     elif is_cross:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) == 2
-        assert abs(trigger.legs[0].pdg_id) == 11
+        assert abs(trigger.legs["e"].pdg_id) == 11
         # match leg 0
-        matches_leg0 = trigger_object_matching(events.Electron, events.TrigObj[leg_masks[0]])
+        matches_leg0 = trigger_object_matching(events.Electron, events.TrigObj[leg_masks["e"]])
 
     # pt sorted indices for converting masks to indices
     sorted_indices = ak.argsort(events.Electron.pt, axis=-1, ascending=False)
@@ -180,7 +180,7 @@ def muon_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
-    leg_masks: list[ak.Array],
+    leg_masks: dict[str, ak.Array],
     select_without_trigger: bool = False,
     mumu_selection: bool = False,
     **kwargs,
@@ -209,15 +209,15 @@ def muon_selection(
     if is_single:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) == 1
-        assert abs(trigger.legs[0].pdg_id) == 13
+        assert abs(trigger.legs["mu"].pdg_id) == 13
         # match leg 0
-        matches_leg0 = trigger_object_matching(events.Muon, events.TrigObj[leg_masks[0]])
+        matches_leg0 = trigger_object_matching(events.Muon, events.TrigObj[leg_masks["mu"]])
     elif is_cross:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) == 2
-        assert abs(trigger.legs[0].pdg_id) == 13
+        assert abs(trigger.legs["mu"].pdg_id) == 13
         # match leg 0
-        matches_leg0 = trigger_object_matching(events.Muon, events.TrigObj[leg_masks[0]])
+        matches_leg0 = trigger_object_matching(events.Muon, events.TrigObj[leg_masks["mu"]])
     elif select_without_trigger:
         matches_leg0 = events.Muon.pt > -1
 
@@ -260,7 +260,7 @@ def muon_selection(
             # apply trigger matching to the first muon of the selected muons
             matches_first_selected_muons = ak.where(
                 ak.local_index(sorted_masked_muons) == 0,
-                trigger_object_matching(sorted_masked_muons, events.TrigObj[leg_masks[0]]),
+                trigger_object_matching(sorted_masked_muons, events.TrigObj[leg_masks["mu"]]),
                 False,
             )
 
@@ -311,7 +311,7 @@ def tau_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
-    leg_masks: list[ak.Array],
+    leg_masks: dict[str, ak.Array],
     electron_indices: ak.Array,
     muon_indices: ak.Array,
     **kwargs,
@@ -346,17 +346,17 @@ def tau_selection(
     if is_cross_e or is_cross_mu:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) == 2
-        assert abs(trigger.legs[1].pdg_id) == 15
+        assert abs(trigger.legs["tau"].pdg_id) == 15
         # match leg 1
-        matches_leg1 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks[1]])
+        matches_leg1 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks["tau"]])
     elif is_any_cross_tau:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) >= 2
-        assert abs(trigger.legs[0].pdg_id) == 15
-        assert abs(trigger.legs[1].pdg_id) == 15
+        assert abs(trigger.legs["tau1"].pdg_id) == 15
+        assert abs(trigger.legs["tau2"].pdg_id) == 15
         # match both legs
-        matches_leg0 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks[0]])
-        matches_leg1 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks[1]])
+        matches_leg0 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks["tau1"]])
+        matches_leg1 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks["tau2"]])
 
     # determine minimum pt and maximum eta
     max_eta = 2.5
