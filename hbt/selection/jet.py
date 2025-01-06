@@ -16,7 +16,6 @@ from columnflow.columnar_util import set_ak_column
 from hbt.util import IF_RUN_2, IF_RUN_3
 from hbt.production.hhbtag import hhbtag
 from hbt.selection.lepton import trigger_object_matching
-import law
 from law.util import InsertableDict
 
 np = maybe_import("numpy")
@@ -106,7 +105,10 @@ def jet_selection(
     for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data:
         if trigger.has_tag("cross_tau_tau_jet"):
             # Zip the trigger legs with their corresponding masks
-            for leg, mask in zip(trigger.legs, leg_masks):
+            for leg_name in trigger.legs.keys():
+                leg = trigger.legs[leg_name]
+                mask = leg_masks[leg_name]
+
                 if leg.pdg_id == 1:
                     obj_ids = mask[trigger_mask]
 
