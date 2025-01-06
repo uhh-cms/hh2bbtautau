@@ -21,6 +21,7 @@ from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.util import maybe_import
+from columnflow.types import Iterable
 
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
@@ -35,9 +36,24 @@ np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
 
+# updated met_filters selector to define dataset dependent filters
+def get_met_filters(self: Selector) -> Iterable[str]:
+    if getattr(self, "dataset_inst", None) is None:
+        return {}
+
+    met_filters = set(self.config_inst.x.met_filters[self.dataset_inst.data_source])
+    if self.dataset_inst.has_tag("broken_ecalBadCalibFilter"):
+        met_filters -= {"Flag.ecalBadCalibFilter"}
+
+    return list(met_filters)
+
+
+hbt_met_filters = met_filters.derive("hbt_met_filters", cls_dict={"get_met_filters": get_met_filters})
+
+
 @selector(
     uses={
-        json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
+        json_filter, hbt_met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
         pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
         increment_stats, attach_coffea_behavior, patch_ecalBadCalibFilter,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
@@ -69,7 +85,7 @@ def default(
         results += SelectionResult(steps={"json": np.ones(len(events), dtype=bool)})
 
     # met filter selection
-    events, met_filter_results = self[met_filters](events, **kwargs)
+    events, met_filter_results = self[hbt_met_filters](events, **kwargs)
     # patch for the broken "Flag_ecalBadCalibFilter" MET filter in prompt data (tag set in config)
     if self.dataset_inst.has_tag("broken_ecalBadCalibFilter"):
         # fold decision into met filter results
@@ -168,7 +184,7 @@ def default_init(self: Selector) -> None:
         return
 
     self.process_ids_dy: process_ids_dy | None = None
-    if self.dataset_inst.has_tag("is_dy"):
+    if self.dataset_inst.has_tag("dy"):
         # check if this dataset is covered by any dy id producer
         for name, dy_cfg in self.config_inst.x.dy_stitching.items():
             dataset_inst = dy_cfg["inclusive_dataset"]
@@ -197,7 +213,7 @@ def empty_init(self: Selector) -> None:
     # remove unused dependencies
     unused = {
         json_filter,
-        met_filters,
+        hbt_met_filters,
         cutflow_features,
         patch_ecalBadCalibFilter,
         jet_selection,

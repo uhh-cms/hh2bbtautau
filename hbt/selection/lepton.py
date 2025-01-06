@@ -69,11 +69,10 @@ def update_channel_ids(
 
 @selector(
     uses={
-        "Electron.pt", "Electron.eta", "Electron.phi", "Electron.dxy", "Electron.dz",
-        "Electron.pfRelIso03_all",
-        IF_NANO_V9("Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90"),
-        IF_NANO_GE_V10("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
-        "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
+        "Electron.{pt,eta,phi,dxy,dz,pfRelIso03_all}",
+        IF_NANO_V9("Electron.mvaFall17V2{Iso_WP80,Iso_WP90,noIso_WP90}"),
+        IF_NANO_GE_V10("Electron.{mvaIso_WP80,mvaIso_WP90,mvaNoIso_WP90}"),
+        "TrigObj.{pt,eta,phi}",
     },
     exposed=False,
 )
@@ -153,6 +152,7 @@ def electron_selection(
         (
             (mva_iso_wp90 == 1) |
             False
+            # TODO: do we need to keep this?
             # disabled as part of the resonant synchronization effort
             # ((mva_noniso_wp90 == 1) & (events.Electron.pfRelIso03_all < 0.3))
         ) &
@@ -171,9 +171,8 @@ def electron_selection(
 @selector(
     uses={
         # nano columns
-        "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mediumId", "Muon.tightId", "Muon.pfRelIso04_all",
-        "Muon.dxy", "Muon.dz",
-        "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
+        "Muon.{pt,eta,phi,mediumId,tightId,pfRelIso04_all,dxy,dz}",
+        "TrigObj.{pt,eta,phi}",
     },
     exposed=False,
 )
@@ -302,12 +301,8 @@ def muon_selection(
 
 @selector(
     uses={
-        # nano columns
-        "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz",
-        "Tau.decayMode",
-        "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
-        "Electron.pt", "Electron.eta", "Electron.phi",
-        "Muon.pt", "Muon.eta", "Muon.phi",
+        "Tau.{pt,eta,phi,dz,decayMode}",
+        "{Electron,Muon,TrigObj}.{pt,eta,phi}",
     },
     # shifts are declared dynamically below in tau_selection_init
     exposed=False,
@@ -454,9 +449,7 @@ def tau_selection_init(self: Selector) -> None:
 @selector(
     uses={
         electron_selection, muon_selection, tau_selection,
-        # nano columns
-        "event", "Electron.charge", "Muon.charge", "Tau.charge", "Electron.mass", "Muon.mass",
-        "Tau.mass",
+        "event", "{Electron,Muon,Tau}.{charge,mass}",
     },
     produces={
         electron_selection, muon_selection, tau_selection,
@@ -660,7 +653,6 @@ def lepton_selection(
             (trigger.has_tag({"single_e"}) and (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_e"))) or
             (trigger.has_tag({"single_mu"}) and (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_mu")))
         ):
-
             # behavior for Single Muon dataset
             if trigger.has_tag({"single_mu"}) and (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_mu")):
                 for trigger_emu, trigger_fired_emu, leg_masks_emu in trigger_results.x.trigger_data:
@@ -675,7 +667,8 @@ def lepton_selection(
                         electron_indices, electron_veto_indices = self[electron_selection](
                             events,
                             trigger_emu,
-                            leg_masks,
+                            # TODO: this was leg_masks before, why?
+                            leg_masks_emu,
                             trigger_fire_list=trigger_fired_emu,
                             **sel_kwargs,
                         )

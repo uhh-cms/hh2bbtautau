@@ -17,6 +17,8 @@ def add_categories(config: od.Config) -> None:
     add_category(config, name="etau", id=1, selection="cat_etau", label=r"$e\tau_{h}$")
     add_category(config, name="mutau", id=2, selection="cat_mutau", label=r"$\mu\tau_{h}$")
     add_category(config, name="tautau", id=3, selection="cat_tautau", label=r"$\tau_{h}\tau_{h}$")
+    add_category(config, name="mumu", id=4, selection="cat_mumu", label=r"$\mu\mu$")
+    add_category(config, name="emu", id=5, selection="cat_emu", label=r"$e\mu$")
 
     # qcd regions
     add_category(config, name="os", id=10, selection="cat_os", label="Opposite sign", tags={"os"})
@@ -60,6 +62,3 @@ def add_categories(config: od.Config) -> None:
         }
 
     create_category_combinations(config, categories, name_fn, kwargs_fn)
-
-    add_category(config, name="mumu", id=4, selection="cat_mumu", label=r"$\mu\mu$")
-    add_category(config, name="emu", id=5, selection="cat_emu", label=r"$e\mu$")

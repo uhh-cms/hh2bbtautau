@@ -69,7 +69,7 @@ def IF_DATASET_IS_DY(
     if getattr(func, "dataset_inst", None) is None:
         return self.get()
 
-    return self.get() if func.dataset_inst.has_tag("is_dy") else None
+    return self.get() if func.dataset_inst.has_tag("dy") else None
 
 
 def hash_events(arr: np.ndarray) -> np.ndarray:

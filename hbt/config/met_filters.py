@@ -35,13 +35,13 @@ def add_met_filters(config: od.Config) -> None:
             filters.remove("Flag.hfNoisyHitsFilter")
             filters.remove("Flag.ecalBadCalibFilter")
 
-        # same filter for mc and data, but still separate
+        # same filter for mc and data
         filters = {
             "mc": filters,
             "data": filters,
         }
 
-    if config.campaign.x.run == 3:
+    elif config.campaign.x.run == 3:
         filters = [
             "Flag.goodVertices",
             "Flag.globalSuperTightHalo2016Filter",
@@ -50,15 +50,16 @@ def add_met_filters(config: od.Config) -> None:
             "Flag.BadPFMuonDzFilter",
             "Flag.hfNoisyHitsFilter",
             "Flag.eeBadScFilter",
+            "Flag.ecalBadCalibFilter",  # dynamically removed in selection if needed
         ]
 
-        if config.campaign.x.year == 2022 and config.campaign.has_tag("preEE"):
-            filters.append("Flag.ecalBadCalibFilter")
-
-        # same filter for mc and data, but still separate
+        # same filter for mc and data
         filters = {
             "mc": filters,
             "data": filters,
         }
+
+    else:
+        assert False
 
     config.x.met_filters = DotDict.wrap(filters)

@@ -26,13 +26,13 @@ ak = maybe_import("awkward")
         category_ids, stitched_normalization_weights, normalized_pu_weight,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
-        # weight producers added if not produce_weights
+        # weight producers added dynamically if produce_weights is set
     },
     produces={
         category_ids, stitched_normalization_weights, normalized_pu_weight,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
-        # weight producers added if not produce_weights
+        # weight producers added dynamically if produce_weights is set
     },
     # whether weight producers should be added and called
     produce_weights=True,

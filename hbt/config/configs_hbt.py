@@ -369,8 +369,10 @@ def add_config(
                 dataset.add_tag("ggf")
             elif dataset_name.startswith(("graviton_hh_vbf_", "radion_hh_vbf")):
                 dataset.add_tag("vbf")
+
         # bad ecalBadCalibFilter MET filter in 2022 data
-        # see https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
+        # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2?rev=172#ECal_BadCalibration_Filter_Flag
+        # https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
         if year == 2022 and dataset.is_data and dataset.x.era in "FG":
             dataset.add_tag("broken_ecalBadCalibFilter")
 
@@ -425,6 +427,14 @@ def add_config(
             "tt_multiboson",
             "ewk",
         ]),
+        "dy_split": [
+            "dy_m4to10", "dy_m10to50", "dy_m50toinf",
+            "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
+            "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
+            "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
+            "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
+            "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+        ],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
@@ -1174,6 +1184,7 @@ def add_config(
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
+        "normalization_weight_inclusive": [],
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
@@ -1187,7 +1198,7 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        if dataset.has_tag("is_ttbar"):
+        if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
 
     ################################################################################################
@@ -1195,6 +1206,7 @@ def add_config(
     ################################################################################################
 
     # channels
+    # TODO: switch etau and mutau, also check if change needed in res_dnn's
     cfg.add_channel(name="mutau", id=1)
     cfg.add_channel(name="etau", id=2)
     cfg.add_channel(name="tautau", id=3)

@@ -56,6 +56,10 @@ def jet_selection(
     # local jet index
     li = ak.local_index(events.Jet)
 
+    #
+    # default jet selection
+    #
+
     # common ak4 jet mask for normal and vbf jets
     ak4_mask = (
         (events.Jet.jetId == 6) &  # tight plus lepton veto
@@ -63,7 +67,10 @@ def jet_selection(
     )
 
     if self.config_inst.campaign.x.run == 2:
-        ak4_mask = ak4_mask & ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
+        ak4_mask = (
+            ak4_mask &
+            ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
+        )
 
     # default jets
     default_mask = (
@@ -72,8 +79,10 @@ def jet_selection(
         (abs(events.Jet.eta) < 2.4)
     )
 
-    # hhb-jets
-    # --------------------------------------------------------------------------------------------
+    #
+    # hhb-jet identification
+    #
+
     # get the hhbtag values per jet per event
     hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
 
@@ -156,6 +165,8 @@ def jet_selection(
     hhbjet_indices = score_indices[valid_score_mask[score_indices]][..., :2]
 
     # fat jets
+    #
+
     fatjet_mask = (
         (events.FatJet.jetId == 6) &  # tight plus lepton veto
         (events.FatJet.msoftdrop > 30.0) &
@@ -178,13 +189,17 @@ def jet_selection(
 
     # discard the event in case the (first) fatjet with matching subjets is found
     # but they are not b-tagged (TODO: move to deepjet when available for subjets)
+    # TODO: is it correct to do this? for run 3 the pnet wp is compare against btagDeepB?
     if self.config_inst.campaign.x.run == 3:
         wp = self.config_inst.x.btag_working_points.particleNet.loose
     else:
         wp = self.config_inst.x.btag_working_points.deepcsv.loose
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
+    #
     # vbf jets
+    #
+
     vbf_mask = (
         ak4_mask &
         (events.Jet.pt > 20.0) &
@@ -235,8 +250,15 @@ def jet_selection(
     vbfjet_indices = li[vbf_mask][vbf_indices_local]
     vbfjet_indices = vbfjet_indices[ak.argsort(events.Jet[vbfjet_indices].pt, axis=1, ascending=False)]
 
+    #
+    # final selection and object construction
+    #
+
     # pt sorted indices to convert mask
     jet_indices = sorted_indices_from_mask(default_mask, events.Jet.pt, ascending=False)
+
+    # get indices of the two hhbjets
+    hhbjet_indices = sorted_indices_from_mask(hhbjet_mask, hhbtag_scores, ascending=False)
 
     # keep indices of default jets that are explicitly not selected as hhbjets for easier handling
     non_hhbjet_indices = sorted_indices_from_mask(
@@ -248,6 +270,7 @@ def jet_selection(
     # final event selection
     jet_sel = (
         (ak.sum(default_mask, axis=1) >= 2) &
+        # TODO: do want this?
         ak.fill_none(subjets_btagged, True)  # was none for events with no matched fatjet
     )
 
@@ -310,3 +333,16 @@ def jet_selection_init(self: Selector) -> None:
         for shift_inst in self.config_inst.shifts
         if shift_inst.has_tag(("jec", "jer"))
     }
+
+
+@jet_selection.setup
+def jet_selection_setup(self: Selector, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+    # store ids of tau-tau-jet and tau-tau cross triggers
+    self.trigger_ids_ttc = [
+        trigger.id for trigger in self.config_inst.x.triggers
+        if trigger.has_tag("channel_tau_tau") and not trigger.has_tag("cross_tau_tau_jet")
+    ]
+    self.trigger_ids_ttjc = [
+        trigger.id for trigger in self.config_inst.x.triggers
+        if trigger.has_tag("channel_tau_tau") and trigger.has_tag("cross_tau_tau_jet")
+    ]
