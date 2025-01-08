@@ -24,7 +24,8 @@ np = maybe_import("numpy")
     mc_only=True,
 )
 def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for weight_name in self[pu_weight].produces:
+    for route in self[pu_weight].produced_columns:
+        weight_name = str(route)
         if not weight_name.startswith("pu_weight"):
             continue
 
@@ -50,7 +51,7 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
 def normalized_pu_weight_init(self: Producer) -> None:
     self.produces |= {
         f"normalized_{weight_name}"
-        for weight_name in self[pu_weight].produces
+        for weight_name in (str(route) for route in self[pu_weight].produced_columns)
         if weight_name.startswith("pu_weight")
     }
 
@@ -98,18 +99,14 @@ def normalized_pu_weight_setup(
             pid: safe_div(numerator_per_pid(pid), denominator_per_pid(weight_name, pid))
             for pid in self.unique_process_ids
         }
-        for weight_name in self[pu_weight].produces
+        for weight_name in (str(route) for route in self[pu_weight].produced_columns)
         if weight_name.startswith("pu_weight")
     }
 
 
 @producer(
-    uses={
-        "pdf_weight", "pdf_weight_up", "pdf_weight_down",
-    },
-    produces={
-        "normalized_pdf_weight", "normalized_pdf_weight_up", "normalized_pdf_weight_down",
-    },
+    uses={"pdf_weight{,_up,_down}"},
+    produces={"normalized_pdf_weight{,_up,_down}"},
     # only run on mc
     mc_only=True,
 )
@@ -157,12 +154,8 @@ def normalized_pdf_weight_setup(
 
 
 @producer(
-    uses={
-        "murmuf_weight", "murmuf_weight_up", "murmuf_weight_down",
-    },
-    produces={
-        "normalized_murmuf_weight", "normalized_murmuf_weight_up", "normalized_murmuf_weight_down",
-    },
+    uses={"murmuf_weight{,_up,_down}"},
+    produces={"normalized_murmuf_weight{,_up,_down}"},
     # only run on mc
     mc_only=True,
 )

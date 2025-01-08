@@ -17,7 +17,7 @@ ak = maybe_import("awkward")
     uses={
         "run",
         # nano columns
-        "TrigObj.id", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi", "TrigObj.filterBits",
+        "TrigObj.{id,pt,eta,phi,filterBits}",
     },
     produces={
         # new columns

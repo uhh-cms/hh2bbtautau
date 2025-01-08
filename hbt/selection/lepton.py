@@ -12,7 +12,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import maybe_import
 
-from hbt.util import IF_NANO_V9, IF_NANO_V11, IF_NANO_V12
+from hbt.util import IF_NANO_V9, IF_NANO_GE_V10
 from hbt.config.util import Trigger
 
 np = maybe_import("numpy")
@@ -43,13 +43,33 @@ def trigger_object_matching(
     return any_match
 
 
+def update_channel_ids(
+    events: ak.Array,
+    previous_channel_ids: ak.Array,
+    correct_channel_id: int,
+    channel_mask: ak.Array,
+) -> ak.Array:
+    """
+    Check if the events in the is_mask can be inside the given channel
+    or have already been sorted in another channel before.
+    """
+    events_not_in_channel = (previous_channel_ids != 0) & (previous_channel_ids != correct_channel_id)
+    channel_id_overwrite = events_not_in_channel & channel_mask
+    if ak.any(channel_id_overwrite):
+        raise ValueError(
+            "The channel_ids of some events are being set to two different values. "
+            "The first event of this chunk concerned has index",
+            ak.where(channel_id_overwrite)[0],
+        )
+    return ak.where(channel_mask, correct_channel_id, previous_channel_ids)
+
+
 @selector(
     uses={
         "Electron.pt", "Electron.eta", "Electron.phi", "Electron.dxy", "Electron.dz",
         "Electron.pfRelIso03_all",
         IF_NANO_V9("Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90"),
-        IF_NANO_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
-        IF_NANO_V12("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
+        IF_NANO_GE_V10("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
     exposed=False,
@@ -439,6 +459,7 @@ def lepton_selection(
         )
 
         # lepton pair selecton per trigger via lepton counting
+
         if trigger.has_tag({"single_e", "cross_e_tau"}):
             # expect 1 electron, 1 veto electron (the same one), 0 veto muons, and at least one tau
             is_etau = (
@@ -454,14 +475,13 @@ def lepton_selection(
             tau_charge = ak.firsts(events.Tau[tau_indices].charge, axis=1)
             is_os = e_charge == -tau_charge
             # store global variables
-            where = (channel_id == 0) & is_etau
-            channel_id = ak.where(where, ch_etau.id, channel_id)
-            tau2_isolated = ak.where(where, is_iso, tau2_isolated)
-            leptons_os = ak.where(where, is_os, leptons_os)
-            single_triggered = ak.where(where & is_single, True, single_triggered)
-            cross_triggered = ak.where(where & is_cross, True, cross_triggered)
-            sel_electron_indices = ak.where(where, electron_indices, sel_electron_indices)
-            sel_tau_indices = ak.where(where, tau_indices, sel_tau_indices)
+            channel_id = update_channel_ids(events, channel_id, ch_etau.id, is_etau)
+            tau2_isolated = ak.where(is_etau, is_iso, tau2_isolated)
+            leptons_os = ak.where(is_etau, is_os, leptons_os)
+            single_triggered = ak.where(is_etau & is_single, True, single_triggered)
+            cross_triggered = ak.where(is_etau & is_cross, True, cross_triggered)
+            sel_electron_indices = ak.where(is_etau, electron_indices, sel_electron_indices)
+            sel_tau_indices = ak.where(is_etau, tau_indices, sel_tau_indices)
 
         elif trigger.has_tag({"single_mu", "cross_mu_tau"}):
             # expect 1 muon, 1 veto muon (the same one), 0 veto electrons, and at least one tau
@@ -478,14 +498,13 @@ def lepton_selection(
             tau_charge = ak.firsts(events.Tau[tau_indices].charge, axis=1)
             is_os = mu_charge == -tau_charge
             # store global variables
-            where = (channel_id == 0) & is_mutau
-            channel_id = ak.where(where, ch_mutau.id, channel_id)
-            tau2_isolated = ak.where(where, is_iso, tau2_isolated)
-            leptons_os = ak.where(where, is_os, leptons_os)
-            single_triggered = ak.where(where & is_single, True, single_triggered)
-            cross_triggered = ak.where(where & is_cross, True, cross_triggered)
-            sel_muon_indices = ak.where(where, muon_indices, sel_muon_indices)
-            sel_tau_indices = ak.where(where, tau_indices, sel_tau_indices)
+            channel_id = update_channel_ids(events, channel_id, ch_mutau.id, is_mutau)
+            tau2_isolated = ak.where(is_mutau, is_iso, tau2_isolated)
+            leptons_os = ak.where(is_mutau, is_os, leptons_os)
+            single_triggered = ak.where(is_mutau & is_single, True, single_triggered)
+            cross_triggered = ak.where(is_mutau & is_cross, True, cross_triggered)
+            sel_muon_indices = ak.where(is_mutau, muon_indices, sel_muon_indices)
+            sel_tau_indices = ak.where(is_mutau, tau_indices, sel_tau_indices)
 
         elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}):
             # expect 0 veto electrons, 0 veto muons and at least two taus of which one is isolated
@@ -496,12 +515,10 @@ def lepton_selection(
                 (ak.num(tau_indices, axis=1) >= 2) &
                 (ak.sum(tau_iso_mask, axis=1) >= 1)
             )
-
             # special case for cross tau vbf trigger:
             # to avoid overlap, with non-vbf triggers, only one tau is allowed to have pt > 40
             if trigger.has_tag("cross_tau_tau_vbf"):
                 is_tautau = is_tautau & (ak.sum(events.Tau[tau_indices].pt > 40, axis=1) <= 1)
-
             is_iso = ak.sum(tau_iso_mask, axis=1) >= 2
             # tau_indices are sorted by highest isolation as cond. 1 and highest pt as cond. 2, so
             # the first two indices are exactly those selected by the full-blown pairing algorithm
@@ -511,13 +528,12 @@ def lepton_selection(
             tau2_charge = ak.firsts(events.Tau[tau_indices].charge[..., 1:], axis=1)
             is_os = tau1_charge == -tau2_charge
             # store global variables
-            where = (channel_id == 0) & is_tautau
-            channel_id = ak.where(where, ch_tautau.id, channel_id)
-            tau2_isolated = ak.where(where, is_iso, tau2_isolated)
-            leptons_os = ak.where(where, is_os, leptons_os)
-            single_triggered = ak.where(where & is_single, True, single_triggered)
-            cross_triggered = ak.where(where & is_cross, True, cross_triggered)
-            sel_tau_indices = ak.where(where, tau_indices, sel_tau_indices)
+            channel_id = update_channel_ids(events, channel_id, ch_tautau.id, is_tautau)
+            tau2_isolated = ak.where(is_tautau, is_iso, tau2_isolated)
+            leptons_os = ak.where(is_tautau, is_os, leptons_os)
+            single_triggered = ak.where(is_tautau & is_single, True, single_triggered)
+            cross_triggered = ak.where(is_tautau & is_cross, True, cross_triggered)
+            sel_tau_indices = ak.where(is_tautau, tau_indices, sel_tau_indices)
 
     # some final type conversions
     channel_id = ak.values_astype(channel_id, np.uint8)

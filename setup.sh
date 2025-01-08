@@ -110,7 +110,7 @@ setup_hbt() {
     export PYTHONPATH="${HBT_BASE}:${HBT_BASE}/modules/cmsdb:${PYTHONPATH}"
 
     # initialze submodules
-    if [ -e "${HBT_BASE}/.git" ]; then
+    if ! ${env_is_remote} && [ -e "${HBT_BASE}/.git" ]; then
         local m
         for m in $( ls -1q "${HBT_BASE}/modules" ); do
             cf_init_submodule "${HBT_BASE}" "modules/${m}"
@@ -135,17 +135,15 @@ setup_hbt() {
     export LAW_CONFIG_FILE="${LAW_CONFIG_FILE:-${HBT_BASE}/law.cfg}"
 
     # run the indexing when not remote
-    if ! ${env_is_remote}; then
-        if which law &> /dev/null; then
-            # source law's bash completion scipt
-            source "$( law completion )" ""
+    if ! ${env_is_remote} && which law &> /dev/null; then
+        # source law's bash completion scipt
+        source "$( law completion )" ""
 
-            # add completion to the claw command
-            complete -o bashdefault -o default -F _law_complete claw
+        # add completion to the claw command
+        complete -o bashdefault -o default -F _law_complete claw
 
-            # silently index
-            law index -q
-        fi
+        # silently index
+        law index -q
     fi
 
     # update the law config file to switch from mirrored to bare wlcg targets

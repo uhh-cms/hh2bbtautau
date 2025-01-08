@@ -27,13 +27,9 @@ ak = maybe_import("awkward")
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
-        # "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId",
-        "Jet.{pt,eta,phi,mass,jetId}",
-        IF_RUN_2("Jet.puId"),
-        "Jet.btagDeepFlavB",
-        "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
-        "FatJet.jetId", "FatJet.subJetIdx1", "FatJet.subJetIdx2",
-        "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
+        "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
+        "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
+        "SubJet.{pt,eta,phi,mass,btagDeepB}",
     },
     produces={
         # new columns
@@ -211,7 +207,8 @@ def jet_selection(
             # the btag weight normalization requires a selection with everything but the bjet
             # selection, so add this step here
             # note: there is currently no b-tag discriminant cut at this point, so take jet_sel
-            "bjet": jet_sel,
+            "bjet_deepjet": jet_sel,
+            "bjet_pnet": jet_sel,  # no need in run 2
         },
         objects={
             "Jet": {
