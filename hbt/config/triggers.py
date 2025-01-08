@@ -258,7 +258,7 @@ def add_triggers_2016(config: od.Config) -> None:
             # does not exist for run F on but should only be used until run 276215 -> which era?
             # TODO: to be checked
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era <= "E"),
-            tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
+            tags={"cross_trigger", "cross_e_tau"},
         ),
         Trigger(
             name="HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau20",
@@ -282,7 +282,7 @@ def add_triggers_2016(config: od.Config) -> None:
             # does not exist for run F on but should only be used between run 276215 and 278270 -> which eras?
             # TODO: to be checked
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and dataset_inst.x.era <= "E"),
-            tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
+            tags={"cross_trigger", "cross_e_tau"},
         ),
         Trigger(
             name="HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau30",
@@ -306,7 +306,7 @@ def add_triggers_2016(config: od.Config) -> None:
             # does not exist until run E but should only be used after run 278270 -> which era?
             # TODO: to be checked
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and dataset_inst.x.era >= "E"),
-            tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
+            tags={"cross_trigger", "cross_e_tau"},
         ),
 
         #
@@ -331,7 +331,7 @@ def add_triggers_2016(config: od.Config) -> None:
                     trigger_bits=None,  # TODO
                 ),
             ),
-            tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
+            tags={"cross_trigger", "cross_mu_tau"},
         ),
         Trigger(
             name="HLT_IsoMu19_eta2p1_LooseIsoPFTau20_SingleL1",
@@ -352,7 +352,7 @@ def add_triggers_2016(config: od.Config) -> None:
                     trigger_bits=None,  # TODO
                 ),
             ),
-            tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
+            tags={"cross_trigger", "cross_mu_tau"},
         ),
 
         #
@@ -378,7 +378,7 @@ def add_triggers_2016(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or ("B" <= dataset_inst.x.era <= "F")),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleMediumCombinedIsoPFTau35_Trk1_eta2p1_Reg",
@@ -400,7 +400,7 @@ def add_triggers_2016(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "H"),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
 
         #
@@ -425,7 +425,7 @@ def add_triggers_2016(config: od.Config) -> None:
                     trigger_bits=None,  # TODO
                 ),
             ),
-            tags={"single_trigger", "single_e", "channel_e_tau"},
+            tags={"single_trigger", "single_e"},
         )
         #
         # single muon
@@ -442,7 +442,7 @@ def add_triggers_2016(config: od.Config) -> None:
                     trigger_bits=None,  # TODO
                 ),
             ),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         )
         config.x.triggers.add(
             name="HLT_IsoMu22_eta2p1",
@@ -456,7 +456,7 @@ def add_triggers_2016(config: od.Config) -> None:
                     trigger_bits=None,  # TODO
                 ),
             ),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         )
         config.x.triggers.add(
             name="HLT_IsoTkMu22",
@@ -470,7 +470,7 @@ def add_triggers_2016(config: od.Config) -> None:
                     trigger_bits=None,  # TODO
                 ),
             ),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         )
         config.x.triggers.add(
             name="HLT_IsoTkMu22_eta2p1",
@@ -484,7 +484,7 @@ def add_triggers_2016(config: od.Config) -> None:
                     trigger_bits=None,  # TODO
                 ),
             ),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         )
 
 
@@ -510,7 +510,7 @@ def add_triggers_2017(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
-            tags={"single_trigger", "single_e", "channel_e_tau"},
+            tags={"single_trigger", "single_e"},
         ),
         Trigger(
             name="HLT_Ele32_WPTight_Gsf_L1DoubleEG",
@@ -525,7 +525,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=2 + 1024,
                 ),
             ),
-            tags={"single_trigger", "single_e", "channel_e_tau"},
+            tags={"single_trigger", "single_e"},
         ),
         Trigger(
             name="HLT_Ele35_WPTight_Gsf",
@@ -539,7 +539,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ),
-            tags={"single_trigger", "single_e", "channel_e_tau"},
+            tags={"single_trigger", "single_e"},
         ),
 
         #
@@ -557,7 +557,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         ),
         Trigger(
             name="HLT_IsoMu27",
@@ -571,7 +571,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         ),
 
         #
@@ -598,7 +598,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=1024 + 256,
                 ),
             ),
-            tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
+            tags={"cross_trigger", "cross_e_tau"},
         ),
 
         #
@@ -625,7 +625,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=1024 + 512,
                 ),
             ),
-            tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
+            tags={"cross_trigger", "cross_mu_tau"},
         ),
 
         #
@@ -650,7 +650,7 @@ def add_triggers_2017(config: od.Config) -> None:
                     trigger_bits=64,
                 ),
             ),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau35_Trk1_TightID_eta2p1_Reg",
@@ -672,7 +672,7 @@ def add_triggers_2017(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleMediumChargedIsoPFTau40_Trk1_TightID_eta2p1_Reg",
@@ -694,7 +694,7 @@ def add_triggers_2017(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau40_Trk1_eta2p1_Reg",
@@ -716,7 +716,7 @@ def add_triggers_2017(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
 
         #
@@ -756,7 +756,7 @@ def add_triggers_2017(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
-            tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau_vbf"},
         ),
     ])
 
@@ -779,7 +779,7 @@ def add_triggers_2018(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
-            tags={"single_trigger", "single_e", "channel_e_tau"},
+            tags={"single_trigger", "single_e"},
         ),
         Trigger(
             name="HLT_Ele35_WPTight_Gsf",
@@ -793,7 +793,7 @@ def add_triggers_2018(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ),
-            tags={"single_trigger", "single_e", "channel_e_tau"},
+            tags={"single_trigger", "single_e"},
         ),
 
         #
@@ -811,7 +811,7 @@ def add_triggers_2018(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         ),
         Trigger(
             name="HLT_IsoMu27",
@@ -825,7 +825,7 @@ def add_triggers_2018(config: od.Config) -> None:
                     trigger_bits=2,
                 ),
             ),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         ),
 
         #
@@ -854,7 +854,7 @@ def add_triggers_2018(config: od.Config) -> None:
             ),
             # the non-HPS path existed only for data and is fully covered in MC below
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
+            tags={"cross_trigger", "cross_e_tau"},
         ),
 
         #
@@ -883,7 +883,7 @@ def add_triggers_2018(config: od.Config) -> None:
             ),
             # the non-HPS path existed only for data and is fully covered in MC below
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
+            tags={"cross_trigger", "cross_mu_tau"},
         ),
 
         #
@@ -909,7 +909,7 @@ def add_triggers_2018(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleMediumChargedIsoPFTau40_Trk1_TightID_eta2p1_Reg",
@@ -931,7 +931,7 @@ def add_triggers_2018(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleTightChargedIsoPFTau40_Trk1_eta2p1_Reg",
@@ -953,7 +953,7 @@ def add_triggers_2018(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
 
         #
@@ -992,7 +992,7 @@ def add_triggers_2018(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
-            tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau_vbf"},
         ),
     ])
 
@@ -1030,10 +1030,11 @@ def add_triggers_2022(config: od.Config) -> None:
             applies_to_dataset=(lambda dataset_inst: (
                 dataset_inst.is_mc or
                 dataset_inst.has_tag("etau") or
+                dataset_inst.has_tag("ee") or
                 dataset_inst.has_tag("emu_from_e") or
                 dataset_inst.has_tag("emu_from_mu")
             )),
-            tags={"single_trigger", "single_e", "channel_e_tau"},
+            tags={"single_trigger", "single_e"},
         ),
 
         #
@@ -1061,7 +1062,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 dataset_inst.has_tag("emu_from_mu") or
                 dataset_inst.has_tag("mumu")
             )),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         ),
 
         #
@@ -1095,7 +1096,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("etau")),
-            tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
+            tags={"cross_trigger", "cross_e_tau"},
         ),
 
         #
@@ -1130,7 +1131,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("mutau")),
-            tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
+            tags={"cross_trigger", "cross_mu_tau"},
         ),
 
         #
@@ -1164,7 +1165,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
 
         #
@@ -1220,7 +1221,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
-            tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau_vbf"},
         ),
 
         # Currently disabled since it may not be needed
@@ -1278,7 +1279,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
-            tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau_jet"},
         ),
     ])
 
@@ -1314,10 +1315,11 @@ def add_triggers_2023(config: od.Config) -> None:
             applies_to_dataset=(lambda dataset_inst: (
                 dataset_inst.is_mc or
                 dataset_inst.has_tag("etau") or
+                dataset_inst.has_tag("ee") or
                 dataset_inst.has_tag("emu_from_e") or
                 dataset_inst.has_tag("emu_from_mu")
             )),
-            tags={"single_trigger", "single_e", "channel_e_tau"},
+            tags={"single_trigger", "single_e"},
         ),
 
         #
@@ -1345,7 +1347,7 @@ def add_triggers_2023(config: od.Config) -> None:
                 dataset_inst.has_tag("emu_from_mu") or
                 dataset_inst.has_tag("mumu")
             )),
-            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+            tags={"single_trigger", "single_mu"},
         ),
 
         #
@@ -1379,7 +1381,7 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("etau")),
-            tags={"cross_trigger", "cross_e_tau", "channel_e_tau"},
+            tags={"cross_trigger", "cross_e_tau"},
         ),
 
         #
@@ -1414,7 +1416,7 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("mutau")),
-            tags={"cross_trigger", "cross_mu_tau", "channel_mu_tau"},
+            tags={"cross_trigger", "cross_mu_tau"},
         ),
 
         #
@@ -1448,7 +1450,7 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
-            tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau"},
         ),
 
         #
@@ -1502,7 +1504,7 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
-            tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau_vbf"},
         ),
 
         #
@@ -1541,6 +1543,6 @@ def add_triggers_2023(config: od.Config) -> None:
                 ),
             ),
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
-            tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
+            tags={"cross_trigger", "cross_tau_tau_jet"},
         ),
     ])

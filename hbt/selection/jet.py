@@ -249,9 +249,6 @@ def jet_selection(
         flat_jet_mask = ak.flatten(ak.full_like(events.Jet.pt, False, dtype=bool) | ttj_mask)
         flat_hhbjet_mask[flat_jet_mask] = ak.flatten(sel_hhbjet_mask)
 
-        from IPython import embed;
-        embed()
-
     # validate that either none or two hhbjets were identified
     assert ak.all(((n_hhbjets := ak.sum(hhbjet_mask, axis=1)) == 0) | (n_hhbjets == 2))
 
@@ -424,9 +421,9 @@ def jet_selection_setup(self: Selector, reqs: dict, inputs: dict, reader_targets
     # store ids of tau-tau-jet and tau-tau cross triggers
     self.trigger_ids_ttc = [
         trigger.id for trigger in self.config_inst.x.triggers
-        if trigger.has_tag("channel_tau_tau") and not trigger.has_tag("cross_tau_tau_jet")
+        if trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf"})
     ]
     self.trigger_ids_ttjc = [
         trigger.id for trigger in self.config_inst.x.triggers
-        if trigger.has_tag("channel_tau_tau") and trigger.has_tag("cross_tau_tau_jet")
+        if trigger.has_tag("cross_tau_tau_jet")
     ]

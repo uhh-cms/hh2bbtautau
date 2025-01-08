@@ -342,7 +342,7 @@ def add_config(
 
         # add tags to datasets
         if dataset.name.startswith("data_e_"):
-            dataset.add_tag({"etau", "emu_from_e"})
+            dataset.add_tag({"etau", "emu_from_e", "ee"})
         if dataset.name.startswith("data_mu_"):
             dataset.add_tag({"mutau", "emu_from_mu", "mumu"})
         if dataset.name.startswith("data_tau_"):
@@ -428,8 +428,8 @@ def add_config(
             "ewk",
         ]),
         "dy_split": [
-            "dy_m4to10", "dy_m10to50", "dy_m50toinf",
-            "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
+            # "dy_m4to10", "dy_m10to50", "dy_m50toinf",
+            # "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
             "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
             "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
             "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
@@ -1209,8 +1209,9 @@ def add_config(
     cfg.add_channel(name="etau", id=1)
     cfg.add_channel(name="mutau", id=2)
     cfg.add_channel(name="tautau", id=3)
-    cfg.add_channel(name="mumu", id=4)
-    cfg.add_channel(name="emu", id=5)
+    cfg.add_channel(name="ee", id=4)
+    cfg.add_channel(name="mumu", id=5)
+    cfg.add_channel(name="emu", id=6)
 
     # add categories
     from hbt.config.categories import add_categories
