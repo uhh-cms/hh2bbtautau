@@ -180,18 +180,15 @@ def jet_selection(
     # deselect jets in events with less than two valid scores
     hhbjet_mask = hhbjet_mask & (ak.sum(hhbtag_scores != EMPTY_FLOAT, axis=1) >= 2)
 
-    # trigger leg matching for tautau events that were only triggered by a tau-tau-jet cross trigger
-    # with two different strategies (still under scrutiny):
-    # a) select the two highest scoring hhbjets of which one must match the jet leg
-    #    (folds matching decisions into the hhbjet identification itself)
-    # b) _after_ selecting the two hhbjets, at least one of them must match the jet leg
-    #    (does the hhbjet identification first, and then filters using the matching)
+    # trigger leg matching for tautau events that were only triggered by a tau-tau-jet cross trigger;
+    # two strategies were studied a) and b) but strategy a) seems to not comply with how trigger matching
+    # should be done and should therefore be ignored.
 
-    # create the mask select those events
+    # create a mask to select tautau events that were only triggered by a tau-tau-jet cross trigger
     false_mask = ak.full_like(events.event, False, dtype=bool)
     ttj_mask = (
         (events.channel_id == 3) &
-        ~ak.any(reduce(or_, [(events.trigger_ids == tid) for tid in self.op], false_mask), axis=1) &
+        ~ak.any(reduce(or_, [(events.trigger_ids == tid) for tid in self.trigger_ids_ttc], false_mask), axis=1) &
         ak.any(reduce(or_, [(events.trigger_ids == tid) for tid in self.trigger_ids_ttjc], false_mask), axis=1)
     )
 
@@ -209,34 +206,51 @@ def jet_selection(
         # constrain to jets with a score
         matching_mask = matching_mask & (hhbjet_mask[ttj_mask] != EMPTY_FLOAT)
 
+        #
         # a)
-        # sort matching masks by score first
-        sel_score_indices = score_indices[ttj_mask]
-        sorted_matching_mask = matching_mask[sel_score_indices]
-        # get the position of the highest scoring _and_ matched hhbjet
-        # (this hhbet is guaranteed to be selected)
-        sel_li = ak.local_index(sorted_matching_mask)
-        matched_idx = ak.firsts(sel_li[sorted_matching_mask], axis=1)
-        # the other hhbjet is not required to be matched and is either at the 0th or 1st position
-        # (depending on whether the matched one had the highest score)
-        other_idx = ak.where(matched_idx == 0, 1, 0)
-        # use comparisons between selected indices and the local index to convert back into a mask
-        # and check again that both hhbjets have a score
-        sel_hhbjet_mask = (
-            (sel_li == ak.fill_none(sel_score_indices[matched_idx[..., None]][..., 0], -1)) |
-            (sel_li == ak.fill_none(sel_score_indices[other_idx[..., None]][..., 0], -1))
-        ) & (hhbjet_mask[ttj_mask] != EMPTY_FLOAT)
+        # two hhb-tagged jets must be selected. The highest scoring jet is always selected.
+        #  - If this jet happens to match the trigger leg, then the second highest scoring jet is also selected.
+        #  - If this is not the case, then the highest scoring jet that matches the trigger leg is selected.
+        # ! Note : Apparently the official recommendation is that trigger matching should only be used
+        #          to select full events and not for individual objects selection. Thus, this strategy results in bias.
+        #
 
+        # # sort matching masks by score first
+        # sel_score_indices = score_indices[ttj_mask]
+        # sorted_matching_mask = matching_mask[sel_score_indices]
+        # # get the position of the highest scoring _and_ matched hhbjet
+        # # (this hhbet is guaranteed to be selected)
+        # sel_li = ak.local_index(sorted_matching_mask)
+        # matched_idx = ak.firsts(sel_li[sorted_matching_mask], axis=1)
+        # # the other hhbjet is not required to be matched and is either at the 0th or 1st position
+        # # (depending on whether the matched one had the highest score)
+        # other_idx = ak.where(matched_idx == 0, 1, 0)
+        # # use comparisons between selected indices and the local index to convert back into a mask
+        # # and check again that both hhbjets have a score
+        # sel_hhbjet_mask = (
+        #     (sel_li == ak.fill_none(sel_score_indices[matched_idx[..., None]][..., 0], -1)) |
+        #     (sel_li == ak.fill_none(sel_score_indices[other_idx[..., None]][..., 0], -1))
+        # ) & (hhbjet_mask[ttj_mask] != EMPTY_FLOAT)
+
+        #
         # b)
+        # two hhb-tagged jets must be selected. The highest and second-highest scoring jets are selected.
+        #  - If any of those matches the trigger leg, the event is accepted.
+        #  - If none of them matches the trigger leg, the event is rejected.
+        #
+
         # check if any of the two jets is matched and fold back into hhbjet_mask (brodcasted)
-        # sel_hhbjet_mask = ak.Array(hhbjet_mask[ttj_mask])
-        # one_matched = ak.any(matching_mask[sel_hhbjet_mask], axis=1)
-        # sel_hhbjet_mask = sel_hhbjet_mask & one_matched
+        sel_hhbjet_mask = ak.Array(hhbjet_mask[ttj_mask])
+        one_matched = ak.any(matching_mask[sel_hhbjet_mask], axis=1)
+        sel_hhbjet_mask = sel_hhbjet_mask & one_matched
 
         # insert back into the full hhbjet_mask
         flat_hhbjet_mask = flat_np_view(hhbjet_mask)
         flat_jet_mask = ak.flatten(ak.full_like(events.Jet.pt, False, dtype=bool) | ttj_mask)
         flat_hhbjet_mask[flat_jet_mask] = ak.flatten(sel_hhbjet_mask)
+
+        from IPython import embed;
+        embed()
 
     # validate that either none or two hhbjets were identified
     assert ak.all(((n_hhbjets := ak.sum(hhbjet_mask, axis=1)) == 0) | (n_hhbjets == 2))
