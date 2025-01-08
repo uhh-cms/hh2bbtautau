@@ -183,13 +183,15 @@ def jet_selection(
     # trigger leg matching for tautau events that were only triggered by a tau-tau-jet cross trigger
     # with two different strategies (still under scrutiny):
     # a) select the two highest scoring hhbjets of which one must match the jet leg
-    #    (folds matching into the hhbjet identification itself)
+    #    (folds matching decisions into the hhbjet identification itself)
     # b) _after_ selecting the two hhbjets, at least one of them must match the jet leg
     #    (does the hhbjet identification first, and then filters using the matching)
+
+    # create the mask select those events
     false_mask = ak.full_like(events.event, False, dtype=bool)
     ttj_mask = (
         (events.channel_id == 3) &
-        ~ak.any(reduce(or_, [(events.trigger_ids == tid) for tid in self.trigger_ids_ttc], false_mask), axis=1) &
+        ~ak.any(reduce(or_, [(events.trigger_ids == tid) for tid in self.op], false_mask), axis=1) &
         ak.any(reduce(or_, [(events.trigger_ids == tid) for tid in self.trigger_ids_ttjc], false_mask), axis=1)
     )
 
@@ -237,7 +239,7 @@ def jet_selection(
         flat_hhbjet_mask[flat_jet_mask] = ak.flatten(sel_hhbjet_mask)
 
     # validate that either none or two hhbjets were identified
-    assert len(set(ak.sum(hhbjet_mask, axis=1)) - {0, 2}) == 0
+    assert ak.all(((n_hhbjets := ak.sum(hhbjet_mask, axis=1)) == 0) | (n_hhbjets == 2))
 
     #
     # fat jets
@@ -263,14 +265,10 @@ def jet_selection(
         axis=2,
     )
 
-    # discard the event in case the (first) fatjet with matching subjets is found
-    # but they are not b-tagged (TODO: move to deepjet when available for subjets)
-    # TODO: is it correct to do this? for run 3 the pnet wp is compare against btagDeepB?
-    if self.config_inst.campaign.x.run == 3:
-        wp = self.config_inst.x.btag_working_points.particleNet.loose
-    else:
-        wp = self.config_inst.x.btag_working_points.deepcsv.loose
-    subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
+    # check subjet btags (only deepcsv available)
+    # note: skipped for now as we do not have a final strategy for run 3 yet
+    # wp = ...
+    # subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     #
     # vbf jets
@@ -343,12 +341,8 @@ def jet_selection(
         ascending=False,
     )
 
-    # final event selection
-    jet_sel = (
-        (ak.sum(default_mask, axis=1) >= 2) &
-        # TODO: do want this?
-        ak.fill_none(subjets_btagged, True)  # was none for events with no matched fatjet
-    )
+    # final event selection (only looking at number of default jets for now)
+    jet_sel = ak.sum(default_mask, axis=1) >= 2
 
     # some final type conversions
     jet_indices = ak.values_astype(ak.fill_none(jet_indices, 0), np.int32)

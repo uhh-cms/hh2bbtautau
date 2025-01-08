@@ -1206,9 +1206,8 @@ def add_config(
     ################################################################################################
 
     # channels
-    # TODO: switch etau and mutau, also check if change needed in res_dnn's
-    cfg.add_channel(name="mutau", id=1)
-    cfg.add_channel(name="etau", id=2)
+    cfg.add_channel(name="etau", id=1)
+    cfg.add_channel(name="mutau", id=2)
     cfg.add_channel(name="tautau", id=3)
     cfg.add_channel(name="mumu", id=4)
     cfg.add_channel(name="emu", id=5)
