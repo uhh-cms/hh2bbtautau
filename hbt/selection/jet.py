@@ -11,6 +11,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.columnar_util import (
     EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view,
+    full_like,
 )
 from columnflow.util import maybe_import, InsertableDict
 
@@ -185,7 +186,7 @@ def jet_selection(
     # should be done and should therefore be ignored.
 
     # create a mask to select tautau events that were only triggered by a tau-tau-jet cross trigger
-    false_mask = ak.full_like(events.event, False, dtype=bool)
+    false_mask = full_like(events.event, False, dtype=bool)
     ttj_mask = (
         (events.channel_id == 3) &
         ~ak.any(reduce(or_, [(events.trigger_ids == tid) for tid in self.trigger_ids_ttc], false_mask), axis=1) &
@@ -195,7 +196,7 @@ def jet_selection(
     # only perform this special treatment when applicable
     if ak.any(ttj_mask):
         # check which jets can be matched to any of the jet legs
-        matching_mask = ak.full_like(events.Jet.pt[ttj_mask], False, dtype=bool)
+        matching_mask = full_like(events.Jet.pt[ttj_mask], False, dtype=bool)
         for trigger, _, leg_masks in trigger_results.x.trigger_data:
             if trigger.id in self.trigger_ids_ttjc:
                 trig_objs = events.TrigObj[leg_masks["jet"]]
@@ -246,7 +247,7 @@ def jet_selection(
 
         # insert back into the full hhbjet_mask
         flat_hhbjet_mask = flat_np_view(hhbjet_mask)
-        flat_jet_mask = ak.flatten(ak.full_like(events.Jet.pt, False, dtype=bool) | ttj_mask)
+        flat_jet_mask = ak.flatten(full_like(events.Jet.pt, False, dtype=bool) | ttj_mask)
         flat_hhbjet_mask[flat_jet_mask] = ak.flatten(sel_hhbjet_mask)
 
     # validate that either none or two hhbjets were identified
@@ -306,7 +307,7 @@ def jet_selection(
     # extra requirements for events for which only the tau tau vbf cross trigger fired
     cross_vbf_ids = [t.id for t in self.config_inst.x.triggers if t.has_tag("cross_tau_tau_vbf")]
     if not cross_vbf_ids:
-        cross_vbf_mask = ak.full_like(1 * events.event, False, dtype=bool)
+        cross_vbf_mask = full_like(1 * events.event, False, dtype=bool)
     else:
         cross_vbf_masks = [events.trigger_ids == tid for tid in cross_vbf_ids]
         # This combines "at least one cross trigger is fired" and "no other triggers are fired"

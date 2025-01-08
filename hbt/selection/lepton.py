@@ -12,7 +12,9 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.columnar_util import set_ak_column, sorted_indices_from_mask
+from columnflow.columnar_util import (
+    set_ak_column, sorted_indices_from_mask, flat_np_view, full_like,
+)
 from columnflow.util import maybe_import
 
 from hbt.util import IF_NANO_V9, IF_NANO_GE_V10
@@ -28,20 +30,35 @@ logger = law.logger.get_logger(__name__)
 def trigger_object_matching(
     vectors1: ak.Array,
     vectors2: ak.Array,
+    /,
+    *,
     threshold: float = 0.5,
     axis: int = 2,
+    event_mask: ak.Array | type(Ellipsis) | None = None,
 ) -> ak.Array:
     """
     Helper to check per object in *vectors1* if there is at least one object in *vectors2* that
     leads to a delta R metric below *threshold*. The final reduction is applied over *axis* of the
-    resulting metric table containing the full combinatorics. When *return_all_matches* is *True*,
-    the matrix with all matching decisions is returned as well.
+    resulting metric table containing the full combinatorics. If an *event_mask* is given, the
+    the matching is performed only for those events, but a full object mask with the same shape as
+    that of *vectors1* is returned, which all objects set to *False* where not matching was done.
     """
+    # handle event masks
+    used_event_mask = event_mask is not None and event_mask is not Ellipsis
+    event_mask = Ellipsis if event_mask is None else event_mask
+
     # delta_r for all combinations
-    dr = vectors1.metric_table(vectors2)
+    dr = vectors1[event_mask].metric_table(vectors2[event_mask])
 
     # check per element in vectors1 if there is at least one matching element in vectors2
     any_match = ak.any(dr < threshold, axis=axis)
+
+    # expand to original shape if an event mask was given
+    if used_event_mask:
+        full_any_match = full_like(vectors1.pt, False, dtype=bool)
+        flat_full_any_match = flat_np_view(full_any_match)
+        flat_full_any_match[flat_np_view(full_any_match | event_mask)] = flat_np_view(any_match)
+        any_match = full_any_match
 
     return any_match
 
@@ -134,13 +151,13 @@ def electron_trigger_matching(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
+    trigger_fired: ak.Array,
     leg_masks: dict[str, ak.Array],
     **kwargs,
 ) -> tuple[ak.Array]:
     """
     Electron trigger matching.
     """
-    # TODO: only perform this for events where the trigger fired, needs more info and flat_views
     is_single = trigger.has_tag("single_e")
     is_cross = trigger.has_tag("cross_e_tau")
 
@@ -149,7 +166,11 @@ def electron_trigger_matching(
     assert trigger.n_legs == len(leg_masks) == (1 if is_single else 2)
     assert abs(trigger.legs["e"].pdg_id) == 11
 
-    return trigger_object_matching(events.Electron, events.TrigObj[leg_masks["e"]])
+    return trigger_object_matching(
+        events.Electron,
+        events.TrigObj[leg_masks["e"]],
+        event_mask=trigger_fired,
+    )
 
 
 @selector(
@@ -211,13 +232,13 @@ def muon_trigger_matching(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
+    trigger_fired: ak.Array,
     leg_masks: dict[str, ak.Array],
     **kwargs,
 ) -> tuple[ak.Array]:
     """
     Muon trigger matching.
     """
-    # TODO: only perform this for events where the trigger fired, needs more info and flat_views
     is_single = trigger.has_tag("single_mu")
     is_cross = trigger.has_tag("cross_mu_tau")
 
@@ -226,7 +247,11 @@ def muon_trigger_matching(
     assert trigger.n_legs == len(leg_masks) == (1 if is_single else 2)
     assert abs(trigger.legs["mu"].pdg_id) == 13
 
-    return trigger_object_matching(events.Muon, events.TrigObj[leg_masks["mu"]])
+    return trigger_object_matching(
+        events.Muon,
+        events.TrigObj[leg_masks["mu"]],
+        event_mask=trigger_fired,
+    )
 
 
 @selector(
@@ -253,7 +278,7 @@ def tau_selection(
     # return empty mask if no tagged taus exists in the chunk
     if ak.all(ak.num(events.Tau) == 0):
         logger.info("no taus found in event chunk")
-        false_mask = ak.full_like(events.Tau.pt, False, dtype=bool)
+        false_mask = full_like(events.Tau.pt, False, dtype=bool)
         return false_mask, false_mask
 
     is_single_e = trigger.has_tag("single_e")
@@ -317,16 +342,16 @@ def tau_trigger_matching(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
+    trigger_fired: ak.Array,
     leg_masks: dict[str, ak.Array],
     **kwargs,
 ) -> tuple[ak.Array]:
     """
     Tau trigger matching.
     """
-    # TODO: only perform this for events where the trigger fired, needs more info and flat_views
     if ak.all(ak.num(events.Tau) == 0):
         logger.info("no taus found in event chunk")
-        return ak.full_like(events.Tau.pt, False, dtype=bool)
+        return full_like(events.Tau.pt, False, dtype=bool)
 
     is_cross_e = trigger.has_tag("cross_e_tau")
     is_cross_mu = trigger.has_tag("cross_mu_tau")
@@ -342,7 +367,11 @@ def tau_trigger_matching(
         assert trigger.n_legs == len(leg_masks) == 2
         assert abs(trigger.legs["tau"].pdg_id) == 15
         # match leg 1
-        return trigger_object_matching(events.Tau, events.TrigObj[leg_masks["tau"]])
+        return trigger_object_matching(
+            events.Tau,
+            events.TrigObj[leg_masks["tau"]],
+            event_mask=trigger_fired,
+        )
 
     # is_any_cross_tau
     # catch config errors
@@ -351,8 +380,17 @@ def tau_trigger_matching(
     assert abs(trigger.legs["tau2"].pdg_id) == 15
 
     # match both legs
-    matches_leg0 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks["tau1"]])
-    matches_leg1 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks["tau2"]])
+    matches_leg0 = trigger_object_matching(
+        events.Tau,
+        events.TrigObj[leg_masks["tau1"]],
+        event_mask=trigger_fired,
+    )
+    matches_leg1 = trigger_object_matching(
+        events.Tau,
+        events.TrigObj[leg_masks["tau2"]],
+        event_mask=trigger_fired,
+    )
+
     # taus need to be matched to at least one leg, but as a side condition
     # each leg has to have at least one match to a tau
     matches = (
@@ -417,9 +455,9 @@ def lepton_selection(
     leptons_os = false_mask
     single_triggered = false_mask
     cross_triggered = false_mask
-    sel_electron_mask = ak.full_like(events.Electron.pt, False, dtype=bool)
-    sel_muon_mask = ak.full_like(events.Muon.pt, False, dtype=bool)
-    sel_tau_mask = ak.full_like(events.Tau.pt, False, dtype=bool)
+    sel_electron_mask = full_like(events.Electron.pt, False, dtype=bool)
+    sel_muon_mask = full_like(events.Muon.pt, False, dtype=bool)
+    sel_tau_mask = full_like(events.Tau.pt, False, dtype=bool)
     leading_taus = events.Tau[:, :0]
 
     # indices for sorting taus first by isolation, then by pt
@@ -465,13 +503,13 @@ def lepton_selection(
             # fold trigger matching into the selection
             trig_electron_mask = (
                 electron_mask &
-                self[electron_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
             trig_tau_mask = tau_mask
             if trigger.has_tag("cross_e_tau"):
                 trig_tau_mask = (
                     trig_tau_mask &
-                    self[tau_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                    self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
 
             # check if the most isolated tau among the selected ones is matched
@@ -517,13 +555,13 @@ def lepton_selection(
             # fold trigger matching into the selection
             trig_muon_mask = (
                 muon_mask &
-                self[muon_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
             trig_tau_mask = tau_mask
             if trigger.has_tag("cross_e_tau"):
                 trig_tau_mask = (
                     trig_tau_mask &
-                    self[tau_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                    self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
 
             # check if the most isolated tau among the selected ones is matched
@@ -569,7 +607,7 @@ def lepton_selection(
             # fold trigger matching into the selection
             trig_tau_mask = (
                 tau_mask &
-                self[tau_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
 
             # check if the two leading (most isolated) taus are matched
@@ -618,7 +656,7 @@ def lepton_selection(
             # fold trigger matching into the selection
             trig_electron_mask = (
                 electron_mask &
-                self[electron_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
 
             # check if the first (hardest) electron matched
@@ -659,7 +697,7 @@ def lepton_selection(
             # fold trigger matching into the selection
             trig_muon_mask = (
                 muon_mask &
-                self[muon_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
 
             # check if the first (hardest) muon matched
@@ -707,12 +745,12 @@ def lepton_selection(
                 # fold trigger matching into the selection
                 trig_electron_mask = (
                     electron_mask &
-                    self[electron_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                    self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
                 # for muons, loop over triggers, find single triggers and make sure none of them
                 # fired in order to avoid double counting
                 emu_muon_mask = False
-                mu_trig_fired = ak.full_like(events.event, False, dtype=bool)
+                mu_trig_fired = full_like(events.event, False, dtype=bool)
                 for _trigger, _trigger_fired, _ in trigger_results.x.trigger_data:
                     if not _trigger.has_tag("single_mu"):
                         continue
@@ -729,13 +767,13 @@ def lepton_selection(
                 # fold trigger matching into the selection
                 trig_muon_mask = (
                     muon_mask &
-                    self[muon_trigger_matching](events, trigger, leg_masks, **sel_kwargs)
+                    self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
                 # for electrons, loop over triggers, find single triggers and check the matching
                 # only in case a trigger fired
                 emu_electron_mask = False
-                e_trig_fired = ak.full_like(events.event, False, dtype=bool)
-                e_match_mask = ak.full_like(events.Electron.pt, False, dtype=bool)
+                e_trig_fired = full_like(events.event, False, dtype=bool)
+                e_match_mask = full_like(events.Electron.pt, False, dtype=bool)
                 for _trigger, _trigger_fired, _leg_masks in trigger_results.x.trigger_data:
                     if not _trigger.has_tag("single_e"):
                         continue
@@ -746,7 +784,7 @@ def lepton_selection(
                     e_trig_fired = e_trig_fired | _trigger_fired
                     # evaluate the matching
                     e_match_mask = e_match_mask | (
-                        self[electron_trigger_matching](events, _trigger, _leg_masks, **sel_kwargs) &
+                        self[electron_trigger_matching](events, _trigger, _trigger_fired, _leg_masks, **sel_kwargs) &
                         _trigger_fired
                     )
                 # for events in which no single e trigger fired, consider the matching as successful
