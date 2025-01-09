@@ -330,13 +330,12 @@ def add_config(
         *if_era(year=2023, tag="postBPix", values=[
             f"data_{stream}_d{v}" for stream in ["mu", "e", "tau", "met"] for v in "12"
         ]),
-
-        # sync
-        *if_era(year=[2022, 2023], sync=True, values=[
-            "hh_ggf_hbb_htt_kl1_kt1_powheg",
-        ]),
     ]
     for dataset_name in dataset_names:
+        # skip when in sync mode and not exiting
+        if sync_mode and not campaign.has_dataset(dataset_name):
+            continue
+
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
@@ -353,7 +352,7 @@ def add_config(
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
-        if re.match(r"^(ww|wz|zz)_.*pythia$", dataset.name):
+        if re.match(r"^(ww|wz|zz)_.*_pythia$", dataset.name):
             dataset.add_tag("no_lhe_weights")
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
@@ -388,7 +387,8 @@ def add_config(
                 info.n_files = 1
 
     # verify that the root process of each dataset is part of any of the registered processes
-    verify_config_processes(cfg, warn=True)
+    if not sync_mode:
+        verify_config_processes(cfg, warn=True)
 
     ################################################################################################
     # task defaults and groups
