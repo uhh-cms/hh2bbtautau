@@ -8,14 +8,13 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.columnar_util import (
     EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view,
     full_like,
 )
 from columnflow.util import maybe_import, InsertableDict
 
-from hbt.util import IF_RUN_2, IF_RUN_3
+from hbt.util import IF_RUN_2
 from hbt.production.hhbtag import hhbtag
 from hbt.selection.lepton import trigger_object_matching
 
@@ -25,7 +24,7 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
-        hhbtag, IF_RUN_3(jet_veto_map),
+        hhbtag,
         "trigger_ids", "TrigObj.{pt,eta,phi}",
         "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
         "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
@@ -313,11 +312,6 @@ def jet_selection(
             "n_central_jets": ak.num(jet_indices, axis=1),
         },
     )
-
-    # additional jet veto map, vetoing entire events
-    if self.has_dep(jet_veto_map):
-        events, veto_result = self[jet_veto_map](events, **kwargs)
-        result += veto_result
 
     return events, result
 

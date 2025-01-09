@@ -14,6 +14,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.stats import increment_stats
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
+from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
@@ -53,10 +54,10 @@ hbt_met_filters = met_filters.derive("hbt_met_filters", cls_dict={"get_met_filte
 
 @selector(
     uses={
-        json_filter, hbt_met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
-        pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
-        increment_stats, attach_coffea_behavior, patch_ecalBadCalibFilter,
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        json_filter, hbt_met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
+        jet_selection, mc_weight, pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet),
+        process_ids, cutflow_features, increment_stats, attach_coffea_behavior,
+        patch_ecalBadCalibFilter, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight,
@@ -95,6 +96,11 @@ def default(
             events.patchedEcalBadCalibFilter
         )
     results += met_filter_results
+
+    # jet veto map
+    if self.has_dep(jet_veto_map):
+        events, veto_result = self[jet_veto_map](events, **kwargs)
+        results += veto_result
 
     # trigger selection
     events, trigger_results = self[trigger_selection](events, **kwargs)
