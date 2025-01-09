@@ -316,9 +316,8 @@ def tau_selection(
         (events.Tau.pt > min_pt) &
         (abs(events.Tau.dz) < 0.2) &
         reduce(or_, [events.Tau.decayMode == mode for mode in (0, 1, 10, 11)]) &
-        (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vloose) &
-        (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.tight) &
         (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.vvvloose)
+        # vs e and mu cuts are channel dependent and thus applied in the overall lepton selection
     )
 
     # remove taus with too close spatial separation to previously selected leptons
@@ -440,6 +439,9 @@ def lepton_selection(
     """
     Combined lepton selection.
     """
+    wp_config = self.config_inst.x.tau_id_working_points
+    get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
+
     # get channels from the config
     ch_etau = self.config_inst.get_channel("etau")
     ch_mutau = self.config_inst.get_channel("mutau")
@@ -500,12 +502,19 @@ def lepton_selection(
             self.dataset_inst.is_mc or
             self.dataset_inst.has_tag("etau")
         ):
+            # channel dependent deeptau cuts vs e and mu
+            ch_tau_mask = (
+                tau_mask &
+                (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vloose) &
+                (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.tight)
+            )
+
             # fold trigger matching into the selection
             trig_electron_mask = (
                 electron_mask &
                 self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
-            trig_tau_mask = tau_mask
+            trig_tau_mask = ch_tau_mask
             if trigger.has_tag("cross_e_tau"):
                 trig_tau_mask = (
                     trig_tau_mask &
@@ -514,7 +523,7 @@ def lepton_selection(
 
             # check if the most isolated tau among the selected ones is matched
             first_tau_matched = ak.fill_none(
-                ak.firsts(trig_tau_mask[tau_sorting_indices[tau_mask[tau_sorting_indices]]], axis=1),
+                ak.firsts(trig_tau_mask[tau_sorting_indices[ch_tau_mask[tau_sorting_indices]]], axis=1),
                 False,
             )
 
@@ -552,12 +561,19 @@ def lepton_selection(
             self.dataset_inst.is_mc or
             self.dataset_inst.has_tag("mutau")
         ):
+            # channel dependent deeptau cuts vs e and mu
+            ch_tau_mask = (
+                tau_mask &
+                (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vvloose) &
+                (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.tight)
+            )
+
             # fold trigger matching into the selection
             trig_muon_mask = (
                 muon_mask &
                 self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
-            trig_tau_mask = tau_mask
+            trig_tau_mask = ch_tau_mask
             if trigger.has_tag("cross_e_tau"):
                 trig_tau_mask = (
                     trig_tau_mask &
@@ -566,7 +582,7 @@ def lepton_selection(
 
             # check if the most isolated tau among the selected ones is matched
             first_tau_matched = ak.fill_none(
-                ak.firsts(trig_tau_mask[tau_sorting_indices[tau_mask[tau_sorting_indices]]], axis=1),
+                ak.firsts(trig_tau_mask[tau_sorting_indices[ch_tau_mask[tau_sorting_indices]]], axis=1),
                 False,
             )
 
@@ -604,16 +620,23 @@ def lepton_selection(
             trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}) and
             (self.dataset_inst.is_mc or self.dataset_inst.has_tag("tautau"))
         ):
+            # channel dependent deeptau cuts vs e and mu
+            ch_tau_mask = (
+                tau_mask &
+                (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vvloose) &
+                (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.vloose)
+            )
+
             # fold trigger matching into the selection
             trig_tau_mask = (
-                tau_mask &
+                ch_tau_mask &
                 self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
 
             # check if the two leading (most isolated) taus are matched
             leading_taus_matched = ak.fill_none(
-                ak.firsts(trig_tau_mask[tau_sorting_indices[tau_mask[tau_sorting_indices]]], axis=1) &
-                ak.firsts(trig_tau_mask[tau_sorting_indices[tau_mask[tau_sorting_indices]]][:, 1:], axis=1),
+                ak.firsts(trig_tau_mask[tau_sorting_indices[ch_tau_mask[tau_sorting_indices]]], axis=1) &
+                ak.firsts(trig_tau_mask[tau_sorting_indices[ch_tau_mask[tau_sorting_indices]]][:, 1:], axis=1),
                 False,
             )
 
