@@ -9,7 +9,7 @@ from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.cms.jets import jet_veto_map
-from columnflow.selection.util import sorted_indices_from_mask
+from columnflow.columnar_util import sorted_indices_from_mask
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 
