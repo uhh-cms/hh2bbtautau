@@ -13,7 +13,7 @@ from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, InsertableDict
 from columnflow.columnar_util import set_ak_column, Route
 
-from hbt.util import IF_DATASET_IS_DY
+from hbt.util import IF_DATASET_IS_DY, IF_DATASET_IS_WJETS
 from columnflow.types import Callable
 
 np = maybe_import("numpy")
@@ -30,16 +30,41 @@ PtRange = tuple[float, float]
 set_ak_column_i64 = functools.partial(set_ak_column, value_type=np.int64)
 
 class stitched_process_ids(Producer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.key_func: Callable or None = None
-        self.cross_check_func: Callable or None = self.cross_check_func
-        self.stichting_observabes: list[str] or None = None
-        self.cross_check_translation_dict: dict[str, str] or None = None
+    """General class to calculate process ids for stitched samples.
+
+    Individual producers should derive from this class and set the following attributes:
+
+    :param key_func: function to generate keys for final process id lookup table.
+        Can also be defined and set in the setup function of the derived class.
+    :rtype: Callable or None
+    :param cross_check_func: function to cross check the stitching observables with the process auxiliary values
+    :rtype: Callable or None
+    :param stitching_observables: list of observables to use for stitching
+    :rtype: list[str] or None
+    :param cross_check_translation_dict: dictionary to translate stitching observables to process auxiliary values.
+        Used for cross checking the stitching observables with the process auxiliary values
+    :rtype: dict[str, str] or None
+    :param include_condition: condition to include the inputs and the outputs to the uses and produces sets
+    :rtype: Callable or None
+    :param inclusive_dataset: dataset that is used to define the stitching ranges
+    :rtype: str or None
+    :param leaf_processes: list of processes that are used to define the stitching ranges
+    :rtype: list[str] or None
+    :param Producer:
+    """
 
     def init_func(self, *args, **kwargs):
-        self.uses |= {IF_DATASET_IS_DY(*self.stichting_observabes)}
-        self.produces |= {IF_DATASET_IS_DY("process_id")}
+        # if there is a include_condition set, apply it to both inputs
+        # and outputs. Otherwise, just use the inputs/outputs as they are
+        condition = self.include_condition or (lambda *args: args)
+
+
+        # Requesting e.g. LHE.NpNLO doesn't work
+        # so wrap everything in a Route object
+        inputs = self.stitching_observables or ()
+        self.uses |= {condition(*inputs)}
+        self.produces |= {condition("process_id")}
+        
 
     def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
         """
@@ -58,10 +83,12 @@ class stitched_process_ids(Producer):
         # njets = events.LHE.NpNLO
         # pt = events.LHE.Vpt
         # get stitching observables
-        stitching_obs_values = [Route(obs).apply(events) for obs in self.stichting_observabes]
+        stitching_obs_values = [Route(obs).apply(events) for obs in self.stitching_observables]
 
-        if self.cross_check_translation_dict and callable(self.cross_check_func):
-            self.cross_check_func(process_inst, stitching_obs_values)
+        # check if there is a custom cross check function, otherwise use the default one
+        cross_check_func = getattr(self, "cross_check_func", self.stitching_range_cross_check)
+        if self.cross_check_translation_dict and callable(cross_check_func):
+            cross_check_func(process_inst, stitching_obs_values)
 
         # lookup the id and check for invalid values
         process_ids = np.squeeze(np.asarray(self.id_table[self.key_func(*stitching_obs_values)].todense()))
@@ -80,12 +107,12 @@ class stitched_process_ids(Producer):
     def stitching_range_cross_check(
         self: Producer,
         process_inst: order.Process,
-        stichting_values: list[ak.Array]
+        stitching_values: list[ak.Array]
     ) -> None:
-        # define lookup for stichting observable -> process auxiliary values to compare with
+        # define lookup for stitching observable -> process auxiliary values to compare with
         # raise a warning if a datasets was already created for a specific "bin" (leaf process),
         # but actually does not fit
-        for obs_name, obs_values in zip(self.stichting_observabes, stichting_values):
+        for obs_name, obs_values in zip(self.stitching_observables, stitching_values):
             aux_name = self.cross_check_translation_dict.get(obs_name, obs_name)
             aux_values = process_inst.x(aux_name, None)
             if aux_values is not None:
@@ -99,66 +126,11 @@ class stitched_process_ids(Producer):
 
 process_ids_dy = stitched_process_ids.derive(
     "process_ids_dy", cls_dict={
-        "stichting_observabes": ["LHE.NpNLO", "LHE.Vpt"],
+        "stitching_observables": ["LHE.NpNLO", "LHE.Vpt"],
         "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
+        "include_condition": IF_DATASET_IS_DY,
     },
 )
-
-# @producer(
-#     uses={IF_DATASET_IS_DY("LHE.NpNLO", "LHE.Vpt")},
-#     produces={IF_DATASET_IS_DY("process_id")},
-# )
-# def process_ids_dy(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-#     """
-#     Assigns each dy event a single process id, based on the number of jets and the di-lepton pt of
-#     the LHE record. This is used for the stitching of the DY samples.
-#     """
-#     # as always, we assume that each dataset has exactly one process associated to it
-#     if len(self.dataset_inst.processes) != 1:
-#         raise NotImplementedError(
-#             f"dataset {self.dataset_inst.name} has {len(self.dataset_inst.processes)} processes "
-#             "assigned, which is not yet implemented",
-#         )
-#     process_inst = self.dataset_inst.processes.get_first()
-
-#     # get the number of nlo jets and the di-lepton pt
-#     njets = events.LHE.NpNLO
-#     pt = events.LHE.Vpt
-
-#     # raise a warning if a datasets was already created for a specific "bin" (leaf process),
-#     # but actually does not fit
-#     njets_range = process_inst.x("njets", None)
-#     if njets_range is not None:
-#         outliers = (njets < njets_range[0]) | (njets >= njets_range[1])
-#         if ak.any(outliers):
-#             logger.warning(
-#                 f"dataset {self.dataset_inst.name} is meant to contain njet values in the range "
-#                 f"[{njets_range[0]}, {njets_range[0]}), but found {ak.sum(outliers)} events "
-#                 "outside this range",
-#             )
-#     pt_range = process_inst.x("ptll", None)
-#     if pt_range is not None:
-#         outliers = (pt < pt_range[0]) | (pt >= pt_range[1])
-#         if ak.any(outliers):
-#             logger.warning(
-#                 f"dataset {self.dataset_inst.name} is meant to contain ptll values in the range "
-#                 f"[{pt_range[0]}, {pt_range[1]}), but found {ak.sum(outliers)} events outside this "
-#                 "range",
-#             )
-
-#     # lookup the id and check for invalid values
-#     process_ids = np.squeeze(np.asarray(self.id_table[self.key_func(njets, pt)].todense()))
-#     invalid_mask = process_ids == 0
-#     if ak.any(invalid_mask):
-#         raise ValueError(
-#             f"found {sum(invalid_mask)} dy events that could not be assigned to a process",
-#         )
-
-#     # store them
-#     events = set_ak_column_i64(events, "process_id", process_ids)
-
-#     return events
-
 
 @process_ids_dy.setup
 def process_ids_dy_setup(
@@ -169,7 +141,7 @@ def process_ids_dy_setup(
 ) -> None:
     # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
     stitching_ranges: dict[NJetsRange, list[PtRange]] = {}
-    for proc in self.dy_leaf_processes:
+    for proc in self.leaf_processes:
         njets = proc.x.njets
         stitching_ranges.setdefault(njets, [])
         if proc.has_aux("ptll"):
@@ -213,6 +185,13 @@ def process_ids_dy_setup(
     self.id_table = sp.sparse.lil_matrix((max_nj_bin + 1, max_pt_bin + 1), dtype=np.int64)
 
     # fill it
-    for proc in self.dy_leaf_processes:
+    for proc in self.leaf_processes:
         key = key_func(proc.x.njets[0], proc.x("ptll", [-1])[0])
         self.id_table[key] = proc.id
+
+# wjet samples have the same stitching, so we can reuse the same producer
+process_ids_wjets = process_ids_dy.derive(
+    "process_ids_wjets", cls_dict={
+        "include_condition": IF_DATASET_IS_WJETS,
+    },
+)
