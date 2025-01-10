@@ -9,11 +9,13 @@ from __future__ import annotations
 from operator import and_
 from functools import reduce
 from collections import defaultdict
+import law
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.stats import increment_stats
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
+from columnflow.production import Producer
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
@@ -33,6 +35,8 @@ from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
+
+logger = law.logger.get_logger(__name__)
 
 
 @selector(
@@ -124,8 +128,8 @@ def default(
             )
 
     # create process ids
-    if self.process_ids_dy is not None:
-        events = self[self.process_ids_dy](events, **kwargs)
+    if self.process_ids_stitched is not None:
+        events = self[self.process_ids_stitched](events, **kwargs)
     else:
         events = self[process_ids](events, **kwargs)
 
@@ -167,23 +171,35 @@ def default_init(self: Selector) -> None:
     if getattr(self, "dataset_inst", None) is None:
         return
 
-    self.process_ids_dy: process_ids_dy | None = None
-    if self.dataset_inst.has_tag("is_dy"):
-        dy_stitching = self.config_inst.x.stitching["is_dy"]
+    self.process_ids_stitched: Producer | None = None
+    for tag in self.config_inst.x.stitching:
+        if not self.dataset_inst.has_tag(tag): continue
+
+        if self.process_ids_stitched:
+            logger.warning(f"dataset {self.dataset_inst.name} has multiple stitching tags")
+
+        
+        stichting_dict = self.config_inst.x.stitching[tag]
         # check if this dataset is covered by any dy id producer
-        for name, dy_cfg in dy_stitching.items():
-            dataset_inst = dy_cfg["inclusive_dataset"]
+        base_producer = stichting_dict["base_producer"]
+        stitching_infos = stichting_dict["info"]
+        for name, stitching_cfg in stitching_infos.items():
+            dataset_inst = stitching_cfg["inclusive_dataset"]
             # the dataset is "covered" if its process is a subprocess of that of the dy dataset
             if dataset_inst.has_process(self.dataset_inst.processes.get_first()):
-                self.process_ids_dy = process_ids_dy.derive(f"process_ids_dy_{name}", cls_dict={
-                    "dy_inclusive_dataset": dataset_inst,
-                    "dy_leaf_processes": dy_cfg["leaf_processes"],
-                })
+                try:
+                    self.process_ids_stitched = base_producer.derive(f"{base_producer.__name__}_{name}", cls_dict={
+                        "inclusive_dataset": dataset_inst,
+                        "leaf_processes": stitching_cfg["leaf_processes"],
+                    })
 
-                # add it as a dependency
-                self.uses.add(self.process_ids_dy)
-                self.produces.add(self.process_ids_dy)
-
+                
+                    # add it as a dependency
+                    self.uses.add(self.process_ids_stitched)
+                    self.produces.add(self.process_ids_stitched)
+                except:
+                    from IPython import embed
+                    embed(header="failed to add process_ids_stitched as dependency")
                 # stop after the first match
                 break
 

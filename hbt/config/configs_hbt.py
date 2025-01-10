@@ -111,6 +111,7 @@ def add_config(
         "tt",
         "st",
         "dy",
+        "w_lnu",
         "v",
         "multiboson",
         "tt_multiboson",
@@ -344,7 +345,9 @@ def add_config(
         if dataset.name.startswith("st_"):
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
-            dataset.add_tag("dy")
+            dataset.add_tag("is_dy")
+        if dataset.name.startswith("w_lnu_"):
+            dataset.add_tag("is_w_lnu")
         if re.match(r"^(ww|wz|zz)_.*pythia$", dataset.name):
             dataset.add_tag("no_lhe_weights")
         if dataset_name.startswith("hh_"):
@@ -435,25 +438,46 @@ def add_config(
         #       },
         #   }
         # }
+        from hbt.production.processes import process_ids_dy, process_ids_wjets
         cfg.x.stitching = {
             # DY stitching
             "is_dy": {
-                "m50toinf": {
-                    "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-                    "leaf_processes": [
-                        # the following processes cover the full njet and pt phasespace
-                        procs.n.dy_m50toinf_0j,
-                        *(
-                            procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
-                            for nj in [1, 2]
-                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                        ),
-                        procs.n.dy_m50toinf_ge3j,
-                    ],
-                },
+                "base_producer": process_ids_dy,
+                "info": {
+                    "m50toinf": {
+                        "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace
+                            procs.n.dy_m50toinf_0j,
+                            *(
+                                procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ),
+                            procs.n.dy_m50toinf_ge3j,
+                        ],
+                    },
+                }
             },
             # w+jets
             # TODO: add
+            "is_w_lnu": {
+                "base_producer": process_ids_wjets,
+                "info": {
+                    "m50toinf": {
+                        "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace
+                            procs.n.w_lnu_0j,
+                            *(
+                                procs.get(f"w_lnu_{nj}j_pt{pt}")
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ),
+                        ],
+                    },
+                }
+            },
         }
         
 
@@ -478,6 +502,24 @@ def add_config(
             "dy_m50toinf_2j_pt200to400_amcatnlo",
             "dy_m50toinf_2j_pt400to600_amcatnlo",
             "dy_m50toinf_2j_pt600toinf_amcatnlo",
+        ],
+        "w_lnu": [
+            # w_lnu
+            "w_lnu_amcatnlo",
+            "w_lnu_amcatnlo",
+            "w_lnu_0j_amcatnlo",
+            "w_lnu_1j_amcatnlo",
+            "w_lnu_2j_amcatnlo",
+            "w_lnu_1j_pt40to100_amcatnlo",
+            "w_lnu_1j_pt100to200_amcatnlo",
+            "w_lnu_1j_pt200to400_amcatnlo",
+            "w_lnu_1j_pt400to600_amcatnlo",
+            "w_lnu_1j_pt600toinf_amcatnlo",
+            "w_lnu_2j_pt40to100_amcatnlo",
+            "w_lnu_2j_pt100to200_amcatnlo",
+            "w_lnu_2j_pt200to400_amcatnlo",
+            "w_lnu_2j_pt400to600_amcatnlo",
+            "w_lnu_2j_pt600toinf_amcatnlo",
         ],
     }
 
