@@ -71,6 +71,16 @@ def IF_DATASET_IS_DY(
 
     return self.get() if func.dataset_inst.has_tag("is_dy") else None
 
+@deferred_column
+def IF_DATASET_IS_WJETS(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    if getattr(func, "dataset_inst", None) is None:
+        return self.get()
+
+    return self.get() if func.dataset_inst.has_tag("is_w_lnu") else None
+
 
 def hash_events(arr: np.ndarray) -> np.ndarray:
     """
