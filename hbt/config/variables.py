@@ -87,26 +87,24 @@ def add_variables(config: od.Config) -> None:
     )
     config.add_variable(
         name="met_phi",
-        expression="MET.phi",
+        expression="PuppiMET.phi",
         null_value=EMPTY_FLOAT,
         binning=(33, -3.3, 3.3),
         x_title=r"MET $\phi$",
     )
-
     config.add_variable(
-        name="e_pt",
-        expression="Electron.pt",
+        name="e1_pt",
+        expression="Electron.pt[:, 0]",
         null_value=EMPTY_FLOAT,
         binning=(40, 0, 400),
-        x_title=r"Electron p$_{T}$",
+        x_title=r"Leading electron p$_{T}$",
     )
-
     config.add_variable(
         name="mu1_pt",
         expression="Muon.pt[:,0]",
         null_value=EMPTY_FLOAT,
         binning=(40, 0, 400),
-        x_title=r"Muon 1 p$_{T}$",
+        x_title=r"Leading muon p$_{T}$",
     )
 
     # weights

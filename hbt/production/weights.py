@@ -6,6 +6,7 @@ Column production methods related to generic event weights.
 
 from columnflow.production import Producer, producer
 from columnflow.production.cms.pileup import pu_weight
+from columnflow.production.cms.pdf import pdf_weights
 from columnflow.util import maybe_import, safe_div, InsertableDict
 from columnflow.columnar_util import set_ak_column
 
@@ -151,6 +152,11 @@ def normalized_pdf_weight_setup(
         postfix: safe_div(selection_stats[f"sum_pdf_weight{postfix}"], selection_stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }
+
+
+# variation of the pdf weights producer that does not store up and down shifted weights
+# but that stores all available pdf weights for the full treatment based on histograms
+all_pdf_weights = pdf_weights.derive("all_pdf_weights", cls_dict={"store_all_weights": True})
 
 
 @producer(

@@ -71,7 +71,12 @@ def add_categories(config: od.Config) -> None:
         "sign": [config.get_category("os"), config.get_category("ss")],
         "tau2": [config.get_category("iso"), config.get_category("noniso")],
     }
-    create_category_combinations(config, main_categories, name_fn, kwargs_fn)
+    create_category_combinations(
+        config=config,
+        categories=main_categories,
+        name_fn=name_fn,
+        kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=True),
+    )
 
     # control categories
     control_categories = {
@@ -82,6 +87,11 @@ def add_categories(config: od.Config) -> None:
         # kinematic regions in the middle (to be extended)
         "kin": [config.get_category("incl"), config.get_category("2j")],
         # relative sign last
-        "sign": [config.get_category("os"), config.get_category("ss")],
+        "sign": [config.get_category("os")],
     }
-    create_category_combinations(config, control_categories, name_fn, functools.partial(kwargs_fn, add_qcd_group=False))
+    create_category_combinations(
+        config=config,
+        categories=control_categories,
+        name_fn=name_fn,
+        kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=False),
+    )
