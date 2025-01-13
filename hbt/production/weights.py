@@ -60,11 +60,9 @@ def normalized_pu_weight_init(self: Producer) -> None:
 @normalized_pu_weight.requires
 def normalized_pu_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -78,7 +76,7 @@ def normalized_pu_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # get the unique process ids in that dataset
@@ -126,11 +124,9 @@ def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Arra
 @normalized_pdf_weight.requires
 def normalized_pdf_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -144,7 +140,7 @@ def normalized_pdf_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # save average weights
@@ -180,11 +176,9 @@ def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.A
 @normalized_murmuf_weight.requires
 def normalized_murmuf_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -198,7 +192,7 @@ def normalized_murmuf_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # save average weights

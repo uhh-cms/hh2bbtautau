@@ -66,27 +66,12 @@ Current status:
 from __future__ import annotations
 
 import functools
-from dataclasses import dataclass
 
 import order as od
 
 from columnflow.util import DotDict
-from columnflow.types import ClassVar
 
-from hbt.config.util import Trigger, TriggerLeg
-
-
-@dataclass
-class Bits:
-    v12: int | None = None
-    v14: int | None = None
-
-    supported_versions: ClassVar[set[int]] = {12, 14}
-
-    def get(self, nano_version: int) -> int:
-        if nano_version not in self.supported_versions:
-            raise ValueError(f"nano_version {nano_version} not supported")
-        return getattr(self, f"v{nano_version}")
+from hbt.config.util import Trigger, TriggerLeg, TriggerBits as Bits
 
 
 # use the CCLub names for the trigger bits and improve them when necessary
@@ -99,10 +84,10 @@ trigger_bits = DotDict.wrap({
     # last update in https://github.com/cms-sw/cmssw/blob/CMSSW_14_0_X/PhysicsTools/NanoAOD/python/triggerObjects_cff.py
 
     "e": {
-        "CaloIdLTrackIdLIsoVL": Bits(v12=1, v14=1),
-        "WPTightTrackIso": Bits(v12=2, v14=2),
-        "WPLooseTrackIso": Bits(v12=4, v14=4),
-        "OverlapFilterPFTau": Bits(v12=8, v14=8),
+        "CaloIdLTrackIdLIsoVL": Bits(v12=1, v14="v12"),
+        "WPTightTrackIso": Bits(v12=2, v14="v12"),
+        "WPLooseTrackIso": Bits(v12=4, v14="v12"),
+        "OverlapFilterPFTau": Bits(v12=8, v14="v12"),
         "DiElectron": Bits(v12=16),
         "DiElectronLeg1": Bits(v14=16),
         "DiElectronLeg2": Bits(v14=32),
@@ -120,19 +105,19 @@ trigger_bits = DotDict.wrap({
         "EleTauPNet": Bits(v14=131072),
     },
     "mu": {
-        "TrkIsoVVL": Bits(v12=1, v14=1),
-        "Iso": Bits(v12=2, v14=2),
-        "OverlapFilterPFTau": Bits(v12=4, v14=4),
-        "SingleMuon": Bits(v12=8, v14=8),
-        "DiMuon": Bits(v12=16, v14=16),
-        "MuEle": Bits(v12=32, v14=32),
-        "MuTau": Bits(v12=64, v14=64),
-        "TripleMuon": Bits(v12=128, v14=128),
-        "DiMuonSingleEle": Bits(v12=256, v14=256),
-        "SingleMuonDiEle": Bits(v12=512, v14=512),
-        "Mu50": Bits(v12=1024, v14=1024),
-        "Mu100": Bits(v12=2048, v14=2048),
-        "SingleMuonSinglePhoton": Bits(v12=4096, v14=4096),
+        "TrkIsoVVL": Bits(v12=1, v14="v12"),
+        "Iso": Bits(v12=2, v14="v12"),
+        "OverlapFilterPFTau": Bits(v12=4, v14="v12"),
+        "SingleMuon": Bits(v12=8, v14="v12"),
+        "DiMuon": Bits(v12=16, v14="v12"),
+        "MuEle": Bits(v12=32, v14="v12"),
+        "MuTau": Bits(v12=64, v14="v12"),
+        "TripleMuon": Bits(v12=128, v14="v12"),
+        "DiMuonSingleEle": Bits(v12=256, v14="v12"),
+        "SingleMuonDiEle": Bits(v12=512, v14="v12"),
+        "Mu50": Bits(v12=1024, v14="v12"),
+        "Mu100": Bits(v12=2048, v14="v12"),
+        "SingleMuonSinglePhoton": Bits(v12=4096, v14="v12"),
         "MuTauPNet": Bits(v14=8192),
     },
     "tau": {  # general comment: lot of v14 paths contain PNet paths, not available in v12, e.g. OverlapFilterIsoEle
@@ -142,7 +127,7 @@ trigger_bits = DotDict.wrap({
         "Medium": Bits(v14=2),
         "TightChargedIso": Bits(v12=4),
         "Tight": Bits(v14=4),
-        "DeepTau": Bits(v12=8, v14=8),
+        "DeepTau": Bits(v12=8, v14="v12"),
         "PNet": Bits(v14=16),
         "TightOOSCPhotons": Bits(v12=16),
         "HPS": Bits(v12=32, v14=268435456),
@@ -161,7 +146,7 @@ trigger_bits = DotDict.wrap({
         "VBFpDoublePFTau_run3": Bits(v12=4096),  # warning: this trigger bit expects "ChargedIso" in the filter name, this does not correspond to our actual VBF filter name  # noqa
         "DiTau": Bits(v14=2048),
         "DiPFJetAndDiTau": Bits(v12=8192),
-        "DiTauAndPFJet": Bits(v12=16384, v14=16384),
+        "DiTauAndPFJet": Bits(v12=16384, v14="v12"),
         "DisplacedTau": Bits(v12=32768),
         "ETauDisplaced": Bits(v14=32768),
         "MuTauDisplaced": Bits(v14=65536),
@@ -182,37 +167,37 @@ trigger_bits = DotDict.wrap({
         "VBFSingleTau": Bits(v14=1073741824),
     },
     "jet": {
-        "4PixelOnlyPFCentralJetTightIDPt20": Bits(v12=1, v14=1),
-        "3PixelOnlyPFCentralJetTightIDPt30": Bits(v12=2, v14=2),
-        "PFJetFilterTwoC30": Bits(v12=4, v14=4),
-        "4PFCentralJetTightIDPt30": Bits(v12=8, v14=8),
-        "4PFCentralJetTightIDPt35": Bits(v12=16, v14=16),
-        "QuadCentralJet30": Bits(v12=32, v14=32),
-        "2PixelOnlyPFCentralJetTightIDPt40": Bits(v12=64, v14=64),
-        "L1sTripleJetVBF_orHTT_orDoubleJet_orSingleJet": Bits(v12=128, v14=128),
-        "3PFCentralJetTightIDPt40": Bits(v12=256, v14=256),
-        "3PFCentralJetTightIDPt45": Bits(v12=512, v14=512),
-        "L1sQuadJetsHT": Bits(v12=1024, v14=1024),
-        "BTagCaloDeepCSVp17Double": Bits(v12=2048, v14=2048),
-        "PFCentralJetLooseIDQuad30": Bits(v12=4096, v14=4096),
-        "1PFCentralJetLooseID75": Bits(v12=8192, v14=8192),
-        "2PFCentralJetLooseID60": Bits(v12=16384, v14=16384),
-        "3PFCentralJetLooseID45": Bits(v12=32768, v14=32768),
-        "4PFCentralJetLooseID40": Bits(v12=65536, v14=65536),
-        "DoubleTau+Jet": Bits(v12=131072, v14=131072),  # v14 also contains PNet paths
-        "VBFcrossCleanedDeepTauPFTau": Bits(v12=262144, v14=262144),  # more general VBFDiTauJets in v14  TODO: change name?  # noqa
-        "VBFcrossCleanedUsingDijetCorr": Bits(v12=524288, v14=524288),  # more general VBFSingleTauJets in v14  TODO: change name?  # noqa
-        "MonitoringMuon+Tau+Jet": Bits(v12=1048576, v14=1048576),
-        "2PFCentralJetTightIDPt50": Bits(v12=2097152, v14=2097152),
-        "1PixelOnlyPFCentralJetTightIDPt60": Bits(v12=4194304, v14=4194304),
-        "1PFCentralJetTightIDPt70": Bits(v12=8388608, v14=8388608),
-        "BTagPFDeepJet1p5Single": Bits(v12=16777216, v14=16777216),
-        "BTagPFDeepJet4p5Triple": Bits(v12=33554432, v14=33554432),
-        "2BTagSumOR2BTagMeanPaths": Bits(v12=67108864, v14=67108864),
-        "2/1PixelOnlyPFCentralJetTightIDPt20/50": Bits(v12=134217728, v14=134217728),
-        "2PFCentralJetTightIDPt30": Bits(v12=268435456, v14=268435456),
-        "1PFCentralJetTightIDPt60": Bits(v12=536870912, v14=536870912),
-        "PF2CentralJetPt30PNet2BTagMean0p50": Bits(v12=1073741824, v14=1073741824),
+        "4PixelOnlyPFCentralJetTightIDPt20": Bits(v12=1, v14="v12"),
+        "3PixelOnlyPFCentralJetTightIDPt30": Bits(v12=2, v14="v12"),
+        "PFJetFilterTwoC30": Bits(v12=4, v14="v12"),
+        "4PFCentralJetTightIDPt30": Bits(v12=8, v14="v12"),
+        "4PFCentralJetTightIDPt35": Bits(v12=16, v14="v12"),
+        "QuadCentralJet30": Bits(v12=32, v14="v12"),
+        "2PixelOnlyPFCentralJetTightIDPt40": Bits(v12=64, v14="v12"),
+        "L1sTripleJetVBF_orHTT_orDoubleJet_orSingleJet": Bits(v12=128, v14="v12"),
+        "3PFCentralJetTightIDPt40": Bits(v12=256, v14="v12"),
+        "3PFCentralJetTightIDPt45": Bits(v12=512, v14="v12"),
+        "L1sQuadJetsHT": Bits(v12=1024, v14="v12"),
+        "BTagCaloDeepCSVp17Double": Bits(v12=2048, v14="v12"),
+        "PFCentralJetLooseIDQuad30": Bits(v12=4096, v14="v12"),
+        "1PFCentralJetLooseID75": Bits(v12=8192, v14="v12"),
+        "2PFCentralJetLooseID60": Bits(v12=16384, v14="v12"),
+        "3PFCentralJetLooseID45": Bits(v12=32768, v14="v12"),
+        "4PFCentralJetLooseID40": Bits(v12=65536, v14="v12"),
+        "DoubleTau+Jet": Bits(v12=131072, v14="v12"),  # v14 also contains PNet paths
+        "VBFcrossCleanedDeepTauPFTau": Bits(v12=262144, v14="v12"),  # more general VBFDiTauJets in v14  TODO: change name?  # noqa
+        "VBFcrossCleanedUsingDijetCorr": Bits(v12=524288, v14="v12"),  # more general VBFSingleTauJets in v14  TODO: change name?  # noqa
+        "MonitoringMuon+Tau+Jet": Bits(v12=1048576, v14="v12"),
+        "2PFCentralJetTightIDPt50": Bits(v12=2097152, v14="v12"),
+        "1PixelOnlyPFCentralJetTightIDPt60": Bits(v12=4194304, v14="v12"),
+        "1PFCentralJetTightIDPt70": Bits(v12=8388608, v14="v12"),
+        "BTagPFDeepJet1p5Single": Bits(v12=16777216, v14="v12"),
+        "BTagPFDeepJet4p5Triple": Bits(v12=33554432, v14="v12"),
+        "2BTagSumOR2BTagMeanPaths": Bits(v12=67108864, v14="v12"),
+        "2/1PixelOnlyPFCentralJetTightIDPt20/50": Bits(v12=134217728, v14="v12"),
+        "2PFCentralJetTightIDPt30": Bits(v12=268435456, v14="v12"),
+        "1PFCentralJetTightIDPt60": Bits(v12=536870912, v14="v12"),
+        "PF2CentralJetPt30PNet2BTagMean0p50": Bits(v12=1073741824, v14="v12"),
     },
 })
 
@@ -1308,7 +1293,8 @@ def add_triggers_2023(config: od.Config) -> None:
                     # WPTightTrackIso
                     trigger_bits=get_bit_sum_v("e", [
                         "WPTightTrackIso",
-                        "Tight" if nano_version == 14 else None,
+                        # TODO: Tight not existing, needs fixing
+                        # "Tight" if nano_version == 14 else None,
                     ]),
                 ),
             ),

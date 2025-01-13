@@ -58,7 +58,7 @@ def IF_DATASET_HAS_LHE_WEIGHTS(
     if getattr(func, "dataset_inst", None) is None:
         return self.get()
 
-    return None if func.dataset_inst.has_tag("no_lhe_weights") else self.get()
+    return self.get() if not func.dataset_inst.has_tag("no_lhe_weights") else None
 
 
 @deferred_column

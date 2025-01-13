@@ -7,7 +7,6 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 from __future__ import annotations
 
 import os
-import re
 import itertools
 import functools
 
@@ -167,6 +166,8 @@ def add_config(
             proc.add_tag({"ttbar", "tt"})
         if process_name.startswith("dy_"):
             proc.add_tag("dy")
+        if process_name.startswith("w_lnu_"):
+            proc.add_tag("w_lnu")
 
         # add the process
         cfg.add_process(proc)
@@ -293,10 +294,10 @@ def add_config(
         "ww_pythia",
 
         # vvv
-        "zzz_amcatnlo",
-        "wzz_amcatnlo",
-        "wwz_4f_amcatnlo",
         "www_4f_amcatnlo",
+        "wwz_4f_amcatnlo",
+        "wzz_amcatnlo",
+        "zzz_amcatnlo",
 
         # single H
         "h_ggf_htt_powheg",
@@ -319,16 +320,16 @@ def add_config(
 
         # data
         *if_era(year=2022, tag="preEE", values=[
-            f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "cd"
+            f"data_{stream}_{period}" for stream in ["mu", "e", "tau"] for period in "cd"
         ]),
         *if_era(year=2022, tag="postEE", values=[
-            f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "efg"
+            f"data_{stream}_{period}" for stream in ["mu", "e", "tau"] for period in "efg"
         ]),
         *if_era(year=2023, tag="preBPix", values=[
-            f"data_{stream}_c{v}" for stream in ["mu", "e", "tau", "met"] for v in "1234"
+            f"data_{stream}_c{v}" for stream in ["mu", "e", "tau"] for v in "1234"
         ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["mu", "e", "tau", "met"] for v in "12"
+            f"data_{stream}_d{v}" for stream in ["mu", "e", "tau"] for v in "12"
         ]),
     ]
     for dataset_name in dataset_names:
@@ -352,8 +353,19 @@ def add_config(
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
-        if re.match(r"^(ww|wz|zz)_.*_pythia$", dataset.name):
+        if dataset.name.startswith("w_lnu_"):
+            dataset.add_tag("w_lnu")
+        # datasets that are known to have no lhe info at all
+        if law.util.multi_match(dataset.name, [
+            r"^(ww|wz|zz)_.*pythia$",
+            r"^tt(w|z)_.*amcatnlo$",
+            r"^hh_ggf_hbb_htt_kl[^1]+_kt1_powheg$",  # only SM model has LHE weighs, TODO: in all configs?
+        ]):
             dataset.add_tag("no_lhe_weights")
+        # datasets that are allowed to contain some events with missing lhe infos
+        # (known to happen for amcatnlo)
+        if dataset.name.endswith("_amcatnlo"):
+            dataset.add_tag("partial_lhe_weights")
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
             dataset.add_tag("nonresonant_signal")
@@ -409,6 +421,7 @@ def add_config(
     cfg.x.process_groups = {
         "signals": [
             "hh_ggf_hbb_htt_kl1_kt1",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1",
         ],
         "signals_ggf": [
             "hh_ggf_hbb_htt_kl0_kt1",
@@ -464,7 +477,11 @@ def add_config(
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
-    cfg.x.dataset_groups = {}
+    cfg.x.dataset_groups = {
+        "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
+        "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
+        # TODO: resonant (mostly for excluding them)
+    }
 
     # category groups for conveniently looping over certain categories
     # (used during plotting)
@@ -485,6 +502,7 @@ def add_config(
     }
     cfg.x.default_selector_steps = "default"
 
+    # plotting overwrites
     cfg.x.custom_style_config_groups = {
         "small_legend": {
             "legend_cfg": {"ncols": 2, "fontsize": 16, "columnspacing": 0.6},
@@ -1280,10 +1298,10 @@ def add_config(
             lfn_base = dir_cls(path, fs=fs)
 
             # loop though files and interpret paths as lfns
-            return [
+            return sorted(
                 "/" + lfn_base.child(basename, type="f").path.lstrip("/")
                 for basename in lfn_base.listdir(pattern="*.root")
-            ]
+            )
 
         # define the lfn retrieval function
         cfg.x.get_dataset_lfns = get_dataset_lfns
