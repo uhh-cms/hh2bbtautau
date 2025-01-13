@@ -8,10 +8,12 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.selection.util import sorted_indices_from_mask
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 
+from hbt.util import IF_RUN_2, IF_RUN_3
 from hbt.production.hhbtag import hhbtag
 
 
@@ -21,15 +23,13 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
-        hhbtag,
+        hhbtag, IF_RUN_3(jet_veto_map),
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
-        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
-        "Jet.btagDeepFlavB",
-        "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
-        "FatJet.jetId", "FatJet.subJetIdx1", "FatJet.subJetIdx2",
-        "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
+        "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
+        "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
+        "SubJet.{pt,eta,phi,mass,btagDeepB}",
     },
     produces={
         # new columns
@@ -61,9 +61,11 @@ def jet_selection(
     # common ak4 jet mask for normal and vbf jets
     ak4_mask = (
         (events.Jet.jetId == 6) &  # tight plus lepton veto
-        ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4))) &  # flipped in 2016
         ak.all(events.Jet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2)
     )
+
+    if self.config_inst.campaign.x.run == 2:
+        ak4_mask = ak4_mask & ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
 
     # default jets
     default_mask = (
@@ -76,7 +78,7 @@ def jet_selection(
     hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
     # pad the indices to simplify creating the hhbjet mask
-    padded_hhbjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2][..., :2]
+    padded_hhbjet_indices = ak.pad_none(score_indices, 2, axis=1)[..., :2]
     hhbjet_mask = ((li == padded_hhbjet_indices[..., [0]]) | (li == padded_hhbjet_indices[..., [1]]))
     # get indices for actual book keeping only for events with both lepton candidates and where at
     # least two jets pass the default mask (bjet candidates)
@@ -110,6 +112,7 @@ def jet_selection(
         cross_vbf_mask = ak.full_like(1 * events.event, False, dtype=bool)
     else:
         cross_vbf_masks = [events.trigger_ids == tid for tid in cross_vbf_ids]
+        # This combines "at least one cross trigger is fired" and "no other triggers are fired"
         cross_vbf_mask = ak.all(reduce(or_, cross_vbf_masks), axis=1)
     vbf_pair_mask = vbf_pair_mask & (
         (~cross_vbf_mask) | (
@@ -165,7 +168,10 @@ def jet_selection(
 
     # discard the event in case the (first) fatjet with matching subjets is found
     # but they are not b-tagged (TODO: move to deepjet when available for subjets)
-    wp = self.config_inst.x.btag_working_points.deepcsv.loose
+    if self.config_inst.campaign.x.run == 3:
+        wp = self.config_inst.x.btag_working_points.particleNet.loose
+    else:
+        wp = self.config_inst.x.btag_working_points.deepcsv.loose
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # pt sorted indices to convert mask
@@ -194,14 +200,15 @@ def jet_selection(
     # store some columns
     events = set_ak_column(events, "Jet.hhbtag", hhbtag_scores)
 
-    # build and return selection results plus new columns (src -> dst -> indices)
-    return events, SelectionResult(
+    # build selection results plus new columns (src -> dst -> indices)
+    result = SelectionResult(
         steps={
             "jet": jet_sel,
             # the btag weight normalization requires a selection with everything but the bjet
             # selection, so add this step here
             # note: there is currently no b-tag discriminant cut at this point, so take jet_sel
-            "bjet": jet_sel,
+            "bjet_deepjet": jet_sel,
+            "bjet_pnet": jet_sel,  # no need in run 2
         },
         objects={
             "Jet": {
@@ -225,6 +232,13 @@ def jet_selection(
             "n_central_jets": ak.num(jet_indices, axis=1),
         },
     )
+
+    # additional jet veto map, vetoing entire events
+    if self.has_dep(jet_veto_map):
+        events, veto_result = self[jet_veto_map](events, **kwargs)
+        result += veto_result
+
+    return events, result
 
 
 @jet_selection.init

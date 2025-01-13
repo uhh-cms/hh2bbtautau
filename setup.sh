@@ -28,7 +28,7 @@ setup_hbt() {
     #       A flag that is set to 1 after the setup was successful.
 
     # prevent repeated setups
-    if [ "${HBT_SETUP}" = "1" ]; then
+    if [ "${HBT_SETUP}" = "1" ] && [ "${CF_ON_SLURM}" != "1" ]; then
         >&2 echo "the HH -> bbtautau analysis was already succesfully setup"
         >&2 echo "re-running the setup requires a new shell"
         return "1"
@@ -45,6 +45,7 @@ setup_hbt() {
     local orig="${PWD}"
     local setup_name="${1:-default}"
     local setup_is_default="false"
+    local env_is_remote="$( [ "${CF_REMOTE_ENV}" = "1" ] && echo "true" || echo "false" )"
     [ "${setup_name}" = "default" ] && setup_is_default="true"
 
     # zsh options
@@ -65,12 +66,14 @@ setup_hbt() {
     export CF_REPO_BASE="${HBT_BASE}"
     export CF_REPO_BASE_ALIAS="HBT_BASE"
     export CF_SETUP_NAME="${setup_name}"
+    export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-naf-cms14.desy.de}"
+    export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8088}"
 
     # load cf setup helpers
     CF_SKIP_SETUP="1" source "${CF_BASE}/setup.sh" "" || return "$?"
 
     # interactive setup
-    if [ "${CF_REMOTE_ENV}" != "1" ]; then
+    if ! ${env_is_remote}; then
         cf_setup_interactive_body() {
             # the flavor will be cms
             export CF_FLAVOR="cms"
@@ -107,7 +110,7 @@ setup_hbt() {
     export PYTHONPATH="${HBT_BASE}:${HBT_BASE}/modules/cmsdb:${PYTHONPATH}"
 
     # initialze submodules
-    if [ -e "${HBT_BASE}/.git" ]; then
+    if ! ${env_is_remote} && [ -e "${HBT_BASE}/.git" ]; then
         local m
         for m in $( ls -1q "${HBT_BASE}/modules" ); do
             cf_init_submodule "${HBT_BASE}" "modules/${m}"
@@ -131,12 +134,22 @@ setup_hbt() {
     export LAW_HOME="${LAW_HOME:-${HBT_BASE}/.law}"
     export LAW_CONFIG_FILE="${LAW_CONFIG_FILE:-${HBT_BASE}/law.cfg}"
 
-    if which law &> /dev/null; then
+    # run the indexing when not remote
+    if ! ${env_is_remote} && which law &> /dev/null; then
         # source law's bash completion scipt
         source "$( law completion )" ""
 
+        # add completion to the claw command
+        complete -o bashdefault -o default -F _law_complete claw
+
         # silently index
         law index -q
+    fi
+
+    # update the law config file to switch from mirrored to bare wlcg targets
+    # as local mounts are typically not available remotely
+    if ${env_is_remote}; then
+        sed -i -r 's/(.+\: ?)wlcg_mirrored, local_.+, ?(wlcg_[^\s]+)/\1wlcg, \2/g' "${LAW_CONFIG_FILE}"
     fi
 
     # finalize

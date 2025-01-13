@@ -21,20 +21,30 @@ ak = maybe_import("awkward")
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
+# custom btag weight producer for deepjet and pnet configs
+btag_weights_deepjet = btag_weights.derive("btag_weights_deepjet", cls_dict={
+    "weight_name": "btag_weight_deepjet",
+    "tagger_name": "deepjet",
+    "get_btag_config": (lambda self: self.config_inst.x.btag_sf_deepjet),
+})
+btag_weights_pnet = btag_weights.derive("btag_weights_pnet", cls_dict={
+    "weight_name": "btag_weight_pnet",
+    "tagger_name": "pnet",
+    "get_btag_config": (lambda self: self.config_inst.x.btag_sf_pnet),
+})
+
+
 @producer(
-    uses={
-        btag_weights.PRODUCES,
-        # custom columns created upstream, probably by a producer
-        "process_id",
-        # nano columns
-        "Jet.pt",
-    },
+    uses={"process_id", "Jet.pt"},
     # only run on mc
     mc_only=True,
+    # configurable weight producer class
+    btag_weights_cls=None,
 )
-def normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for weight_name in self[btag_weights].produces:
-        if not weight_name.startswith("btag_weight"):
+def _normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    for route in self[self.btag_weights_cls].produced_columns:
+        weight_name = str(route)
+        if not weight_name.startswith(self.weight_name):
             continue
 
         # create a weight vectors starting with ones for both weight variations, i.e.,
@@ -62,20 +72,26 @@ def normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
     return events
 
 
-@normalized_btag_weights.init
-def normalized_btag_weights_init(self: Producer) -> None:
+@_normalized_btag_weights.init
+def _normalized_btag_weights_init(self: Producer) -> None:
+    assert self.btag_weights_cls, "btag_weights_cls must be set"
+
     if not getattr(self, "dataset_inst", None):
         return
 
-    for weight_name in self[btag_weights].produces:
-        if not weight_name.startswith("btag_weight"):
-            continue
+    # reuse the weight and tagger names
+    self.weight_name = self.btag_weights_cls.weight_name
+    self.tagger_name = self.btag_weights_cls.tagger_name
 
-        self.produces |= {f"normalized_{weight_name}", f"normalized_njet_{weight_name}"}
+    # add produced columns
+    for route in self[self.btag_weights_cls].produced_columns:
+        name = str(route)
+        if name.startswith(self.weight_name):
+            self.produces.add(f"normalized_{{,njet_}}{name}")
 
 
-@normalized_btag_weights.requires
-def normalized_btag_weights_requires(self: Producer, reqs: dict) -> None:
+@_normalized_btag_weights.requires
+def _normalized_btag_weights_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
     reqs["selection_stats"] = MergeSelectionStats.req(
         self.task,
@@ -85,57 +101,63 @@ def normalized_btag_weights_requires(self: Producer, reqs: dict) -> None:
     )
 
 
-@normalized_btag_weights.setup
-def normalized_btag_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+@_normalized_btag_weights.setup
+def _normalized_btag_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     # load the selection stats
-    stats = inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json")
+    selection_stats = self.task.cached_value(
+        key="selection_stats",
+        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+    )
 
     # get the unique process ids in that dataset
-    key = "sum_mc_weight_selected_nobjet_per_process_and_njet"
-    self.unique_process_ids = list(map(int, stats[key].keys()))
+    key = f"sum_mc_weight_selected_nob_{self.tagger_name}_per_process_and_njet"
+    self.unique_process_ids = list(map(int, selection_stats[key].keys()))
 
     # get the maximum numbers of jets
-    max_n_jets = max(map(int, sum((list(d.keys()) for d in stats[key].values()), [])))
+    max_n_jets = max(map(int, sum((list(d.keys()) for d in selection_stats[key].values()), [])))
 
-    # helper to get numerators and denominators
-    def numerator_per_pid(pid):
-        key = "sum_mc_weight_selected_nobjet_per_process"
-        return stats[key].get(str(pid), 0.0)
+    # helper to get sums of mc weights per pid and njet, with an optional weight name
+    def sum_per_pid(pid, weight_name="", /):
+        if weight_name:
+            weight_name += "_"
+        key = f"sum_mc_weight_{weight_name}selected_nob_{self.tagger_name}_per_process"
+        return selection_stats[key].get(str(pid), 0.0)
 
-    def denominator_per_pid(weight_name, pid):
-        key = f"sum_mc_weight_{weight_name}_selected_nobjet_per_process"
-        return stats[key].get(str(pid), 0.0)
+    def sum_per_pid_njet(pid, n_jets, weight_name="", /):
+        if weight_name:
+            weight_name += "_"
+        key = f"sum_mc_weight_{weight_name}selected_nob_{self.tagger_name}_per_process_and_njet"
+        return selection_stats[key].get(str(pid), {}).get(str(n_jets), 0.0)
 
-    def numerator_per_pid_njet(pid, n_jets):
-        key = "sum_mc_weight_selected_nobjet_per_process_and_njet"
-        d = stats[key].get(str(pid), {})
-        return d.get(str(n_jets), 0.0)
-
-    def denominator_per_pid_njet(weight_name, pid, n_jets):
-        key = f"sum_mc_weight_{weight_name}_selected_nobjet_per_process_and_njet"
-        d = stats[key].get(str(pid), {})
-        return d.get(str(n_jets), 0.0)
-
-    # extract the ratio per weight and pid
-    self.ratio_per_pid = {
-        weight_name: {
-            pid: safe_div(numerator_per_pid(pid), denominator_per_pid(weight_name, pid))
+    # ratio per weight and pid
+    # extract the ratio per weight, pid and also the jet multiplicity, using the latter as in index
+    self.ratio_per_pid = {}
+    self.ratio_per_pid_njet = {}
+    for route in self[self.btag_weights_cls].produced_columns:
+        weight_name = str(route)
+        if not weight_name.startswith(self.btag_weights_cls.weight_name):
+            continue
+        # normal ratio
+        self.ratio_per_pid[weight_name] = {
+            pid: safe_div(sum_per_pid(pid), sum_per_pid(pid, weight_name))
             for pid in self.unique_process_ids
         }
-        for weight_name in self[btag_weights].produces
-        if weight_name.startswith("btag_weight")
-    }
-
-    # extract the ratio per weight, pid and also the jet multiplicity, using the latter as in index
-    # for a lookup table (since it naturally starts at 0)
-    self.ratio_per_pid_njet = {
-        weight_name: {
+        # per jet multiplicity ratio
+        self.ratio_per_pid_njet[weight_name] = {
             pid: np.array([
-                safe_div(numerator_per_pid_njet(pid, n_jets), denominator_per_pid_njet(weight_name, pid, n_jets))
+                safe_div(sum_per_pid_njet(pid, n_jets), sum_per_pid_njet(pid, n_jets, weight_name))
                 for n_jets in range(max_n_jets + 1)
             ])
             for pid in self.unique_process_ids
         }
-        for weight_name in self[btag_weights].produces
-        if weight_name.startswith("btag_weight")
-    }
+
+
+# derive for btaggers
+normalized_btag_weights_deepjet = _normalized_btag_weights.derive("normalized_btag_weights_deepjet", cls_dict={
+    "btag_weights_cls": btag_weights_deepjet,
+    "uses": _normalized_btag_weights.uses | {btag_weights_deepjet.PRODUCES},
+})
+normalized_btag_weights_pnet = _normalized_btag_weights.derive("normalized_btag_weights_pnet", cls_dict={
+    "btag_weights_cls": btag_weights_pnet,
+    "uses": _normalized_btag_weights.uses | {btag_weights_pnet.PRODUCES},
+})

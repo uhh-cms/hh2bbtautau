@@ -24,7 +24,8 @@ np = maybe_import("numpy")
     mc_only=True,
 )
 def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for weight_name in self[pu_weight].produces:
+    for route in self[pu_weight].produced_columns:
+        weight_name = str(route)
         if not weight_name.startswith("pu_weight"):
             continue
 
@@ -50,7 +51,7 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
 def normalized_pu_weight_init(self: Producer) -> None:
     self.produces |= {
         f"normalized_{weight_name}"
-        for weight_name in self[pu_weight].produces
+        for weight_name in (str(route) for route in self[pu_weight].produced_columns)
         if weight_name.startswith("pu_weight")
     }
 
@@ -74,20 +75,23 @@ def normalized_pu_weight_setup(
     reader_targets: InsertableDict,
 ) -> None:
     # load the selection stats
-    stats = inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json")
+    selection_stats = self.task.cached_value(
+        key="selection_stats",
+        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+    )
 
     # get the unique process ids in that dataset
     key = "sum_mc_weight_pu_weight_per_process"
-    self.unique_process_ids = list(map(int, stats[key].keys()))
+    self.unique_process_ids = list(map(int, selection_stats[key].keys()))
 
     # helper to get numerators and denominators
     def numerator_per_pid(pid):
         key = "sum_mc_weight_per_process"
-        return stats[key].get(str(pid), 0.0)
+        return selection_stats[key].get(str(pid), 0.0)
 
     def denominator_per_pid(weight_name, pid):
         key = f"sum_mc_weight_{weight_name}_per_process"
-        return stats[key].get(str(pid), 0.0)
+        return selection_stats[key].get(str(pid), 0.0)
 
     # extract the ratio per weight and pid
     self.ratio_per_pid = {
@@ -95,18 +99,14 @@ def normalized_pu_weight_setup(
             pid: safe_div(numerator_per_pid(pid), denominator_per_pid(weight_name, pid))
             for pid in self.unique_process_ids
         }
-        for weight_name in self[pu_weight].produces
+        for weight_name in (str(route) for route in self[pu_weight].produced_columns)
         if weight_name.startswith("pu_weight")
     }
 
 
 @producer(
-    uses={
-        "pdf_weight", "pdf_weight_up", "pdf_weight_down",
-    },
-    produces={
-        "normalized_pdf_weight", "normalized_pdf_weight_up", "normalized_pdf_weight_down",
-    },
+    uses={"pdf_weight{,_up,_down}"},
+    produces={"normalized_pdf_weight{,_up,_down}"},
     # only run on mc
     mc_only=True,
 )
@@ -141,22 +141,21 @@ def normalized_pdf_weight_setup(
     reader_targets: InsertableDict,
 ) -> None:
     # load the selection stats
-    stats = inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json")
+    selection_stats = self.task.cached_value(
+        key="selection_stats",
+        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+    )
 
     # save average weights
     self.average_pdf_weights = {
-        postfix: safe_div(stats[f"sum_pdf_weight{postfix}"], stats["num_events"])
+        postfix: safe_div(selection_stats[f"sum_pdf_weight{postfix}"], selection_stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }
 
 
 @producer(
-    uses={
-        "murmuf_weight", "murmuf_weight_up", "murmuf_weight_down",
-    },
-    produces={
-        "normalized_murmuf_weight", "normalized_murmuf_weight_up", "normalized_murmuf_weight_down",
-    },
+    uses={"murmuf_weight{,_up,_down}"},
+    produces={"normalized_murmuf_weight{,_up,_down}"},
     # only run on mc
     mc_only=True,
 )
@@ -191,10 +190,13 @@ def normalized_murmuf_weight_setup(
     reader_targets: InsertableDict,
 ) -> None:
     # load the selection stats
-    stats = inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json")
+    selection_stats = self.task.cached_value(
+        key="selection_stats",
+        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+    )
 
     # save average weights
     self.average_murmuf_weights = {
-        postfix: safe_div(stats[f"sum_murmuf_weight{postfix}"], stats["num_events"])
+        postfix: safe_div(selection_stats[f"sum_murmuf_weight{postfix}"], selection_stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }

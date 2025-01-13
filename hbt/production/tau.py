@@ -23,7 +23,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         # custom columns created upstream, probably by a selector
         "single_triggered", "cross_triggered",
         # nano columns
-        "Tau.pt", "Tau.eta", "Tau.genPartFlav", "Tau.decayMode",
+        "Tau.{pt,eta,genPartFlav,decayMode}",
     },
     produces={
         "tau_weight",
@@ -93,17 +93,26 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # start with ones
     sf_nom = np.ones_like(pt, dtype=np.float32)
+    wp_config = self.config_inst.x.tau_trigger_working_points
 
     # helpers to create corrector arguments
     if self.id_vs_jet_corrector.version == 0:
         # pt, dm, genmatch, jet wp, syst, sf type
-        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "VVLoose", syst, "dm")
-    elif self.id_vs_jet_corrector.version in (1, 2):
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], wp_config.id_vs_jet_v0, syst, "dm")
+    elif self.id_vs_jet_corrector.version in (1, 2, 3):
         # pt, dm, genmatch, jet wp, e wp, syst, sf type
-        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "Loose", "VVLoose", syst, "dm")
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], *wp_config.id_vs_jet_gv0, syst, "dm")
     else:
         raise NotImplementedError
-    emu_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
+
+    if self.id_vs_e_corrector.version == 0:
+        e_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
+    elif self.id_vs_e_corrector.version in (1,):
+        e_args = lambda mask, wp, syst: (abseta[mask], dm[mask], match[mask], wp, syst)
+    else:
+        raise NotImplementedError
+
+    mu_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
 
     # genuine taus
     tau_mask = flat_np_view(dm_mask & (events.Tau.genPartFlav == 5), axis=1)
@@ -111,17 +120,19 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # electrons faking taus
     e_mask = ((events.Tau.genPartFlav == 1) | (events.Tau.genPartFlav == 3))
+    if self.config_inst.campaign.x.run == 3:
+        e_mask = e_mask & (events.Tau.decayMode != 5) & (events.Tau.decayMode != 6)
     e_single_mask = flat_np_view((e_mask & single_triggered), axis=1)
     e_cross_mask = flat_np_view((e_mask & cross_triggered), axis=1)
-    sf_nom[e_single_mask] = self.id_vs_e_corrector(*emu_args(e_single_mask, "VLoose", "nom"))
-    sf_nom[e_cross_mask] = self.id_vs_e_corrector(*emu_args(e_cross_mask, "VVLoose", "nom"))
+    sf_nom[e_single_mask] = self.id_vs_e_corrector(*e_args(e_single_mask, wp_config.id_vs_e_single, "nom"))
+    sf_nom[e_cross_mask] = self.id_vs_e_corrector(*e_args(e_cross_mask, wp_config.id_vs_e_cross, "nom"))
 
     # muons faking taus
     mu_mask = ((events.Tau.genPartFlav == 2) | (events.Tau.genPartFlav == 4))
     mu_single_mask = flat_np_view((mu_mask & single_triggered), axis=1)
     mu_cross_mask = flat_np_view((mu_mask & cross_triggered), axis=1)
-    sf_nom[mu_single_mask] = self.id_vs_mu_corrector(*emu_args(mu_single_mask, "Tight", "nom"))
-    sf_nom[mu_cross_mask] = self.id_vs_mu_corrector(*emu_args(mu_cross_mask, "VLoose", "nom"))
+    sf_nom[mu_single_mask] = self.id_vs_mu_corrector(*mu_args(mu_single_mask, wp_config.id_vs_mu_single, "nom"))
+    sf_nom[mu_cross_mask] = self.id_vs_mu_corrector(*mu_args(mu_cross_mask, wp_config.id_vs_mu_cross, "nom"))
 
     # create and store weights
     events = set_ak_column_f32(events, "tau_weight", reduce_mul(sf_nom))
@@ -153,8 +164,12 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             sf_e = sf_nom.copy()
             e_single_region_mask = e_single_mask & region_mask
             e_cross_region_mask = e_cross_mask & region_mask
-            sf_e[e_single_region_mask] = self.id_vs_e_corrector(*emu_args(e_single_region_mask, "VLoose", direction))
-            sf_e[e_cross_region_mask] = self.id_vs_e_corrector(*emu_args(e_cross_region_mask, "VVLoose", direction))
+            sf_e[e_single_region_mask] = self.id_vs_e_corrector(
+                *e_args(e_single_region_mask, wp_config.id_vs_e_single, direction),
+            )
+            sf_e[e_cross_region_mask] = self.id_vs_e_corrector(
+                *e_args(e_cross_region_mask, wp_config.id_vs_e_cross, direction),
+            )
             events = set_ak_column_f32(events, f"tau_weight_e_{region}_{direction}", reduce_mul(sf_e))
 
         # muon fakes -> split into 5 eta regions
@@ -168,8 +183,12 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             sf_mu = sf_nom.copy()
             mu_single_region_mask = mu_single_mask & region_mask
             mu_cross_region_mask = mu_cross_mask & region_mask
-            sf_mu[mu_single_region_mask] = self.id_vs_mu_corrector(*emu_args(mu_single_region_mask, "Tight", direction))
-            sf_mu[mu_cross_region_mask] = self.id_vs_mu_corrector(*emu_args(mu_cross_region_mask, "VLoose", direction))
+            sf_mu[mu_single_region_mask] = self.id_vs_mu_corrector(
+                *mu_args(mu_single_region_mask, wp_config.id_vs_mu_single, direction),
+            )
+            sf_mu[mu_cross_region_mask] = self.id_vs_mu_corrector(
+                *mu_args(mu_cross_region_mask, wp_config.id_vs_mu_cross, direction),
+            )
             events = set_ak_column_f32(events, f"tau_weight_mu_{region}_{direction}", reduce_mul(sf_mu))
 
     return events
@@ -200,15 +219,15 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
 
     # check versions
-    assert self.id_vs_jet_corrector.version in (0, 1, 2)
-    assert self.id_vs_e_corrector.version in (0,)
-    assert self.id_vs_mu_corrector.version in (0,)
+    assert self.id_vs_jet_corrector.version in (0, 1, 2, 3)
+    assert self.id_vs_e_corrector.version in (0, 1)
+    assert self.id_vs_mu_corrector.version in (0, 1)
 
 
 @producer(
     uses={
         "channel_id", "single_triggered", "cross_triggered",
-        "Tau.pt", "Tau.decayMode",
+        "Tau.{pt,decayMode}",
     },
     produces={
         "tau_trigger_weight",
@@ -266,7 +285,7 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         (events.Tau.decayMode == 11)
     )
     tautau_mask = flat_np_view(
-        dm_mask & (channel_id == ch_tautau.id),
+        dm_mask & (events.Tau.pt >= 40.0) & (channel_id == ch_tautau.id),
         axis=1,
     )
     # not existing yet
@@ -282,7 +301,8 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # start with flat ones
     sf_nom = np.ones_like(pt, dtype=np.float32)
-    eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, "VVLoose", "sf", syst)
+    wp_config = self.config_inst.x.tau_trigger_working_points
+    eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, "sf", syst)
     sf_nom[etau_mask] = self.trigger_corrector(*eval_args(etau_mask, "etau", "nom"))
     sf_nom[mutau_mask] = self.trigger_corrector(*eval_args(mutau_mask, "mutau", "nom"))
     sf_nom[tautau_mask] = self.trigger_corrector(*eval_args(tautau_mask, "ditau", "nom"))
@@ -324,10 +344,12 @@ def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targe
     # create the trigger and id correctors
     import correctionlib
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
+
+    # load the correction set
     correction_set = correctionlib.CorrectionSet.from_string(
         self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
     )
     self.trigger_corrector = correction_set["tau_trigger"]
 
     # check versions
-    assert self.trigger_corrector.version in [0]
+    assert self.trigger_corrector.version in [0, 1]

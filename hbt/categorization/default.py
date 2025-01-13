@@ -12,7 +12,54 @@ ak = maybe_import("awkward")
 
 
 #
-# categorizer functions used by categories definitions
+# lepton channels
+#
+
+@categorizer(uses={"channel_id"})
+def cat_etau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.channel_id == self.config_inst.channels.n.etau.id
+
+
+@categorizer(uses={"channel_id"})
+def cat_mutau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.channel_id == self.config_inst.channels.n.mutau.id
+
+
+@categorizer(uses={"channel_id"})
+def cat_tautau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.channel_id == self.config_inst.channels.n.tautau.id
+
+
+#
+# QCD regions
+#
+
+@categorizer(uses={"leptons_os"})
+def cat_os(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # oppositive sign leptons
+    return events, events.leptons_os == 1
+
+
+@categorizer(uses={"leptons_os"})
+def cat_ss(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # same sign leptons
+    return events, events.leptons_os == 0
+
+
+@categorizer(uses={"tau2_isolated"})
+def cat_iso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # isolated tau2
+    return events, events.tau2_isolated == 1
+
+
+@categorizer(uses={"tau2_isolated"})
+def cat_noniso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # noon-isolated tau2
+    return events, events.tau2_isolated == 0
+
+
+#
+# kinematic regions
 #
 
 @categorizer(uses={"event"})
