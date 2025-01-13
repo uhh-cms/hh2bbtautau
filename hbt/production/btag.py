@@ -47,23 +47,29 @@ def _normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.A
         if not weight_name.startswith(self.weight_name):
             continue
 
-        # create a weight vectors starting with ones for both weight variations, i.e.,
-        # nomalization per pid and normalization per pid and jet multiplicity
-        norm_weight_per_pid = np.ones(len(events), dtype=np.float32)
-        norm_weight_per_pid_njet = np.ones(len(events), dtype=np.float32)
+        # BUG in prod3: some stats fields were missing so skip them for now
+        # # create a weight vectors starting with ones for both weight variations, i.e.,
+        # # nomalization per pid and normalization per pid and jet multiplicity
+        # norm_weight_per_pid = np.ones(len(events), dtype=np.float32)
+        # norm_weight_per_pid_njet = np.ones(len(events), dtype=np.float32)
 
-        # fill weights with a new mask per unique process id (mostly just one)
-        for pid in self.unique_process_ids:
-            pid_mask = events.process_id == pid
-            # single value
-            norm_weight_per_pid[pid_mask] = self.ratio_per_pid[weight_name][pid]
-            # lookup table
-            n_jets = ak.to_numpy(ak.num(events[pid_mask].Jet.pt, axis=1))
-            norm_weight_per_pid_njet[pid_mask] = self.ratio_per_pid_njet[weight_name][pid][n_jets]
+        # # fill weights with a new mask per unique process id (mostly just one)
+        # for pid in self.unique_process_ids:
+        #     pid_mask = events.process_id == pid
+        #     # single value
+        #     norm_weight_per_pid[pid_mask] = self.ratio_per_pid[weight_name][pid]
+        #     # lookup table
+        #     n_jets = ak.to_numpy(ak.num(events[pid_mask].Jet.pt, axis=1))
+        #     norm_weight_per_pid_njet[pid_mask] = self.ratio_per_pid_njet[weight_name][pid][n_jets]
 
-        # multiply with actual weight
-        norm_weight_per_pid = norm_weight_per_pid * events[weight_name]
-        norm_weight_per_pid_njet = norm_weight_per_pid_njet * events[weight_name]
+        # # multiply with actual weight
+        # norm_weight_per_pid = norm_weight_per_pid * events[weight_name]
+        # norm_weight_per_pid_njet = norm_weight_per_pid_njet * events[weight_name]
+
+        # fake values
+        from columnflow.columnar_util import full_like
+        norm_weight_per_pid = full_like(events.event, 1.0, dtype=np.float32)
+        norm_weight_per_pid_njet = norm_weight_per_pid
 
         # store them
         events = set_ak_column_f32(events, f"normalized_{weight_name}", norm_weight_per_pid)

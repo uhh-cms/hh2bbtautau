@@ -120,7 +120,13 @@ def default(
 
         # pdf weights
         if self.has_dep(pdf_weights):
-            events = self[pdf_weights](events, outlier_log_mode="debug", **kwargs)
+            events = self[pdf_weights](
+                events,
+                outlier_log_mode="debug",
+                # allow some datasets to contain a few events with missing lhe infos
+                invalid_weights_action="ignore" if self.dataset_inst.has_tag("partial_lhe_weights") else "raise",
+                **kwargs,
+            )
 
         # renormalization/factorization scale weights
         if self.has_dep(murmuf_weights):
@@ -181,6 +187,7 @@ def default(
             "nob_pnet": event_sel_nob(btag_weights_pnet) if self.has_dep(btag_weights_pnet) else None,
         },
         njets=results.x.n_central_jets,
+        **kwargs,
     )
 
     return events, results
@@ -326,6 +333,7 @@ def empty_call(
             "nob_pnet": results.event if self.has_dep(btag_weights_pnet) else None,
         },
         njets=ak.num(events.Jet, axis=1),
+        **kwargs,
     )
 
     return events, results
@@ -360,6 +368,9 @@ def setup_and_increment_stats(
         event_sel_variations = {}
     event_sel_variations = {n: s for n, s in event_sel_variations.items() if s is not None}
 
+    # when a shift was requested, skip all other systematic variations
+    skip_shifts = self.global_shift_inst != "nominal"
+
     # start creating a weight, group and group combination map
     weight_map = {
         "num_events": Ellipsis,
@@ -379,18 +390,17 @@ def setup_and_increment_stats(
 
         # pu weights with variations
         for route in sorted(self[pu_weight].produced_columns):
-            name = str(route)
-            weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
+            weight_map[f"sum_mc_weight_{route}"] = (events.mc_weight * route.apply(events), Ellipsis)
 
         # pdf weights with variations
         if self.has_dep(pdf_weights):
-            for v in ["", "_up", "_down"]:
+            for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
                 weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
 
         # mur/muf weights with variations
         if self.has_dep(murmuf_weights):
-            for v in ["", "_up", "_down"]:
+            for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
                 weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
 
@@ -401,6 +411,8 @@ def setup_and_increment_stats(
             for route in sorted(self[prod].produced_columns):
                 weight_name = str(route)
                 if not weight_name.startswith(prod.weight_name):
+                    continue
+                if skip_shifts and weight_name.endswith(("_up", "_down")):
                     continue
                 weight_map[f"sum_{weight_name}"] = events[weight_name]
                 weight_map[f"sum_{weight_name}_selected"] = (events[weight_name], event_sel)
@@ -427,6 +439,10 @@ def setup_and_increment_stats(
         # combinations
         group_combinations.append(("process", "njet"))
 
+    def skip_func(weight_name: str, group_names: list[str]) -> bool:
+        # TODO: add not needed combinations here
+        return False
+
     return self[increment_stats](
         events,
         results,
@@ -434,5 +450,6 @@ def setup_and_increment_stats(
         weight_map=weight_map,
         group_map=group_map,
         group_combinations=group_combinations,
+        skip_func=skip_func,
         **kwargs,
     )
