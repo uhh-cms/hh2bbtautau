@@ -72,6 +72,17 @@ def IF_DATASET_IS_DY(
     return self.get() if func.dataset_inst.has_tag("dy") else None
 
 
+@deferred_column
+def IF_DATASET_IS_W_LNU(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    if getattr(func, "dataset_inst", None) is None:
+        return self.get()
+
+    return self.get() if func.dataset_inst.has_tag("w_lnu") else None
+
+
 def hash_events(arr: np.ndarray) -> np.ndarray:
     """
     Helper function to create a hash value from the event, run and luminosityBlock columns.

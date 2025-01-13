@@ -473,7 +473,21 @@ def add_config(
             },
         }
         # w+jets
-        # TODO: add
+        cfg.x.w_lnu_stitching = {
+            "incl": {
+                "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
+                "leaf_processes": [
+                    # the following processes cover the full njet and pt phasespace
+                    procs.n.w_lnu_0j,
+                    *(
+                        procs.get(f"w_lnu_{nj}j_pt{pt}")
+                        for nj in [1, 2]
+                        for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                    ),
+                    procs.n.w_lnu_ge3j,
+                ],
+            },
+        }
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)

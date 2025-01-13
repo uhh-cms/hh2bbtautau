@@ -27,7 +27,7 @@ from columnflow.types import Iterable
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
-from hbt.production.processes import process_ids_dy
+import hbt.production.processes as process_producers
 from hbt.production.btag import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
@@ -148,6 +148,8 @@ def default(
     # create process ids
     if self.process_ids_dy is not None:
         events = self[self.process_ids_dy](events, **kwargs)
+    elif self.process_ids_w_lnu is not None:
+        events = self[self.process_ids_w_lnu](events, **kwargs)
     else:
         events = self[process_ids](events, **kwargs)
 
@@ -189,24 +191,33 @@ def default_init(self: Selector) -> None:
     if getattr(self, "dataset_inst", None) is None:
         return
 
-    self.process_ids_dy: process_ids_dy | None = None
-    if self.dataset_inst.has_tag("dy"):
-        # check if this dataset is covered by any dy id producer
-        for name, dy_cfg in self.config_inst.x.dy_stitching.items():
-            dataset_inst = dy_cfg["inclusive_dataset"]
-            # the dataset is "covered" if its process is a subprocess of that of the dy dataset
-            if dataset_inst.has_process(self.dataset_inst.processes.get_first()):
-                self.process_ids_dy = process_ids_dy.derive(f"process_ids_dy_{name}", cls_dict={
-                    "dy_inclusive_dataset": dataset_inst,
-                    "dy_leaf_processes": dy_cfg["leaf_processes"],
-                })
-
-                # add it as a dependency
-                self.uses.add(self.process_ids_dy)
-                self.produces.add(self.process_ids_dy)
-
-                # stop after the first match
-                break
+    # build and store derived process id producers
+    for tag in ("dy", "w_lnu"):
+        prod_name = f"process_ids_{tag}"
+        setattr(self, prod_name, None)
+        if not self.dataset_inst.has_tag(tag):
+            continue
+        # check if the producer was already created and saved in the config
+        if (prod := self.config_inst.x(prod_name, None)) is None:
+            # check if this dataset is covered by any dy id producer
+            for stitch_name, cfg in self.config_inst.x(f"{tag}_stitching").items():
+                incl_dataset_inst = cfg["inclusive_dataset"]
+                # the dataset is "covered" if its process is a subprocess of that of the dy dataset
+                if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
+                    base_prod = getattr(process_producers, prod_name)
+                    prod = base_prod.derive(f"{prod_name}_{stitch_name}", cls_dict={
+                        "leaf_processes": cfg["leaf_processes"],
+                    })
+                    # cache it
+                    self.config_inst.set_aux(prod_name, prod)
+                    # stop after the first match
+                    break
+        if prod is not None:
+            # add it as a dependency
+            self.uses.add(prod)
+            self.produces.add(prod)
+            # save it as an attribute
+            setattr(self, prod_name, prod)
 
 
 empty = default.derive("empty", cls_dict={})
@@ -288,6 +299,8 @@ def empty_call(
     # create process ids
     if self.process_ids_dy is not None:
         events = self[self.process_ids_dy](events, **kwargs)
+    elif self.process_ids_w_lnu is not None:
+        events = self[self.process_ids_w_lnu](events, **kwargs)
     else:
         events = self[process_ids](events, **kwargs)
 
