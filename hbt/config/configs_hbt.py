@@ -521,6 +521,8 @@ def add_config(
     cfg.x.custom_style_config_groups = {
         "small_legend": {
             "legend_cfg": {"ncols": 2, "fontsize": 16, "columnspacing": 0.6},
+            "annotate_cfg": {"fontsize": 18, "style": "italic"},
+            "cms_label": "wip",
         },
     }
     cfg.x.default_custom_style_config = "small_legend"
@@ -1239,12 +1241,12 @@ def add_config(
     ################################################################################################
 
     # channels
-    cfg.add_channel(name="etau", id=1)
-    cfg.add_channel(name="mutau", id=2)
-    cfg.add_channel(name="tautau", id=3)
-    cfg.add_channel(name="ee", id=4)
-    cfg.add_channel(name="mumu", id=5)
-    cfg.add_channel(name="emu", id=6)
+    cfg.add_channel(name="etau", id=1, label=r"$e\tau_{h}$")
+    cfg.add_channel(name="mutau", id=2, label=r"$\mu\tau_{h}$")
+    cfg.add_channel(name="tautau", id=3, label=r"$\tau_{h}\tau_{h}$")
+    cfg.add_channel(name="ee", id=4, label=r"$ee$")
+    cfg.add_channel(name="mumu", id=5, label=r"$\mu\mu$")
+    cfg.add_channel(name="emu", id=6, label=r"$e\mu$")
 
     # add categories
     from hbt.config.categories import add_categories
