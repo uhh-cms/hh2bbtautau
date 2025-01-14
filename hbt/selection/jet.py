@@ -268,7 +268,13 @@ def jet_selection(
     )
 
     # final event selection (only looking at number of default jets for now)
-    jet_sel = ak.sum(default_mask, axis=1) >= 2
+    # perform a cut on ≥1 jet and all other cuts first, and then cut on ≥2, resulting in an
+    # additional, _skippable_ step
+    jet_sel = (
+        (ak.sum(default_mask, axis=1) >= 1)
+        # add additional cuts here in the future
+    )
+    jet_sel2 = jet_sel & (ak.sum(default_mask, axis=1) >= 2)
 
     # some final type conversions
     jet_indices = ak.values_astype(ak.fill_none(jet_indices, 0), np.int32)
@@ -284,11 +290,12 @@ def jet_selection(
     result = SelectionResult(
         steps={
             "jet": jet_sel,
+            "jet2": jet_sel2,
             # the btag weight normalization requires a selection with everything but the bjet
             # selection, so add this step here
-            # note: there is currently no b-tag discriminant cut at this point, so take jet_sel
-            "bjet_deepjet": jet_sel,
-            "bjet_pnet": jet_sel,  # no need in run 2
+            # note: there is currently no b-tag discriminant cut at this point, so skip it
+            # "bjet_deepjet": jet_sel,
+            # "bjet_pnet": jet_sel,  # no need in run 2
         },
         objects={
             "Jet": {

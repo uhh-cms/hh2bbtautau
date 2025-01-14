@@ -104,6 +104,12 @@ def add_config(
             processes=[procs.n.vv, procs.n.vvv],
         )
         cfg.add_process(
+            name="all_v",
+            id=7996,
+            label="Multiboson",
+            processes=[cfg.processes.n.v, cfg.processes.n.multiboson],
+        )
+        cfg.add_process(
             name="tt_multiboson",
             id=7999,
             label=r"$t\bar{t}$ + Multiboson",
@@ -173,7 +179,7 @@ def add_config(
         cfg.add_process(proc)
 
     # configure colors, labels, etc
-    from hbt.config.styles import stylize_processes
+    from hbt.config.styles import stylize_processes, update_legend_labels
     stylize_processes(cfg)
 
     ################################################################################################
@@ -430,14 +436,13 @@ def add_config(
             "hh_ggf_hbb_htt_kl5_kt1",
         ],
         "backgrounds": (backgrounds := [
-            "h",
-            "tt",
             "dy",
+            "tt",
             "qcd",
             "st",
-            "v",
-            "multiboson",
             "tt_multiboson",
+            "all_v",
+            "h",
             "ewk",
         ]),
         "dy_split": [
@@ -493,9 +498,17 @@ def add_config(
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
     cfg.x.dataset_groups = {
+        "data": (data_group := [dataset.name for dataset in cfg.datasets if dataset.is_data]),
+        "backgrounds": (backgrounds := [
+            dataset.name for dataset in cfg.datasets
+            if dataset.is_mc and not dataset.has_tag("signal")
+        ]),
+        "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", *backgrounds]),
+        "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph", *backgrounds]),
+        "sm_ggf_data": data_group + sm_ggf_group,
+        "sm_data": data_group + sm_group,
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
-        # TODO: resonant (mostly for excluding them)
     }
 
     # category groups for conveniently looping over certain categories
@@ -513,15 +526,18 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet", "bjet"],
+        "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2", "bjet"],
     }
     cfg.x.default_selector_steps = "default"
 
     # plotting overwrites
     cfg.x.custom_style_config_groups = {
         "small_legend": {
-            "legend_cfg": {"ncols": 2, "fontsize": 16, "columnspacing": 0.6},
-            "annotate_cfg": {"fontsize": 18, "style": "italic"},
+            "legend_cfg": {
+                "ncols": 2, "fontsize": 16, "columnspacing": 0.6, "labelspacing": 0.275,
+                "update_handles_labels": update_legend_labels,
+            },
+            "annotate_cfg": {"fontsize": 18},
             "cms_label": "wip",
         },
     }
@@ -1307,14 +1323,18 @@ def add_config(
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
 
             # create the lfn base directory, local or remote
-            dir_cls = law.LocalDirectoryTarget
-            fs = f"local_fs_{cfg.campaign.x.custom['name']}"
-            if not law.config.has_section(fs):
-                dir_cls = law.wlcg.WLCGDirectoryTarget
-                fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+            dir_cls = law.wlcg.WLCGDirectoryTarget
+            fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+            local_fs = f"local_fs_{cfg.campaign.x.custom['name']}"
+            if law.config.has_section(local_fs):
+                base = law.target.file.remove_scheme(law.config.get_expanded(local_fs, "base"))
+                if os.path.exists(base):
+                    dir_cls = law.LocalDirectoryTarget
+                    fs = local_fs
             lfn_base = dir_cls(path, fs=fs)
 
             # loop though files and interpret paths as lfns
+            print(lfn_base)
             return sorted(
                 "/" + lfn_base.child(basename, type="f").path.lstrip("/")
                 for basename in lfn_base.listdir(pattern="*.root")

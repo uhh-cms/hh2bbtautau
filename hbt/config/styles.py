@@ -16,6 +16,7 @@ def stylize_processes(config: od.Config) -> None:
     cfg = config
 
     # recommended cms colors
+    # see https://cms-analysis.docs.cern.ch/guidelines/plotting/colors
     cfg.x.colors = DotDict(
         bright_blue="#3f90da",
         dark_blue="#011c87",
@@ -32,7 +33,7 @@ def stylize_processes(config: od.Config) -> None:
 
     for kl in ["0", "1", "2p45", "5"]:
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
-            p.color1 = cfg.x.colors.bright_blue
+            p.color1 = cfg.x.colors.dark_blue
             p.label = (
                 r"$HH_{ggf} \rightarrow bb\tau\tau$ __SCALE__"
                 "\n"
@@ -40,7 +41,7 @@ def stylize_processes(config: od.Config) -> None:
             )
 
     if (p := config.get_process("hh_vbf_hbb_htt_kv1_k2v1_kl1", default=None)):
-        p.color1 = cfg.x.colors.dark_blue
+        p.color1 = cfg.x.colors.brown
         p.label = (
             r"$HH_{vbf} \rightarrow bb\tau\tau$ __SCALE__"
             "\n"
@@ -48,40 +49,43 @@ def stylize_processes(config: od.Config) -> None:
         )
 
     if (p := config.get_process("h", default=None)):
-        p.color1 = cfg.x.colors.purple
+        p.color1 = cfg.x.colors.teal
 
     if (p := config.get_process("tt", default=None)):
         p.color1 = cfg.x.colors.bright_orange
         p.label = r"$t\bar{t}$"
 
     if (p := config.get_process("st", default=None)):
-        p.color1 = cfg.x.colors.aubergine
+        p.color1 = cfg.x.colors.purple
 
     if (p := config.get_process("dy", default=None)):
-        p.color1 = cfg.x.colors.dark_orange
+        p.color1 = cfg.x.colors.bright_blue
 
     if (p := config.get_process("vv", default=None)):
-        p.color1 = cfg.x.colors.yellow
+        p.color1 = cfg.x.colors.aubergine
 
     if (p := config.get_process("vvv", default=None)):
-        p.color1 = cfg.x.colors.yellow
+        p.color1 = cfg.x.colors.aubergine
 
     if (p := config.get_process("multiboson", default=None)):
-        p.color1 = cfg.x.colors.yellow
+        p.color1 = cfg.x.colors.aubergine
 
     if (p := config.get_process("w", default=None)):
-        p.color1 = cfg.x.colors.teal
+        p.color1 = cfg.x.colors.aubergine
         p.label = "W"
 
     if (p := config.get_process("z", default=None)):
-        p.color1 = cfg.x.colors.brown
+        p.color1 = cfg.x.colors.aubergine
         p.label = "Z"
 
     if (p := config.get_process("v", default=None)):
-        p.color1 = cfg.x.colors.teal
+        p.color1 = cfg.x.colors.aubergine
+
+    if (p := config.get_process("all_v", default=None)):
+        p.color1 = cfg.x.colors.aubergine
 
     if (p := config.get_process("ewk", default=None)):
-        p.color1 = cfg.x.colors.brown
+        p.color1 = cfg.x.colors.dark_orange
 
     if (p := config.get_process("ttv", default=None)):
         p.color1 = cfg.x.colors.grey
@@ -96,3 +100,25 @@ def stylize_processes(config: od.Config) -> None:
 
     if (p := config.get_process("qcd", default=None)):
         p.color1 = cfg.x.colors.red
+
+
+def update_legend_labels(ax, handles, labels, n_cols):
+    """
+    Fill empty handles so that all backgrounds are in the first column.
+    """
+    # only implemented for 2 columns so far
+    if n_cols != 2:
+        return
+    # get number of entries per column
+    n_backgrounds = sum(1 for handle in handles if handle.__class__.__name__ == "StepPatch")
+    n_other = len(handles) - n_backgrounds
+    if n_backgrounds == n_other:
+        return
+
+    # fill left or right column
+    n_add = abs(n_backgrounds - n_other)
+    pos = len(handles) if n_backgrounds > n_other else n_backgrounds
+    empty_handle = ax.plot([], label="", linestyle="None")[0]
+    for _ in range(n_add):
+        handles.insert(pos, empty_handle)
+        labels.insert(pos, "")
