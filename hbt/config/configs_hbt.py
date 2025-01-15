@@ -199,7 +199,7 @@ def add_config(
         "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
         *if_era(year=2022, values=[
             "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",  # Poisson60KeepRAW for 2022post
         ]),
         "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
         "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
