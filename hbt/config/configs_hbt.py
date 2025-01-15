@@ -457,7 +457,8 @@ def add_config(
         "dy_split_no_incl": [
             "dy_m4to10", "dy_m10to50",
             "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
-            "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
+             "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", 
+             "dy_m50toinf_1j_pt200to400", "dy_m50toinf_2j_pt0to40",
             "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
             "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
             "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
