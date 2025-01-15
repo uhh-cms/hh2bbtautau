@@ -749,7 +749,7 @@ def add_config(
 
     # tec config
     from columnflow.calibration.cms.tau import TECConfig
-    corrector_kwargs = {"wp": "Tight", "wp_VSe": "Tight"} if run == 3 else {}
+    corrector_kwargs = {"wp": "Medium", "wp_VSe": "VVLoose"} if run == 3 else {}
     cfg.x.tec = TECConfig(tagger=cfg.x.tau_tagger, corrector_kwargs=corrector_kwargs)
 
     # tau ID working points
