@@ -14,6 +14,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.stats import increment_stats
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
+from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
@@ -26,7 +27,7 @@ from columnflow.types import Iterable
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
-from hbt.production.processes import process_ids_dy
+import hbt.production.processes as process_producers
 from hbt.production.btag import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
@@ -53,10 +54,10 @@ hbt_met_filters = met_filters.derive("hbt_met_filters", cls_dict={"get_met_filte
 
 @selector(
     uses={
-        json_filter, hbt_met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
-        pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
-        increment_stats, attach_coffea_behavior, patch_ecalBadCalibFilter,
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        json_filter, hbt_met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
+        jet_selection, mc_weight, pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet),
+        process_ids, cutflow_features, increment_stats, attach_coffea_behavior,
+        patch_ecalBadCalibFilter, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight,
@@ -96,6 +97,11 @@ def default(
         )
     results += met_filter_results
 
+    # jet veto map
+    if self.has_dep(jet_veto_map):
+        events, veto_result = self[jet_veto_map](events, **kwargs)
+        results += veto_result
+
     # trigger selection
     events, trigger_results = self[trigger_selection](events, **kwargs)
     results += trigger_results
@@ -114,7 +120,13 @@ def default(
 
         # pdf weights
         if self.has_dep(pdf_weights):
-            events = self[pdf_weights](events, outlier_log_mode="debug", **kwargs)
+            events = self[pdf_weights](
+                events,
+                outlier_log_mode="debug",
+                # allow some datasets to contain a few events with missing lhe infos
+                invalid_weights_action="ignore" if self.dataset_inst.has_tag("partial_lhe_weights") else "raise",
+                **kwargs,
+            )
 
         # renormalization/factorization scale weights
         if self.has_dep(murmuf_weights):
@@ -142,6 +154,8 @@ def default(
     # create process ids
     if self.process_ids_dy is not None:
         events = self[self.process_ids_dy](events, **kwargs)
+    elif self.process_ids_w_lnu is not None:
+        events = self[self.process_ids_w_lnu](events, **kwargs)
     else:
         events = self[process_ids](events, **kwargs)
 
@@ -173,6 +187,7 @@ def default(
             "nob_pnet": event_sel_nob(btag_weights_pnet) if self.has_dep(btag_weights_pnet) else None,
         },
         njets=results.x.n_central_jets,
+        **kwargs,
     )
 
     return events, results
@@ -183,24 +198,33 @@ def default_init(self: Selector) -> None:
     if getattr(self, "dataset_inst", None) is None:
         return
 
-    self.process_ids_dy: process_ids_dy | None = None
-    if self.dataset_inst.has_tag("dy"):
-        # check if this dataset is covered by any dy id producer
-        for name, dy_cfg in self.config_inst.x.dy_stitching.items():
-            dataset_inst = dy_cfg["inclusive_dataset"]
-            # the dataset is "covered" if its process is a subprocess of that of the dy dataset
-            if dataset_inst.has_process(self.dataset_inst.processes.get_first()):
-                self.process_ids_dy = process_ids_dy.derive(f"process_ids_dy_{name}", cls_dict={
-                    "dy_inclusive_dataset": dataset_inst,
-                    "dy_leaf_processes": dy_cfg["leaf_processes"],
-                })
-
-                # add it as a dependency
-                self.uses.add(self.process_ids_dy)
-                self.produces.add(self.process_ids_dy)
-
-                # stop after the first match
-                break
+    # build and store derived process id producers
+    for tag in ("dy", "w_lnu"):
+        prod_name = f"process_ids_{tag}"
+        setattr(self, prod_name, None)
+        if not self.dataset_inst.has_tag(tag):
+            continue
+        # check if the producer was already created and saved in the config
+        if (prod := self.config_inst.x(prod_name, None)) is None:
+            # check if this dataset is covered by any dy id producer
+            for stitch_name, cfg in self.config_inst.x(f"{tag}_stitching").items():
+                incl_dataset_inst = cfg["inclusive_dataset"]
+                # the dataset is "covered" if its process is a subprocess of that of the dy dataset
+                if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
+                    base_prod = getattr(process_producers, prod_name)
+                    prod = base_prod.derive(f"{prod_name}_{stitch_name}", cls_dict={
+                        "leaf_processes": cfg["leaf_processes"],
+                    })
+                    # cache it
+                    self.config_inst.set_aux(prod_name, prod)
+                    # stop after the first match
+                    break
+        if prod is not None:
+            # add it as a dependency
+            self.uses.add(prod)
+            self.produces.add(prod)
+            # save it as an attribute
+            setattr(self, prod_name, prod)
 
 
 empty = default.derive("empty", cls_dict={})
@@ -282,6 +306,8 @@ def empty_call(
     # create process ids
     if self.process_ids_dy is not None:
         events = self[self.process_ids_dy](events, **kwargs)
+    elif self.process_ids_w_lnu is not None:
+        events = self[self.process_ids_w_lnu](events, **kwargs)
     else:
         events = self[process_ids](events, **kwargs)
 
@@ -307,6 +333,7 @@ def empty_call(
             "nob_pnet": results.event if self.has_dep(btag_weights_pnet) else None,
         },
         njets=ak.num(events.Jet, axis=1),
+        **kwargs,
     )
 
     return events, results
@@ -341,6 +368,9 @@ def setup_and_increment_stats(
         event_sel_variations = {}
     event_sel_variations = {n: s for n, s in event_sel_variations.items() if s is not None}
 
+    # when a shift was requested, skip all other systematic variations
+    skip_shifts = self.global_shift_inst != "nominal"
+
     # start creating a weight, group and group combination map
     weight_map = {
         "num_events": Ellipsis,
@@ -360,18 +390,17 @@ def setup_and_increment_stats(
 
         # pu weights with variations
         for route in sorted(self[pu_weight].produced_columns):
-            name = str(route)
-            weight_map[f"sum_mc_weight_{name}"] = (events.mc_weight * events[name], Ellipsis)
+            weight_map[f"sum_mc_weight_{route}"] = (events.mc_weight * route.apply(events), Ellipsis)
 
         # pdf weights with variations
         if self.has_dep(pdf_weights):
-            for v in ["", "_up", "_down"]:
+            for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
                 weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
 
         # mur/muf weights with variations
         if self.has_dep(murmuf_weights):
-            for v in ["", "_up", "_down"]:
+            for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
                 weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
 
@@ -382,6 +411,8 @@ def setup_and_increment_stats(
             for route in sorted(self[prod].produced_columns):
                 weight_name = str(route)
                 if not weight_name.startswith(prod.weight_name):
+                    continue
+                if skip_shifts and weight_name.endswith(("_up", "_down")):
                     continue
                 weight_map[f"sum_{weight_name}"] = events[weight_name]
                 weight_map[f"sum_{weight_name}_selected"] = (events[weight_name], event_sel)
@@ -408,6 +439,10 @@ def setup_and_increment_stats(
         # combinations
         group_combinations.append(("process", "njet"))
 
+    def skip_func(weight_name: str, group_names: list[str]) -> bool:
+        # TODO: add not needed combinations here
+        return False
+
     return self[increment_stats](
         events,
         results,
@@ -415,5 +450,6 @@ def setup_and_increment_stats(
         weight_map=weight_map,
         group_map=group_map,
         group_combinations=group_combinations,
+        skip_func=skip_func,
         **kwargs,
     )

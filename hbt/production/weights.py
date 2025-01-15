@@ -6,6 +6,7 @@ Column production methods related to generic event weights.
 
 from columnflow.production import Producer, producer
 from columnflow.production.cms.pileup import pu_weight
+from columnflow.production.cms.pdf import pdf_weights
 from columnflow.util import maybe_import, safe_div, InsertableDict
 from columnflow.columnar_util import set_ak_column
 
@@ -59,11 +60,9 @@ def normalized_pu_weight_init(self: Producer) -> None:
 @normalized_pu_weight.requires
 def normalized_pu_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -77,7 +76,7 @@ def normalized_pu_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # get the unique process ids in that dataset
@@ -125,11 +124,9 @@ def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Arra
 @normalized_pdf_weight.requires
 def normalized_pdf_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -143,7 +140,7 @@ def normalized_pdf_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # save average weights
@@ -151,6 +148,11 @@ def normalized_pdf_weight_setup(
         postfix: safe_div(selection_stats[f"sum_pdf_weight{postfix}"], selection_stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }
+
+
+# variation of the pdf weights producer that does not store up and down shifted weights
+# but that stores all available pdf weights for the full treatment based on histograms
+all_pdf_weights = pdf_weights.derive("all_pdf_weights", cls_dict={"store_all_weights": True})
 
 
 @producer(
@@ -174,11 +176,9 @@ def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.A
 @normalized_murmuf_weight.requires
 def normalized_murmuf_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -192,7 +192,7 @@ def normalized_murmuf_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # save average weights

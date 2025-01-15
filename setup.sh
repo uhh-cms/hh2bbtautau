@@ -27,25 +27,34 @@ setup_hbt() {
     #   HBT_SETUP
     #       A flag that is set to 1 after the setup was successful.
 
-    # prevent repeated setups
-    if [ "${HBT_SETUP}" = "1" ] && [ "${CF_ON_SLURM}" != "1" ]; then
-        >&2 echo "the HH -> bbtautau analysis was already succesfully setup"
-        >&2 echo "re-running the setup requires a new shell"
-        return "1"
-    fi
-
-
     #
-    # prepare local variables
+    # load cf setup helpers
     #
 
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
+    local cf_base="${this_dir}/modules/columnflow"
+    CF_SKIP_SETUP="true" source "${cf_base}/setup.sh" "" || return "$?"
+
+    #
+    # prevent repeated setups
+    #
+
+    cf_export_bool HBT_SETUP
+    if ${HBT_SETUP} && ! ${CF_ON_SLURM}; then
+        >&2 echo "the HH -> bbtautau analysis was already succesfully setup"
+        >&2 echo "re-running the setup requires a new shell"
+        return "1"
+    fi
+
+    #
+    # prepare local variables
+    #
+
     local orig="${PWD}"
     local setup_name="${1:-default}"
     local setup_is_default="false"
-    local env_is_remote="$( [ "${CF_REMOTE_ENV}" = "1" ] && echo "true" || echo "false" )"
     [ "${setup_name}" = "default" ] && setup_is_default="true"
 
     # zsh options
@@ -54,7 +63,6 @@ setup_hbt() {
         setopt globdots
     fi
 
-
     #
     # global variables
     # (HBT = hh2bbtautau, CF = columnflow)
@@ -62,18 +70,15 @@ setup_hbt() {
 
     # start exporting variables
     export HBT_BASE="${this_dir}"
-    export CF_BASE="${this_dir}/modules/columnflow"
+    export CF_BASE="${cf_base}"
     export CF_REPO_BASE="${HBT_BASE}"
     export CF_REPO_BASE_ALIAS="HBT_BASE"
     export CF_SETUP_NAME="${setup_name}"
     export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-naf-cms14.desy.de}"
     export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8088}"
 
-    # load cf setup helpers
-    CF_SKIP_SETUP="1" source "${CF_BASE}/setup.sh" "" || return "$?"
-
     # interactive setup
-    if ! ${env_is_remote}; then
+    if ! ${CF_REMOTE_ENV}; then
         cf_setup_interactive_body() {
             # the flavor will be cms
             export CF_FLAVOR="cms"
@@ -91,13 +96,11 @@ setup_hbt() {
     export CF_VENV_BASE="${CF_VENV_BASE:-${CF_SOFTWARE_BASE}/venvs}"
     export CF_CMSSW_BASE="${CF_CMSSW_BASE:-${CF_SOFTWARE_BASE}/cmssw}"
 
-
     #
     # common variables
     #
 
     cf_setup_common_variables || return "$?"
-
 
     #
     # minimal local software setup
@@ -110,22 +113,20 @@ setup_hbt() {
     export PYTHONPATH="${HBT_BASE}:${HBT_BASE}/modules/cmsdb:${PYTHONPATH}"
 
     # initialze submodules
-    if ! ${env_is_remote} && [ -e "${HBT_BASE}/.git" ]; then
+    if ! ${CF_REMOTE_ENV} && [ -e "${HBT_BASE}/.git" ]; then
         local m
         for m in $( ls -1q "${HBT_BASE}/modules" ); do
             cf_init_submodule "${HBT_BASE}" "modules/${m}"
         done
     fi
 
-
     #
     # git hooks
     #
 
-    if [ "${CF_LOCAL_ENV}" = "1" ]; then
+    if ${CF_LOCAL_ENV}; then
         cf_setup_git_hooks || return "$?"
     fi
-
 
     #
     # law setup
@@ -135,7 +136,7 @@ setup_hbt() {
     export LAW_CONFIG_FILE="${LAW_CONFIG_FILE:-${HBT_BASE}/law.cfg}"
 
     # run the indexing when not remote
-    if ! ${env_is_remote} && which law &> /dev/null; then
+    if ! ${CF_REMOTE_ENV} && which law &> /dev/null; then
         # source law's bash completion scipt
         source "$( law completion )" ""
 
@@ -148,12 +149,12 @@ setup_hbt() {
 
     # update the law config file to switch from mirrored to bare wlcg targets
     # as local mounts are typically not available remotely
-    if ${env_is_remote}; then
+    if ${CF_REMOTE_ENV}; then
         sed -i -r 's/(.+\: ?)wlcg_mirrored, local_.+, ?(wlcg_[^\s]+)/\1wlcg, \2/g' "${LAW_CONFIG_FILE}"
     fi
 
     # finalize
-    export HBT_SETUP="1"
+    export HBT_SETUP="true"
 }
 
 main() {
@@ -171,6 +172,6 @@ main() {
 }
 
 # entry point
-if [ "${HBT_SKIP_SETUP}" != "1" ]; then
+if [ "${HBT_SKIP_SETUP}" != "true" ]; then
     main "$@"
 fi

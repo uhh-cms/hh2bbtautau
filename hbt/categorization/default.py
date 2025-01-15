@@ -31,6 +31,11 @@ def cat_tautau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array,
 
 
 @categorizer(uses={"channel_id"})
+def cat_ee(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.channel_id == self.config_inst.channels.n.ee.id
+
+
+@categorizer(uses={"channel_id"})
 def cat_mumu(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, events.channel_id == self.config_inst.channels.n.mumu.id
 

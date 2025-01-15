@@ -289,7 +289,7 @@ class CreateSyncFiles(
                 "run": events.run,
                 "lumi": events.luminosityBlock,
                 # high-level events variables
-                "channel": events.channel_id,
+                "channel_id": events.channel_id,
                 "os": events.leptons_os * 1,
                 "iso": events.tau2_isolated * 1,
                 "deterministic_seed": to_str(events.deterministic_seed),

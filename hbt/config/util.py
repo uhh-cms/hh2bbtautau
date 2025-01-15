@@ -6,10 +6,13 @@ Config-related object definitions and utils.
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
+
 from order import UniqueObject, TagMixin
 from order.util import typed
 
-from columnflow.types import Callable, Any, Sequence, Hashable
+from columnflow.types import Callable, Any, Sequence, Hashable, ClassVar
 
 
 class TriggerLeg(object):
@@ -224,3 +227,42 @@ class Trigger(UniqueObject, TagMixin):
     def hlt_field(self):
         # remove the first four "HLT_" characters
         return self.name[4:]
+
+
+@dataclass
+class TriggerBits:
+    """
+    Lightweight container wrapping trigger bits for different versions of NanoAOD.
+    """
+
+    v12: int | None = None
+    v14: int | None = None
+
+    supported_versions: ClassVar[set[int]] = {12, 14}
+
+    def __post_init__(self) -> None:
+        # versions might be strings such as "v12" that act as references
+        cre = re.compile(r"^v(\d+)$")
+        for v in self.supported_versions:
+            attr = f"v{v}"
+            # only check strings
+            if not isinstance((val := getattr(self, attr)), str):
+                continue
+            # check format
+            if not (m := cre.match(val)):
+                raise ValueError(f"invalid reference {attr} -> {val}")
+            # check if not circular
+            ref_v = int(m.group(1))
+            if v == ref_v:
+                raise ValueError(f"reference to same version {attr} -> {val}")
+            # check type of referred value
+            ref_val = getattr(self, f"v{ref_v}")
+            if not isinstance(ref_val, int) and v is not None:
+                raise ValueError(f"wrong reference value in {attr} -> {val}")
+            # set it
+            setattr(self, attr, ref_val)
+
+    def get(self, nano_version: int) -> int:
+        if nano_version not in self.supported_versions:
+            raise ValueError(f"nano_version {nano_version} not supported")
+        return getattr(self, f"v{nano_version}")

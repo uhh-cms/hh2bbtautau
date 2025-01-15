@@ -7,7 +7,6 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 from __future__ import annotations
 
 import os
-import re
 import itertools
 import functools
 
@@ -105,6 +104,12 @@ def add_config(
             processes=[procs.n.vv, procs.n.vvv],
         )
         cfg.add_process(
+            name="all_v",
+            id=7996,
+            label="Multiboson",
+            processes=[cfg.processes.n.v, cfg.processes.n.multiboson],
+        )
+        cfg.add_process(
             name="tt_multiboson",
             id=7999,
             label=r"$t\bar{t}$ + Multiboson",
@@ -167,6 +172,8 @@ def add_config(
             proc.add_tag({"ttbar", "tt"})
         if process_name.startswith("dy_"):
             proc.add_tag("dy")
+        if process_name.startswith("w_lnu_"):
+            proc.add_tag("w_lnu")
 
         # add the process
         cfg.add_process(proc)
@@ -293,10 +300,10 @@ def add_config(
         "ww_pythia",
 
         # vvv
-        "zzz_amcatnlo",
-        "wzz_amcatnlo",
-        "wwz_4f_amcatnlo",
         "www_4f_amcatnlo",
+        "wwz_4f_amcatnlo",
+        "wzz_amcatnlo",
+        "zzz_amcatnlo",
 
         # single H
         "h_ggf_htt_powheg",
@@ -319,30 +326,29 @@ def add_config(
 
         # data
         *if_era(year=2022, tag="preEE", values=[
-            f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "cd"
+            f"data_{stream}_{period}" for stream in ["mu", "e", "tau"] for period in "cd"
         ]),
         *if_era(year=2022, tag="postEE", values=[
-            f"data_{stream}_{period}" for stream in ["mu", "e", "tau", "met"] for period in "efg"
+            f"data_{stream}_{period}" for stream in ["mu", "e", "tau"] for period in "efg"
         ]),
         *if_era(year=2023, tag="preBPix", values=[
-            f"data_{stream}_c{v}" for stream in ["mu", "e", "tau", "met"] for v in "1234"
+            f"data_{stream}_c{v}" for stream in ["mu", "e", "tau"] for v in "1234"
         ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["mu", "e", "tau", "met"] for v in "12"
-        ]),
-
-        # sync
-        *if_era(year=[2022, 2023], sync=True, values=[
-            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+            f"data_{stream}_d{v}" for stream in ["mu", "e", "tau"] for v in "12"
         ]),
     ]
     for dataset_name in dataset_names:
+        # skip when in sync mode and not exiting
+        if sync_mode and not campaign.has_dataset(dataset_name):
+            continue
+
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
 
         # add tags to datasets
         if dataset.name.startswith("data_e_"):
-            dataset.add_tag({"etau", "emu_from_e"})
+            dataset.add_tag({"etau", "emu_from_e", "ee"})
         if dataset.name.startswith("data_mu_"):
             dataset.add_tag({"mutau", "emu_from_mu", "mumu"})
         if dataset.name.startswith("data_tau_"):
@@ -353,8 +359,19 @@ def add_config(
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
-        if re.match(r"^(ww|wz|zz)_.*pythia$", dataset.name):
+        if dataset.name.startswith("w_lnu_"):
+            dataset.add_tag("w_lnu")
+        # datasets that are known to have no lhe info at all
+        if law.util.multi_match(dataset.name, [
+            r"^(ww|wz|zz)_.*pythia$",
+            r"^tt(w|z)_.*amcatnlo$",
+            r"^hh_ggf_hbb_htt_kl[^1]+_kt1_powheg$",  # only SM model has LHE weighs, TODO: in all configs?
+        ]):
             dataset.add_tag("no_lhe_weights")
+        # datasets that are allowed to contain some events with missing lhe infos
+        # (known to happen for amcatnlo)
+        if dataset.name.endswith("_amcatnlo"):
+            dataset.add_tag("partial_lhe_weights")
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
             dataset.add_tag("nonresonant_signal")
@@ -388,7 +405,8 @@ def add_config(
                 info.n_files = 1
 
     # verify that the root process of each dataset is part of any of the registered processes
-    verify_config_processes(cfg, warn=True)
+    if not sync_mode:
+        verify_config_processes(cfg, warn=True)
 
     ################################################################################################
     # task defaults and groups
@@ -409,6 +427,7 @@ def add_config(
     cfg.x.process_groups = {
         "signals": [
             "hh_ggf_hbb_htt_kl1_kt1",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1",
         ],
         "signals_ggf": [
             "hh_ggf_hbb_htt_kl0_kt1",
@@ -417,27 +436,20 @@ def add_config(
             "hh_ggf_hbb_htt_kl5_kt1",
         ],
         "backgrounds": (backgrounds := [
-            "h",
-            "tt",
             "dy",
+            "tt",
             "qcd",
             "st",
+            "tt_multiboson",
             "v",
             "multiboson",
-            "tt_multiboson",
+            "h",
             "ewk",
         ]),
         "dy_split": [
-            "dy_m4to10", "dy_m10to50", # "dy_m50toinf",
-            "dy_m50toinf_0j", #"dy_m50toinf_1j", "dy_m50toinf_2j",
-            "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
-            "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
-            "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
-            "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
-        ],
-        "dy_split_no_incl": [
-            "dy_m4to10", "dy_m10to50",
-            "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
+            # TODO
+            # "dy_m4to10", "dy_m10to50", "dy_m50toinf",
+            # "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
             "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
             "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
             "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
@@ -468,11 +480,37 @@ def add_config(
             },
         }
         # w+jets
-        # TODO: add
+        cfg.x.w_lnu_stitching = {
+            "incl": {
+                "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
+                "leaf_processes": [
+                    # the following processes cover the full njet and pt phasespace
+                    procs.n.w_lnu_0j,
+                    *(
+                        procs.get(f"w_lnu_{nj}j_pt{pt}")
+                        for nj in [1, 2]
+                        for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                    ),
+                    procs.n.w_lnu_ge3j,
+                ],
+            },
+        }
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
-    cfg.x.dataset_groups = {}
+    cfg.x.dataset_groups = {
+        "data": (data_group := [dataset.name for dataset in cfg.datasets if dataset.is_data]),
+        "backgrounds": (backgrounds := [
+            dataset.name for dataset in cfg.datasets
+            if dataset.is_mc and not dataset.has_tag("signal")
+        ]),
+        "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", *backgrounds]),
+        "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph", *backgrounds]),
+        "sm_ggf_data": data_group + sm_ggf_group,
+        "sm_data": data_group + sm_group,
+        "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
+        "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
+    }
 
     # category groups for conveniently looping over certain categories
     # (used during plotting)
@@ -489,13 +527,24 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet", "bjet"],
+        "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2", "bjet"],
     }
     cfg.x.default_selector_steps = "default"
 
+    # plotting overwrites
+    from hbt.config.styles import legend_entries_per_column
+    cfg.x.default_general_settings = {
+        "cms_label": "wip",
+        "whitespace_fraction": 0.31,
+    }
     cfg.x.custom_style_config_groups = {
         "small_legend": {
-            "legend_cfg": {"ncols": 2, "fontsize": 16, "columnspacing": 0.6},
+            "legend_cfg": {
+                "ncols": 3, "borderpad": 0.7, "loc": "upper left", "fontsize": 16,
+                "columnspacing": 1.6, "labelspacing": 0.28,
+                "entries_per_column": legend_entries_per_column,
+            },
+            "annotate_cfg": {"fontsize": 16, "xycoords": "axes fraction", "xy": (0.035, 0.73), "style": "italic"},
         },
     }
     cfg.x.default_custom_style_config = "small_legend"
@@ -1214,12 +1263,12 @@ def add_config(
     ################################################################################################
 
     # channels
-    # TODO: switch etau and mutau, also check if change needed in res_dnn's
-    cfg.add_channel(name="mutau", id=1)
-    cfg.add_channel(name="etau", id=2)
-    cfg.add_channel(name="tautau", id=3)
-    cfg.add_channel(name="mumu", id=4)
-    cfg.add_channel(name="emu", id=5)
+    cfg.add_channel(name="etau", id=1, label=r"$e\tau_{h}$")
+    cfg.add_channel(name="mutau", id=2, label=r"$\mu\tau_{h}$")
+    cfg.add_channel(name="tautau", id=3, label=r"$\tau_{h}\tau_{h}$")
+    cfg.add_channel(name="ee", id=4, label=r"$ee$")
+    cfg.add_channel(name="mumu", id=5, label=r"$\mu\mu$")
+    cfg.add_channel(name="emu", id=6, label=r"$e\mu$")
 
     # add categories
     from hbt.config.categories import add_categories
@@ -1280,18 +1329,22 @@ def add_config(
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
 
             # create the lfn base directory, local or remote
-            dir_cls = law.LocalDirectoryTarget
-            fs = f"local_fs_{cfg.campaign.x.custom['name']}"
-            if not law.config.has_section(fs):
-                dir_cls = law.wlcg.WLCGDirectoryTarget
-                fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+            dir_cls = law.wlcg.WLCGDirectoryTarget
+            fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+            local_fs = f"local_fs_{cfg.campaign.x.custom['name']}"
+            if law.config.has_section(local_fs):
+                base = law.target.file.remove_scheme(law.config.get_expanded(local_fs, "base"))
+                if os.path.exists(base):
+                    dir_cls = law.LocalDirectoryTarget
+                    fs = local_fs
             lfn_base = dir_cls(path, fs=fs)
 
             # loop though files and interpret paths as lfns
-            return [
+            print(lfn_base)
+            return sorted(
                 "/" + lfn_base.child(basename, type="f").path.lstrip("/")
                 for basename in lfn_base.listdir(pattern="*.root")
-            ]
+            )
 
         # define the lfn retrieval function
         cfg.x.get_dataset_lfns = get_dataset_lfns
