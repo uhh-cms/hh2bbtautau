@@ -58,11 +58,11 @@ def add_categories(config: od.Config) -> None:
             # auxiliary information
             "aux": aux,
             # label
-            "label": [
+            "label": ", ".join([
                 cat.label or cat.name
                 for cat in categories.values()
                 if cat.name != "os"  # os is the default
-            ] or None,
+            ]) or None,
         }
 
     # main analysis categories

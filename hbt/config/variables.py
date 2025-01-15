@@ -298,7 +298,9 @@ def add_variables(config: od.Config) -> None:
         config,
         name="dilep_mass",
         expression=dilep_mass_test,
-        aux={"inputs": ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]},
+        aux={
+            "inputs": ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"],
+        },
         binning=(40, 40, 120),
         unit="GeV",
         x_title=r"$m_{ll}$",

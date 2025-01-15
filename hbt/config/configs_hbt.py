@@ -179,7 +179,7 @@ def add_config(
         cfg.add_process(proc)
 
     # configure colors, labels, etc
-    from hbt.config.styles import stylize_processes, update_legend_labels
+    from hbt.config.styles import stylize_processes
     stylize_processes(cfg)
 
     ################################################################################################
@@ -441,7 +441,8 @@ def add_config(
             "qcd",
             "st",
             "tt_multiboson",
-            "all_v",
+            "v",
+            "multiboson",
             "h",
             "ewk",
         ]),
@@ -531,14 +532,19 @@ def add_config(
     cfg.x.default_selector_steps = "default"
 
     # plotting overwrites
+    from hbt.config.styles import legend_entries_per_column
+    cfg.x.default_general_settings = {
+        "cms_label": "wip",
+        "whitespace_fraction": 0.31,
+    }
     cfg.x.custom_style_config_groups = {
         "small_legend": {
             "legend_cfg": {
-                "ncols": 2, "fontsize": 16, "columnspacing": 0.6, "labelspacing": 0.275,
-                "update_handles_labels": update_legend_labels,
+                "ncols": 3, "borderpad": 0.7, "loc": "upper left", "fontsize": 16,
+                "columnspacing": 1.6, "labelspacing": 0.28,
+                "entries_per_column": legend_entries_per_column,
             },
-            "annotate_cfg": {"fontsize": 18},
-            "cms_label": "wip",
+            "annotate_cfg": {"fontsize": 16, "xycoords": "axes fraction", "xy": (0.035, 0.73), "style": "italic"},
         },
     }
     cfg.x.default_custom_style_config = "small_legend"

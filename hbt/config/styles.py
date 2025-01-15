@@ -62,13 +62,13 @@ def stylize_processes(config: od.Config) -> None:
         p.color1 = cfg.x.colors.bright_blue
 
     if (p := config.get_process("vv", default=None)):
-        p.color1 = cfg.x.colors.aubergine
+        p.color1 = cfg.x.colors.yellow
 
     if (p := config.get_process("vvv", default=None)):
-        p.color1 = cfg.x.colors.aubergine
+        p.color1 = cfg.x.colors.yellow
 
     if (p := config.get_process("multiboson", default=None)):
-        p.color1 = cfg.x.colors.aubergine
+        p.color1 = cfg.x.colors.yellow
 
     if (p := config.get_process("w", default=None)):
         p.color1 = cfg.x.colors.aubergine
@@ -102,23 +102,24 @@ def stylize_processes(config: od.Config) -> None:
         p.color1 = cfg.x.colors.red
 
 
-def update_legend_labels(ax, handles, labels, n_cols):
+def legend_entries_per_column(ax, handles: list, labels: list, n_cols: int) -> list[int]:
     """
-    Fill empty handles so that all backgrounds are in the first column.
+    Control  number of entries such that backgrounds are in the first n - 1 columns, and everything
+    else in the last one.
     """
-    # only implemented for 2 columns so far
-    if n_cols != 2:
-        return
-    # get number of entries per column
+    # get number of background and remaining entries
     n_backgrounds = sum(1 for handle in handles if handle.__class__.__name__ == "StepPatch")
     n_other = len(handles) - n_backgrounds
-    if n_backgrounds == n_other:
-        return
 
-    # fill left or right column
-    n_add = abs(n_backgrounds - n_other)
-    pos = len(handles) if n_backgrounds > n_other else n_backgrounds
-    empty_handle = ax.plot([], label="", linestyle="None")[0]
-    for _ in range(n_add):
-        handles.insert(pos, empty_handle)
-        labels.insert(pos, "")
+    # fill number of entries per column
+    entries_per_col = n_cols * [0]
+    n_bkg_cols = n_cols
+    # set last column if non-backgrounds are present
+    if n_other:
+        entries_per_col[-1] = n_other
+        n_bkg_cols -= 1
+    # fill background columns
+    for i in range(n_bkg_cols):
+        entries_per_col[i] = n_backgrounds // n_bkg_cols + (n_backgrounds % n_bkg_cols > i)
+
+    return entries_per_col
