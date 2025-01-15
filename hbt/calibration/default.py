@@ -8,7 +8,9 @@ from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.cms.met import met_phi
 from columnflow.calibration.cms.jets import jec, jec_nominal, jer
 from columnflow.calibration.cms.tau import tec, tec_nominal
+from columnflow.calibration.cms.egamma import photons, electrons
 from columnflow.production.cms.mc_weight import mc_weight
+from columnflow.production.cms.supercluster_eta import photon_sceta, electron_sceta
 from columnflow.production.cms.seeds import deterministic_event_seeds, deterministic_jet_seeds
 from columnflow.util import maybe_import
 
@@ -32,9 +34,11 @@ custom_deterministic_event_seeds = deterministic_event_seeds.derive(
 @calibrator(
     uses={
         mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
+        photon_sceta, photons, electrons, electron_sceta,
     },
     produces={
         mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
+        photon_sceta, electron_sceta,
     },
 )
 def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
@@ -46,6 +50,14 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     # !! so no manual sorting needed here (but necessary if, e.g., jec is applied before)
     events = self[custom_deterministic_event_seeds](events, **kwargs)
     events = self[deterministic_jet_seeds](events, **kwargs)
+
+    # superclusterEta is only available for nanoAOD v14 and later
+    # otherwise, calculate it by hand
+    if self.config_inst.campaign.x.version <= 14:
+        events = self[photon_sceta](events, **kwargs)
+    events = self[photons](events, **kwargs)
+    events = self[electron_sceta](events, **kwargs)
+    events = self[electrons](events, **kwargs)
 
     if self.dataset_inst.is_data or not self.global_shift_inst.is_nominal:
         events = self[self.jec_nominal_cls](events, **kwargs)

@@ -745,6 +745,14 @@ def add_config(
     corrector_kwargs = {"wp": "Tight", "wp_VSe": "Tight"} if run == 3 else {}
     cfg.x.tec = TECConfig(tagger=cfg.x.tau_tagger, corrector_kwargs=corrector_kwargs)
 
+    # pec config
+    from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
+    cfg.x.pec = EGammaCorrectionConfig(correction_set="Scale")
+    cfg.x.per = EGammaCorrectionConfig(correction_set="Smearing")
+
+    cfg.x.eec = EGammaCorrectionConfig(correction_set="Scale")
+    cfg.x.eer = EGammaCorrectionConfig(correction_set="Smearing")
+
     # tau ID working points
     if campaign.x.version < 10:
         cfg.x.tau_id_working_points = DotDict.wrap({
@@ -1179,6 +1187,14 @@ def add_config(
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+
+        # photon scale factors
+        add_external("photon_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/photon.json.gz", "v1"))
+        # electron energy correction and smearing
+        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
+
+        # photon energy correction and smearing
+        add_external("photon_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/photonSS.json.gz", "v1"))
         # tau energy correction and scale factors
         # TODO: remove tag pog mirror once integrated centrally
         json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
