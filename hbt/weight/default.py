@@ -18,7 +18,7 @@ np = maybe_import("numpy")
     mc_only=True,
     # options to keep or drop specific weights
     keep_weights=None,
-    drop_weights=None,
+    drop_weights={"normalization_weight_inclusive"},
 )
 def default(self: WeightProducer, events: ak.Array, **kwargs) -> ak.Array:
     # build the full event weight
@@ -36,8 +36,8 @@ def default_init(self: WeightProducer) -> None:
     self.weight_columns = []
 
     # helpers to match to kept or dropped weights
-    do_keep = pattern_matcher(self.keep_weights) if self.keep_weights else (lambda _: True)
-    do_drop = pattern_matcher(self.drop_weights) if self.drop_weights else (lambda _: False)
+    do_keep = pattern_matcher(self.keep_weights) if self.keep_weights else (lambda _, /: True)
+    do_drop = pattern_matcher(self.drop_weights) if self.drop_weights else (lambda _, /: False)
 
     for weight_name in self.config_inst.x.event_weights:
         if not do_keep(weight_name) or do_drop(weight_name):
@@ -62,5 +62,11 @@ def default_init(self: WeightProducer) -> None:
 
 normalization_only = default.derive(
     "normalization_only",
-    cls_dict={"keep_weights": "normalization_weight"},
+    cls_dict={"keep_weights": {"normalization_weight"}},
+)
+
+
+normalization_inclusive_only = default.derive(
+    "normalization_inclusive_only",
+    cls_dict={"keep_weights": {"normalization_weight_inclusive"}, "drop_weights": None},
 )

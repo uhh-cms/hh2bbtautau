@@ -23,7 +23,7 @@ custom_deterministic_event_seeds = deterministic_event_seeds.derive(
     cls_dict={"object_count_columns": [
         route
         for route in deterministic_event_seeds.object_count_columns
-        if not str(route).startswith("GenPart.")
+        if not str(route).startswith(("GenPart.", "Photon."))
     ]},
 
 )
@@ -71,30 +71,45 @@ def default_init(self: Calibrator) -> None:
     met_name = self.config_inst.x.met_name
     raw_met_name = self.config_inst.x.raw_met_name
 
-    # derive calibrators to add settings
-    self.jec_full_cls = jec.derive("jec_full", cls_dict={
-        "mc_only": True,
-        "nominal_only": True,
-        "met_name": met_name,
-        "raw_met_name": raw_met_name,
-    })
-    self.jec_nominal_cls = jec_nominal.derive("jec_nominal", cls_dict={
-        "met_name": met_name,
-        "raw_met_name": raw_met_name,
-    })
+    # derive calibrators to add settings once
+    flag = f"custom_calibs_registered_{self.cls_name}"
+    if not self.config_inst.x(flag, False):
+        # jec calibrators
+        self.config_inst.x.calib_jec_full_cls = jec.derive("jec_full", cls_dict={
+            "mc_only": True,
+            "nominal_only": True,
+            "met_name": met_name,
+            "raw_met_name": raw_met_name,
+        })
+        self.config_inst.x.calib_jec_nominal_cls = jec_nominal.derive("jec_nominal", cls_dict={
+            "met_name": met_name,
+            "raw_met_name": raw_met_name,
+        })
+        # version of jer that uses the first random number from deterministic_seeds
+        self.config_inst.x.calib_deterministic_jer_cls = jer.derive("deterministic_jer", cls_dict={
+            "deterministic_seed_index": 0,
+            "met_name": met_name,
+        })
+        # derive tec calibrators
+        self.config_inst.x.calib_jec_cls = tec.derive("tec", cls_dict={
+            "met_name": met_name,
+        })
+        self.config_inst.x.calib_jec_cls = tec_nominal.derive("tec_nominal", cls_dict={
+            "met_name": met_name,
+        })
+        # derive met_phi calibrator (currently only used in run 2)
+        self.config_inst.x.calib_met_phi_cls = met_phi.derive("met_phi", cls_dict={
+            "met_name": met_name,
+        })
+        # change the flag
+        self.config_inst.set_aux(flag, True)
 
-    # version of jer that uses the first random number from deterministic_seeds
-    self.deterministic_jer_cls = jer.derive("deterministic_jer", cls_dict={
-        "deterministic_seed_index": 0,
-        "met_name": met_name,
-    })
-
-    # derive tec calibrators
-    self.tec_cls = tec.derive("tec", cls_dict={"met_name": met_name})
-    self.tec_nominal_cls = tec_nominal.derive("tec_nominal", cls_dict={"met_name": met_name})
-
-    # derive met_phi calibrator (currently only for run 2)
-    self.met_phi_cls = met_phi.derive("met_phi", cls_dict={"met_name": met_name})
+    self.jec_full_cls = self.config_inst.x.calib_jec_full_cls
+    self.jec_nominal_cls = self.config_inst.x.calib_jec_nominal_cls
+    self.deterministic_jer_cls = self.config_inst.x.calib_deterministic_jer_cls
+    self.tec_cls = self.config_inst.x.calib_jec_cls
+    self.tec_nominal_cls = self.config_inst.x.calib_jec_cls
+    self.met_phi_cls = self.config_inst.x.calib_met_phi_cls
 
     # collect derived calibrators and add them to the calibrator uses and produces
     derived_calibrators = {
