@@ -155,6 +155,7 @@ def electron_selection(
 
     return default_mask, veto_mask
 
+
 @electron_selection.init
 def electron_selection_init(self) -> None:
     from columnflow.config_util import get_shifts_from_sources

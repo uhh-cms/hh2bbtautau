@@ -1079,7 +1079,7 @@ def add_config(
         "eec",
         {
             "Electron.pt": "Electron.pt_scale_{direction}",
-        }
+        },
     )
 
     cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
@@ -1089,7 +1089,7 @@ def add_config(
         "eer",
         {
             "Electron.pt": "Electron.pt_res_{direction}",
-        }
+        },
     )
 
     cfg.add_shift(name="mu_up", id=100, type="shape")

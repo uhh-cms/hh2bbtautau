@@ -16,7 +16,6 @@ from columnflow.production.cms.seeds import (
     deterministic_photon_seeds,
 )
 from columnflow.util import maybe_import
-from columnflow.columnar_util import ak_copy, attach_coffea_behavior
 
 from hbt.util import IF_RUN_2
 
@@ -64,7 +63,7 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     # otherwise, calculate it by hand
     if self.config_inst.campaign.x.version <= 14:
         events = self[photon_sceta](events, **kwargs)
-    
+
     events = self[electron_sceta](events, **kwargs)
     if self.dataset_inst.is_data or not self.global_shift_inst.is_nominal:
         events = self[self.jec_nominal_cls](events, **kwargs)
@@ -81,12 +80,11 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         events = self[self.jec_full_cls](events, **kwargs)
         events = self[self.deterministic_jer_cls](events, **kwargs)
         # in this block, we are in the nominal case in MC
-    
+
         events = self[self.electron_res_cls](events, **kwargs)
         events = self[self.electron_scale_cls](events, **kwargs)
         events = self[self.photon_res_cls](events, **kwargs)
         events = self[self.photon_scale_cls](events, **kwargs)
-
 
     if self.config_inst.campaign.x.run == 2:
         events = self[self.met_phi_cls](events, **kwargs)
