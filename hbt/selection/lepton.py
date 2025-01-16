@@ -86,7 +86,7 @@ def update_channel_ids(
 
 @selector(
     uses={
-        "Electron.{pt,eta,phi,dxy,dz,pfRelIso03_all}",
+        "Electron.{pt,eta,phi,dxy,dz,pfRelIso03_all,seediEtaOriX,seediPhiOriY}",
         IF_NANO_V9("Electron.mvaFall17V2{Iso_WP80,Iso_WP90}"),
         IF_NANO_GE_V10("Electron.{mvaIso_WP80,mvaIso_WP90}"),
     },
@@ -103,6 +103,10 @@ def electron_selection(
     See https://twiki.cern.ch/twiki/bin/view/CMS/EgammaNanoAOD?rev=4
     """
     is_2016 = self.config_inst.campaign.x.year == 2016
+    is_2022_post = (
+        self.config_inst.campaign.x.year == 2022 and
+        self.config_inst.campaign.has_tag("postEE")
+    )
     is_single = trigger.has_tag("single_e")
     is_cross = trigger.has_tag("cross_e_tau")
 
@@ -130,6 +134,15 @@ def electron_selection(
             (abs(events.Electron.dz) < 0.2) &
             (events.Electron.pt > min_pt)
         )
+
+        # additional cut in 2022 post-EE
+        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=162#From_ECAL_and_EGM
+        if is_2022_post:
+            default_mask = default_mask & ~(
+                (events.Electron.eta > 1.556) &
+                (events.Electron.seediEtaOriX < 45) &
+                (events.Electron.seediPhiOriY > 72)
+            )
 
     # veto electron mask (must be trigger independent!)
     veto_mask = (
@@ -647,12 +660,6 @@ def lepton_selection(
                 (ak.sum(muon_veto_mask, axis=1) == 0) &
                 leading_taus_matched
             )
-
-            # TODO: not clear if this is required in the first place, discuss with cclub
-            # special case for cross tau vbf trigger:
-            # to avoid overlap, with non-vbf triggers, only one tau is allowed to have pt > 40
-            # if trigger.has_tag("cross_tau_tau_vbf"):
-            #     is_tautau = is_tautau & (ak.sum(events.Tau[tau_indices].pt > 40, axis=1) <= 1)
 
             # get selected, sorted taus to obtain quantities
             # (this will be correct for events for which is_tautau is actually True)

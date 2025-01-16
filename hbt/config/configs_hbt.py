@@ -199,7 +199,7 @@ def add_config(
         "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
         *if_era(year=2022, values=[
             "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",  # Poisson60KeepRAW for 2022post
         ]),
         "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
         "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
@@ -447,13 +447,20 @@ def add_config(
             "ewk",
         ]),
         "dy_split": [
-            # TODO
-            # "dy_m4to10", "dy_m10to50", "dy_m50toinf",
-            # "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
+            "dy_m4to10", "dy_m10to50",
+            "dy_m50toinf_0j",
             "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
             "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
             "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
             "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+        ],
+        "dy_split_no_incl": [
+            "dy_m4to10", "dy_m10to50",
+            "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
+            "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
+            "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
+            "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
+            "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
         ],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
@@ -742,7 +749,7 @@ def add_config(
 
     # tec config
     from columnflow.calibration.cms.tau import TECConfig
-    corrector_kwargs = {"wp": "Tight", "wp_VSe": "Tight"} if run == 3 else {}
+    corrector_kwargs = {"wp": "Medium", "wp_VSe": "VVLoose"} if run == 3 else {}
     cfg.x.tec = TECConfig(tagger=cfg.x.tau_tagger, corrector_kwargs=corrector_kwargs)
 
     # pec config

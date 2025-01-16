@@ -93,7 +93,7 @@ def add_categories(config: od.Config) -> None:
         # kinematic regions in the middle (to be extended)
         "kin": [config.get_category("incl"), config.get_category("2j")],
         # relative sign last
-        "sign": [config.get_category("os")],
+        "sign": [config.get_category("os"), config.get_category("ss")],
     }
     create_category_combinations(
         config=config,

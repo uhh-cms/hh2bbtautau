@@ -25,7 +25,7 @@ custom_deterministic_event_seeds = deterministic_event_seeds.derive(
     cls_dict={"object_count_columns": [
         route
         for route in deterministic_event_seeds.object_count_columns
-        if not str(route).startswith("GenPart.")
+        if not str(route).startswith(("GenPart.", "Photon."))
     ]},
 
 )
