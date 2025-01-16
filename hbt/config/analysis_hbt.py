@@ -109,13 +109,12 @@ add_lazy_config(
     config_name="22post_v12",
     config_id=6012,
 )
-# TODO: enable when available
-# add_lazy_config(
-#     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
-#     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
-#     config_name="22post_v14",
-#     config_id=6014,
-# )
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
+    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
+    config_name="22post_v14",
+    config_id=6014,
+)
 
 # 2023, preBPix
 add_lazy_config(
