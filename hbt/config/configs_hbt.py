@@ -1071,6 +1071,27 @@ def add_config(
     cfg.add_shift(name="e_down", id=91, type="shape")
     add_shift_aliases(cfg, "e", {"electron_weight": "electron_weight_{direction}"})
 
+    # electron shifts
+    cfg.add_shift(name="eec_up", id=92, type="shape", tags={"eec"})
+    cfg.add_shift(name="eec_down", id=93, type="shape", tags={"eec"})
+    add_shift_aliases(
+        cfg,
+        "eec",
+        {
+            "Electron.pt": "Electron.pt_scale_{direction}",
+        }
+    )
+
+    cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
+    cfg.add_shift(name="eer_down", id=95, type="shape", tags={"eer"})
+    add_shift_aliases(
+        cfg,
+        "eer",
+        {
+            "Electron.pt": "Electron.pt_res_{direction}",
+        }
+    )
+
     cfg.add_shift(name="mu_up", id=100, type="shape")
     cfg.add_shift(name="mu_down", id=101, type="shape")
     add_shift_aliases(cfg, "mu", {"muon_weight": "muon_weight_{direction}"})
