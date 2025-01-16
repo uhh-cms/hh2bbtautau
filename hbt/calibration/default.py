@@ -8,11 +8,15 @@ from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.cms.met import met_phi
 from columnflow.calibration.cms.jets import jec, jec_nominal, jer
 from columnflow.calibration.cms.tau import tec, tec_nominal
-from columnflow.calibration.cms.egamma import photons, electrons
+from columnflow.calibration.cms.egamma import pec, per, eer, eec
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.supercluster_eta import photon_sceta, electron_sceta
-from columnflow.production.cms.seeds import deterministic_event_seeds, deterministic_jet_seeds
+from columnflow.production.cms.seeds import (
+    deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
+    deterministic_photon_seeds,
+)
 from columnflow.util import maybe_import
+from columnflow.columnar_util import ak_copy, attach_coffea_behavior
 
 from hbt.util import IF_RUN_2
 
@@ -34,10 +38,13 @@ custom_deterministic_event_seeds = deterministic_event_seeds.derive(
 @calibrator(
     uses={
         mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
-        photon_sceta, photons, electrons, electron_sceta,
+        deterministic_photon_seeds, deterministic_electron_seeds,
+        photon_sceta, electron_sceta,
+        "Electron.mass",
     },
     produces={
         mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
+        deterministic_photon_seeds, deterministic_electron_seeds,
         photon_sceta, electron_sceta,
     },
 )
@@ -50,20 +57,36 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     # !! so no manual sorting needed here (but necessary if, e.g., jec is applied before)
     events = self[custom_deterministic_event_seeds](events, **kwargs)
     events = self[deterministic_jet_seeds](events, **kwargs)
+    events = self[deterministic_photon_seeds](events, **kwargs)
+    events = self[deterministic_electron_seeds](events, **kwargs)
 
     # superclusterEta is only available for nanoAOD v14 and later
     # otherwise, calculate it by hand
     if self.config_inst.campaign.x.version <= 14:
         events = self[photon_sceta](events, **kwargs)
-    events = self[photons](events, **kwargs)
+    
     events = self[electron_sceta](events, **kwargs)
-    events = self[electrons](events, **kwargs)
-
     if self.dataset_inst.is_data or not self.global_shift_inst.is_nominal:
         events = self[self.jec_nominal_cls](events, **kwargs)
+        # egamma scale calibrations should only be applied to data
+        # so if the global shift is not nominal, we are in the shifted case
+        # and will only execute something if it's data
+        if self.dataset_inst.is_data:
+            events = self[self.electron_scale_nominal_cls](events, **kwargs)
+            events = self[self.photon_scale_nominal_cls](events, **kwargs)
+        else:
+            events = self[self.electron_res_nominal_cls](events, **kwargs)
+            events = self[self.photon_res_nominal_cls](events, **kwargs)
     else:
         events = self[self.jec_full_cls](events, **kwargs)
         events = self[self.deterministic_jer_cls](events, **kwargs)
+        # in this block, we are in the nominal case in MC
+    
+        events = self[self.electron_res_cls](events, **kwargs)
+        events = self[self.electron_scale_cls](events, **kwargs)
+        events = self[self.photon_res_cls](events, **kwargs)
+        events = self[self.photon_scale_cls](events, **kwargs)
+
 
     if self.config_inst.campaign.x.run == 2:
         events = self[self.met_phi_cls](events, **kwargs)
@@ -113,6 +136,43 @@ def default_init(self: Calibrator) -> None:
         self.config_inst.x.calib_met_phi_cls = met_phi.derive("met_phi", cls_dict={
             "met_name": met_name,
         })
+
+        # derive electron scale calibrators
+        self.config_inst.x.calib_electron_scale_cls = eec.derive("eec_full", cls_dict={
+        })
+
+        self.config_inst.x.calib_electron_scale_nominal_cls = eec.derive("eec_nominal", cls_dict={
+            "with_uncertainties": False,
+        })
+
+        # derive electron resolution calibrator
+        self.config_inst.x.calib_electron_res_cls = eer.derive("eer_full", cls_dict={
+            "deterministic_seed_index": 1,
+        })
+
+        self.config_inst.x.calib_electron_res_nominal_cls = eer.derive("eer_nominal", cls_dict={
+            "deterministic_seed_index": 1,
+            "with_uncertainties": False,
+        })
+
+        # derive electron scale calibrators
+        self.config_inst.x.calib_photon_scale_cls = pec.derive("pec_full", cls_dict={
+        })
+
+        self.config_inst.x.calib_photon_scale_nominal_cls = pec.derive("pec_nominal", cls_dict={
+            "with_uncertainties": False,
+        })
+
+        # derive photon resolution calibrator
+        self.config_inst.x.calib_photon_res_cls = per.derive("per_full", cls_dict={
+            "deterministic_seed_index": 1,
+        })
+
+        self.config_inst.x.calib_photon_res_nominal_cls = per.derive("per_nominal", cls_dict={
+            "deterministic_seed_index": 1,
+            "with_uncertainties": False,
+        })
+
         # change the flag
         self.config_inst.set_aux(flag, True)
 
@@ -122,6 +182,14 @@ def default_init(self: Calibrator) -> None:
     self.tec_cls = self.config_inst.x.calib_jec_cls
     self.tec_nominal_cls = self.config_inst.x.calib_jec_cls
     self.met_phi_cls = self.config_inst.x.calib_met_phi_cls
+    self.electron_scale_cls = self.config_inst.x.calib_electron_scale_cls
+    self.electron_scale_nominal_cls = self.config_inst.x.calib_electron_scale_nominal_cls
+    self.electron_res_cls = self.config_inst.x.calib_electron_res_cls
+    self.electron_res_nominal_cls = self.config_inst.x.calib_electron_res_nominal_cls
+    self.photon_scale_cls = self.config_inst.x.calib_photon_scale_cls
+    self.photon_scale_nominal_cls = self.config_inst.x.calib_photon_scale_nominal_cls
+    self.photon_res_cls = self.config_inst.x.calib_photon_res_cls
+    self.photon_res_nominal_cls = self.config_inst.x.calib_photon_res_nominal_cls
 
     # collect derived calibrators and add them to the calibrator uses and produces
     derived_calibrators = {
@@ -131,6 +199,14 @@ def default_init(self: Calibrator) -> None:
         self.tec_cls,
         self.tec_nominal_cls,
         IF_RUN_2(self.met_phi_cls),
+        self.electron_scale_cls,
+        self.electron_scale_nominal_cls,
+        self.electron_res_cls,
+        self.electron_res_nominal_cls,
+        self.photon_scale_cls,
+        self.photon_scale_nominal_cls,
+        self.photon_res_cls,
+        self.photon_res_nominal_cls,
     }
     self.uses |= derived_calibrators
     self.produces |= derived_calibrators
