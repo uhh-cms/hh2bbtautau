@@ -365,7 +365,6 @@ def add_config(
         if law.util.multi_match(dataset.name, [
             r"^(ww|wz|zz)_.*pythia$",
             r"^tt(w|z)_.*amcatnlo$",
-            r"^hh_ggf_hbb_htt_kl[^1]+_kt1_powheg$",  # only SM model has LHE weighs, TODO: in all configs?
         ]):
             dataset.add_tag("no_lhe_weights")
         # datasets that are allowed to contain some events with missing lhe infos
