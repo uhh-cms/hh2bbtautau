@@ -1297,8 +1297,6 @@ def add_triggers_2023(config: od.Config) -> None:
                 # WPTightTrackIso
                 trigger_bits=get_bit_sum_v("e", [
                     "WPTightTrackIso",
-                    # TODO: Tight not existing, needs fixing
-                    # "Tight" if nano_version == 14 else None,
                 ]),
             ),
         ),
