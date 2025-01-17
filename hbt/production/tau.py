@@ -23,7 +23,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         # custom columns created upstream, probably by a selector
         "single_triggered", "cross_triggered",
         # nano columns
-        "Tau.pt", "Tau.eta", "Tau.genPartFlav", "Tau.decayMode",
+        "Tau.{pt,eta,genPartFlav,decayMode}",
     },
     produces={
         "tau_weight",
@@ -227,7 +227,7 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
 @producer(
     uses={
         "channel_id", "single_triggered", "cross_triggered",
-        "Tau.pt", "Tau.decayMode",
+        "Tau.{pt,decayMode}",
     },
     produces={
         "tau_trigger_weight",

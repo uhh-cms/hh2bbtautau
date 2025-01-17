@@ -31,6 +31,16 @@ def IF_NANO_V12(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any 
 
 
 @deferred_column
+def IF_NANO_V14(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if func.config_inst.campaign.x.version == 14 else None
+
+
+@deferred_column
+def IF_NANO_GE_V10(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if func.config_inst.campaign.x.version >= 10 else None
+
+
+@deferred_column
 def IF_RUN_2(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
     return self.get() if func.config_inst.campaign.x.run == 2 else None
 
@@ -48,7 +58,7 @@ def IF_DATASET_HAS_LHE_WEIGHTS(
     if getattr(func, "dataset_inst", None) is None:
         return self.get()
 
-    return None if func.dataset_inst.has_tag("no_lhe_weights") else self.get()
+    return self.get() if not func.dataset_inst.has_tag("no_lhe_weights") else None
 
 
 @deferred_column
@@ -59,7 +69,18 @@ def IF_DATASET_IS_DY(
     if getattr(func, "dataset_inst", None) is None:
         return self.get()
 
-    return self.get() if func.dataset_inst.has_tag("is_dy") else None
+    return self.get() if func.dataset_inst.has_tag("dy") else None
+
+
+@deferred_column
+def IF_DATASET_IS_W_LNU(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    if getattr(func, "dataset_inst", None) is None:
+        return self.get()
+
+    return self.get() if func.dataset_inst.has_tag("w_lnu") else None
 
 
 def hash_events(arr: np.ndarray) -> np.ndarray:
