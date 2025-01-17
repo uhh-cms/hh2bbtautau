@@ -326,16 +326,16 @@ def add_config(
 
         # data
         *if_era(year=2022, tag="preEE", values=[
-            f"data_{stream}_{period}" for stream in ["mu", "e", "tau"] for period in "cd"
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cd"
         ]),
         *if_era(year=2022, tag="postEE", values=[
-            f"data_{stream}_{period}" for stream in ["mu", "e", "tau"] for period in "efg"
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "efg"
         ]),
         *if_era(year=2023, tag="preBPix", values=[
-            f"data_{stream}_c{v}" for stream in ["mu", "e", "tau"] for v in "1234"
+            f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
         ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["mu", "e", "tau"] for v in "12"
+            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau"] for v in "12"
         ]),
     ]
     for dataset_name in dataset_names:
