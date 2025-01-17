@@ -145,11 +145,11 @@ def default_init(self: Calibrator) -> None:
 
         # derive electron resolution calibrator
         self.config_inst.x.calib_electron_res_cls = eer.derive("eer_full", cls_dict={
-            "deterministic_seed_index": 1,
+            "deterministic_seed_index": 0,
         })
 
         self.config_inst.x.calib_electron_res_nominal_cls = eer.derive("eer_nominal", cls_dict={
-            "deterministic_seed_index": 1,
+            "deterministic_seed_index": 0,
             "with_uncertainties": False,
         })
 
@@ -163,11 +163,11 @@ def default_init(self: Calibrator) -> None:
 
         # derive photon resolution calibrator
         self.config_inst.x.calib_photon_res_cls = per.derive("per_full", cls_dict={
-            "deterministic_seed_index": 1,
+            "deterministic_seed_index": 0,
         })
 
         self.config_inst.x.calib_photon_res_nominal_cls = per.derive("per_nominal", cls_dict={
-            "deterministic_seed_index": 1,
+            "deterministic_seed_index": 0,
             "with_uncertainties": False,
         })
 
