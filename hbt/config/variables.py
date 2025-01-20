@@ -556,7 +556,7 @@ def add_variables(config: od.Config) -> None:
     )
 
     # single tau
-        add_variable(
+    add_variable(
         config,
         name="tau1_pt",
         expression="Tau.pt[:, 0]",
