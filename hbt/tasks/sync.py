@@ -13,9 +13,7 @@ import luigi
 import law
 
 from columnflow.tasks.framework.base import Requirements, DatasetTask
-from columnflow.tasks.framework.mixins import (
-    ProducersMixin, MLModelsMixin, ChunkedIOMixin, SelectorMixin,
-)
+from columnflow.tasks.framework.mixins import ProducersMixin, MLModelsMixin, ChunkedIOMixin
 from columnflow.tasks.framework.remote import RemoteWorkflow
 from columnflow.tasks.external import GetDatasetLFNs
 from columnflow.tasks.reduction import ReducedEventsUser
@@ -121,11 +119,10 @@ class CheckExternalLFNOverlap(
 
 class CreateSyncFiles(
     HBTTask,
-    MLModelsMixin,
-    ProducersMixin,
-    ChunkedIOMixin,
     ReducedEventsUser,
-    SelectorMixin,
+    ChunkedIOMixin,
+    ProducersMixin,
+    MLModelsMixin,
     law.LocalWorkflow,
     RemoteWorkflow,
 ):
