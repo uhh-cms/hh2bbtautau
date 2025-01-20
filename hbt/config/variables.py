@@ -296,7 +296,6 @@ def add_variables(config: od.Config) -> None:
     build_dilep.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
 
     def build_dijet(events, which=None):
-        import awkward as ak
         jets = events.Jet[:, :2]
         if which == "dr":
             return delta_r12(jets)
@@ -556,7 +555,7 @@ def add_variables(config: od.Config) -> None:
     )
 
     # single tau
-        add_variable(
+    add_variable(
         config,
         name="tau1_pt",
         expression="Tau.pt[:, 0]",
@@ -669,6 +668,7 @@ def add_variables(config: od.Config) -> None:
             binning=(5000, 0.0, 1.0),
             x_title=rf"{proc.upper()} output node, res. DNN",
         )
+
 
 # helper to add a variable to the config with some defaults
 def add_variable(config: od.Config, *args, **kwargs) -> od.Variable:
