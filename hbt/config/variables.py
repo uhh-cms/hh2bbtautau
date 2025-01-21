@@ -297,10 +297,10 @@ def add_variables(config: od.Config) -> None:
     build_dilep.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
 
     def build_dijet(events, which=None):
-        jets = events.Jet[:, :2]
+        hhbjets = events.HHBJet[:, :2]
         if which == "dr":
-            return delta_r12(jets)
-        dijet = jets.sum(axis=1)
+            return delta_r12(hhbjets)
+        dijet = hhbjets.sum(axis=1)
         if which is None:
             return dijet * 1
         if which == "mass":
