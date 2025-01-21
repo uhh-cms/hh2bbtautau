@@ -43,6 +43,12 @@ def setup_plot_styles(config: od.Config) -> None:
             "rax_cfg": rax,
             "annotate_cfg": annotate_wide,
         },
+        "small_legend": {
+            "legend_cfg": {"ncols": 2, "fontsize": 10, "columnspacing": 0.6},
+        },
+        "very_small_legend": {
+            "legend_cfg": {"ncols": 2, "fontsize": 8, "columnspacing": 0.6},
+        },
     }
 
     config.x.default_custom_style_config = "wide_legend"
