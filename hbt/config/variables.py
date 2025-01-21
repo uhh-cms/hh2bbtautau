@@ -78,21 +78,21 @@ def add_variables(config: od.Config) -> None:
         expression="Jet.pt[:,0]",
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Jet 1 $p_{T}$",
+        x_title=r"Leading jet $p_{T}$",
     )
     add_variable(
         config,
         name="jet1_eta",
         expression="Jet.eta[:,0]",
         binning=(30, -3.0, 3.0),
-        x_title=r"Jet 1 $\eta$",
+        x_title=r"Leading jet $\eta$",
     )
     add_variable(
         config,
         name="jet1_phi",
         expression="Jet.phi[:,0]",
         binning=(34, -3.3, 3.3),
-        x_title=r"Jet 1 $\phi$",
+        x_title=r"Leading jet $\phi$",
     )
     add_variable(
         config,
@@ -100,21 +100,21 @@ def add_variables(config: od.Config) -> None:
         expression="Jet.pt[:,1]",
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Jet 2 $p_{T}$",
+        x_title=r"Subleading jet $p_{T}$",
     )
     add_variable(
         config,
         name="jet2_eta",
         expression="Jet.eta[:,1]",
         binning=(30, -3.0, 3.0),
-        x_title=r"Jet 2 $\eta$",
+        x_title=r"Subleading jet $\eta$",
     )
     add_variable(
         config,
         name="jet2_phi",
         expression="Jet.phi[:,1]",
         binning=(34, -3.3, 3.3),
-        x_title=r"Jet 2 $\phi$",
+        x_title=r"Subleading jet $\phi$",
     )
     add_variable(
         config,
@@ -191,21 +191,21 @@ def add_variables(config: od.Config) -> None:
         expression="cutflow.jet1_pt",
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Jet 1 $p_{T}$",
+        x_title=r"Leading jet $p_{T}$",
     )
     add_variable(
         config,
         name="cf_jet1_eta",
         expression="cutflow.jet1_eta",
         binning=(40, -5.0, 5.0),
-        x_title=r"Jet 1 $\eta$",
+        x_title=r"Leading jet $\eta$",
     )
     add_variable(
         config,
         name="cf_jet1_phi",
         expression="cutflow.jet1_phi",
         binning=(34, -3.3, 3.3),
-        x_title=r"Jet 1 $\phi$",
+        x_title=r"Leading jet $\phi$",
     )
     add_variable(
         config,
@@ -213,7 +213,7 @@ def add_variables(config: od.Config) -> None:
         expression="cutflow.jet2_pt",
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Jet 2 $p_{T}$",
+        x_title=r"Subleading jet $p_{T}$",
     )
 
     # variables of interest
@@ -514,42 +514,42 @@ def add_variables(config: od.Config) -> None:
         name="e1_pt",
         expression="Electron.pt[:, 0]",
         binning=(40, 0, 150),
-        x_title=r"Leading electron p$_{T}$",
+        x_title=r"Leading electron $p_{T}$",
     )
     add_variable(
         config,
         name="e2_pt",
         expression="Electron.pt[:,1]",
         binning=(30, 0, 150),
-        x_title=r"Subleading electron p_{T}$",
+        x_title=r"Subleading electron $p_{T}$",
     )
     add_variable(
         config,
         name="e1_eta",
         expression="Electron.eta[:,0]",
         binning=(25, -2.5, 2.5),
-        x_title=r"Leading electron \eta$",
+        x_title=r"Leading electron $\eta$",
     )
     add_variable(
         config,
         name="e2_eta",
         expression="Electron.eta[:,1]",
         binning=(25, -2.5, 2.5),
-        x_title=r"Subleading electron \eta$",
+        x_title=r"Subleading electron $\eta$",
     )
     add_variable(
         config,
         name="e1_phi",
         expression="Electron.phi[:,0]",
         binning=(34, -3.3, 3.3),
-        x_title=r"Leading electron \phi$",
+        x_title=r"Leading electron $\phi$",
     )
     add_variable(
         config,
         name="e2_phi",
         expression="Electron.phi[:,1]",
         binning=(34, -3.3, 3.3),
-        x_title=r"Subleading electron \phi$",
+        x_title=r"Subleading electron $\phi$",
     )
 
     # single tau
@@ -565,35 +565,35 @@ def add_variables(config: od.Config) -> None:
         name="tau2_pt",
         expression="Tau.pt[:,1]",
         binning=(30, 0, 150),
-        x_title=r"Subleading tau p_{T}$",
+        x_title=r"Subleading tau $p_{T}$",
     )
     add_variable(
         config,
         name="tau1_eta",
         expression="Tau.eta[:,0]",
         binning=(25, -2.5, 2.5),
-        x_title=r"Leading tau \eta$",
+        x_title=r"Leading tau $\eta$",
     )
     add_variable(
         config,
         name="tau2_eta",
         expression="Tau.eta[:,1]",
         binning=(25, -2.5, 2.5),
-        x_title=r"Subleading tau \eta$",
+        x_title=r"Subleading tau $\eta$",
     )
     add_variable(
         config,
         name="tau1_phi",
         expression="Tau.phi[:,0]",
         binning=(34, -3.3, 3.3),
-        x_title=r"Leading tau \phi$",
+        x_title=r"Leading tau $\phi$",
     )
     add_variable(
         config,
         name="tau2_phi",
         expression="Tau.phi[:,1]",
         binning=(34, -3.3, 3.3),
-        x_title=r"Subleading tau \phi$",
+        x_title=r"Subleading tau $\phi$",
     )
 
     # single mu
@@ -602,42 +602,42 @@ def add_variables(config: od.Config) -> None:
         name="mu1_pt",
         expression="Muon.pt[:,0]",
         binning=(30, 0, 150),
-        x_title=r"Leading muon p_{T}$",
+        x_title=r"Leading muon $p_{T}$",
     )
     add_variable(
         config,
         name="mu2_pt",
         expression="Muon.pt[:,1]",
         binning=(30, 0, 150),
-        x_title=r"Subleading muon p_{T}$",
+        x_title=r"Subleading muon $p_{T}$",
     )
     add_variable(
         config,
         name="mu1_eta",
         expression="Muon.eta[:,0]",
         binning=(25, -2.5, 2.5),
-        x_title=r"Leading muon \eta$",
+        x_title=r"Leading muon $\eta$",
     )
     add_variable(
         config,
         name="mu2_eta",
         expression="Muon.eta[:,1]",
         binning=(25, -2.5, 2.5),
-        x_title=r"Subleading muon \eta$",
+        x_title=r"Subleading muon $\eta$",
     )
     add_variable(
         config,
         name="mu1_phi",
         expression="Muon.phi[:,0]",
         binning=(34, -3.3, 3.3),
-        x_title=r"Leading muon \phi$",
+        x_title=r"Leading muon $\phi$",
     )
     add_variable(
         config,
         name="mu2_phi",
         expression="Muon.phi[:,1]",
         binning=(34, -3.3, 3.3),
-        x_title=r"Subleading muon \phi$",
+        x_title=r"Subleading muon $\phi$",
     )
 
     for proc in ["hh", "tt", "dy"]:
