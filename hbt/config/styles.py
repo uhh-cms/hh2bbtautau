@@ -23,25 +23,60 @@ def setup_plot_styles(config: od.Config) -> None:
         "whitespace_fraction": 0.31,
     }
 
-    # common component configs
-    wide_legend = {
-        "ncols": 3, "borderpad": 0.7, "loc": "upper left", "fontsize": 16, "columnspacing": 1.6,
-        "labelspacing": 0.28, "entries_per_column": legend_entries_per_column,
+    # default component configs
+    gridspec = {
+        "height_ratios": [3, 0.9],
     }
-    rax = {"yloc": "center"}
-    annotate = {"fontsize": 16, "style": "italic"}
-    annotate_wide = {**annotate, "xycoords": "axes fraction", "xy": (0.035, 0.73)}
+    legend = {
+        "borderpad": 0, "borderaxespad": 1.2, "columnspacing": 1.8, "labelspacing": 0.28,
+        "fontsize": 16, "cf_line_breaks": True, "cf_short_labels": False,
+    }
+    ratio = {
+        "yloc": "center",
+    }
+    annotate = {
+        "fontsize": 18, "style": "italic", "xycoords": "axes fraction", "xy": (0.035, 0.955),
+    }
+
+    # wide legend
+    # - 3 columns, backgrounds in first 2 columns
+    # - shortened process labels
+    # - changed annotation (channel) position to fit right under legend
+    wide_legend = legend | {
+        "ncols": 3, "loc": "upper left", "cf_entries_per_column": legend_entries_per_column,
+        "cf_short_labels": True,
+    }
+    annotate_wide = annotate | {
+        "xy": (0.035, 0.765),
+    }
+
+    # wide extended legend, same as wide legend except
+    # - process labels are not shortened
+    # - annotation (channel) moved slightly down to fut under (now taller) legend
+    wide_ext_legend = wide_legend | {
+        "cf_short_labels": False,
+    }
+    annotate_wide_ext = annotate_wide | {
+        "xy": (0.035, 0.750),
+    }
 
     # construct named style configs
     config.x.custom_style_config_groups = {
-        "default_legend": {
-            "rax_cfg": rax,
+        "default": (default_cfg := {
+            "gridspec_cfg": gridspec,
+            "rax_cfg": ratio,
+            "legend_cfg": legend,
             "annotate_cfg": annotate,
-        },
-        "wide_legend": {
+        }),
+        "wide_legend": (wide_legend_cfg := {
+            **default_cfg,
             "legend_cfg": wide_legend,
-            "rax_cfg": rax,
             "annotate_cfg": annotate_wide,
+        }),
+        "wide_ext_legend": {
+            **wide_legend_cfg,
+            "legend_cfg": wide_ext_legend,
+            "annotate_cfg": annotate_wide_ext,
         },
     }
 
@@ -69,13 +104,15 @@ def stylize_processes(config: od.Config) -> None:
         teal="#92dadd",
         grey="#94a4a2",
         brown="#a96b59",
+        green="#30c300",
+        dark_green="#269c00",
     )
 
     for kl in ["0", "1", "2p45", "5"]:
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
             p.color1 = cfg.x.colors.dark_blue
             kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"})
-            p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE__\n({kappa_label})"
+            p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
     for kv, k2v, kl in [
         ("1", "1", "1"),
@@ -94,7 +131,7 @@ def stylize_processes(config: od.Config) -> None:
         if (p := config.get_process(f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}", default=None)):
             p.color1 = cfg.x.colors.brown
             kappa_label = create_kappa_label(**{"2V": k2v, r"\lambda": kl, "V": kv})
-            p.label = rf"$HH_{{vbf}} \rightarrow bb\tau\tau$ __SCALE__\n({kappa_label})"
+            p.label = rf"$HH_{{vbf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
     if (p := config.get_process("h", default=None)):
         p.color1 = cfg.x.colors.teal
