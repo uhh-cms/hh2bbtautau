@@ -8,6 +8,9 @@ from functools import partial
 import order as od
 
 from columnflow.columnar_util import EMPTY_FLOAT
+from columnflow.util import maybe_import
+
+ak = maybe_import("awkward")
 
 
 def add_variables(config: od.Config) -> None:
@@ -110,14 +113,14 @@ def add_variables(config: od.Config) -> None:
         config,
         name="jet2_phi",
         expression="Jet.phi[:,1]",
-        binning=(33, -3.3, 3.3),
+        binning=(34, -3.3, 3.3),
         x_title=r"Jet 2 $\phi$",
     )
     add_variable(
         config,
         name="met_phi",
         expression="PuppiMET.phi",
-        binning=(33, -3.3, 3.3),
+        binning=(34, -3.3, 3.3),
         x_title=r"MET $\phi$",
     )
 
@@ -201,7 +204,7 @@ def add_variables(config: od.Config) -> None:
         config,
         name="cf_jet1_phi",
         expression="cutflow.jet1_phi",
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         x_title=r"Jet 1 $\phi$",
     )
     add_variable(
@@ -267,12 +270,10 @@ def add_variables(config: od.Config) -> None:
     # build variables for dilepton, dijet, and hh
     def delta_r12(vectors):
         # delta r between first two elements
-        import awkward as ak
         dr = ak.firsts(vectors[:, :1], axis=1).delta_r(ak.firsts(vectors[:, 1:2], axis=1))
         return ak.fill_none(dr, EMPTY_FLOAT)
 
     def build_dilep(events, which=None):
-        import awkward as ak
         leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
         if which == "dr":
             return delta_r12(leps)
@@ -319,7 +320,6 @@ def add_variables(config: od.Config) -> None:
     build_dijet.inputs = ["Jet.{pt,eta,phi,mass}"]
 
     def build_hh(events, which=None):
-        import awkward as ak
         dijet = build_dijet(events)
         dilep = build_dilep(events)
         hs = ak.concatenate([dijet[..., None], dilep[..., None]], axis=1)
@@ -385,7 +385,7 @@ def add_variables(config: od.Config) -> None:
         name="dijet_phi",
         expression=partial(build_dijet, which="phi"),
         aux={"inputs": build_dijet.inputs},
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         x_title=r"$\phi_{jj}$",
     )
     add_variable(
@@ -439,7 +439,7 @@ def add_variables(config: od.Config) -> None:
         name="dilep_phi",
         expression=partial(build_dilep, which="phi"),
         aux={"inputs": build_dilep.inputs},
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         unit="GeV",
         x_title=r"$\phi_{ll}$",
     )
@@ -494,7 +494,7 @@ def add_variables(config: od.Config) -> None:
         name="hh_phi",
         expression=partial(build_hh, which="phi"),
         aux={"inputs": build_hh.inputs},
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         unit="GeV",
         x_title=r"$\phi_{ll,jj}$",
     )
@@ -541,14 +541,14 @@ def add_variables(config: od.Config) -> None:
         config,
         name="e1_phi",
         expression="Electron.phi[:,0]",
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         x_title=r"Leading electron \phi$",
     )
     add_variable(
         config,
         name="e2_phi",
         expression="Electron.phi[:,1]",
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         x_title=r"Subleading electron \phi$",
     )
 
@@ -585,14 +585,14 @@ def add_variables(config: od.Config) -> None:
         config,
         name="tau1_phi",
         expression="Tau.phi[:,0]",
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         x_title=r"Leading tau \phi$",
     )
     add_variable(
         config,
         name="tau2_phi",
         expression="Tau.phi[:,1]",
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         x_title=r"Subleading tau \phi$",
     )
 
@@ -629,14 +629,14 @@ def add_variables(config: od.Config) -> None:
         config,
         name="mu1_phi",
         expression="Muon.phi[:,0]",
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         x_title=r"Leading muon \phi$",
     )
     add_variable(
         config,
         name="mu2_phi",
         expression="Muon.phi[:,1]",
-        binning=(32, -3.2, 3.2),
+        binning=(34, -3.3, 3.3),
         x_title=r"Subleading muon \phi$",
     )
 
