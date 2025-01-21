@@ -88,7 +88,7 @@ def add_variables(config: od.Config) -> None:
         config,
         name="jet1_phi",
         expression="Jet.phi[:,0]",
-        binning=(33, -3.3, 3.3),
+        binning=(34, -3.3, 3.3),
         x_title=r"Jet 1 $\phi$",
     )
     add_variable(
@@ -378,7 +378,6 @@ def add_variables(config: od.Config) -> None:
         expression=partial(build_dijet, which="eta"),
         aux={"inputs": build_dijet.inputs},
         binning=(50, -5, 5),
-        unit="GeV",
         x_title=r"$\eta_{jj}$",
     )
     add_variable(
@@ -387,7 +386,6 @@ def add_variables(config: od.Config) -> None:
         expression=partial(build_dijet, which="phi"),
         aux={"inputs": build_dijet.inputs},
         binning=(32, -3.2, 3.2),
-        unit="GeV",
         x_title=r"$\phi_{jj}$",
     )
     add_variable(
