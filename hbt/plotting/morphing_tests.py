@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from functools import partial
+from dataclasses import dataclass
 
 import law
 
@@ -767,9 +768,19 @@ def plot_3d_morphing(
     variable_inst = variable_insts[0]
     list_of_markers = ["o", "s", "D", "v", "^", "<", ">", "P", "*", "X", "d", "+", "x", "1"]
 
+    # @dataclass
+    # class Sample:
+    #     kv: float
+    #     k2v: float
+    #     kl: float
+    #     name: str
+    #     morphing_type: str
+    #     hist: hist.Hist
+
     # get all histograms and their values for the chosen bin
     hists_to_plot = {}
     bin_hists_to_plot = {}
+    procs_to_plot = {}
     for vbf_point in points:
         if "kv" not in vbf_point or "k2v" not in vbf_point or "kl" not in vbf_point:
             raise ValueError("Not all points have the correct keys.")
@@ -778,6 +789,7 @@ def plot_3d_morphing(
                 if vbf_point["name"] in hists_to_plot.keys():
                     raise ValueError("Trying to plot multiple histograms for the same point.")
                 hists_to_plot[vbf_point["name"]] = hist
+                procs_to_plot[vbf_point["name"]] = key
 
         # get the values for the chosen bin
         bin_hists_to_plot[vbf_point["name"]] = np.array([
@@ -786,18 +798,24 @@ def plot_3d_morphing(
         ])
         from IPython import embed; embed(header="verifying the chosen bin")
 
-    if distance_measure == "chi2":
-        # get all non morphed histograms
-        non_morphed_hists = {}
-        for vbf_point in points:
-            for key, hist in hists.items():
-                if f"hh_vbf_hbb_htt_{vbf_point['name']}" in key.name and "morphed" not in key.name:
-                    non_morphed_hists[vbf_point["name"]] = hist
-            if vbf_point["name"] not in non_morphed_hists.keys():
-                raise ValueError(f"No non morphed histogram found for point {vbf_point['name']}.")
+    # if distance_measure == "chi2":
+    #     # get all non morphed histograms
+    #     non_morphed_hists = {}
+    #     non_morphed_procs = {}
+    #     for vbf_point in points:
+    #         for key, hist in hists.items():
+    #             if f"hh_vbf_hbb_htt_{vbf_point['name']}" in key.name and "morphed" not in key.name:
+    #                 non_morphed_hists[vbf_point["name"]] = hist
+    #                 non_morphed_procs[vbf_point["name"]] = key
+    #         if vbf_point["name"] not in non_morphed_hists.keys():
+    #             raise ValueError(f"No non morphed histogram found for point {vbf_point['name']}.")
 
     # calculate the value to plot
     values_to_plot = {}
+    if distance_measure == "chi2":
+        respective_chi2 = {}
+        respective_chi2_ndf = {}
+        respective_p_values = {}
     for vbf_point in points:
         if distance_measure == "bin_val":
             value_to_plot = bin_hists_to_plot[vbf_point["name"]]
@@ -845,10 +863,80 @@ def plot_3d_morphing(
             # without caring about how they were created? or only the points that were used for the fit of the histogram
             # at this specific coupling constant value (=points used for the morphing)?
 
+            # Answer: the first possibility is actually ok when only one point in the plot is morphed
+            # and the rest are the guidance points, but even then it's the same as the second possibility...
+            # Is there any case where it's actually what we want even though it's not the same as the second possibility?
+            # -> would mean that we are trying to create a fit used morphed points with different guidance points
+            # and that's something that will never happen in combine since only a set of guidance points is used for the fit
+            # and not different sets for different points. So the second possibility is the only one that makes sense.
+            # so YES IT IS NECESSARY!
 
-            chi2 = np.sum((hists_to_plot[vbf_point["name"]].values() - non_morphed_hists["name"].values())**2 /
-                hists_to_plot[vbf_point["name"]].variances())
-            value_to_plot = chi2
+            # Why don't we calculate the chi2 for the morphed histograms with the guidance points used for the fit already
+            # in the hist hooks? Because we don't know which categories where required in the hist hooks. We just create
+            # the histograms for each point. Therefore the chi square values that would be obtained for the bins
+            # in the hist hooks would be wrong. We want to calculate the chi2 for the summed bins of the histograms
+            # even if these are actually sums of the original results of the fits.
+
+            # TODO: Check that this is really what we want. It might also be interesting to simply add the chisquares
+            # of the individual bins of the morphed histograms for each category. This would tell us how well
+            # the original fits worked while what I intend to do is more of a pratical check: How well
+            # do the morphed histograms fit the original histograms independently of how they were created?
+            # actually easy to implement both: just add the chi2 of the individual bins of the morphed histograms
+            # in the process aux data. Then we can decide which one to use in the plotting function.
+
+            # Now the question is how to implement this. The points used for the fit are stored in the process aux data
+            # and can be accessed after the hist_hooks.
+            # So now we take this information and calculate the chi2 for each point with the corresponding guidance points.
+
+            # fit the function to the guidance points
+            from scipy.optimize import curve_fit
+
+            def vbf_fit_curve(params, a, b, c, d, e, f):
+                kv, k2v, kl = params
+                return a * kv**4 + b * k2v**2 + c * (kv**2) * (kl**2) + d * (kv**2) * k2v + e * (kv**3) * kl + f * k2v * kv * kl  # noqa
+
+            vbf_point_proc = procs_to_plot[vbf_point["name"]]
+            vbf_point_hist = bin_hists_to_plot[vbf_point["name"]]
+            # target_coord = [vbf_point["kv"], vbf_point["k2v"], vbf_point["kl"]]
+            guidance_points_procs = vbf_point_proc.x.guidance_points_procs
+            guidance_points_coord = vbf_point_proc.x.guidance_points_values
+            guidance_hists = []
+            for guidance_point_proc in guidance_points_procs:
+                for key, hist in hists.items():
+                    if guidance_point_proc.name == key.name:
+                        guidance_hists.append(hist)
+            # guidance_hists = {key: hists[key] for key in guidance_points_procs}
+            bin_guidance_hists = []
+            for guidance_hist in guidance_hists:
+                bin_guidance_hists.append(np.array([
+                    guidance_hist.values()[..., function_bin_search(guidance_hist.values())][0],
+                    guidance_hist.variances()[..., function_bin_search(guidance_hist.values())][0],
+                ]))
+            bin_guidance_hists = np.array(bin_guidance_hists)
+
+            popt, pcov = curve_fit(
+                vbf_fit_curve,
+                tuple(list(guidance_points_coord.values())),
+                bin_guidance_hists[:, 0],
+                sigma=np.sqrt(bin_guidance_hists[:, 1]),
+                p0=[0, 0, 0, 0, 0, 0],
+            )
+            # calculate the chi2 of the fit
+            chi2 = np.sum((vbf_fit_curve(np.array(list(guidance_points_coord.values())), *popt) -
+                np.array(bin_guidance_hists[:, 0]))**2 / np.array(bin_guidance_hists[:, 1]))
+
+            ndf = len(guidance_points_coord.values()) - 6
+            chi2_ndf = chi2 / ndf
+
+            # calculate the probability of the chi2
+            from scipy.stats import chi2 as chi2_dist
+            p_value = 1 - chi2_dist.cdf(chi2, ndf)
+
+            respective_chi2[vbf_point["name"]] = chi2
+            respective_chi2_ndf[vbf_point["name"]] = chi2_ndf
+            respective_p_values[vbf_point["name"]] = p_value
+
+            value_to_plot = np.array([chi2_ndf, 0])  # no error for chi2
         values_to_plot[vbf_point["name"]] = value_to_plot
 
     # plot the values
@@ -858,6 +946,22 @@ def plot_3d_morphing(
     # mplhep.style.use("CMS")
 
     # TODO: implement the scatter plot with colorbar, errors as text
+    for i, value_ in enumerate(values_to_plot.values()):
+        ax.scatter(
+            points[i]["kl"],
+            points[i]["k2v"],
+            c=value_[0],  # color is the distance_measure of the chosen bin, no uncertainties in values
+            cmap="viridis",
+            marker=list_of_markers[i],
+            label=points[i]["name"],
+        )
+        ax.text(
+            points[i]["kl"],
+            points[i]["k2v"],
+            f"{value_[0]:.2f} +- {value_[1]:.2f}",
+            fontsize=12,
+        )
+        # TODO: add colorbar?
 
     # put the cms logo and the lumi text on the top left corner
     mplhep.cms.text(text="Private Work", fontsize=16, ax=ax)

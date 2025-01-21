@@ -872,7 +872,7 @@ def add_hist_hooks(config: od.Config) -> None:
 
             pcovs = []
             # minuit_pcovs = []
-            chi2_infos = {}
+            # chi2_infos = {}  # should include chi2 value, ndf, p-value, cov and fit status
 
             # loop over bins and calculate the morphed value
             for cat_ in range(len(model_hists[0].axes[0].centers)):
@@ -1018,7 +1018,16 @@ def add_hist_hooks(config: od.Config) -> None:
         morphed_variances_correct_categorization = morphed_variances[np.argsort(np.argsort(model_hists[0].axes[0]))]
 
         # insert the new hist into the hists dict
-        new_proc.x.chi2_infos = chi2_infos
+        new_proc.x.guidance_points_procs = model_procs
+        new_proc.x.morphing_type = morphing_type
+        new_proc.x.target_point = target_point
+        new_proc.x.production_channel = production_channel
+        new_proc.x.guidance_points_values = guidance_points_list_float
+
+        # difficult to use for plotting since the categories to be added are not known
+        # so maybe add as a separate histogram?
+        # new_proc.x.chi2_infos = chi2_infos
+
         hist[new_proc] = new_hist
 
         # insert values into the new histogram
