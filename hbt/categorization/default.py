@@ -12,6 +12,16 @@ ak = maybe_import("awkward")
 
 
 #
+# dummy selector
+#
+
+@categorizer(uses={"event"})
+def cat_all(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # keep all events
+    return events, ak.ones_like(events.event) == 1
+
+
+#
 # lepton channels
 #
 

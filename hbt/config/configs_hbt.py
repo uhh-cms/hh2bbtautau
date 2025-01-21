@@ -326,16 +326,16 @@ def add_config(
 
         # data
         *if_era(year=2022, tag="preEE", values=[
-            f"data_{stream}_{period}" for stream in ["mu", "e", "tau"] for period in "cd"
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cd"
         ]),
         *if_era(year=2022, tag="postEE", values=[
-            f"data_{stream}_{period}" for stream in ["mu", "e", "tau"] for period in "efg"
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "efg"
         ]),
         *if_era(year=2023, tag="preBPix", values=[
-            f"data_{stream}_c{v}" for stream in ["mu", "e", "tau"] for v in "1234"
+            f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
         ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["mu", "e", "tau"] for v in "12"
+            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau"] for v in "12"
         ]),
     ]
     for dataset_name in dataset_names:
@@ -417,7 +417,7 @@ def add_config(
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
-    cfg.x.default_categories = ("incl__os__iso",)
+    cfg.x.default_categories = ("all",)
     cfg.x.default_variables = ("n_jet", "n_btag", "res_pdnn_hh", "res_dnn_hh")
     cfg.x.default_weight_producer = "default"
 
@@ -547,34 +547,13 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2", "bjet"],
+        "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
     }
     cfg.x.default_selector_steps = "default"
 
     # plotting overwrites
-    from hbt.config.styles import legend_entries_per_column
-    cfg.x.default_general_settings = {
-        "cms_label": "wip",
-        "whitespace_fraction": 0.31,
-    }
-    cfg.x.custom_style_config_groups = {
-        "small_legend": {
-            "legend_cfg": {
-                "ncols": 3, "borderpad": 0.7, "loc": "upper left", "fontsize": 16,
-                "columnspacing": 1.6, "labelspacing": 0.28,
-                "entries_per_column": legend_entries_per_column,
-            },
-            "annotate_cfg": {"fontsize": 16, "xycoords": "axes fraction", "xy": (0.035, 0.73), "style": "italic"},
-        },
-        "very_small_legend": {
-            "legend_cfg": {"ncols": 2, "fontsize": 10, "columnspacing": 0.6},
-        },
-        "ultra_small_legend": {
-            "legend_cfg": {"ncols": 2, "fontsize": 8, "columnspacing": 0.6},
-        },
-    }
-    cfg.x.default_custom_style_config = "small_legend"
-    cfg.x.default_blinding_threshold = 3e-4
+    from hbt.config.styles import setup_plot_styles
+    setup_plot_styles(cfg)
 
     ################################################################################################
     # luminosity and normalization

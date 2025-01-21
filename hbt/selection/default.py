@@ -10,6 +10,8 @@ from operator import and_
 from functools import reduce
 from collections import defaultdict
 
+import law
+
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.stats import increment_stats
 from columnflow.selection.cms.json_filter import json_filter
@@ -21,6 +23,7 @@ from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
 from columnflow.production.util import attach_coffea_behavior
+from columnflow.columnar_util import full_like
 from columnflow.util import maybe_import
 from columnflow.types import Iterable
 
@@ -37,6 +40,9 @@ np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
 
+logger = law.logger.get_logger(__name__)
+
+
 # updated met_filters selector to define dataset dependent filters
 def get_met_filters(self: Selector) -> Iterable[str]:
     if getattr(self, "dataset_inst", None) is None:
@@ -50,6 +56,29 @@ def get_met_filters(self: Selector) -> Iterable[str]:
 
 
 hbt_met_filters = met_filters.derive("hbt_met_filters", cls_dict={"get_met_filters": get_met_filters})
+
+
+# helper to identify bad events that should be considered missing altogether
+def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
+    bad_mask = full_like(events.event, False, dtype=bool)
+
+    # drop events for which we expect lhe infos but that lack them
+    # see https://cms-talk.web.cern.ch/t/lhe-weight-vector-empty-for-certain-events/97636/3
+    if (
+        self.dataset_inst.is_mc and
+        self.dataset_inst.has_tag("partial_lhe_weights") and
+        self.has_dep(pdf_weights)
+    ):
+        n_weights = ak.num(events.LHEPdfWeight, axis=1)
+        bad_lhe_mask = (n_weights != 101) & (n_weights != 103)
+        if ak.any(bad_lhe_mask):
+            bad_mask = bad_mask & bad_lhe_mask
+            frac = ak.mean(bad_lhe_mask)
+            logger.warning(
+                f"found {ak.sum(bad_lhe_mask)} events ({frac * 100:.1f}%) with bad LHEPdfWeights",
+            )
+
+    return bad_mask
 
 
 @selector(
@@ -78,12 +107,18 @@ def default(
     # prepare the selection results that are updated at every step
     results = SelectionResult()
 
+    # before performing selection steps, drop events that should not be considered at all and
+    # maintain a mask "no_sel" that refers to events that are kept
+    bad_mask = get_bad_events(self, events)
+    no_sel = ~bad_mask
+    results += SelectionResult(steps={"bad": no_sel})
+
     # filter bad data events according to golden lumi mask
     if self.dataset_inst.is_data:
         events, json_filter_results = self[json_filter](events, **kwargs)
         results += json_filter_results
     else:
-        results += SelectionResult(steps={"json": np.ones(len(events), dtype=bool)})
+        results += SelectionResult(steps={"json": full_like(events.event, True, dtype=bool)})
 
     # met filter selection
     events, met_filter_results = self[hbt_met_filters](events, **kwargs)
@@ -123,7 +158,6 @@ def default(
             events = self[pdf_weights](
                 events,
                 outlier_log_mode="debug",
-                # allow some datasets to contain a few events with missing lhe infos
                 invalid_weights_action="ignore" if self.dataset_inst.has_tag("partial_lhe_weights") else "raise",
                 **kwargs,
             )
@@ -181,6 +215,7 @@ def default(
         events=events,
         results=results,
         stats=stats,
+        no_sel=no_sel,
         event_sel=event_sel,
         event_sel_variations={
             "nob_deepjet": event_sel_nob(btag_weights_deepjet),
@@ -272,6 +307,12 @@ def empty_call(
     # prepare the selection results that are updated at every step
     results = SelectionResult()
 
+    # before performing selection steps, drop events that should not be considered at all and
+    # maintain a mask "no_sel" that refers to events that are kept
+    bad_mask = get_bad_events(self, events)
+    no_sel = ~bad_mask
+    results += SelectionResult(steps={"bad": no_sel})
+
     # mc-only functions
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
@@ -327,6 +368,7 @@ def empty_call(
         events=events,
         results=results,
         stats=stats,
+        no_sel=no_sel,
         event_sel=results.event,
         event_sel_variations={
             "nob_deepjet": results.event,
@@ -345,6 +387,7 @@ def setup_and_increment_stats(
     events: ak.Array,
     results: SelectionResult,
     stats: defaultdict,
+    no_sel: np.ndarray | ak.Array | type(Ellipsis),
     event_sel: np.ndarray | ak.Array,
     event_sel_variations: dict[str, np.ndarray | ak.Array] | None = None,
     njets: np.ndarray | ak.Array | None = None,
@@ -373,7 +416,7 @@ def setup_and_increment_stats(
 
     # start creating a weight, group and group combination map
     weight_map = {
-        "num_events": Ellipsis,
+        "num_events": no_sel,
         "num_events_selected": event_sel,
     }
     for var_name, var_sel in event_sel_variations.items():
@@ -383,25 +426,25 @@ def setup_and_increment_stats(
 
     # add mc info
     if self.dataset_inst.is_mc:
-        weight_map["sum_mc_weight"] = events.mc_weight
+        weight_map["sum_mc_weight"] = (events.mc_weight, no_sel)
         weight_map["sum_mc_weight_selected"] = (events.mc_weight, event_sel)
         for var_name, var_sel in event_sel_variations.items():
             weight_map[f"sum_mc_weight_selected_{var_name}"] = (events.mc_weight, var_sel)
 
         # pu weights with variations
         for route in sorted(self[pu_weight].produced_columns):
-            weight_map[f"sum_mc_weight_{route}"] = (events.mc_weight * route.apply(events), Ellipsis)
+            weight_map[f"sum_mc_weight_{route}"] = (events.mc_weight * route.apply(events), no_sel)
 
         # pdf weights with variations
         if self.has_dep(pdf_weights):
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
-                weight_map[f"sum_pdf_weight{v}"] = events[f"pdf_weight{v}"]
+                weight_map[f"sum_pdf_weight{v}"] = (events[f"pdf_weight{v}"], no_sel)
                 weight_map[f"sum_pdf_weight{v}_selected"] = (events[f"pdf_weight{v}"], event_sel)
 
         # mur/muf weights with variations
         if self.has_dep(murmuf_weights):
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
-                weight_map[f"sum_murmuf_weight{v}"] = events[f"murmuf_weight{v}"]
+                weight_map[f"sum_murmuf_weight{v}"] = (events[f"murmuf_weight{v}"], no_sel)
                 weight_map[f"sum_murmuf_weight{v}_selected"] = (events[f"murmuf_weight{v}"], event_sel)
 
         # btag weights
@@ -414,7 +457,7 @@ def setup_and_increment_stats(
                     continue
                 if skip_shifts and weight_name.endswith(("_up", "_down")):
                     continue
-                weight_map[f"sum_{weight_name}"] = events[weight_name]
+                weight_map[f"sum_{weight_name}"] = (events[weight_name], no_sel)
                 weight_map[f"sum_{weight_name}_selected"] = (events[weight_name], event_sel)
                 for var_name, var_sel in event_sel_variations.items():
                     weight_map[f"sum_{weight_name}_selected_{var_name}"] = (events[weight_name], var_sel)
