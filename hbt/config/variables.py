@@ -91,7 +91,7 @@ def add_variables(config: od.Config) -> None:
         config,
         name="jet1_phi",
         expression="Jet.phi[:,0]",
-        binning=(34, -3.3, 3.3),
+        binning=(66, -3.3, 3.3),
         x_title=r"Leading jet $\phi$",
     )
     add_variable(
@@ -113,14 +113,14 @@ def add_variables(config: od.Config) -> None:
         config,
         name="jet2_phi",
         expression="Jet.phi[:,1]",
-        binning=(34, -3.3, 3.3),
+        binning=(66, -3.3, 3.3),
         x_title=r"Subleading jet $\phi$",
     )
     add_variable(
         config,
         name="met_phi",
         expression="PuppiMET.phi",
-        binning=(34, -3.3, 3.3),
+        binning=(66, -3.3, 3.3),
         x_title=r"MET $\phi$",
     )
 
