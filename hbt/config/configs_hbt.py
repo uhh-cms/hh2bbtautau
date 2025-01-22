@@ -524,7 +524,19 @@ def add_config(
 
     # variable groups for conveniently looping over certain variables
     # (used during plotting)
-    cfg.x.variable_groups = {}
+    cfg.x.variable_groups = {
+        "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "default": [
+            *dijet,
+            *dilep,
+            *hh,
+            "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
+            "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
+            "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
+        ],
+    }
 
     # shift groups for conveniently looping over certain shifts
     # (used during plotting)
