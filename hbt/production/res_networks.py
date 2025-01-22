@@ -12,8 +12,10 @@ import functools
 import law
 
 from columnflow.production import Producer, producer
-from columnflow.production.util import attach_coffea_behavior, default_collections
-from columnflow.columnar_util import set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT
+from columnflow.production.util import attach_coffea_behavior
+from columnflow.columnar_util import (
+    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections,
+)
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict, DotDict
 
 np = maybe_import("numpy")
@@ -68,7 +70,7 @@ def _res_dnn_evaluation(
     # ensure coffea behavior
     events = self[attach_coffea_behavior](
         events,
-        collections={"HHBJet": default_collections["Jet"]},
+        collections={"HHBJet": default_coffea_collections["Jet"]},
         **kwargs,
     )
 
