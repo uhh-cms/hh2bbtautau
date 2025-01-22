@@ -7,6 +7,7 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 from __future__ import annotations
 
 import os
+import re
 import itertools
 import functools
 
@@ -345,7 +346,6 @@ def add_config(
 
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
-
         # add tags to datasets
         if dataset.name.startswith("data_e_"):
             dataset.add_tag({"etau", "emu_from_e", "ee"})
@@ -359,8 +359,12 @@ def add_config(
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
+        if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
+            dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):
             dataset.add_tag("w_lnu")
+        if re.match(r"^w_lnu_\dj_(|pt.+_)amcatnlo$", dataset.name):
+            dataset.add_tag("w_lnu_stitched")
         # datasets that are known to have no lhe info at all
         if law.util.multi_match(dataset.name, [
             r"^(ww|wz|zz)_.*pythia$",
@@ -510,10 +514,29 @@ def add_config(
             dataset.name for dataset in cfg.datasets
             if dataset.is_mc and not dataset.has_tag("signal")
         ]),
+        "backgrounds_unstitched": (backgrounds_unstitched := [
+            dataset.name for dataset in cfg.datasets
+            if (
+                dataset.is_mc and
+                not dataset.has_tag("signal") and
+                not dataset.has_tag({"dy_stitched", "w_lnu_stitched"}, mode=any)
+            )
+        ]),
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", *backgrounds]),
-        "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph", *backgrounds]),
+        "sm": (sm_group := [
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            *backgrounds,
+        ],
+        ),
+        "sm_unstitched": (sm_group_unstitched := [
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            *backgrounds_unstitched,
+        ]),
         "sm_ggf_data": data_group + sm_ggf_group,
         "sm_data": data_group + sm_group,
+        "sm_data_unstitched": data_group + sm_group_unstitched,
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
     }

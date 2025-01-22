@@ -60,6 +60,12 @@ def default_init(self: WeightProducer) -> None:
         }
 
 
+normalization_inclusive = default.derive(
+    "normalization_inclusive",
+    cls_dict={"drop_weights": {"normalization_weight"}},
+)
+
+
 normalization_only = default.derive(
     "normalization_only",
     cls_dict={"keep_weights": {"normalization_weight"}},
