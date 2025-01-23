@@ -35,7 +35,7 @@ class CheckExternalLFNOverlap(
     lfn = luigi.Parameter(
         description="local path to an external LFN to check for overlap with the dataset",
         # fetched via nanogen's FetchLFN
-        default="/pnfs/desy.de/cms/tier2/store/user/mrieger/nanogen_store/FetchLFN/store/mc/Run3Summer22NanoAODv12/GluGlutoHHto2B2Tau_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/992697da-4a10-4435-b63a-413f6d33517e.root",  # noqa
+        default="/pnfs/desy.de/cms/tier2/store/user/bwieders/nanogen_store/FetchLFN/store/mc/Run3Summer22NanoAODv12/GluGlutoHHto2B2Tau_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/992697da-4a10-4435-b63a-413f6d33517e.root",  # noqa
     )
 
     # no versioning required
@@ -244,6 +244,13 @@ class CreateSyncFiles(
             # concatenate (first event any lepton, second alsways tau) and add to events
             return set_ak_column(events, "Lepton", ak.concatenate(leptons, axis=1))
 
+        def to_str(array: ak.Array) -> ak.Array:
+            # -99999 casted to uint64
+            empty_uint64 = str(18446744073709451617)
+            array = np.asarray(array, dtype=np.str_)
+            empty_mask = array == empty_uint64
+            array = np.where(empty_mask, str(EMPTY_FLOAT), array)
+            return array
         # event chunk loop
 
         # optional filter to get only the events that overlap with given external LFN
@@ -263,7 +270,6 @@ class CreateSyncFiles(
 
             # add additional columns
             events = update_ak_array(events, *columns)
-
             # apply mask if optional filter is given
             # calculate mask by using 1D hash values
             if self.filter_file:
@@ -277,12 +283,18 @@ class CreateSyncFiles(
                 # apply mask
                 events = events[mask]
 
+            if len(events) == 0:
+                raise ValueError(
+                    """
+                    No events left after filtering.
+                    "Check if correct overlap file is used
+                    """,
+                )
+
             # insert leptons
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty[np.float32][1]})
-
             # project into dataframe
             met_name = self.config_inst.x.met_name
-            to_str = lambda ak_array: np.asarray(ak_array, dtype=np.str_)
             df = ak.to_dataframe({
                 # index variables
                 "event": events.event,
@@ -301,6 +313,18 @@ class CreateSyncFiles(
                         f"jet{i + 1}_phi": select(events.Jet.phi, i),
                         f"jet{i + 1}_mass": select(events.Jet.mass, i),
                         f"jet{i + 1}_deterministic_seed": to_str(select(events.Jet.deterministic_seed, i, np.uint64)),
+                    }
+                    for i in range(2)
+                )),
+                **reduce(or_, (
+                    {
+                        f"electron{i + 1}_pt": select(events.Electron.pt, i),
+                        f"electron{i + 1}_eta": select(events.Electron.eta, i),
+                        f"electron{i + 1}_phi": select(events.Electron.phi, i),
+                        f"electron{i + 1}_mass": select(events.Electron.mass, i),
+                        f"electron{i + 1}_deterministic_seed": to_str(
+                            select(events.Electron.deterministic_seed, i, np.uint64),
+                        ),
                     }
                     for i in range(2)
                 )),
@@ -336,14 +360,14 @@ class CreateSyncFiles(
                 )),
 
                 # skip for now
-                # "electron1_pt": select(events.Electron.pt, 0),
-                # "electron1_eta": select(events.Electron.eta, 0),
-                # "electron1_phi": select(events.Electron.phi, 0),
-                # "electron1_charge": select(events.Electron.charge, 0),
-                # "electron2_pt": select(events.Electron.pt, 1),
-                # "electron2_eta": select(events.Electron.eta, 1),
-                # "electron2_phi": select(events.Electron.phi, 1),
-                # "electron2_charge": select(events.Electron.charge, 1),
+                "electron1_pt": select(events.Electron.pt, 0),
+                "electron1_eta": select(events.Electron.eta, 0),
+                "electron1_phi": select(events.Electron.phi, 0),
+                "electron1_charge": select(events.Electron.charge, 0),
+                "electron2_pt": select(events.Electron.pt, 1),
+                "electron2_eta": select(events.Electron.eta, 1),
+                "electron2_phi": select(events.Electron.phi, 1),
+                "electron2_charge": select(events.Electron.charge, 1),
                 # "muon1_charge": select(events.Muon.charge, 0),
                 # "muon1_eta": select(events.Muon.eta, 0),
                 # "muon1_phi": select(events.Muon.phi, 0),
@@ -361,7 +385,6 @@ class CreateSyncFiles(
                 # "tau2_phi": select(events.Tau.phi, 1),
                 # "tau2_charge": select(events.Tau.charge, 1),
             })
-
             # save as csv in output, append if necessary
             output.dump(
                 df,
