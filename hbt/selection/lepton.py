@@ -353,6 +353,22 @@ def tau_selection(
     return base_mask, iso_mask
 
 
+@tau_selection.init
+def tau_selection_init(self: Selector) -> None:
+    # register tec shifts
+    self.shifts |= {
+        shift_inst.name
+        for shift_inst in self.config_inst.shifts
+        if shift_inst.has_tag("tec")
+    }
+
+    # Add columns for the right tau tagger
+    self.uses |= {
+        f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
+        for tag in ("e", "mu", "jet")
+    }
+
+
 @selector(
     uses={"{Tau,TrigObj}.{pt,eta,phi}"},
     # shifts are declared dynamically below in tau_selection_init
@@ -420,22 +436,6 @@ def tau_trigger_matching(
     )
 
     return matches
-
-
-@tau_selection.init
-def tau_selection_init(self: Selector) -> None:
-    # register tec shifts
-    self.shifts |= {
-        shift_inst.name
-        for shift_inst in self.config_inst.shifts
-        if shift_inst.has_tag("tec")
-    }
-
-    # Add columns for the right tau tagger
-    self.uses |= {
-        f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
-        for tag in ("e", "mu", "jet")
-    }
 
 
 @selector(
