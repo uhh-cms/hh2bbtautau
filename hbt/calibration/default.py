@@ -17,7 +17,7 @@ from columnflow.production.cms.seeds import (
 )
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_2
+from hbt.util import IF_RUN_2, IF_RUN_3_2022
 
 ak = maybe_import("awkward")
 
@@ -64,16 +64,19 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         # so if the global shift is not nominal, we are in the shifted case
         # and will only execute something if it's data
         if self.dataset_inst.is_data:
-            events = self[self.electron_scale_nominal_cls](events, **kwargs)
+            if self.has_dep(self.electron_scale_nominal_cls):
+                events = self[self.electron_scale_nominal_cls](events, **kwargs)
         else:
-            events = self[self.electron_res_nominal_cls](events, **kwargs)
+            if self.has_dep(self.electron_res_nominal_cls):
+                events = self[self.electron_res_nominal_cls](events, **kwargs)
     else:
         events = self[self.jec_full_cls](events, **kwargs)
         events = self[self.deterministic_jer_cls](events, **kwargs)
         # in this block, we are in the nominal case in MC
-
-        events = self[self.electron_res_cls](events, **kwargs)
-        events = self[self.electron_scale_cls](events, **kwargs)
+        if self.has_dep(self.electron_res_cls):
+            events = self[self.electron_res_cls](events, **kwargs)
+        if self.has_dep(self.electron_scale_cls):
+            events = self[self.electron_scale_cls](events, **kwargs)
 
     if self.config_inst.campaign.x.run == 2:
         events = self[self.met_phi_cls](events, **kwargs)
@@ -164,10 +167,10 @@ def default_init(self: Calibrator) -> None:
         self.tec_cls,
         self.tec_nominal_cls,
         IF_RUN_2(self.met_phi_cls),
-        self.electron_scale_cls,
-        self.electron_scale_nominal_cls,
-        self.electron_res_cls,
-        self.electron_res_nominal_cls,
+        IF_RUN_3_2022(self.electron_scale_cls),
+        IF_RUN_3_2022(self.electron_scale_nominal_cls),
+        IF_RUN_3_2022(self.electron_res_cls),
+        IF_RUN_3_2022(self.electron_res_nominal_cls),
     }
     self.uses |= derived_calibrators
     self.produces |= derived_calibrators

@@ -159,8 +159,9 @@ def electron_selection(
 @electron_selection.init
 def electron_selection_init(self) -> None:
     from columnflow.config_util import get_shifts_from_sources
-    self.shifts.update(get_shifts_from_sources(self.config_inst, "eec"))
-    self.shifts.update(get_shifts_from_sources(self.config_inst, "eer"))
+    if self.config_inst.campaign.x.run == 3 and self.config_inst.campaign.x.year == 2022:
+        self.shifts.update(get_shifts_from_sources(self.config_inst, "eec"))
+        self.shifts.update(get_shifts_from_sources(self.config_inst, "eer"))
 
 
 @selector(

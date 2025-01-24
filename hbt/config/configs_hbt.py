@@ -753,8 +753,6 @@ def add_config(
 
     # pec config
     from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
-    cfg.x.pec = EGammaCorrectionConfig(correction_set="Scale")
-    cfg.x.per = EGammaCorrectionConfig(correction_set="Smearing")
 
     cfg.x.eec = EGammaCorrectionConfig(correction_set="Scale")
     cfg.x.eer = EGammaCorrectionConfig(correction_set="Smearing")
@@ -1071,25 +1069,28 @@ def add_config(
     add_shift_aliases(cfg, "e", {"electron_weight": "electron_weight_{direction}"})
 
     # electron shifts
-    cfg.add_shift(name="eec_up", id=92, type="shape", tags={"eec"})
-    cfg.add_shift(name="eec_down", id=93, type="shape", tags={"eec"})
-    add_shift_aliases(
-        cfg,
-        "eec",
-        {
-            "Electron.pt": "Electron.pt_scale_{direction}",
-        },
-    )
+    # TODO: energy corrections are currently only available for 2022 (Jan 2025)
+    #       include them when available
+    if run == 3 and year == 2022:
+        cfg.add_shift(name="eec_up", id=92, type="shape", tags={"eec"})
+        cfg.add_shift(name="eec_down", id=93, type="shape", tags={"eec"})
+        add_shift_aliases(
+            cfg,
+            "eec",
+            {
+                "Electron.pt": "Electron.pt_scale_{direction}",
+            },
+        )
 
-    cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
-    cfg.add_shift(name="eer_down", id=95, type="shape", tags={"eer"})
-    add_shift_aliases(
-        cfg,
-        "eer",
-        {
-            "Electron.pt": "Electron.pt_res_{direction}",
-        },
-    )
+        cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
+        cfg.add_shift(name="eer_down", id=95, type="shape", tags={"eer"})
+        add_shift_aliases(
+            cfg,
+            "eer",
+            {
+                "Electron.pt": "Electron.pt_res_{direction}",
+            },
+        )
 
     cfg.add_shift(name="mu_up", id=100, type="shape")
     cfg.add_shift(name="mu_down", id=101, type="shape")
@@ -1215,13 +1216,12 @@ def add_config(
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
 
-        # photon scale factors
-        add_external("photon_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/photon.json.gz", "v1"))
-        # electron energy correction and smearing
-        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
+        # TODO: electron (and photon) energy corrections and smearing are only available for 2022
+        #       include them when available
+        if year == 2022:
+            # electron energy correction and smearing
+            add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
 
-        # photon energy correction and smearing
-        add_external("photon_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/photonSS.json.gz", "v1"))
         # tau energy correction and scale factors
         # TODO: remove tag pog mirror once integrated centrally
         json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
