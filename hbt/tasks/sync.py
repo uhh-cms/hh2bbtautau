@@ -241,15 +241,15 @@ class CreateSyncFiles(
             # concatenate (first event any lepton, second alsways tau) and add to events
             return set_ak_column(events, "Lepton", ak.concatenate(leptons, axis=1))
 
-        def to_str(array: ak.Array) -> ak.Array:
+        def uint64_to_str(array: ak.Array) -> ak.Array:
             # -99999 casted to uint64
-            empty_uint64 = str(18446744073709451617)
+            empty_uint64_str = str(np.iinfo(np.uint64).max + empty[np.uint64][0] + 1)
             array = np.asarray(array, dtype=np.str_)
-            empty_mask = array == empty_uint64
-            array = np.where(empty_mask, str(EMPTY_FLOAT), array)
+            empty_mask = array == empty_uint64_str
+            array = np.where(empty_mask, str(empty[np.uint64][0]), array)
             return array
-        # event chunk loop
 
+        # event chunk loop
         # optional filter to get only the events that overlap with given external LFN
         if self.filter_file:
             with self.publish_step("loading reference ids"):
@@ -301,7 +301,7 @@ class CreateSyncFiles(
                 "channel_id": events.channel_id,
                 "os": events.leptons_os * 1,
                 "iso": events.tau2_isolated * 1,
-                "deterministic_seed": to_str(events.deterministic_seed),
+                "deterministic_seed": uint64_to_str(events.deterministic_seed),
                 # jets
                 **reduce(or_, (
                     {
@@ -309,22 +309,19 @@ class CreateSyncFiles(
                         f"jet{i + 1}_eta": select(events.Jet.eta, i),
                         f"jet{i + 1}_phi": select(events.Jet.phi, i),
                         f"jet{i + 1}_mass": select(events.Jet.mass, i),
-                        f"jet{i + 1}_deterministic_seed": to_str(select(events.Jet.deterministic_seed, i, np.uint64)),
-                    }
-                    for i in range(2)
-                )),
-                **reduce(or_, (
-                    {
-                        f"electron{i + 1}_pt": select(events.Electron.pt, i),
-                        f"electron{i + 1}_eta": select(events.Electron.eta, i),
-                        f"electron{i + 1}_phi": select(events.Electron.phi, i),
-                        f"electron{i + 1}_mass": select(events.Electron.mass, i),
-                        f"electron{i + 1}_deterministic_seed": to_str(
-                            select(events.Electron.deterministic_seed, i, np.uint64),
+                        f"jet{i + 1}_deterministic_seed": uint64_to_str(
+                            select(events.Jet.deterministic_seed, i, np.uint64),
                         ),
                     }
                     for i in range(2)
                 )),
+                # electron specific variables
+                "e1_deterministic_seed": uint64_to_str(
+                    select(events.Electron.deterministic_seed, 0, np.uint64),
+                ),
+                "e2_deterministic_seed": uint64_to_str(
+                    select(events.Electron.deterministic_seed, 1, np.uint64),
+                ),
                 # combined leptons
                 **reduce(or_, (
                     {
@@ -355,32 +352,6 @@ class CreateSyncFiles(
                     }
                     for i in range(2)
                 )),
-
-                # skip for now
-                "electron1_pt": select(events.Electron.pt, 0),
-                "electron1_eta": select(events.Electron.eta, 0),
-                "electron1_phi": select(events.Electron.phi, 0),
-                "electron1_charge": select(events.Electron.charge, 0),
-                "electron2_pt": select(events.Electron.pt, 1),
-                "electron2_eta": select(events.Electron.eta, 1),
-                "electron2_phi": select(events.Electron.phi, 1),
-                "electron2_charge": select(events.Electron.charge, 1),
-                # "muon1_charge": select(events.Muon.charge, 0),
-                # "muon1_eta": select(events.Muon.eta, 0),
-                # "muon1_phi": select(events.Muon.phi, 0),
-                # "muon1_pt": select(events.Muon.pt, 0),
-                # "muon2_charge": select(events.Muon.charge, 1),
-                # "muon2_eta": select(events.Muon.eta, 1),
-                # "muon2_phi": select(events.Muon.phi, 1),
-                # "muon2_pt": select(events.Muon.pt, 1),
-                # "tau1_pt": select(events.Tau.pt, 0),
-                # "tau1_eta": select(events.Tau.eta, 0),
-                # "tau1_phi": select(events.Tau.phi, 0),
-                # "tau1_charge": select(events.Tau.charge, 0),
-                # "tau2_pt": select(events.Tau.pt, 1),
-                # "tau2_eta": select(events.Tau.eta, 1),
-                # "tau2_phi": select(events.Tau.phi, 1),
-                # "tau2_charge": select(events.Tau.charge, 1),
             })
             # save as csv in output, append if necessary
             output.dump(
