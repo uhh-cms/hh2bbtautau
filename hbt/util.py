@@ -51,6 +51,11 @@ def IF_RUN_3(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | s
 
 
 @deferred_column
+def IF_RUN_3_2022(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2022) else None
+
+
+@deferred_column
 def IF_DATASET_HAS_LHE_WEIGHTS(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
