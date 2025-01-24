@@ -1028,7 +1028,7 @@ def add_hist_hooks(config: od.Config) -> None:
         # so maybe add as a separate histogram?
         # new_proc.x.chi2_infos = chi2_infos
 
-        hist[new_proc] = new_hist
+        hists[new_proc] = new_hist
 
         # insert values into the new histogram
         hists[new_proc].view().value = morphed_values_correct_categorization
@@ -1265,6 +1265,19 @@ def add_hist_hooks(config: od.Config) -> None:
                 "kvm1p21_k2v1p94_klm0p94",  # kvm0p012_k2v0p03_kl10p2
             ],
             target_point="kv1_k2v1_kl2",
+            morphing_type="exact",
+        ),
+
+        "hh_vbf_exact_morphing_kv1_k2v1_kl1": partial(
+            general_higgs_morphing,
+            production_channel="vbf",
+            guidance_points=[
+                "kv1_k2v0_kl1",
+                "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+                "kvm1p21_k2v1p94_klm0p94", "kvm0p012_k2v0p03_kl10p2",
+                "kvm0p962_k2v0p959_klm1p43",
+            ],
+            target_point="kv1_k2v1_kl1",
             morphing_type="exact",
         ),
 

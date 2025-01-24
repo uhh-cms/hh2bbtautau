@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from functools import partial
-from dataclasses import dataclass
+# from dataclasses import dataclass
 
 import law
 
@@ -301,7 +301,7 @@ def plot_bin_morphing(
     **kwargs,
 ) -> plt.Figure:
 
-    variable_inst = variable_insts[0]
+    # variable_inst = variable_insts[0]
     averaged = False
     fitted = False
 
@@ -793,10 +793,9 @@ def plot_3d_morphing(
 
         # get the values for the chosen bin
         bin_hists_to_plot[vbf_point["name"]] = np.array([
-            hists_to_plot[vbf_point["name"]].values()[..., function_bin_search(hists_to_plot[vbf_point["name"]].values())][0],
-            hists_to_plot[vbf_point["name"]].variances()[..., function_bin_search(hists_to_plot[vbf_point["name"]].values())][0],
+            hists_to_plot[vbf_point["name"]].values()[..., function_bin_search(hists_to_plot[vbf_point["name"]].values())][0],  # noqa
+            hists_to_plot[vbf_point["name"]].variances()[..., function_bin_search(hists_to_plot[vbf_point["name"]].values())][0],  # noqa
         ])
-        from IPython import embed; embed(header="verifying the chosen bin")
 
     # if distance_measure == "chi2":
     #     # get all non morphed histograms
@@ -834,7 +833,7 @@ def plot_3d_morphing(
                 ratio = bin_hists_to_plot[vbf_point["name"]][0] / bin_hist_non_morphed[0]
                 ratio_unc = np.sqrt(
                     (bin_hists_to_plot[vbf_point["name"]][1] / bin_hist_non_morphed[0]**2) +
-                    (bin_hist_non_morphed[1] * bin_hists_to_plot[vbf_point["name"]][0]**2 / bin_hist_non_morphed[0]**4)
+                    (bin_hist_non_morphed[1] * bin_hists_to_plot[vbf_point["name"]][0]**2 / bin_hist_non_morphed[0]**4),
                 )
                 value_to_plot = np.array([ratio, ratio_unc])
             else:
@@ -865,13 +864,13 @@ def plot_3d_morphing(
 
             # Answer: the first possibility is actually ok when only one point in the plot is morphed
             # and the rest are the guidance points, but even then it's the same as the second possibility...
-            # Is there any case where it's actually what we want even though it's not the same as the second possibility?
+            # Is there any case where it's actually what we want even though it's not the same as the second possibility?  # noqa
             # -> would mean that we are trying to create a fit used morphed points with different guidance points
-            # and that's something that will never happen in combine since only a set of guidance points is used for the fit
+            # and that's something that will never happen in combine since only a set of guidance points is used for the fit  # noqa
             # and not different sets for different points. So the second possibility is the only one that makes sense.
             # so YES IT IS NECESSARY!
 
-            # Why don't we calculate the chi2 for the morphed histograms with the guidance points used for the fit already
+            # Why don't we calculate the chi2 for the morphed histograms with the guidance points used for the fit already  # noqa
             # in the hist hooks? Because we don't know which categories where required in the hist hooks. We just create
             # the histograms for each point. Therefore the chi square values that would be obtained for the bins
             # in the hist hooks would be wrong. We want to calculate the chi2 for the summed bins of the histograms
@@ -886,7 +885,7 @@ def plot_3d_morphing(
 
             # Now the question is how to implement this. The points used for the fit are stored in the process aux data
             # and can be accessed after the hist_hooks.
-            # So now we take this information and calculate the chi2 for each point with the corresponding guidance points.
+            # So now we take this information and calculate the chi2 for each point with the corresponding guidance points.  # noqa
 
             # fit the function to the guidance points
             from scipy.optimize import curve_fit
@@ -945,23 +944,99 @@ def plot_3d_morphing(
     plt.style.use(mplhep.style.CMS)
     # mplhep.style.use("CMS")
 
+    # default figure size is now 10,10 inches
+    fig.set_size_inches(15, 15)
+
     # TODO: implement the scatter plot with colorbar, errors as text
+    # to get colorbar working, need to use scatter once and not several times... need to create arrays to plot
+    plot_values = np.array([value[0] for value in values_to_plot.values()])
+    # plot_errors = np.array([value[1] for value in values_to_plot.values()])
+    # plot_kv = np.array([point["kv"] for point in points])
+    plot_k2v = np.array([point["k2v"] for point in points])
+    plot_kl = np.array([point["kl"] for point in points])
+    plot_labels = np.array([point["name"] for point in points])
+
+    # # version 1: scatter plot with colorbar, markers for the different kv points
+    plot_markers = list_of_markers[:len(points)]
+
+    # def mscatter(x, y, ax=None, m=None, **kw):
+    #     import matplotlib.markers as mmarkers
+    #     if not ax:
+    #         ax = plt.gca()
+    #     sc = ax.scatter(x, y, **kw)
+    #     if (m is not None) and (len(m)==len(x)):
+    #         paths = []
+    #         for marker in m:
+    #             if isinstance(marker, mmarkers.MarkerStyle):
+    #                 marker_obj = marker
+    #             else:
+    #                 marker_obj = mmarkers.MarkerStyle(marker)
+    #             path = marker_obj.get_path().transformed(
+    #                 marker_obj.get_transform(),
+    #             )
+    #             paths.append(path)
+    #         sc.set_paths(paths)
+    #     return sc
+
+    # im = mscatter(
+    #     plot_kl,
+    #     plot_k2v,
+    #     c=plot_values,  # color is the distance_measure of the chosen bin, no uncertainties in values
+    #     m=plot_markers,
+    #     cmap="viridis",
+    #     label=plot_labels,
+    #     ax=ax,
+    # )
+    # # modify the legend to show the markers correctly
+
+    norm = plt.Normalize(plot_values.min(), plot_values.max())
+    cmap = plt.get_cmap("viridis")
     for i, value_ in enumerate(values_to_plot.values()):
         ax.scatter(
-            points[i]["kl"],
-            points[i]["k2v"],
-            c=value_[0],  # color is the distance_measure of the chosen bin, no uncertainties in values
-            cmap="viridis",
-            marker=list_of_markers[i],
-            label=points[i]["name"],
+            plot_kl[i],
+            plot_k2v[i],
+            c=[cmap(norm(value_[0]))],
+            marker=plot_markers[i],
+            label=plot_labels[i],
         )
+    sm = mpl.cm.ScalarMappable(cmap="viridis", norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.x.set_label(distance_measure, fontsize=16)
+
+    # handles, labels = ax.get_legend_handles_labels()
+    # ax.legend(fontsize=16, loc="best")
+    # ax.legend(handles, labels, scatterpoints=1, loc="best", ncol=1, fontsize=16)
+
+    # # version 2: one marker = "o" and then set the size of the marker to the kv value
+    # plot_kv = np.array([point["kv"] for point in points])
+    # min_kv = np.min(plot_kv)
+    # plot_kv = 100 * (plot_kv + abs(min_kv)) + 10  # to increase size difference and avoid 0 size markers
+    # print(plot_kv, min_kv)
+    # im = ax.scatter(
+    #     plot_kl,
+    #     plot_k2v,
+    #     s=plot_kv,
+    #     c=plot_values,
+    #     cmap="viridis",
+    #     label=plot_labels,
+    # )
+
+    # cbar = fig.colorbar(im, ax=ax)
+    # cbar.x.set_label(distance_measure, fontsize=16)
+
+
+
+    # add text with the errors and the kv value
+    for i, value_ in enumerate(values_to_plot.values()):
         ax.text(
             points[i]["kl"],
             points[i]["k2v"],
-            f"{value_[0]:.2f} +- {value_[1]:.2f}",
-            fontsize=12,
+            f"{value_[0]:.2f} +- {value_[1]:.2f}, \n kv = {points[i]['kv']}",
+            fontsize=10,
         )
-        # TODO: add colorbar?
+
+    # from IPython import embed; embed(header="making plot from hists")
 
     # put the cms logo and the lumi text on the top left corner
     mplhep.cms.text(text="Private Work", fontsize=16, ax=ax)
@@ -969,9 +1044,9 @@ def plot_3d_morphing(
     ax.set_xlabel(r"$\kappa_\lambda$", fontsize=16)
     # ax.set_ylabel(bin_type + " value", fontsize=16)
     ax.set_ylabel(r"$\kappa_{2V}$", fontsize=16)
-    ax.legend(fontsize=16, loc="upper center")
+
     ax.tick_params(axis="both", which="major", labelsize=16)
-    fig.tight_layout()
+    # fig.tight_layout()
     return fig, axs
 
 
@@ -997,7 +1072,7 @@ plot_bin_5_morphing = partial(
 plot_3d_morphing_2022_pre_chi2_sm_morphed = partial(
     plot_3d_morphing,
     function_bin_search=lambda x: 5,
-    points={
+    points=[
         {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
         {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": ""},
         {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": ""},
@@ -1010,14 +1085,14 @@ plot_3d_morphing_2022_pre_chi2_sm_morphed = partial(
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
         {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
-    },
+    ],
     distance_measure="chi2",
 )
 
 plot_3d_morphing_2022_pre_binval_sm_morphed = partial(
     plot_3d_morphing,
     function_bin_search=lambda x: 5,
-    points={
+    points=[
         {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
         {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": ""},
         {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": ""},
@@ -1030,14 +1105,14 @@ plot_3d_morphing_2022_pre_binval_sm_morphed = partial(
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
         {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
-    },
+    ],
     distance_measure="bin_val",
 )
 
 plot_3d_morphing_2022_pre_ratio_sm_morphed = partial(
     plot_3d_morphing,
     function_bin_search=lambda x: 5,
-    points={
+    points=[
         {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
         {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": ""},
         {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": ""},
@@ -1050,14 +1125,14 @@ plot_3d_morphing_2022_pre_ratio_sm_morphed = partial(
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
         {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
-    },
+    ],
     distance_measure="ratio",
 )
 
 plot_3d_morphing_2022_pre_chi2_all_morphed = partial(
     plot_3d_morphing,
     function_bin_search=lambda x: 5,
-    points={
+    points=[
         {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
         {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": "morphed"},
         {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": "morphed"},
@@ -1070,14 +1145,14 @@ plot_3d_morphing_2022_pre_chi2_all_morphed = partial(
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
         {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
-    },
+    ],
     distance_measure="chi2",
 )
 
 plot_3d_morphing_2022_pre_ratio_all_morphed = partial(
     plot_3d_morphing,
     function_bin_search=lambda x: 5,
-    points={
+    points=[
         {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
         {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": "morphed"},
         {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": "morphed"},
@@ -1090,6 +1165,6 @@ plot_3d_morphing_2022_pre_ratio_all_morphed = partial(
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
         {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
-    },
+    ],
     distance_measure="ratio",
 )
