@@ -110,6 +110,20 @@ def add_hist_hooks(config: od.Config) -> None:
             ss_noniso_data = hist_to_num(get_hist(data_hist, "ss_noniso"), "ss_noniso_data")
             ss_iso_data = hist_to_num(get_hist(data_hist, "ss_iso"), "ss_iso_data")
 
+            # data will always have a single shift whereas mc might have multiple,
+            # broadcast numbers in-place manually if necessary
+            if (n_shifts := mc_hist.axes["shift"].size) > 1:
+                def broadcast_data_num(num: sn.Number) -> None:
+                    num._nominal = np.repeat(num.nominal, n_shifts, axis=0)
+                    for name, (unc_up, unc_down) in num._uncertainties.items():
+                        num._uncertainties[name] = (
+                            np.repeat(unc_up, n_shifts, axis=0),
+                            np.repeat(unc_down, n_shifts, axis=0),
+                        )
+                broadcast_data_num(os_noniso_data)
+                broadcast_data_num(ss_noniso_data)
+                broadcast_data_num(ss_iso_data)
+
             # estimate qcd shapes in the three sideband regions
             # shapes: (SHIFT, VAR)
             os_noniso_qcd = os_noniso_data - os_noniso_mc

@@ -15,23 +15,27 @@ def add_categories(config: od.Config) -> None:
     """
     Adds all categories to a *config*.
     """
+    # root category (-1 has special meaning in cutflow)
+    root_cat = add_category(config, name="all", id=-1, selection="cat_all", label="")
+    _add_category = functools.partial(add_category, parent=root_cat)
+
     # lepton channels
-    add_category(config, name="etau", id=1, selection="cat_etau", label=config.channels.n.etau.label)
-    add_category(config, name="mutau", id=2, selection="cat_mutau", label=config.channels.n.mutau.label)
-    add_category(config, name="tautau", id=3, selection="cat_tautau", label=config.channels.n.tautau.label)
-    add_category(config, name="ee", id=4, selection="cat_ee", label=config.channels.n.ee.label)
-    add_category(config, name="mumu", id=5, selection="cat_mumu", label=config.channels.n.mumu.label)
-    add_category(config, name="emu", id=6, selection="cat_emu", label=config.channels.n.emu.label)
+    _add_category(config, name="etau", id=1, selection="cat_etau", label=config.channels.n.etau.label)
+    _add_category(config, name="mutau", id=2, selection="cat_mutau", label=config.channels.n.mutau.label)
+    _add_category(config, name="tautau", id=3, selection="cat_tautau", label=config.channels.n.tautau.label)
+    _add_category(config, name="ee", id=4, selection="cat_ee", label=config.channels.n.ee.label)
+    _add_category(config, name="mumu", id=5, selection="cat_mumu", label=config.channels.n.mumu.label)
+    _add_category(config, name="emu", id=6, selection="cat_emu", label=config.channels.n.emu.label)
 
     # qcd regions
-    add_category(config, name="os", id=10, selection="cat_os", label="OS", tags={"os"})
-    add_category(config, name="ss", id=11, selection="cat_ss", label="SS", tags={"ss"})
-    add_category(config, name="iso", id=12, selection="cat_iso", label=r"$\tau_{h,2} iso$", tags={"iso"})
-    add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"$\tau_{h,2} non-iso$", tags={"noniso"})  # noqa: E501
+    _add_category(config, name="os", id=10, selection="cat_os", label="OS", tags={"os"})
+    _add_category(config, name="ss", id=11, selection="cat_ss", label="SS", tags={"ss"})
+    _add_category(config, name="iso", id=12, selection="cat_iso", label=r"$\tau_{h,2} iso$", tags={"iso"})
+    _add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"$\tau_{h,2} non-iso$", tags={"noniso"})  # noqa: E501
 
     # kinematic categories
-    add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
-    add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
+    _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
+    _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
 
     #
     # build groups
