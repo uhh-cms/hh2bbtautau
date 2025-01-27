@@ -43,14 +43,6 @@ def add_variables(config: od.Config) -> None:
     )
     add_variable(
         config,
-        name="n_jet",
-        expression="n_jet",
-        binning=(11, -0.5, 10.5),
-        x_title="Number of jets",
-        discrete_x=True,
-    )
-    add_variable(
-        config,
         name="n_hhbtag",
         expression="n_hhbtag",
         binning=(4, -0.5, 3.5),
@@ -638,6 +630,15 @@ def add_variables(config: od.Config) -> None:
         expression="Muon.phi[:,1]",
         binning=(66, -3.3, 3.3),
         x_title=r"Subleading muon $\phi$",
+    )
+
+    add_variable(
+        config,
+        name="njets",
+        expression=lambda events: ak.num(events.Jet["pt"], axis=1),
+        aux={"inputs": {"Jet.pt"}},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of jets",
     )
 
     for proc in ["hh", "tt", "dy"]:
