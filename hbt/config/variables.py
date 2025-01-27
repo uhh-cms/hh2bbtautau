@@ -49,9 +49,16 @@ def add_variables(config: od.Config) -> None:
         x_title="Number of HH b-tags",
         discrete_x=True,
     )
+    def build_ht(events):
+        objects = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1, events.Jet * 1], axis=1)[:, :]
+        objects_sum = objects.sum(axis=1)
+        return objects_sum.pt
+    build_ht.inputs = ["{Electron,Muon,Tau,Jet}.{pt,eta,phi,mass}"]
     add_variable(
         config,
         name="ht",
+        expression=partial(build_ht),
+        aux={"inputs": build_ht.inputs},
         binning=[0, 80, 120, 160, 200, 240, 280, 320, 400, 500, 600, 800],
         unit="GeV",
         x_title="HT",
