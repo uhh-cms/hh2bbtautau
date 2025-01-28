@@ -7,6 +7,7 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 from __future__ import annotations
 
 import os
+import re
 import itertools
 import functools
 
@@ -345,7 +346,6 @@ def add_config(
 
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
-
         # add tags to datasets
         if dataset.name.startswith("data_e_"):
             dataset.add_tag({"etau", "emu_from_e", "ee"})
@@ -359,8 +359,12 @@ def add_config(
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
+        if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
+            dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):
             dataset.add_tag("w_lnu")
+        if re.match(r"^w_lnu_\dj_(|pt.+_)amcatnlo$", dataset.name):
+            dataset.add_tag("w_lnu_stitched")
         # datasets that are known to have no lhe info at all
         if law.util.multi_match(dataset.name, [
             r"^(ww|wz|zz)_.*pythia$",
@@ -524,10 +528,29 @@ def add_config(
             dataset.name for dataset in cfg.datasets
             if dataset.is_mc and not dataset.has_tag("signal")
         ]),
+        "backgrounds_unstitched": (backgrounds_unstitched := [
+            dataset.name for dataset in cfg.datasets
+            if (
+                dataset.is_mc and
+                not dataset.has_tag("signal") and
+                not dataset.has_tag({"dy_stitched", "w_lnu_stitched"}, mode=any)
+            )
+        ]),
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", *backgrounds]),
-        "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph", *backgrounds]),
+        "sm": (sm_group := [
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            *backgrounds,
+        ],
+        ),
+        "sm_unstitched": (sm_group_unstitched := [
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            *backgrounds_unstitched,
+        ]),
         "sm_ggf_data": data_group + sm_ggf_group,
         "sm_data": data_group + sm_group,
+        "sm_data_unstitched": data_group + sm_group_unstitched,
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
     }
@@ -538,7 +561,19 @@ def add_config(
 
     # variable groups for conveniently looping over certain variables
     # (used during plotting)
-    cfg.x.variable_groups = {}
+    cfg.x.variable_groups = {
+        "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "default": [
+            *dijet,
+            *dilep,
+            *hh,
+            "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
+            "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
+            "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
+        ],
+    }
 
     # shift groups for conveniently looping over certain shifts
     # (used during plotting)
@@ -749,6 +784,12 @@ def add_config(
     from columnflow.calibration.cms.tau import TECConfig
     corrector_kwargs = {"wp": "Medium", "wp_VSe": "VVLoose"} if run == 3 else {}
     cfg.x.tec = TECConfig(tagger=cfg.x.tau_tagger, corrector_kwargs=corrector_kwargs)
+
+    # pec config
+    from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
+
+    cfg.x.eec = EGammaCorrectionConfig(correction_set="Scale")
+    cfg.x.eer = EGammaCorrectionConfig(correction_set="Smearing")
 
     # tau ID working points
     if campaign.x.version < 10:
@@ -1061,6 +1102,30 @@ def add_config(
     cfg.add_shift(name="e_down", id=91, type="shape")
     add_shift_aliases(cfg, "e", {"electron_weight": "electron_weight_{direction}"})
 
+    # electron shifts
+    # TODO: energy corrections are currently only available for 2022 (Jan 2025)
+    #       include them when available
+    if run == 3 and year == 2022:
+        cfg.add_shift(name="eec_up", id=92, type="shape", tags={"eec"})
+        cfg.add_shift(name="eec_down", id=93, type="shape", tags={"eec"})
+        add_shift_aliases(
+            cfg,
+            "eec",
+            {
+                "Electron.pt": "Electron.pt_scale_{direction}",
+            },
+        )
+
+        cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
+        cfg.add_shift(name="eer_down", id=95, type="shape", tags={"eer"})
+        add_shift_aliases(
+            cfg,
+            "eer",
+            {
+                "Electron.pt": "Electron.pt_res_{direction}",
+            },
+        )
+
     cfg.add_shift(name="mu_up", id=100, type="shape")
     cfg.add_shift(name="mu_down", id=101, type="shape")
     add_shift_aliases(cfg, "mu", {"muon_weight": "muon_weight_{direction}"})
@@ -1123,10 +1188,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7439b936"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-377439e8"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7439b936"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-377439e8"
     else:
         assert False
 
@@ -1184,6 +1249,13 @@ def add_config(
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+
+        # TODO: electron (and photon) energy corrections and smearing are only available for 2022
+        #       include them when available
+        if year == 2022:
+            # electron energy correction and smearing
+            add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
+
         # tau energy correction and scale factors
         # TODO: remove tag pog mirror once integrated centrally
         json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
