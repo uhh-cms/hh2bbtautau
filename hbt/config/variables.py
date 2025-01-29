@@ -7,7 +7,7 @@ from functools import partial
 
 import order as od
 
-from columnflow.columnar_util import EMPTY_FLOAT
+from columnflow.columnar_util import EMPTY_FLOAT, attach_coffea_behavior, default_coffea_collections
 from columnflow.util import maybe_import
 
 ak = maybe_import("awkward")
@@ -241,31 +241,6 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$\eta$",
     )
 
-    add_variable(
-        config,
-        name="dibjet_mass",
-        expression="diBJet.mass",
-        binning=(20, 0, 500.0),
-        unit="GeV",
-        x_title=r"$m_{bb}$",
-    )
-    add_variable(
-        config,
-        name="dibjet_pt",
-        expression="diBJet.pt",
-        binning=(100, 0, 500.0),
-        unit="GeV",
-        x_title=r"$p_{T}$",
-    )
-    add_variable(
-        config,
-        name="dibjet_eta",
-        expression="diBJet.eta",
-        binning=(100, -3.0, 3.0),
-        unit="GeV",
-        x_title=r"$\eta$",
-    )
-
     # build variables for dilepton, dijet, and hh
     def delta_r12(vectors):
         # delta r between first two elements
@@ -296,6 +271,7 @@ def add_variables(config: od.Config) -> None:
     build_dilep.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
 
     def build_dijet(events, which=None):
+        events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})
         hhbjets = events.HHBJet[:, :2]
         if which == "dr":
             return delta_r12(hhbjets)
