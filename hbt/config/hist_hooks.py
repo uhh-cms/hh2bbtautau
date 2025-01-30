@@ -43,6 +43,13 @@ def add_hist_hooks(config: od.Config) -> None:
             },
         )
 
+    def remove_data(task, hists):
+        if not hists:
+            return hists
+
+        # remove data histograms
+        return {p: h for p, h in hists.items() if not p.is_data}
+
     def qcd_estimation(task, hists):
         if not hists:
             return hists
@@ -486,6 +493,7 @@ def add_hist_hooks(config: od.Config) -> None:
         return hists
 
     config.x.hist_hooks = {
+        "blind": remove_data,
         "qcd": qcd_estimation,
         "flat_s": flat_s,
     }
