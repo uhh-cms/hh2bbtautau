@@ -354,7 +354,7 @@ def add_variables(config: od.Config) -> None:
             wp_value = config.x.btag_working_points["deepjet"][wp]
         else:
             raise ValueError(f"Unknown which: {which}")
-        bjet_mask = events.Jet.btagDeepFlavB >= wp_value
+        bjet_mask = events.Jet[which] >= wp_value
         objects = events.Jet[bjet_mask]
         objects_num = ak.num(objects, axis=1)
         return objects_num
