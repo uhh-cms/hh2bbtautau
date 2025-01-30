@@ -346,6 +346,41 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$\Delta R_{bb}$",
     )
 
+    def build_nbjets(events, which=None):
+        wp = "medium"
+        if which == "btagPNetB":
+            wp_value = config.x.btag_working_points["particleNet"][wp]
+        elif which == "btagDeepFlavB":
+            wp_value = config.x.btag_working_points["deepjet"][wp]
+        else:
+            raise ValueError(f"Unknown which: {which}")
+        bjet_mask = events.Jet[which] >= wp_value
+        objects = events.Jet[bjet_mask]
+        objects_num = ak.num(objects, axis=1)
+        return objects_num
+
+    build_nbjets.inputs = ["Jet.{btagPNetB,btagDeepFlavB}"]
+
+    add_variable(
+        config,
+        name="nbjets_pnet",
+        expression=partial(build_nbjets, which="btagPNetB"),
+        aux={"inputs": build_nbjets.inputs},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of ParticleNet b-jets",
+        discrete_x=True,
+    )
+
+    add_variable(
+        config,
+        name="nbjets_djet",
+        expression=partial(build_nbjets, which="btagDeepFlavB"),
+        aux={"inputs": build_nbjets.inputs},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of DeepJet b-jets",
+        discrete_x=True,
+    )
+
     # dilepton variables
     add_variable(
         config,
