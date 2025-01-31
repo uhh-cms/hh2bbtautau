@@ -169,11 +169,11 @@ def add_config(
         if process_name.startswith(("graviton_hh_", "radion_hh_")):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
-        if process_name.startswith("tt_"):
+        if re.match(r"^tt(|_.+)$", process_name):
             proc.add_tag({"ttbar", "tt"})
-        if process_name.startswith("dy_"):
+        if re.match(r"^dy(|_.+)$", process_name):
             proc.add_tag("dy")
-        if process_name.startswith("w_lnu_"):
+        if re.match(r"^w_lnu(|_.+)$", process_name):
             proc.add_tag("w_lnu")
 
         # add the process

@@ -363,21 +363,20 @@ def add_variables(config: od.Config) -> None:
 
     add_variable(
         config,
+        name="nbjets_deepjet",
+        expression=partial(build_nbjets, which="btagDeepFlavB"),
+        aux={"inputs": build_nbjets.inputs},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of b-jets (DeepJet medium)",
+        discrete_x=True,
+    )
+    add_variable(
+        config,
         name="nbjets_pnet",
         expression=partial(build_nbjets, which="btagPNetB"),
         aux={"inputs": build_nbjets.inputs},
         binning=(11, -0.5, 10.5),
-        x_title=r"Number of ParticleNet b-jets",
-        discrete_x=True,
-    )
-
-    add_variable(
-        config,
-        name="nbjets_djet",
-        expression=partial(build_nbjets, which="btagDeepFlavB"),
-        aux={"inputs": build_nbjets.inputs},
-        binning=(11, -0.5, 10.5),
-        x_title=r"Number of DeepJet b-jets",
+        x_title=r"Number of b-jets (PNet medium)",
         discrete_x=True,
     )
 
@@ -488,7 +487,7 @@ def add_variables(config: od.Config) -> None:
         expression=partial(build_hh, which="dr"),
         aux={"inputs": build_hh.inputs},
         binning=(30, 0, 6),
-        x_title=r"$\Delta R_{ll+bb}$",
+        x_title=r"$\Delta R_{ll,bb}$",
     )
 
     # single lepton variables
