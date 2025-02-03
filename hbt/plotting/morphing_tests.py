@@ -9,15 +9,20 @@ import law
 from columnflow.util import maybe_import
 from columnflow.plotting.plot_all import plot_all
 from columnflow.plotting.plot_util import (
-    # prepare_plot_config,
+    # prepare_stack_plot_config,
+    _remove_residual_axis,
     prepare_style_config,
     remove_residual_axis,
     apply_variable_settings,
     apply_process_settings,
-    apply_density_to_hists,
+    apply_process_scaling,
+    apply_density,
+    # hists_merge_cutflow_steps,
     get_position,
     # get_profile_variations,
     blind_sensitive_bins,
+    # join_labels,
+    check_nominal_shift,
 )
 
 from columnflow.types import Callable
@@ -33,7 +38,9 @@ od = maybe_import("order")
 def prepare_plot_config_custom_ratio(
     hists: OrderedDict,
     shape_norm: bool | None = False,
-    hide_errors: bool | None = None,
+    hide_stat_errors: bool | None = None,
+    shift_insts: list[od.Shift] | None = None,
+    **kwargs,
 ) -> OrderedDict:
     """
     Prepares a plot config with one entry to create plots containing a stack of
@@ -41,31 +48,36 @@ def prepare_plot_config_custom_ratio(
     data entrys with errorbars.
     """
 
+    check_nominal_shift(shift_insts)
+
     # separate histograms into stack, lines and data hists
     mc_hists, mc_colors, mc_edgecolors, mc_labels = [], [], [], []
-    line_hists, line_colors, line_labels, line_hide_errors = [], [], [], []
-    data_hists, data_hide_errors = [], []
+    mc_syst_hists = []
+    line_hists, line_colors, line_labels, line_hide_stat_errors = [], [], [], []
+    data_hists, data_hide_stat_errors = [], []
+    data_label = None
 
     # not necessary since we are not using any data, but kept for now
     for process_inst, h in hists.items():
         # if given, per-process setting overrides task parameter
-        proc_hide_errors = hide_errors
-        if getattr(process_inst, "hide_errors", None) is not None:
-            proc_hide_errors = process_inst.hide_errors
+        proc_hide_stat_errors = getattr(process_inst, "hide_stat_errors", hide_stat_errors)
         if process_inst.is_data:
-            data_hists.append(h)
-            data_hide_errors.append(proc_hide_errors)
-        elif process_inst.is_mc:
-            if getattr(process_inst, "unstack", False):
-                line_hists.append(h)
-                line_colors.append(process_inst.color1)
-                line_labels.append(process_inst.label)
-                line_hide_errors.append(proc_hide_errors)
-            else:
-                mc_hists.append(h)
-                mc_colors.append(process_inst.color1)
-                mc_edgecolors.append(process_inst.color2)
-                mc_labels.append(process_inst.label)
+            data_hists.append(_remove_residual_axis(h, "shift", select_value=0))
+            data_hide_stat_errors.append(proc_hide_stat_errors)
+            if data_label is None:
+                data_label = process_inst.label
+        elif getattr(process_inst, "unstack", False):
+            line_hists.append(_remove_residual_axis(h, "shift", select_value=0))
+            line_colors.append(process_inst.color1)
+            line_labels.append(process_inst.label)
+            line_hide_stat_errors.append(proc_hide_stat_errors)
+        else:
+            mc_hists.append(_remove_residual_axis(h, "shift", select_value=0))
+            mc_colors.append(process_inst.color1)
+            mc_edgecolors.append(process_inst.color2)
+            mc_labels.append(process_inst.label)
+            if "shift" in h.axes.name and h.axes["shift"].size > 1:
+                mc_syst_hists.append(h)
 
     h_data, h_mc, h_mc_stack = None, None, None
     if data_hists:
@@ -112,7 +124,7 @@ def prepare_plot_config_custom_ratio(
         }
 
         # suppress error bars by overriding `yerr`
-        if line_hide_errors[i]:
+        if line_hide_stat_errors[i]:
             for key in ("kwargs", "ratio_kwargs"):
                 if key in plot_cfg:
                     plot_cfg[key]["yerr"] = False
@@ -134,15 +146,34 @@ def prepare_plot_config_custom_ratio(
             "color": line_colors[j],
         }
 
-    # draw stack error
-    if h_mc_stack is not None and not hide_errors:
+    # draw statistical error for stack
+    if h_mc_stack is not None and not hide_stat_errors:
         mc_norm = sum(h_mc.values()) if shape_norm else 1
-        plot_config["mc_uncert"] = {
-            "method": "draw_error_bands",
+        plot_config["mc_stat_unc"] = {
+            "method": "draw_stat_error_bands",
             "hist": h_mc,
             "kwargs": {"norm": mc_norm, "label": "MC stat. unc."},
             "ratio_kwargs": {"norm": h_mc.values()},
         }
+
+    # # draw systematic error for stack
+    # if h_mc_stack is not None and mc_syst_hists:
+    #     mc_norm = sum(h_mc.values()) if shape_norm else 1
+    #     plot_config["mc_syst_unc"] = {
+    #         "method": "draw_syst_error_bands",
+    #         "hist": h_mc,
+    #         "kwargs": {
+    #             "syst_hists": mc_syst_hists,
+    #             "shift_insts": shift_insts,
+    #             "norm": mc_norm,
+    #             "label": "MC syst. unc.",
+    #         },
+    #         "ratio_kwargs": {
+    #             "syst_hists": mc_syst_hists,
+    #             "shift_insts": shift_insts,
+    #             "norm": h_mc.values(),
+    #         },
+    #     }
 
     # draw data
     if data_hists:
@@ -162,7 +193,7 @@ def prepare_plot_config_custom_ratio(
             }
 
         # suppress error bars by overriding `yerr`
-        if any(data_hide_errors):
+        if any(data_hide_stat_errors):
             for key in ("kwargs", "ratio_kwargs"):
                 if key in plot_cfg:
                     plot_cfg[key]["yerr"] = False
@@ -175,11 +206,12 @@ def plot_morphing_comparison(
     config_inst: od.Config,
     category_inst: od.Category,
     variable_insts: list[od.Variable],
+    shift_insts: list[od.Shift] | None,
     style_config: dict | None = None,
     density: bool | None = False,
     shape_norm: bool | None = False,
     yscale: str | None = "",
-    hide_errors: bool | None = None,
+    hide_stat_errors: bool | None = None,
     process_settings: dict | None = None,
     variable_settings: dict | None = None,
     **kwargs,
@@ -216,21 +248,36 @@ def plot_morphing_comparison(
 
     hists = hists_to_plot
 
-    remove_residual_axis(hists, "shift")
-
+    check_nominal_shift(shift_insts)
     variable_inst = variable_insts[0]
-    blinding_threshold = kwargs.get("blinding_threshold", None)
 
+    # process-based settings (styles and attributes)
+    hists = apply_process_settings(hists, process_settings)
+    # variable-based settings (rebinning, slicing, flow handling)
+    hists = apply_variable_settings(hists, variable_insts, variable_settings)
+    # process scaling
+    hists = apply_process_scaling(hists)
+    # remove data in bins where sensitivity exceeds some threshold
+    blinding_threshold = kwargs.get("blinding_threshold", None)
     if blinding_threshold:
         hists = blind_sensitive_bins(hists, config_inst, blinding_threshold)
-    hists = apply_variable_settings(hists, variable_insts, variable_settings)
-    hists = apply_process_settings(hists, process_settings)
-    hists = apply_density_to_hists(hists, density)
+    # density scaling per bin
+    if density:
+        hists = apply_density(hists, density)
+    # remove shift axis of histograms that are not to be stacked
+    unstacked_hists = {
+        proc_inst: h
+        for proc_inst, h in hists.items()
+        if proc_inst.is_mc and getattr(proc_inst, "unstack", False)
+    }
+    hists |= remove_residual_axis(unstacked_hists, "shift", select_value=0)
 
     plot_config = prepare_plot_config_custom_ratio(
         hists,
         shape_norm=shape_norm,
-        hide_errors=hide_errors,
+        hide_stat_errors=hide_stat_errors,
+        shift_insts=shift_insts,
+        **kwargs,
     )
 
     default_style_config = prepare_style_config(
@@ -895,7 +942,7 @@ def plot_3d_morphing(
                 return a * kv**4 + b * k2v**2 + c * (kv**2) * (kl**2) + d * (kv**2) * k2v + e * (kv**3) * kl + f * k2v * kv * kl  # noqa
 
             vbf_point_proc = procs_to_plot[vbf_point["name"]]
-            vbf_point_hist = bin_hists_to_plot[vbf_point["name"]]
+            # vbf_point_hist = bin_hists_to_plot[vbf_point["name"]]
             # target_coord = [vbf_point["kv"], vbf_point["k2v"], vbf_point["kl"]]
             guidance_points_procs = vbf_point_proc.x.guidance_points_procs
             guidance_points_coord = vbf_point_proc.x.guidance_points_values
@@ -956,57 +1003,57 @@ def plot_3d_morphing(
     plot_kl = np.array([point["kl"] for point in points])
     plot_labels = np.array([point["name"] for point in points])
 
-    # # version 1: scatter plot with colorbar, markers for the different kv points
-    plot_markers = list_of_markers[:len(points)]
+    # # # version 1: scatter plot with colorbar, markers for the different kv points
+    # plot_markers = list_of_markers[:len(points)]
 
-    # def mscatter(x, y, ax=None, m=None, **kw):
-    #     import matplotlib.markers as mmarkers
-    #     if not ax:
-    #         ax = plt.gca()
-    #     sc = ax.scatter(x, y, **kw)
-    #     if (m is not None) and (len(m)==len(x)):
-    #         paths = []
-    #         for marker in m:
-    #             if isinstance(marker, mmarkers.MarkerStyle):
-    #                 marker_obj = marker
-    #             else:
-    #                 marker_obj = mmarkers.MarkerStyle(marker)
-    #             path = marker_obj.get_path().transformed(
-    #                 marker_obj.get_transform(),
-    #             )
-    #             paths.append(path)
-    #         sc.set_paths(paths)
-    #     return sc
+    # # def mscatter(x, y, ax=None, m=None, **kw):
+    # #     import matplotlib.markers as mmarkers
+    # #     if not ax:
+    # #         ax = plt.gca()
+    # #     sc = ax.scatter(x, y, **kw)
+    # #     if (m is not None) and (len(m)==len(x)):
+    # #         paths = []
+    # #         for marker in m:
+    # #             if isinstance(marker, mmarkers.MarkerStyle):
+    # #                 marker_obj = marker
+    # #             else:
+    # #                 marker_obj = mmarkers.MarkerStyle(marker)
+    # #             path = marker_obj.get_path().transformed(
+    # #                 marker_obj.get_transform(),
+    # #             )
+    # #             paths.append(path)
+    # #         sc.set_paths(paths)
+    # #     return sc
 
-    # im = mscatter(
-    #     plot_kl,
-    #     plot_k2v,
-    #     c=plot_values,  # color is the distance_measure of the chosen bin, no uncertainties in values
-    #     m=plot_markers,
-    #     cmap="viridis",
-    #     label=plot_labels,
-    #     ax=ax,
-    # )
-    # # modify the legend to show the markers correctly
+    # # im = mscatter(
+    # #     plot_kl,
+    # #     plot_k2v,
+    # #     c=plot_values,  # color is the distance_measure of the chosen bin, no uncertainties in values
+    # #     m=plot_markers,
+    # #     cmap="viridis",
+    # #     label=plot_labels,
+    # #     ax=ax,
+    # # )
+    # # # modify the legend to show the markers correctly
 
-    norm = plt.Normalize(plot_values.min(), plot_values.max())
-    cmap = plt.get_cmap("viridis")
-    for i, value_ in enumerate(values_to_plot.values()):
-        ax.scatter(
-            plot_kl[i],
-            plot_k2v[i],
-            c=[cmap(norm(value_[0]))],
-            marker=plot_markers[i],
-            label=plot_labels[i],
-        )
-    sm = mpl.cm.ScalarMappable(cmap="viridis", norm=norm)
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=ax)
-    cbar.x.set_label(distance_measure, fontsize=16)
+    # norm = plt.Normalize(plot_values.min(), plot_values.max())
+    # cmap = plt.get_cmap("viridis")
+    # for i, value_ in enumerate(values_to_plot.values()):
+    #     ax.scatter(
+    #         plot_kl[i],
+    #         plot_k2v[i],
+    #         c=[cmap(norm(value_[0]))],
+    #         marker=plot_markers[i],
+    #         label=plot_labels[i],
+    #     )
+    # sm = mpl.cm.ScalarMappable(cmap="viridis", norm=norm)
+    # sm.set_array([])
+    # cbar = plt.colorbar(sm, ax=ax)
+    # cbar.ax.set_title(distance_measure, fontdict={"fontsize": 16})
 
-    # handles, labels = ax.get_legend_handles_labels()
-    # ax.legend(fontsize=16, loc="best")
-    # ax.legend(handles, labels, scatterpoints=1, loc="best", ncol=1, fontsize=16)
+    # # handles, labels = ax.get_legend_handles_labels()
+    # # ax.legend(fontsize=16, loc="best")
+    # # ax.legend(handles, labels, scatterpoints=1, loc="best", ncol=1, fontsize=16)
 
     # # version 2: one marker = "o" and then set the size of the marker to the kv value
     # plot_kv = np.array([point["kv"] for point in points])
@@ -1023,16 +1070,33 @@ def plot_3d_morphing(
     # )
 
     # cbar = fig.colorbar(im, ax=ax)
-    # cbar.x.set_label(distance_measure, fontsize=16)
+    # cbar.ax.set_title(distance_measure, fontdict={"fontsize": 16})
+    # # ax.legend(fontsize=16, loc="best")
 
+    # version 3: one marker = "o" and then set the color of the marker to the kv value, the size to the distance value
+    plot_kv = np.array([point["kv"] for point in points])
+    plot_values = 100 * (plot_values + abs(np.min(plot_values))) + 10  # to increase size difference and avoid 0 size markers  # noqa
+    im = ax.scatter(
+        plot_kl,
+        plot_k2v,
+        s=plot_values,
+        c=plot_kv,
+        cmap="viridis",
+        label=plot_labels,
+    )
 
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.ax.set_title(r"$\kappa_V$", fontdict={"fontsize": 16})
+    # ax.legend(fontsize=16, loc="best")
 
     # add text with the errors and the kv value
     for i, value_ in enumerate(values_to_plot.values()):
         ax.text(
             points[i]["kl"],
             points[i]["k2v"],
-            f"{value_[0]:.2f} +- {value_[1]:.2f}, \n kv = {points[i]['kv']}",
+            f"{value_[0]:.2f} +- {value_[1]:.2f}, \n " + r"$\kappa_V$" + f" = {points[i]['kv']}",
+            horizontalalignment="center",
+            verticalalignment="bottom",
             fontsize=10,
         )
 
