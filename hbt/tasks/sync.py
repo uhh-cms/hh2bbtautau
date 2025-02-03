@@ -6,14 +6,14 @@ Tasks that create files for synchronization efforts with other frameworks.
 
 from __future__ import annotations
 
+from functools import reduce
+from operator import or_
+
 import luigi
 import law
 
-
 from columnflow.tasks.framework.base import Requirements, DatasetTask
-from columnflow.tasks.framework.mixins import (
-    ProducersMixin, MLModelsMixin, ChunkedIOMixin, SelectorMixin,
-)
+from columnflow.tasks.framework.mixins import ProducersMixin, MLModelsMixin, ChunkedIOMixin
 from columnflow.tasks.framework.remote import RemoteWorkflow
 from columnflow.tasks.external import GetDatasetLFNs
 from columnflow.tasks.reduction import ReducedEventsUser
@@ -33,7 +33,7 @@ class CheckExternalLFNOverlap(
     lfn = luigi.Parameter(
         description="local path to an external LFN to check for overlap with the dataset",
         # fetched via nanogen's FetchLFN
-        default="/pnfs/desy.de/cms/tier2/store/user/mrieger/nanogen_store/FetchLFN/store/mc/Run3Summer22NanoAODv12/GluGlutoHHto2B2Tau_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/992697da-4a10-4435-b63a-413f6d33517e.root",  # noqa
+        default="/pnfs/desy.de/cms/tier2/store/user/bwieders/nanogen_store/FetchLFN/store/mc/Run3Summer22NanoAODv12/GluGlutoHHto2B2Tau_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/992697da-4a10-4435-b63a-413f6d33517e.root",  # noqa
     )
 
     # no versioning required
@@ -69,7 +69,7 @@ class CheckExternalLFNOverlap(
         # loop over all lfns in the dataset
         n_files = self.dataset_inst.n_files
         lfns_task = self.requires()
-        relative_overlap = {}
+        relative_overlap = {"rel_to_file": {}, "rel_to_ref": {}}
         overlapping_identifier = []
 
         for i, lfn_target in lfns_task.iter_nano_files(self, lfn_indices=list(range(n_files))):
@@ -87,11 +87,18 @@ class CheckExternalLFNOverlap(
 
             num_overlapping = np.sum(overlapping_mask)
             if num_overlapping:
-                # calculate the relative overlap
-                relative_overlap[str(i)] = np.sum(num_overlapping) / len(file_hashes)
-
+                # calculate the relative overlaps
+                # relative to file indicates how many events of the reference are within the files
+                relative_overlap["rel_to_file"][str(i)] = np.sum(num_overlapping) / len(file_hashes)
+                relative_overlap["rel_to_ref"][str(i)] = np.sum(num_overlapping) / len(ref_hashes)
                 # apply mask and store the overlapping identifiers
                 overlapping_identifier.extend(file_arr[overlapping_mask])
+
+        # sanity checks
+        assert relative_overlap["rel_to_file"], "no overlap between reference and files found"
+
+        reference_sum = np.sum([ref_value for ref_value in relative_overlap["rel_to_ref"].values()])
+        assert reference_sum.item() == 1, f"reference sum is not 1 but {reference_sum.item()}"
 
         output["overlap"].dump(
             relative_overlap,
@@ -112,11 +119,10 @@ class CheckExternalLFNOverlap(
 
 class CreateSyncFiles(
     HBTTask,
-    MLModelsMixin,
-    ProducersMixin,
-    ChunkedIOMixin,
     ReducedEventsUser,
-    SelectorMixin,
+    ChunkedIOMixin,
+    ProducersMixin,
+    MLModelsMixin,
     law.LocalWorkflow,
     RemoteWorkflow,
 ):
@@ -184,7 +190,7 @@ class CreateSyncFiles(
     def run(self):
         import awkward as ak
         import numpy as np
-        from columnflow.columnar_util import update_ak_array, EMPTY_FLOAT, set_ak_column
+        from columnflow.columnar_util import EMPTY_FLOAT, EMPTY_INT, update_ak_array, set_ak_column
 
         # prepare inputs and outputs
         inputs = self.input()
@@ -197,21 +203,30 @@ class CreateSyncFiles(
         if self.ml_model_insts:
             files.extend([inp["mlcolumns"].abspath for inp in inputs["ml"]])
 
-        # helper to replace our internal empty float placeholder with a custom one
-        empty_float = EMPTY_FLOAT  # points to same value for now, but can be changed
-        def replace_empty_float(arr):
-            if empty_float != EMPTY_FLOAT:
-                arr = ak.where(arr == EMPTY_FLOAT, empty_float, arr)
+        # helper to replace our internal empty placeholders with a custom ones
+        # dtype -> (our, custom)
+        empty = {
+            np.float32: (EMPTY_FLOAT, EMPTY_FLOAT),
+            np.float64: (EMPTY_FLOAT, EMPTY_FLOAT),
+            np.int32: (EMPTY_INT, EMPTY_INT),
+            np.int64: (EMPTY_INT, EMPTY_INT),
+            np.uint64: (EMPTY_INT, EMPTY_INT),
+        }
+        def replace_empty(arr, dtype=np.float32):
+            default, custom = empty[dtype]
+            if custom != default:
+                arr = ak.where(arr == default, custom, arr)
             return arr
 
         # helper to pad nested fields with an empty float if missing
-        def pad_nested(arr, n, *, axis=1):
-            return ak.fill_none(ak.pad_none(arr, n, axis=axis), empty_float)
+        def pad_nested(arr, n, *, axis=1, dtype=np.float32):
+            padded = ak.pad_none(arr, n, axis=axis)
+            return ak.values_astype(ak.fill_none(padded, empty[dtype][1]), dtype)
 
         # helper to pad and select the last element on the first inner axis
-        def select(arr, idx):
-            padded = pad_nested(arr, idx + 1, axis=-1)
-            return replace_empty_float(padded if arr.ndim == 1 else padded[:, idx])
+        def select(arr, idx, dtype=np.float32):
+            padded = pad_nested(arr, idx + 1, axis=-1, dtype=dtype)
+            return replace_empty((padded if arr.ndim == 1 else padded[:, idx]), dtype=dtype)
 
         # helper to select leptons
         def select_leptons(events: ak.Array, common_fields: dict[str, int | float]) -> ak.Array:
@@ -226,8 +241,15 @@ class CreateSyncFiles(
             # concatenate (first event any lepton, second alsways tau) and add to events
             return set_ak_column(events, "Lepton", ak.concatenate(leptons, axis=1))
 
-        # event chunk loop
+        def uint64_to_str(array: ak.Array) -> ak.Array:
+            # -99999 casted to uint64
+            empty_uint64_str = str(np.iinfo(np.uint64).max + empty[np.uint64][0] + 1)
+            array = np.asarray(array, dtype=np.str_)
+            empty_mask = array == empty_uint64_str
+            array = np.where(empty_mask, str(empty[np.uint64][0]), array)
+            return array
 
+        # event chunk loop
         # optional filter to get only the events that overlap with given external LFN
         if self.filter_file:
             with self.publish_step("loading reference ids"):
@@ -239,14 +261,12 @@ class CreateSyncFiles(
             source_type=len(files) * ["awkward_parquet"],
             pool_size=1,
         ):
-
             # optional check for overlapping inputs
             if self.check_overlapping_inputs:
                 self.raise_if_overlapping([events] + list(columns))
 
             # add additional columns
             events = update_ak_array(events, *columns)
-
             # apply mask if optional filter is given
             # calculate mask by using 1D hash values
             if self.filter_file:
@@ -260,95 +280,79 @@ class CreateSyncFiles(
                 # apply mask
                 events = events[mask]
 
-            # insert leptons
-            events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty_float})
+            if len(events) == 0:
+                raise ValueError(
+                    """
+                    No events left after filtering.
+                    "Check if correct overlap file is used
+                    """,
+                )
 
+            # insert leptons
+            events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty[np.float32][1]})
             # project into dataframe
+            met_name = self.config_inst.x.met_name
             df = ak.to_dataframe({
                 # index variables
                 "event": events.event,
                 "run": events.run,
                 "lumi": events.luminosityBlock,
                 # high-level events variables
-                "channel": events.channel_id,
+                "channel_id": events.channel_id,
                 "os": events.leptons_os * 1,
                 "iso": events.tau2_isolated * 1,
-                # jet variables
-                "jet1_pt": select(events.Jet.pt, 0),
-                "jet1_eta": select(events.Jet.eta, 0),
-                "jet1_phi": select(events.Jet.phi, 0),
-                "jet2_pt": select(events.Jet.pt, 1),
-                "jet2_eta": select(events.Jet.eta, 1),
-                "jet2_phi": select(events.Jet.phi, 1),
-                "lep1_pt": select(events.Lepton.pt, 0),
-                "lep1_phi": select(events.Lepton.phi, 0),
-                "lep1_eta": select(events.Lepton.eta, 0),
-                "lep1_charge": select(events.Lepton.charge, 0),
-                "lep1_deeptauvsjet": select(events.Lepton.rawDeepTau2018v2p5VSjet, 0),
-                "lep2_pt": select(events.Lepton.pt, 1),
-                "lep2_phi": select(events.Lepton.phi, 1),
-                "lep2_eta": select(events.Lepton.eta, 1),
-                "lep2_charge": select(events.Lepton.charge, 1),
-                "lep2_deeptauvsjet": select(events.Lepton.rawDeepTau2018v2p5VSjet, 1),
-                "electron1_charge": select(events.Electron.charge, 0),
-                "electron1_eta": select(events.Electron.eta, 0),
-                "electron1_mass": select(events.Electron.mass, 0),
-                "electron1_phi": select(events.Electron.phi, 0),
-                "electron1_pt": select(events.Electron.pt, 0),
-                "electron2_charge": select(events.Electron.charge, 1),
-                "electron2_eta": select(events.Electron.eta, 1),
-                "electron2_mass": select(events.Electron.mass, 1),
-                "electron2_phi": select(events.Electron.phi, 1),
-                "electron2_pt": select(events.Electron.pt, 1),
-
-                "muon1_charge": select(events.Muon.charge, 0),
-                "muon1_eta": select(events.Muon.eta, 0),
-                "muon1_mass": select(events.Muon.mass, 0),
-                "muon1_phi": select(events.Muon.phi, 0),
-                "muon1_pt": select(events.Muon.pt, 0),
-                "muon2_charge": select(events.Muon.charge, 1),
-                "muon2_eta": select(events.Muon.eta, 1),
-                "muon2_mass": select(events.Muon.mass, 1),
-                "muon2_phi": select(events.Muon.phi, 1),
-                "muon2_pt": select(events.Muon.pt, 1),
-
-                "tau1_charge": select(events.Tau.charge, 0),
-                "tau1_eta": select(events.Tau.eta, 0),
-                "tau1_mass": select(events.Tau.mass, 0),
-                "tau1_phi": select(events.Tau.phi, 0),
-                "tau1_pt": select(events.Tau.pt, 0),
-                "tau2_charge": select(events.Tau.charge, 1),
-                "tau2_eta": select(events.Tau.eta, 1),
-                "tau2_mass": select(events.Tau.mass, 1),
-                "tau2_phi": select(events.Tau.phi, 1),
-                "tau2_pt": select(events.Tau.pt, 1),
-
-                "met1_covXX": select(events.MET.covXX, 0),
-                "met1_covXY": select(events.MET.covXY, 0),
-                "met1_covYY": select(events.MET.covYY, 0),
-                "met1_phi": select(events.MET.phi, 0),
-                "met1_pt": select(events.MET.pt, 0),
-                "met1_significance": select(events.MET.significance, 0),
-
-                "fatjet1_eta": select(events.FatJet.eta, 0),
-                "fatjet1_mass": select(events.FatJet.mass, 0),
-                "fatjet1_phi": select(events.FatJet.phi, 0),
-                "fatjet1_pt": select(events.FatJet.pt, 0),
-                "fatjet1_tau1": select(events.FatJet.tau1, 0),
-                "fatjet1_tau2": select(events.FatJet.tau2, 0),
-                "fatjet1_tau3": select(events.FatJet.tau3, 0),
-                "fatjet1_tau4": select(events.FatJet.tau4, 0),
-
-                "fatjet2_eta": select(events.FatJet.eta, 1),
-                "fatjet2_mass": select(events.FatJet.mass, 1),
-                "fatjet2_phi": select(events.FatJet.phi, 1),
-                "fatjet2_pt": select(events.FatJet.pt, 1),
-                "fatjet2_tau1": select(events.FatJet.tau1, 1),
-                "fatjet2_tau2": select(events.FatJet.tau2, 1),
-                "fatjet2_tau3": select(events.FatJet.tau3, 1),
-                "fatjet2_tau4": select(events.FatJet.tau4, 1),
+                "deterministic_seed": uint64_to_str(events.deterministic_seed),
+                # jets
+                **reduce(or_, (
+                    {
+                        f"jet{i + 1}_pt": select(events.Jet.pt, i),
+                        f"jet{i + 1}_eta": select(events.Jet.eta, i),
+                        f"jet{i + 1}_phi": select(events.Jet.phi, i),
+                        f"jet{i + 1}_mass": select(events.Jet.mass, i),
+                        f"jet{i + 1}_deterministic_seed": uint64_to_str(
+                            select(events.Jet.deterministic_seed, i, np.uint64),
+                        ),
+                    }
+                    for i in range(2)
+                )),
+                # electron specific variables
+                "e1_deterministic_seed": uint64_to_str(
+                    select(events.Electron.deterministic_seed, 0, np.uint64),
+                ),
+                "e2_deterministic_seed": uint64_to_str(
+                    select(events.Electron.deterministic_seed, 1, np.uint64),
+                ),
+                # combined leptons
+                **reduce(or_, (
+                    {
+                        f"lep{i + 1}_pt": select(events.Lepton.pt, i),
+                        f"lep{i + 1}_phi": select(events.Lepton.phi, i),
+                        f"lep{i + 1}_eta": select(events.Lepton.eta, i),
+                        f"lep{i + 1}_charge": select(events.Lepton.charge, i),
+                        f"lep{i + 1}_deeptauvsjet": select(events.Lepton.rawDeepTau2018v2p5VSjet, i),
+                    }
+                    for i in range(2)
+                )),
+                # met
+                "met_pt": events[met_name].pt,
+                "met_phi": events[met_name].phi,
+                **({} if self.config_inst.campaign.x.version < 14 else {
+                    "met_significance": select(events[met_name].significance, 0),
+                    "met_covXX": select(events[met_name].covXX, 0),
+                    "met_covXY": select(events[met_name].covXY, 0),
+                    "met_covYY": select(events[met_name].covYY, 0),
+                }),
+                # fatjets
+                **reduce(or_, (
+                    {
+                        f"fatjet{i + 1}_pt": select(events.FatJet.pt, i),
+                        f"fatjet{i + 1}_eta": select(events.FatJet.eta, i),
+                        f"fatjet{i + 1}_phi": select(events.FatJet.phi, i),
+                        f"fatjet{i + 1}_mass": select(events.FatJet.mass, i),
+                    }
+                    for i in range(2)
+                )),
             })
-
             # save as csv in output, append if necessary
             output.dump(
                 df,

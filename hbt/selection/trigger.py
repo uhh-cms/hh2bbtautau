@@ -8,7 +8,6 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, optional_column as opt
 
-
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
@@ -16,11 +15,9 @@ ak = maybe_import("awkward")
 @selector(
     uses={
         "run",
-        # nano columns
-        "TrigObj.id", "TrigObj.pt", "TrigObj.eta", "TrigObj.phi", "TrigObj.filterBits",
+        "TrigObj.{id,pt,eta,phi,filterBits}",
     },
     produces={
-        # new columns
         "trigger_ids",
     },
     exposed=True,
@@ -55,9 +52,9 @@ def trigger_selection(
         any_fired = any_fired | fired
 
         # get trigger objects for fired events per leg
-        leg_masks = []
+        leg_masks = {}
         all_legs_match = True
-        for leg in trigger.legs:
+        for key, leg in trigger.legs.items():
             # start with a True mask
             leg_mask = abs(events.TrigObj.id) >= 0
             # pdg id selection
@@ -71,7 +68,7 @@ def trigger_selection(
                 # OR across bits themselves, AND between all decision in the list
                 for bits in leg.trigger_bits:
                     leg_mask = leg_mask & ((events.TrigObj.filterBits & bits) > 0)
-            leg_masks.append(index[leg_mask])
+            leg_masks[key] = index[leg_mask]
             # at least one object must match this leg
             all_legs_match = all_legs_match & ak.any(leg_mask, axis=1)
 

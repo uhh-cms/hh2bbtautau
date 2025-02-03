@@ -6,6 +6,7 @@ Column production methods related to generic event weights.
 
 from columnflow.production import Producer, producer
 from columnflow.production.cms.pileup import pu_weight
+from columnflow.production.cms.pdf import pdf_weights
 from columnflow.util import maybe_import, safe_div, InsertableDict
 from columnflow.columnar_util import set_ak_column
 
@@ -24,8 +25,14 @@ np = maybe_import("numpy")
     mc_only=True,
 )
 def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for weight_name in self[pu_weight].produces:
+    for route in self[pu_weight].produced_columns:
+        weight_name = str(route)
         if not weight_name.startswith("pu_weight"):
+            continue
+        
+        # if there are postfixes to veto (i.e. we are not in the nominal case)
+        # skip the weight if it has a vetoed postfix
+        if any(weight_name.endswith(postfix) for postfix in self.veto_postfix):
             continue
 
         # create a weight vector starting with ones
@@ -48,21 +55,24 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
 
 @normalized_pu_weight.init
 def normalized_pu_weight_init(self: Producer) -> None:
+    self.veto_postfix = []
+    if getattr(self, "global_shift_inst", None):
+        if not self.global_shift_inst.is_nominal:
+            self.veto_postfix.extend(("up", "down"))
     self.produces |= {
         f"normalized_{weight_name}"
-        for weight_name in self[pu_weight].produces
+        for weight_name in (str(route) for route in self[pu_weight].produced_columns)
         if weight_name.startswith("pu_weight")
+        if not any(weight_name.endswith(postfix) for postfix in self.veto_postfix)
     }
 
 
 @normalized_pu_weight.requires
 def normalized_pu_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -76,7 +86,7 @@ def normalized_pu_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # get the unique process ids in that dataset
@@ -98,23 +108,17 @@ def normalized_pu_weight_setup(
             pid: safe_div(numerator_per_pid(pid), denominator_per_pid(weight_name, pid))
             for pid in self.unique_process_ids
         }
-        for weight_name in self[pu_weight].produces
+        for weight_name in (str(route) for route in self[pu_weight].produced_columns)
         if weight_name.startswith("pu_weight")
     }
 
 
 @producer(
-    uses={
-        "pdf_weight", "pdf_weight_up", "pdf_weight_down",
-    },
-    produces={
-        "normalized_pdf_weight", "normalized_pdf_weight_up", "normalized_pdf_weight_down",
-    },
     # only run on mc
     mc_only=True,
 )
 def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for postfix in ["", "_up", "_down"]:
+    for postfix in self.postfixes:
         # create the normalized weight
         avg = self.average_pdf_weights[postfix]
         normalized_weight = events[f"pdf_weight{postfix}"] / avg
@@ -124,15 +128,24 @@ def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Arra
 
     return events
 
+@normalized_pdf_weight.init
+def normalized_pdf_weight_init(self: Producer) -> None:
+
+    self.postfixes = [""]
+    if getattr(self, "global_shift_inst", None):
+        if self.global_shift_inst.is_nominal:
+            self.postfixes.extend(("_up", "_down"))
+    columns = {f"pdf_weight{postfix}" for postfix in self.postfixes}
+
+    self.uses |= columns
+    self.produces |= {f"normalized_{column}" for column in columns}
 
 @normalized_pdf_weight.requires
 def normalized_pdf_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -146,28 +159,27 @@ def normalized_pdf_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # save average weights
     self.average_pdf_weights = {
         postfix: safe_div(selection_stats[f"sum_pdf_weight{postfix}"], selection_stats["num_events"])
-        for postfix in ["", "_up", "_down"]
+        for postfix in self.postfixes
     }
 
 
+# variation of the pdf weights producer that does not store up and down shifted weights
+# but that stores all available pdf weights for the full treatment based on histograms
+all_pdf_weights = pdf_weights.derive("all_pdf_weights", cls_dict={"store_all_weights": True})
+
+
 @producer(
-    uses={
-        "murmuf_weight", "murmuf_weight_up", "murmuf_weight_down",
-    },
-    produces={
-        "normalized_murmuf_weight", "normalized_murmuf_weight_up", "normalized_murmuf_weight_down",
-    },
     # only run on mc
     mc_only=True,
 )
 def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for postfix in ["", "_up", "_down"]:
+    for postfix in self.postfixes:
         # create the normalized weight
         avg = self.average_murmuf_weights[postfix]
         normalized_weight = events[f"murmuf_weight{postfix}"] / avg
@@ -177,15 +189,24 @@ def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.A
 
     return events
 
+@normalized_murmuf_weight.init
+def normalized_murmuf_weight_init(self: Producer) -> None:
+    self.postfixes = [""]
+    if getattr(self, "global_shift_inst", None):
+        if self.global_shift_inst.is_nominal:
+            self.postfixes.extend(("_up", "_down"))
+    columns = {f"murmuf_weight{postfix}" for postfix in self.postfixes}
+
+    self.uses |= columns
+    self.produces |= {f"normalized_{column}" for column in columns}
+
 
 @normalized_murmuf_weight.requires
 def normalized_murmuf_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -199,11 +220,11 @@ def normalized_murmuf_weight_setup(
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # save average weights
     self.average_murmuf_weights = {
         postfix: safe_div(selection_stats[f"sum_murmuf_weight{postfix}"], selection_stats["num_events"])
-        for postfix in ["", "_up", "_down"]
+        for postfix in self.postfixes
     }
