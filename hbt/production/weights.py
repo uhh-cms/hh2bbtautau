@@ -35,6 +35,11 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
         if any(weight_name.endswith(postfix) for postfix in self.veto_postfix):
             continue
 
+        # if there are postfixes to veto (i.e. we are not in the nominal case)
+        # skip the weight if it has a vetoed postfix
+        if any(weight_name.endswith(postfix) for postfix in self.veto_postfix):
+            continue
+
         # create a weight vector starting with ones
         norm_weight_per_pid = np.ones(len(events), dtype=np.float32)
 
@@ -140,6 +145,19 @@ def normalized_pdf_weight_init(self: Producer) -> None:
     self.uses |= columns
     self.produces |= {f"normalized_{column}" for column in columns}
 
+@normalized_pdf_weight.init
+def normalized_pdf_weight_init(self: Producer) -> None:
+
+    self.postfixes = [""]
+    if getattr(self, "global_shift_inst", None):
+        if self.global_shift_inst.is_nominal:
+            self.postfixes.extend(("_up", "_down"))
+    columns = {f"pdf_weight{postfix}" for postfix in self.postfixes}
+
+    self.uses |= columns
+    self.produces |= {f"normalized_{column}" for column in columns}
+
+
 @normalized_pdf_weight.requires
 def normalized_pdf_weight_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
@@ -188,6 +206,18 @@ def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.A
         events = set_ak_column(events, f"normalized_murmuf_weight{postfix}", normalized_weight, value_type=np.float32)
 
     return events
+
+@normalized_murmuf_weight.init
+def normalized_murmuf_weight_init(self: Producer) -> None:
+    self.postfixes = [""]
+    if getattr(self, "global_shift_inst", None):
+        if self.global_shift_inst.is_nominal:
+            self.postfixes.extend(("_up", "_down"))
+    columns = {f"murmuf_weight{postfix}" for postfix in self.postfixes}
+
+    self.uses |= columns
+    self.produces |= {f"normalized_{column}" for column in columns}
+
 
 @normalized_murmuf_weight.init
 def normalized_murmuf_weight_init(self: Producer) -> None:
