@@ -6,6 +6,7 @@ Exemplary selection methods.
 
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.util import maybe_import
+from columnflow.columnar_util import mask_from_indices
 
 
 ak = maybe_import("awkward")
@@ -97,3 +98,49 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # two or more jets
     return events, ak.num(events.Jet.pt, axis=1) >= 2
+
+
+@categorizer(uses={"Jet.{pt,btagPNetB}"})
+def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    wp = "medium"
+    btag_scoring_indices = ak.argsort(events.Jet.btagPNetB, axis=1, ascending=False)
+    btag_mask = mask_from_indices(btag_scoring_indices[:, :2], events.Jet.btagPNetB)
+
+    atleast_2_passing_btag = ak.sum(
+        (events.Jet.btagPNetB > self.config_inst.x.btag_working_points["particleNet"][wp]), axis=1,
+    ) >= 2
+
+    mask = (
+        btag_mask &
+        (events.Jet.pt > 20) &
+        atleast_2_passing_btag
+    )
+    return events, mask
+
+
+@categorizer(uses={"Jet.*"})
+def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    wp = "medium"
+    btag_scoring_indices = ak.argsort(events.Jet.btagPNetB, axis=1, ascending=False)
+    btag_mask = mask_from_indices(btag_scoring_indices[:, :2], events.Jet.btagPNetB)
+
+    atleast_1_passing_btag = ak.sum(
+        (events.Jet.btagPNetB > self.config_inst.x.btag_working_points["particleNet"][wp]), axis=1,
+    ) >= 1
+
+    mask = (
+        btag_mask &
+        (events.Jet.pt > 20) &
+        atleast_1_passing_btag
+    )
+    return events, mask
+
+
+@categorizer(uses={"FatJet.*"})
+def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    mask = (
+        ak.num(events.FatJet.pt, axis=1) >= 1 &
+        events.FatJet.pt > 350 &
+        events.FatJet.mass > 30
+    )
+    return events, mask

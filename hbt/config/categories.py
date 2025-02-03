@@ -37,6 +37,10 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
     _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
 
+    _add_category(config, name="res1b", id=300, selection="cat_res1b", label="resonant 1 b-tag")
+    _add_category(config, name="res2b", id=301, selection="cat_res2b", label="resonant 2 b-tag")
+    _add_category(config, name="boosted", id=310, selection="cat_boosted", label="boosted ak8")
+
     #
     # build groups
     #
@@ -80,6 +84,8 @@ def add_categories(config: od.Config) -> None:
         # qcd regions last
         "sign": [config.get_category("os"), config.get_category("ss")],
         "tau2": [config.get_category("iso"), config.get_category("noniso")],
+        "resb": [config.get_category("res1b"), config.get_category("res2b")],
+        "boosted": [config.get_category("boosted")],
     }
     create_category_combinations(
         config=config,
