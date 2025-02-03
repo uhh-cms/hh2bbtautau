@@ -93,7 +93,35 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, ak.ones_like(events.event) == 1
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={"Jet.{pt,phi}"})
 def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # two or more jets
     return events, ak.num(events.Jet.pt, axis=1) >= 2
+
+
+@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
+def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # e/mu driven DY region: mll > 40 and met < 30 (to supress tau decays into e/mu)
+    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+    mask = (
+        (leps.sum(axis=1).mass > 40) &
+        (events[self.config_inst.x.met_name].pt < 30)
+    )
+    return events, mask
+
+
+@cat_dy.init
+def cat_dy_init(self: Categorizer) -> None:
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+
+
+@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
+def cat_tt(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # tt region: met > 30 (due to neutrino presence in leptonic w decays)
+    mask = events[self.config_inst.x.met_name].pt > 30
+    return events, mask
+
+
+@cat_tt.init
+def cat_tt_init(self: Categorizer) -> None:
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")

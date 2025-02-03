@@ -565,7 +565,9 @@ def add_config(
 
     # shift groups for conveniently looping over certain shifts
     # (used during plotting)
-    cfg.x.shift_groups = {}
+    cfg.x.shift_groups = {
+
+    }
 
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
@@ -1400,9 +1402,7 @@ def add_config(
             if shift_inst.has_tag(("jec", "jer"))
         ],
         "lepton_sf": [
-            x.name for x in (
-                *get_shifts("e"), *get_shifts("mu"),
-            )
+            shift_inst.name for shift_inst in (*get_shifts("e"), *get_shifts("mu"))
         ],
         "tec": [
             shift_inst.name for shift_inst in cfg.shifts
@@ -1421,13 +1421,11 @@ def add_config(
             if shift_inst.has_tag(("eer"))
         ],
         "btag_sf": [
-            x.name for x in (
-                *get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
-            )
+            shift_inst.name for shift_inst in get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names))
         ],
-        "pdf": [x.name for x in get_shifts("pdf")],
-        "murmuf": (x.name for x in get_shifts("murmuf")),
-        "pu": [x.name for x in get_shifts("minbias_xs")],
+        "pdf": [shift_inst.name for shift_inst in get_shifts("pdf")],
+        "murmuf": (shift_inst.name for shift_inst in get_shifts("murmuf")),
+        "pu": [shift_inst.name for shift_inst in get_shifts("minbias_xs")],
     }
 
     ################################################################################################
