@@ -28,6 +28,7 @@ thisdir = os.path.dirname(os.path.abspath(__file__))
 
 logger = law.logger.get_logger(__name__)
 
+
 def add_config(
     analysis: od.Analysis,
     campaign: od.Campaign,
@@ -1326,39 +1327,35 @@ def add_config(
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
 
     cfg.x.shift_groups = {
-        "jec": 
-            [ shift_inst.name for shift_inst in cfg.shifts
-                if shift_inst.has_tag(("jec", "jer"))
-            ],
-        "lepton_sf": [
-            x.name for x in (
-                *get_shifts("e"), *get_shifts("mu"),
-            )
-        ],
-        "tec":[
+        "jec": [
             shift_inst.name for shift_inst in cfg.shifts
-                if shift_inst.has_tag(("tec"))
+            if shift_inst.has_tag(("jec", "jer"))
+        ],
+        "lepton_sf": [
+            shift_inst.name for shift_inst in (*get_shifts("e"), *get_shifts("mu"))
+        ],
+        "tec": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("tec"))
         ],
         "eec": [
             shift_inst.name for shift_inst in cfg.shifts
-                if shift_inst.has_tag(("ees", "eer"))
+            if shift_inst.has_tag(("ees", "eer"))
         ],
         "ees": [
             shift_inst.name for shift_inst in cfg.shifts
-                if shift_inst.has_tag(("ees"))
+            if shift_inst.has_tag(("ees"))
         ],
         "eer": [
             shift_inst.name for shift_inst in cfg.shifts
-                if shift_inst.has_tag(("eer"))
+            if shift_inst.has_tag(("eer"))
         ],
         "btag_sf": [
-            x.name for x in (
-                *get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
-            )
+            shift_inst.name for shift_inst in get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names))
         ],
-        "pdf": [x.name for x in get_shifts("pdf")],
-        "murmuf": (x.name for x in get_shifts("murmuf")),
-        "pu": [x.name for x in get_shifts("minbias_xs")],
+        "pdf": [shift_inst.name for shift_inst in get_shifts("pdf")],
+        "murmuf": (shift_inst.name for shift_inst in get_shifts("murmuf")),
+        "pu": [shift_inst.name for shift_inst in get_shifts("minbias_xs")],
     }
 
     ################################################################################################
