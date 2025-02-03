@@ -26,6 +26,7 @@ from columnflow.columnar_util import ColumnCollection, skip_column
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
+logger = law.logger.get_logger(__name__)
 
 def add_config(
     analysis: od.Analysis,
@@ -563,7 +564,9 @@ def add_config(
 
     # shift groups for conveniently looping over certain shifts
     # (used during plotting)
-    cfg.x.shift_groups = {}
+    cfg.x.shift_groups = {
+
+    }
 
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
@@ -1092,11 +1095,12 @@ def add_config(
     # TODO: energy corrections are currently only available for 2022 (Jan 2025)
     #       include them when available
     if run == 3 and year == 2022:
-        cfg.add_shift(name="eec_up", id=92, type="shape", tags={"eec"})
-        cfg.add_shift(name="eec_down", id=93, type="shape", tags={"eec"})
+        logger.info("adding ees and eer shifts")
+        cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
+        cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
         add_shift_aliases(
             cfg,
-            "eec",
+            "ees",
             {
                 "Electron.pt": "Electron.pt_scale_{direction}",
             },
@@ -1320,6 +1324,42 @@ def add_config(
     for dataset in cfg.datasets:
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+
+    cfg.x.shift_groups = {
+        "jec": 
+            [ shift_inst.name for shift_inst in cfg.shifts
+                if shift_inst.has_tag(("jec", "jer"))
+            ],
+        "lepton_sf": [
+            x.name for x in (
+                *get_shifts("e"), *get_shifts("mu"),
+            )
+        ],
+        "tec":[
+            shift_inst.name for shift_inst in cfg.shifts
+                if shift_inst.has_tag(("tec"))
+        ],
+        "eec": [
+            shift_inst.name for shift_inst in cfg.shifts
+                if shift_inst.has_tag(("ees", "eer"))
+        ],
+        "ees": [
+            shift_inst.name for shift_inst in cfg.shifts
+                if shift_inst.has_tag(("ees"))
+        ],
+        "eer": [
+            shift_inst.name for shift_inst in cfg.shifts
+                if shift_inst.has_tag(("eer"))
+        ],
+        "btag_sf": [
+            x.name for x in (
+                *get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
+            )
+        ],
+        "pdf": [x.name for x in get_shifts("pdf")],
+        "murmuf": (x.name for x in get_shifts("murmuf")),
+        "pu": [x.name for x in get_shifts("minbias_xs")],
+    }
 
     ################################################################################################
     # external configs: channels, categories, met filters, triggers, variables, hist hooks
