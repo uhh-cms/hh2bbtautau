@@ -170,11 +170,11 @@ def add_config(
         if process_name.startswith(("graviton_hh_", "radion_hh_")):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
-        if process_name.startswith("tt_"):
+        if re.match(r"^tt(|_.+)$", process_name):
             proc.add_tag({"ttbar", "tt"})
-        if process_name.startswith("dy_"):
+        if re.match(r"^dy(|_.+)$", process_name):
             proc.add_tag("dy")
-        if process_name.startswith("w_lnu_"):
+        if re.match(r"^w_lnu(|_.+)$", process_name):
             proc.add_tag("w_lnu")
 
         # add the process
@@ -423,7 +423,7 @@ def add_config(
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("all",)
-    cfg.x.default_variables = ("n_jet", "n_btag", "res_pdnn_hh", "res_dnn_hh")
+    cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
     cfg.x.default_weight_producer = "default"
 
     # process groups for conveniently looping over certain processs
@@ -445,8 +445,8 @@ def add_config(
             "qcd",
             "st",
             "tt_multiboson",
-            "v",
             "multiboson",
+            "v",
             "h",
             "ewk",
         ]),

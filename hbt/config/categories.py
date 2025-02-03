@@ -30,8 +30,8 @@ def add_categories(config: od.Config) -> None:
     # qcd regions
     _add_category(config, name="os", id=10, selection="cat_os", label="OS", tags={"os"})
     _add_category(config, name="ss", id=11, selection="cat_ss", label="SS", tags={"ss"})
-    _add_category(config, name="iso", id=12, selection="cat_iso", label=r"$\tau_{h,2} iso$", tags={"iso"})
-    _add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"$\tau_{h,2} non-iso$", tags={"noniso"})  # noqa: E501
+    _add_category(config, name="iso", id=12, selection="cat_iso", label=r"iso", tags={"iso"})
+    _add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"non-iso", tags={"noniso"})  # noqa: E501
 
     # kinematic categories
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")

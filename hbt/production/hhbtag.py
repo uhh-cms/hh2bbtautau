@@ -152,7 +152,12 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     """
     Sets up the two HHBtag TF models.
     """
-    tf = maybe_import("tensorflow")
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    import tensorflow as tf
+
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
 
     # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
     bundle = reqs["external_files"]

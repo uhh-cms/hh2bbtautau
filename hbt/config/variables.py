@@ -7,7 +7,7 @@ from functools import partial
 
 import order as od
 
-from columnflow.columnar_util import EMPTY_FLOAT
+from columnflow.columnar_util import EMPTY_FLOAT, attach_coffea_behavior, default_coffea_collections
 from columnflow.util import maybe_import
 
 ak = maybe_import("awkward")
@@ -49,9 +49,16 @@ def add_variables(config: od.Config) -> None:
         x_title="Number of HH b-tags",
         discrete_x=True,
     )
+    def build_ht(events):
+        objects = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1, events.Jet * 1], axis=1)[:, :]
+        objects_sum = objects.sum(axis=1)
+        return objects_sum.pt
+    build_ht.inputs = ["{Electron,Muon,Tau,Jet}.{pt,eta,phi,mass}"]
     add_variable(
         config,
         name="ht",
+        expression=partial(build_ht),
+        aux={"inputs": build_ht.inputs},
         binning=[0, 80, 120, 160, 200, 240, 280, 320, 400, 500, 600, 800],
         unit="GeV",
         x_title="HT",
@@ -208,57 +215,6 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Subleading jet $p_{T}$",
     )
 
-    # variables of interest
-    add_variable(
-        config,
-        name="ditau_mass",
-        expression="diTau.mass",
-        binning=(20, 50, 200.0),
-        unit="GeV",
-        x_title=r"$m_{\tau\tau}$",
-    )
-    add_variable(
-        config,
-        name="ditau_pt",
-        expression="diTau.pt",
-        binning=(100, 0, 500.0),
-        unit="GeV",
-        x_title=r"$p_T$",
-    )
-    add_variable(
-        config,
-        name="ditau_eta",
-        expression="diTau.eta",
-        binning=(100, -3.0, 3.0),
-        unit="GeV",
-        x_title=r"$\eta$",
-    )
-
-    add_variable(
-        config,
-        name="dibjet_mass",
-        expression="diBJet.mass",
-        binning=(20, 0, 500.0),
-        unit="GeV",
-        x_title=r"$m_{bb}$",
-    )
-    add_variable(
-        config,
-        name="dibjet_pt",
-        expression="diBJet.pt",
-        binning=(100, 0, 500.0),
-        unit="GeV",
-        x_title=r"$p_{T}$",
-    )
-    add_variable(
-        config,
-        name="dibjet_eta",
-        expression="diBJet.eta",
-        binning=(100, -3.0, 3.0),
-        unit="GeV",
-        x_title=r"$\eta$",
-    )
-
     # build variables for dilepton, dijet, and hh
     def delta_r12(vectors):
         # delta r between first two elements
@@ -288,7 +244,8 @@ def add_variables(config: od.Config) -> None:
 
     build_dilep.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
 
-    def build_dijet(events, which=None):
+    def build_dibjet(events, which=None):
+        events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})
         hhbjets = events.HHBJet[:, :2]
         if which == "dr":
             return delta_r12(hhbjets)
@@ -309,10 +266,10 @@ def add_variables(config: od.Config) -> None:
             return dijet.energy
         raise ValueError(f"Unknown which: {which}")
 
-    build_dijet.inputs = ["HHBJet.{pt,eta,phi,mass}"]
+    build_dibjet.inputs = ["HHBJet.{pt,eta,phi,mass}"]
 
     def build_hh(events, which=None):
-        dijet = build_dijet(events)
+        dijet = build_dibjet(events)
         dilep = build_dilep(events)
         hs = ak.concatenate([dijet[..., None], dilep[..., None]], axis=1)
         if which == "dr":
@@ -334,59 +291,93 @@ def add_variables(config: od.Config) -> None:
             return hh.energy
         raise ValueError(f"Unknown which: {which}")
 
-    build_hh.inputs = build_dijet.inputs + build_dilep.inputs
+    build_hh.inputs = build_dibjet.inputs + build_dilep.inputs
 
-    # dijet variables
+    # dibjet variables
     add_variable(
         config,
-        name="dijet_energy",
-        expression=partial(build_dijet, which="energy"),
-        aux={"inputs": build_dijet.inputs},
+        name="dibjet_energy",
+        expression=partial(build_dibjet, which="energy"),
+        aux={"inputs": build_dibjet.inputs},
         binning=(40, 40, 300),
         unit="GeV",
-        x_title=r"$E_{jj}$",
+        x_title=r"$E_{bb}$",
     )
     add_variable(
         config,
-        name="dijet_mass",
-        expression=partial(build_dijet, which="mass"),
-        aux={"inputs": build_dijet.inputs},
+        name="dibjet_mass",
+        expression=partial(build_dibjet, which="mass"),
+        aux={"inputs": build_dibjet.inputs},
         binning=(30, 0, 300),
         unit="GeV",
-        x_title=r"$m_{jj}$",
+        x_title=r"$m_{bb}$",
     )
     add_variable(
         config,
-        name="dijet_pt",
-        expression=partial(build_dijet, which="pt"),
-        aux={"inputs": build_dijet.inputs},
+        name="dibjet_pt",
+        expression=partial(build_dibjet, which="pt"),
+        aux={"inputs": build_dibjet.inputs},
         binning=(40, 0, 200),
         unit="GeV",
-        x_title=r"$p_{T,jj}$",
+        x_title=r"$p_{T,bb}$",
     )
     add_variable(
         config,
-        name="dijet_eta",
-        expression=partial(build_dijet, which="eta"),
-        aux={"inputs": build_dijet.inputs},
+        name="dibjet_eta",
+        expression=partial(build_dibjet, which="eta"),
+        aux={"inputs": build_dibjet.inputs},
         binning=(50, -5, 5),
-        x_title=r"$\eta_{jj}$",
+        x_title=r"$\eta_{bb}$",
     )
     add_variable(
         config,
-        name="dijet_phi",
-        expression=partial(build_dijet, which="phi"),
-        aux={"inputs": build_dijet.inputs},
+        name="dibjet_phi",
+        expression=partial(build_dibjet, which="phi"),
+        aux={"inputs": build_dibjet.inputs},
         binning=(66, -3.3, 3.3),
-        x_title=r"$\phi_{jj}$",
+        x_title=r"$\phi_{bb}$",
     )
     add_variable(
         config,
-        name="dijet_dr",
-        expression=partial(build_dijet, which="dr"),
-        aux={"inputs": build_dijet.inputs},
+        name="dibjet_dr",
+        expression=partial(build_dibjet, which="dr"),
+        aux={"inputs": build_dibjet.inputs},
         binning=(30, 0, 6),
-        x_title=r"$\Delta R_{jj}$",
+        x_title=r"$\Delta R_{bb}$",
+    )
+
+    def build_nbjets(events, which=None):
+        wp = "medium"
+        if which == "btagPNetB":
+            wp_value = config.x.btag_working_points["particleNet"][wp]
+        elif which == "btagDeepFlavB":
+            wp_value = config.x.btag_working_points["deepjet"][wp]
+        else:
+            raise ValueError(f"Unknown which: {which}")
+        bjet_mask = events.Jet[which] >= wp_value
+        objects = events.Jet[bjet_mask]
+        objects_num = ak.num(objects, axis=1)
+        return objects_num
+
+    build_nbjets.inputs = ["Jet.{btagPNetB,btagDeepFlavB}"]
+
+    add_variable(
+        config,
+        name="nbjets_deepjet",
+        expression=partial(build_nbjets, which="btagDeepFlavB"),
+        aux={"inputs": build_nbjets.inputs},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of b-jets (DeepJet medium)",
+        discrete_x=True,
+    )
+    add_variable(
+        config,
+        name="nbjets_pnet",
+        expression=partial(build_nbjets, which="btagPNetB"),
+        aux={"inputs": build_nbjets.inputs},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of b-jets (PNet medium)",
+        discrete_x=True,
     )
 
     # dilepton variables
@@ -452,7 +443,7 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_hh.inputs},
         binning=(35, 100, 800),
         unit="GeV",
-        x_title=r"$E_{ll,jj}$",
+        x_title=r"$E_{ll+bb}$",
     )
     add_variable(
         config,
@@ -461,7 +452,7 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_hh.inputs},
         binning=(50, 0, 1000),
         unit="GeV",
-        x_title=r"$m_{ll,jj}$",
+        x_title=r"$m_{ll+bb}$",
     )
     add_variable(
         config,
@@ -470,7 +461,7 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_hh.inputs},
         binning=(40, 0, 400),
         unit="GeV",
-        x_title=r"$p_{T}_{ll,jj}$",
+        x_title=r"$p_{T,ll+bb}$",
     )
     add_variable(
         config,
@@ -479,7 +470,7 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_hh.inputs},
         binning=(50, -5, 5),
         unit="GeV",
-        x_title=r"$\eta_{ll,jj}$",
+        x_title=r"$\eta_{ll+bb}$",
     )
     add_variable(
         config,
@@ -488,7 +479,7 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_hh.inputs},
         binning=(66, -3.3, 3.3),
         unit="GeV",
-        x_title=r"$\phi_{ll,jj}$",
+        x_title=r"$\phi_{ll+bb}$",
     )
     add_variable(
         config,
@@ -496,7 +487,7 @@ def add_variables(config: od.Config) -> None:
         expression=partial(build_hh, which="dr"),
         aux={"inputs": build_hh.inputs},
         binning=(30, 0, 6),
-        x_title=r"$\Delta R_{ll,jj}$",
+        x_title=r"$\Delta R_{ll,bb}$",
     )
 
     # single lepton variables
