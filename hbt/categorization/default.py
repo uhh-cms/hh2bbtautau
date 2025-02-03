@@ -126,7 +126,7 @@ def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
 
     atleast_1_passing_btag = ak.sum(
         (events.Jet.btagPNetB > self.config_inst.x.btag_working_points["particleNet"][wp]), axis=1,
-    ) >= 1
+    ) == 1
 
     mask = (
         btag_mask &
