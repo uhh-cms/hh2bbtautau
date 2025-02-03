@@ -29,7 +29,7 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
         weight_name = str(route)
         if not weight_name.startswith("pu_weight"):
             continue
-        
+
         # if there are postfixes to veto (i.e. we are not in the nominal case)
         # skip the weight if it has a vetoed postfix
         if any(weight_name.endswith(postfix) for postfix in self.veto_postfix):
@@ -128,6 +128,7 @@ def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Arra
 
     return events
 
+
 @normalized_pdf_weight.init
 def normalized_pdf_weight_init(self: Producer) -> None:
 
@@ -139,6 +140,7 @@ def normalized_pdf_weight_init(self: Producer) -> None:
 
     self.uses |= columns
     self.produces |= {f"normalized_{column}" for column in columns}
+
 
 @normalized_pdf_weight.requires
 def normalized_pdf_weight_requires(self: Producer, reqs: dict) -> None:
@@ -188,6 +190,7 @@ def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.A
         events = set_ak_column(events, f"normalized_murmuf_weight{postfix}", normalized_weight, value_type=np.float32)
 
     return events
+
 
 @normalized_murmuf_weight.init
 def normalized_murmuf_weight_init(self: Producer) -> None:
