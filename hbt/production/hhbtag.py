@@ -61,10 +61,10 @@ def hhbtag(
         jets.mass / jets.pt,
         jets.energy / jets.pt,
         abs(jets.eta - htt.eta),
-        jets.btagDeepFlavB,
+        jets.btagDeepFlavB if self.hhbtag_version == "v2" else jets.btagPNetB,
         jets.delta_phi(htt),
-        jet_shape * (self.config_inst.campaign.x.year),
-        jet_shape * (events[event_mask].channel_id - 1),
+        jet_shape * (self.config_inst.campaign.x.year), # TODO check right sample_year: Year of the sample : v1 & v2: (2016, 2017 or 2018); for v3 is era_id: (0 - 2022preEE, 1 - 2022postEE, 2 - 2023preBPix, 3 - 2023postBPix)
+        jet_shape * (events[event_mask].channel_id - 1), # TODO check if we use rightchannelId: v1 & v2: 0 - ETau, 1 - MuTau, 2 - TauTau; v3: 0 - MuTau, 1 - ETau, 2 - TauTau, 3 - MuMu, 4 - EE, 5 - EMu
         jet_shape * htt.pt,
         jet_shape * htt.eta,
         jet_shape * htt.delta_phi(met),
@@ -161,17 +161,18 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
 
     # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
     bundle = reqs["external_files"]
+
     arc = bundle.files.hh_btag_repo
-    repo_dir = bundle.files_dir.child("hh_btag_repo", type="d")
+    # unpack repo
+    repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
     arc.load(repo_dir, formatter="tar")
-    repo_dir = repo_dir.child(repo_dir.listdir(pattern="HHbtag-*")[0])
 
     # get the version of the external file
     self.hhbtag_version = self.config_inst.x.external_files["hh_btag_repo"][1]
 
     # define the model path
-    model_path = f"models/HHbtag_{self.hhbtag_version}_par"
-
+    repo_dir = repo_dir.child("hh-btag-master/models/")
+    model_path = f"HHbtag_{self.hhbtag_version}_par"
     # save both models (even and odd event numbers)
     with self.task.publish_step("loading hhbtag models ..."):
         self.hhbtag_model_even = tf.saved_model.load(repo_dir.child(f"{model_path}_0").path)
