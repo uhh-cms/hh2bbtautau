@@ -118,7 +118,7 @@ def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
     return events, mask
 
 
-@categorizer(uses={"Jet.*"})
+@categorizer(uses={"Jet.{pt,btagPNetB}"})
 def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     wp = "medium"
     btag_scoring_indices = ak.argsort(events.Jet.btagPNetB, axis=1, ascending=False)
@@ -136,11 +136,11 @@ def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
     return events, mask
 
 
-@categorizer(uses={"FatJet.*"})
+@categorizer(uses={"FatJet.{pt,mass}"})
 def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     mask = (
-        ak.num(events.FatJet.pt, axis=1) >= 1 &
-        events.FatJet.pt > 350 &
-        events.FatJet.mass > 30
+        (ak.num(events.FatJet.pt, axis=1) >= 1) &
+        (events.FatJet.pt > 350) &
+        (events.FatJet.mass > 30)
     )
     return events, mask
