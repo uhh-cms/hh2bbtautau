@@ -63,8 +63,10 @@ def hhbtag(
         abs(jets.eta - htt.eta),
         jets.btagDeepFlavB if self.hhbtag_version == "v2" else jets.btagPNetB,
         jets.delta_phi(htt),
-        jet_shape * (self.config_inst.campaign.x.year), # TODO check right sample_year: Year of the sample : v1 & v2: (2016, 2017 or 2018); for v3 is era_id: (0 - 2022preEE, 1 - 2022postEE, 2 - 2023preBPix, 3 - 2023postBPix)
-        jet_shape * (events[event_mask].channel_id - 1), # TODO check if we use rightchannelId: v1 & v2: 0 - ETau, 1 - MuTau, 2 - TauTau; v3: 0 - MuTau, 1 - ETau, 2 - TauTau, 3 - MuMu, 4 - EE, 5 - EMu
+        jet_shape * (self.hhb_campaign_year),
+        jet_shape * (ak.values_astype(
+            self.hhb_channel_map[events[event_mask].channel_id], np.int32,
+        )),
         jet_shape * htt.pt,
         jet_shape * htt.eta,
         jet_shape * htt.delta_phi(met),
@@ -177,3 +179,52 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     with self.task.publish_step("loading hhbtag models ..."):
         self.hhbtag_model_even = tf.saved_model.load(repo_dir.child(f"{model_path}_0").path)
         self.hhbtag_model_odd = tf.saved_model.load(repo_dir.child(f"{model_path}_1").path)
+
+    # prepare mappings for the HHBtag model
+    channel_mapping = {
+        "mutau": 0 if self.hhbtag_version == "v3" else 1,
+        "etau": 1 if self.hhbtag_version == "v3" else 0,
+        "tautau": 2 if self.hhbtag_version == "v3" else 2,
+        "mumu": 3,
+        "ee": 4,
+        "emu": 5,
+    }
+
+    self.hhb_channel_map = (
+        np.array([
+            np.nan,
+            channel_mapping["etau"],
+            channel_mapping["mutau"],
+            channel_mapping["tautau"],
+            channel_mapping["ee"],
+            channel_mapping["mumu"],
+            channel_mapping["emu"],
+        ])
+        if self.hhbtag_version == "v3" else
+        np.array([
+            np.nan,
+            channel_mapping["mutau"],
+            channel_mapping["etau"],
+            channel_mapping["tautau"],
+            np.nan,
+            np.nan,
+            np.nan,
+        ])
+    )
+
+    # campaign year mapping
+    year_map = {
+        "22pre_v14": 0,
+        "22post_v14": 1,
+        "23pre_v14": 2,
+        "23post_v14": 3,
+    }
+
+    # we use suffixes for configs, like "_sync"
+    year = self.config_inst.campaign.x.year
+    config_name = "_".join(self.config_inst.name.split("_")[:2])
+    self.hhb_campaign_year = (
+        year
+        if year < 2021
+        else year_map[config_name]
+    )
