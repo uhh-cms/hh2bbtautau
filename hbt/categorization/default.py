@@ -6,8 +6,6 @@ Exemplary selection methods.
 
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.util import maybe_import
-from columnflow.columnar_util import mask_from_indices
-
 
 ak = maybe_import("awkward")
 
@@ -100,20 +98,31 @@ def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
     return events, ak.num(events.Jet.pt, axis=1) >= 2
 
 
-@categorizer(uses={"Jet.{pt,btagPNetB}"})
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # exactly pnet b-tags
+    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
+    tagged = events.Jet.btagPNetB > wp
+    return events, ak.sum(tagged, axis=1) == 1
+
+
+@categorizer(uses={"Jet.btagPNetB"})
 def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = "medium"
-    btag_scoring_indices = ak.argsort(events.Jet.btagPNetB, axis=1, ascending=False)
-    btag_mask = mask_from_indices(btag_scoring_indices[:, :2], events.Jet.btagPNetB)
+    # at least two medium pnet b-tags
+    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
+    tagged = events.Jet.btagPNetB > wp
+    return events, ak.sum(tagged, axis=1) >= 2
 
-    atleast_2_passing_btag = ak.sum(
-        (events.Jet.btagPNetB > self.config_inst.x.btag_working_points["particleNet"][wp]), axis=1,
-    ) >= 2
 
+@categorizer(uses={cat_res1b, cat_res2b, "FatJet.{pt,phi}"})
+def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # not res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
+    # note: this is just a draft
     mask = (
-        btag_mask &
-        (events.Jet.pt > 20) &
-        atleast_2_passing_btag
+        (ak.num(events.FatJet, axis=1) == 1) &
+        (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
+        ~self[cat_res1b](events, **kwargs)[1] &
+        ~self[cat_res2b](events, **kwargs)[1]
     )
     return events, mask
 
@@ -125,34 +134,6 @@ def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
     mask = (
         (leps.sum(axis=1).mass > 40) &
         (events[self.config_inst.x.met_name].pt < 30)
-    )
-    return events, mask
-
-
-@categorizer(uses={"Jet.{pt,btagPNetB}"})
-def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = "medium"
-    btag_scoring_indices = ak.argsort(events.Jet.btagPNetB, axis=1, ascending=False)
-    btag_mask = mask_from_indices(btag_scoring_indices[:, :2], events.Jet.btagPNetB)
-
-    atleast_1_passing_btag = ak.sum(
-        (events.Jet.btagPNetB > self.config_inst.x.btag_working_points["particleNet"][wp]), axis=1,
-    ) == 1
-
-    mask = (
-        btag_mask &
-        (events.Jet.pt > 20) &
-        atleast_1_passing_btag
-    )
-    return events, mask
-
-
-@categorizer(uses={"FatJet.{pt,mass}"})
-def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    mask = (
-        (ak.num(events.FatJet.pt, axis=1) >= 1) &
-        (events.FatJet.pt > 350) &
-        (events.FatJet.mass > 30)
     )
     return events, mask
 
