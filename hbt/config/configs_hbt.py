@@ -850,6 +850,39 @@ def add_config(
         assert False
 
     ################################################################################################
+    # DY corrections
+    ################################################################################################
+    from columnflow.production.cms.dy import DrellYanConfig
+
+    def get_dy_era() -> str:
+        """
+        Funtion to construct the era according to allowed values in the Drell-Yan correction file.
+        allowed eras: 2022{pre,post}EE_{LO,NLO,NNLO}, 2023{pre,post}BPix_{LO,NLO,NNLO}
+        """
+
+        postfix = campaign.x.postfix
+
+        if year == "2022":
+            if postfix == "":
+                postfix = "preEE"
+            elif postfix == "EE":
+                postfix = "postEE"
+        elif year == "2023":
+            if postfix == "":
+                postfix = "preBPix"
+            elif postfix == "BPix":
+                postfix = "postBPix"
+
+        return f"{year}{postfix}"
+
+    if run == 3:
+        dy_order = "NLO"  # 'LO'= madgraph, 'NLO'= amcatnlo, 'NNLO'= powheg
+        converted_postfix = get_dy_era()
+        cfg.x.dy_config = DrellYanConfig(
+            era=f"{converted_postfix}_{dy_order}",
+        )
+
+    ################################################################################################
     # b tagging
     ################################################################################################
 
@@ -1231,6 +1264,10 @@ def add_config(
         # met phi correction
         add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
     elif run == 3:
+        # DY reweighting
+        add_external("dy_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v1.json.gz", "v1"))  # noqa
+        # DY recoil corrections
+        add_external("dy_recoil", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v1.json.gz", "v1"))  # noqa
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # electron scale factors

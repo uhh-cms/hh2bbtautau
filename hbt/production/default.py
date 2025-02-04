@@ -9,6 +9,7 @@ from columnflow.production.normalization import stitched_normalization_weights
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
+from columnflow.production.cms.dy import dy_weights
 from columnflow.util import maybe_import
 
 from hbt.production.weights import (
@@ -16,7 +17,7 @@ from hbt.production.weights import (
 )
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
 from hbt.production.tau import tau_weights, trigger_weights
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATASET_IS_RUN3_DY
 
 ak = maybe_import("awkward")
 
@@ -78,13 +79,20 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         if self.has_dep(trigger_weights):
             events = self[trigger_weights](events, **kwargs)
 
+        # Drell-Yan weights
+        if self.has_dep(dy_weights):
+            events = self[dy_weights](events, **kwargs)
+
     return events
 
 
 @default.init
 def default_init(self: Producer) -> None:
     if self.produce_weights:
-        weight_producers = {tau_weights, electron_weights, muon_weights, trigger_weights}
+        weight_producers = {
+            tau_weights, electron_weights, muon_weights, trigger_weights,
+            IF_DATASET_IS_RUN3_DY(dy_weights),
+        }
         self.uses |= weight_producers
         self.produces |= weight_producers
 
