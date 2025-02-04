@@ -9,6 +9,7 @@ import functools
 import order as od
 
 from columnflow.config_util import add_category, create_category_combinations
+from columnflow.types import Any
 
 
 def add_categories(config: od.Config) -> None:
@@ -36,6 +37,8 @@ def add_categories(config: od.Config) -> None:
     # kinematic categories
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
     _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
+    _add_category(config, name="dy", id=210, selection="cat_dy", label="DY enriched")
+    _add_category(config, name="tt", id=220, selection="cat_tt", label=r"$t\bar{t}$ enriched")
 
     _add_category(config, name="res1b", id=300, selection="cat_res1b", label="resonant 1 b-tag")
     _add_category(config, name="res2b", id=301, selection="cat_res2b", label="resonant 2 b-tag")
@@ -45,10 +48,10 @@ def add_categories(config: od.Config) -> None:
     # build groups
     #
 
-    def name_fn(categories):
+    def name_fn(categories: dict[str, od.Category]) -> str:
         return "__".join(cat.name for cat in categories.values() if cat)
 
-    def kwargs_fn(categories, add_qcd_group=True):
+    def kwargs_fn(categories: dict[str, od.Category], add_qcd_group: bool = True) -> dict[str, Any]:
         # build auxiliary information
         aux = {}
         if add_qcd_group:
@@ -87,6 +90,7 @@ def add_categories(config: od.Config) -> None:
         "resb": [config.get_category("res1b"), config.get_category("res2b")],
         "boosted": [config.get_category("boosted")],
     }
+
     create_category_combinations(
         config=config,
         categories=main_categories,
@@ -101,13 +105,28 @@ def add_categories(config: od.Config) -> None:
             config.get_category("ee"), config.get_category("mumu"), config.get_category("emu"),
         ],
         # kinematic regions in the middle (to be extended)
-        "kin": [config.get_category("incl"), config.get_category("2j")],
+        "kin": [config.get_category("incl"), config.get_category("dy"), config.get_category("tt")],
         # relative sign last
         "sign": [config.get_category("os")],
     }
+
+    def skip_fn_ctrl(categories: dict[str, od.Category]) -> bool:
+        if "channel" not in categories or "kin" not in categories:
+            return False
+        ch_cat = categories["channel"]
+        kin_cat = categories["kin"]
+        # skip dy in emu
+        if kin_cat.name == "dy" and ch_cat.name == "emu":
+            return True
+        # skip tt in ee/mumu
+        if kin_cat.name == "tt" and ch_cat.name in ("ee", "mumu"):
+            return True
+        return False
+
     create_category_combinations(
         config=config,
         categories=control_categories,
         name_fn=name_fn,
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=False),
+        skip_fn=skip_fn_ctrl,
     )
