@@ -28,7 +28,6 @@ thisdir = os.path.dirname(os.path.abspath(__file__))
 
 logger = law.logger.get_logger(__name__)
 
-
 def add_config(
     analysis: od.Analysis,
     campaign: od.Campaign,
@@ -1222,6 +1221,8 @@ def add_config(
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
     add_external("res_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3_nonparam/model_fold0.tgz", "v1"))
+    # bosonic recoil corrections (https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil/)
+    add_external("recoil", ("/afs/cern.ch/work/p/pgadow/public/mirrors/htt-common/2025-02-03/Recoil_corrections_v1.json.gz", "v1"))
 
     # run specific files
     if run == 2:
