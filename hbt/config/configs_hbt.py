@@ -28,6 +28,7 @@ thisdir = os.path.dirname(os.path.abspath(__file__))
 
 logger = law.logger.get_logger(__name__)
 
+
 def add_config(
     analysis: od.Analysis,
     campaign: od.Campaign,
