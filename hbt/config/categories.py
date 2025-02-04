@@ -40,9 +40,9 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="dy", id=210, selection="cat_dy", label="DY enriched")
     _add_category(config, name="tt", id=220, selection="cat_tt", label=r"$t\bar{t}$ enriched")
 
-    _add_category(config, name="res1b", id=300, selection="cat_res1b", label="resonant 1 b-tag")
-    _add_category(config, name="res2b", id=301, selection="cat_res2b", label="resonant 2 b-tag")
-    _add_category(config, name="boosted", id=310, selection="cat_boosted", label="boosted ak8")
+    _add_category(config, name="res1b", id=300, selection="cat_res1b", label="res1b")
+    _add_category(config, name="res2b", id=301, selection="cat_res2b", label="res2b")
+    _add_category(config, name="boosted", id=310, selection="cat_boosted", label="boosted")
 
     #
     # build groups
@@ -83,12 +83,16 @@ def add_categories(config: od.Config) -> None:
             config.get_category("etau"), config.get_category("mutau"), config.get_category("tautau"),
         ],
         # kinematic regions in the middle (to be extended)
-        "kin": [config.get_category("incl"), config.get_category("2j")],
+        "kin": [
+            config.get_category("incl"),
+            config.get_category("2j"),
+            config.get_category("res1b"),
+            config.get_category("res2b"),
+            config.get_category("boosted"),
+        ],
         # qcd regions last
         "sign": [config.get_category("os"), config.get_category("ss")],
         "tau2": [config.get_category("iso"), config.get_category("noniso")],
-        "resb": [config.get_category("res1b"), config.get_category("res2b")],
-        "boosted": [config.get_category("boosted")],
     }
 
     create_category_combinations(
