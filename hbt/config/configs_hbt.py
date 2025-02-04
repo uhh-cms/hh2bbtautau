@@ -1096,7 +1096,7 @@ def add_config(
     # TODO: energy corrections are currently only available for 2022 (Jan 2025)
     #       include them when available
     if run == 3 and year == 2022:
-        logger.info("adding ees and eer shifts")
+        logger.debug("adding ees and eer shifts")
         cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
         cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
         add_shift_aliases(
