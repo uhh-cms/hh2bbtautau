@@ -827,7 +827,7 @@ def lepton_selection(
                         continue
                     # evaluate the electron selection once (it is the same for all single triggers)
                     if emu_electron_mask is False:
-                        emu_electron_mask_triggered, emu_electron_control_mask, _ = self[electron_selection](events, _trigger, **sel_kwargs)  # noqa
+                        emu_electron_mask_if_triggered, emu_electron_control_mask, _ = self[electron_selection](events, _trigger, **sel_kwargs)  # noqa
                     # store the trigger decision
                     e_trig_fired = e_trig_fired | _trigger_fired
                     # evaluate the matching
@@ -838,8 +838,7 @@ def lepton_selection(
 
                 # the correct electron mask is the control electron mask where the trigger did not fire
                 # and the electron_mask_triggered where the trigger did fire
-                emu_electron_mask = ak.where(e_trig_fired, emu_electron_mask_triggered, emu_electron_control_mask)
-
+                emu_electron_mask = ak.where(e_trig_fired, emu_electron_mask_if_triggered, emu_electron_control_mask)
                 # for events in which no single e trigger fired, consider the matching as successful
                 e_match_mask = e_match_mask | ~e_trig_fired
                 trig_electron_mask = emu_electron_mask & e_match_mask
