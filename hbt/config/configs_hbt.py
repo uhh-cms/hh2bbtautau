@@ -27,10 +27,6 @@ from columnflow.columnar_util import ColumnCollection, skip_column
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
 logger = law.logger.get_logger(__name__)
-<<<<<<< HEAD
-=======
-
->>>>>>> 3cf1940e976559f6e1132c5a99d93ea058e8173d
 
 def add_config(
     analysis: od.Analysis,
@@ -1225,6 +1221,8 @@ def add_config(
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
     add_external("res_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3_nonparam/model_fold0.tgz", "v1"))
+    # bosonic recoil corrections (https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil/)
+    add_external("recoil", ("/afs/cern.ch/work/p/pgadow/public/mirrors/htt-common/2025-02-03/Recoil_corrections_v1.json.gz", "v1"))
 
     # run specific files
     if run == 2:
