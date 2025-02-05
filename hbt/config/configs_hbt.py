@@ -854,32 +854,17 @@ def add_config(
     ################################################################################################
     from columnflow.production.cms.dy import DrellYanConfig
 
-    def get_dy_era() -> str:
-        """
-        Funtion to construct the era according to allowed values in the Drell-Yan correction file.
-        allowed eras: 2022{pre,post}EE_{LO,NLO,NNLO}, 2023{pre,post}BPix_{LO,NLO,NNLO}
-        """
-
-        postfix = campaign.x.postfix
-
-        if year == "2022":
-            if postfix == "":
-                postfix = "preEE"
-            elif postfix == "EE":
-                postfix = "postEE"
-        elif year == "2023":
-            if postfix == "":
-                postfix = "preBPix"
-            elif postfix == "BPix":
-                postfix = "postBPix"
-
-        return f"{year}{postfix}"
-
     if run == 3:
+        if year == 2022:
+            dy_postfix = f"{'pre' if campaign.has_tag('preEE') else 'post'}EE"
+        elif year == 2023:
+            dy_postfix = f"{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
+
         dy_order = "NLO"  # 'LO'= madgraph, 'NLO'= amcatnlo, 'NNLO'= powheg
-        converted_postfix = get_dy_era()
+        dy_era = f"{year}{dy_postfix}_{dy_order}"
+
         cfg.x.dy_config = DrellYanConfig(
-            era=f"{converted_postfix}_{dy_order}",
+            era=dy_era,
             correction="DY_pTll_reweighting",
             unc_correction="DY_pTll_reweighting_N_uncertainty",
         )
