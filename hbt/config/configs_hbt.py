@@ -850,7 +850,7 @@ def add_config(
         assert False
 
     ################################################################################################
-    # DY corrections
+    # DY settings
     ################################################################################################
     from columnflow.production.cms.dy import DrellYanConfig
 
@@ -880,6 +880,8 @@ def add_config(
         converted_postfix = get_dy_era()
         cfg.x.dy_config = DrellYanConfig(
             era=f"{converted_postfix}_{dy_order}",
+            correction="DY_pTll_reweighting",
+            unc_correction="DY_pTll_reweighting_N_uncertainty",
         )
 
     ################################################################################################
@@ -1357,6 +1359,8 @@ def add_config(
     for dataset in cfg.datasets:
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        if dataset.has_tag("dy"):
+            dataset.x.event_weights = {"dy_weight": []}
 
     ################################################################################################
     # external configs: channels, categories, met filters, triggers, variables, hist hooks
