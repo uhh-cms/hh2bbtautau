@@ -213,3 +213,11 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
         (2023, ""): 2,
         (2023, "BPix"): 3,
     }[campaign_key]
+
+    # validate the met name
+    hhbtag_met_name = "PuppiMET" if self.hhbtag_version == "v3" else "MET"
+    if self.config_inst.x.met_name != hhbtag_met_name:
+        raise ValueError(
+            f"hhbtag model {self.hhbtag_version} uses {hhbtag_met_name}, but config requests "
+            f"{self.config_inst.x.met_name}",
+        )
