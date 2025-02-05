@@ -9,8 +9,8 @@ import functools
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, EMPTY_FLOAT, Route
-from columnflow.production.cms.muon import muon_weights
-from columnflow.production.cms.electron import electron_weights
+from columnflow.production.cms.muon import muon_weights, muon_trigger_weights
+from columnflow.production.cms.electron import electron_weights, electron_trigger_weights
 
 
 from hbt.production.tau import tau_trigger_weights
@@ -186,14 +186,20 @@ def calculate_ditrigger_efficiency(
     produces={
         "etau_trigger_weight", "mutau_trigger_weight",
     } | {
-        f"mutau_trigger_weight_{direction}"
+        f"mutau_trigger_weight_muon_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"etau_trigger_weight_{direction}"
+        f"etau_trigger_weight_electron_{direction}"
+        for direction in ["up", "down"]
+    } | {
+        f"mutau_trigger_weight_tau_{direction}"
+        for direction in ["up", "down"]
+    } | {
+        f"etau_trigger_weight_tau_{direction}"
         for direction in ["up", "down"]
     },
 )
-def build_etau_mutau_trigger_weights(
+def etau_mutau_trigger_weights(
     self: Producer,
     events: ak.Array,
     **kwargs,
@@ -318,5 +324,131 @@ def build_etau_mutau_trigger_weights(
 
         events = set_ak_column_f32(events, f"mutau_trigger_weight{postfix}", muon_trigger_sf)
         events = set_ak_column_f32(events, f"etau_trigger_weight{postfix}", electron_trigger_sf)
+
+    return events
+
+
+ee_trigger_weights = electron_trigger_weights.derive(
+    "ee_trigger_weights",
+    cls_dict={
+        "weight_name": "ee_trigger_weight",
+    },
+)
+
+mumu_trigger_weights = muon_trigger_weights.derive(
+    "mumu_trigger_weights",
+    cls_dict={
+        "weight_name": "mumu_trigger_weight",
+    },
+)
+
+
+@producer(
+    uses={
+        "channel_id", "trigger_ids", "emu_triggers_info",
+        electron_trigger_weights, muon_trigger_weights,
+    },
+    produces={
+        "emu_trigger_weight",
+    } | {
+        f"emu_trigger_weight_muon_{direction}"
+        for direction in ["up", "down"]
+    } | {
+        f"emu_trigger_weight_electron_{direction}"
+        for direction in ["up", "down"]
+    },
+)
+def emu_trigger_weights(
+    self: Producer,
+    events: ak.Array,
+    **kwargs,
+) -> ak.Array:
+    """
+    Producer for emu trigger scale factors.
+    """
+
+    # emu_triggers_info stores 0 if not in emu, 1 if only single mu, 2 if only single e, 3 if both
+    pass_muon = (
+        (events.channel_id == self.config_inst.channels.n.emu.id) &
+        ((events.emu_triggers_info == 1) | (events.emu_triggers_info == 3))
+    )
+
+    pass_electron = (
+        (events.channel_id == self.config_inst.channels.n.emu.id) &
+        ((events.emu_triggers_info == 2) | (events.emu_triggers_info == 3))
+    )
+
+    muon_mask = pass_muon & events.Muon.pt > 0.0
+    electron_mask = pass_electron & events.Electron.pt > 0.0
+
+    events = self[electron_trigger_weights](events, electron_mask=electron_mask, **kwargs)
+    events = self[muon_trigger_weights](events, muon_mask=muon_mask, **kwargs)
+
+    # for postfix in ["", "_electron_up", "_electron_down", "_muon_up", "_muon_down"]:
+    for postfix in ["", "_up", "_down"]:
+        trigger_sf = ak.ones_like(events.channel_id, np.float32)
+
+        # start with the nominal case
+        if postfix == "":
+            # get the trigger efficiencies
+            muon_sf = Route(f"muon_trigger_weight{postfix}").apply(events, 1)
+            electron_sf = Route(f"electron_trigger_weight{postfix}").apply(events, 1)
+
+            # calculate SFs
+            trigger_sf = ak.where(events.emu_triggers_info == 1, muon_sf, trigger_sf)
+        else:
+            # muon shifts
+            random_stuff = 0
+
+            # electron shifts
+
+        muon_sf = Route(f"muon_trigger_weight{postfix}").apply(events, 1)
+        electron_sf = Route(f"electron_trigger_weight{postfix}").apply(events, 1)
+
+        # calculate SFs
+        trigger_sf = muon_sf * electron_sf
+
+        events = set_ak_column_f32(events, f"emu_trigger_weight{postfix}", trigger_sf)
+
+    return events
+
+
+@producer(
+    uses={
+        # etau_mutau_trigger_weights, tau_tau_trigger_weights,
+        ee_trigger_weights,
+        mumu_trigger_weights,  # emu_trigger_weights,
+    },
+    produces={
+        # etau_mutau_trigger_weights, tau_tau_trigger_weights,
+        ee_trigger_weights,
+        mumu_trigger_weights,  # emu_trigger_weights,
+    },
+)
+def trigger_weights(
+    self: Producer,
+    events: ak.Array,
+    **kwargs,
+) -> ak.Array:
+    """
+    Producer for trigger scale factors.
+    """
+
+    # # create the columns
+    # # etau and mutau
+    # events = self[etau_mutau_trigger_weights](events, **kwargs)
+
+    # # tautau
+    # events = self[tau_tau_trigger_weights](events, **kwargs)
+
+    # # ee and mumu
+    from IPython import embed; embed(header="trigger scale factors")
+    ee_mask = (events.channel_id == self.config_inst.channels.n.ee.id) & events.Electron.pt > 0.0
+    mumu_mask = (events.channel_id == self.config_inst.channels.n.mumu.id) & events.Muon.pt > 0.0
+    events = self[ee_trigger_weights](events, electron_mask=ee_mask, **kwargs)
+    events = self[mumu_trigger_weights](events, muon_mask=mumu_mask, **kwargs)
+
+    # # emu
+    # events = self[emu_trigger_weights](events, **kwargs)
 
     return events

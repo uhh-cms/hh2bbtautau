@@ -347,10 +347,18 @@ def tau_trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_t
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
 
     # load the correction set
-    from IPython import embed; embed(header="tau_trigger_weights_setup")
-    correction_set = correctionlib.CorrectionSet.from_string(
-        self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
-    )
+    extension = self.get_tau_file(bundle.files).ext()
+    if extension == "gz":
+        correction_set = correctionlib.CorrectionSet.from_string(
+            self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
+        )
+    elif extension == "json":
+        correction_set = correctionlib.CorrectionSet.from_file(
+            self.get_tau_file(bundle.files).abspath,
+        )
+    else:
+        raise NotImplementedError("The correction file extension is not gz or json.")
+
     corrector_string = self.get_tau_corrector()
     self.trigger_corrector = correction_set[corrector_string]
 

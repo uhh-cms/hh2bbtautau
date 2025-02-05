@@ -836,29 +836,29 @@ def add_config(
             campaign=cmpgn,
             working_point="wp80iso",
         )
-        # cfg.x.electron_trigger_sf_names = ElectronSFConfig(
-        #     correction="Electron-HLT-SF",
-        #     campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
-        #     hlt_path="HLT_SF_Ele30_TightID",
-        # )
+        cfg.x.electron_trigger_sf_names = ElectronSFConfig(
+            correction="Electron-HLT-SF",
+            campaign=cmpgn,
+            hlt_path="HLT_SF_Ele30_TightID",
+        )
         cfg.x.single_electron_trigger_data_effs_names = ElectronSFConfig(
             correction="Electron-HLT-DataEff",
-            campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            campaign=cmpgn,
             hlt_path="HLT_SF_Ele30_TightID",
         )
         cfg.x.single_electron_trigger_mc_effs_names = ElectronSFConfig(
             correction="Electron-HLT-McEff",
-            campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            campaign=cmpgn,
             hlt_path="HLT_SF_Ele30_TightID",
         )
         cfg.x.cross_electron_trigger_data_effs_names = ElectronSFConfig(
             correction="Electron-HLT-DataEff",
-            campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            campaign=cmpgn,
             hlt_path="HLT_SF_Ele24_TightID",
         )
         cfg.x.cross_electron_trigger_mc_effs_names = ElectronSFConfig(
             correction="Electron-HLT-McEff",
-            campaign="2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG",
+            campaign=cmpgn,
             hlt_path="HLT_SF_Ele24_TightID",
         )
     else:
@@ -879,25 +879,20 @@ def add_config(
         cfg.x.muon_sf_names = MuonSFConfig(
             correction="NUM_TightPFIso_DEN_TightID",
         )
-        # cfg.x.muon_trigger_sf_names = MuonSFConfig(
-        #     correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
-        #     campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
-        # )
+        cfg.x.muon_trigger_sf_names = MuonSFConfig(
+            correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
+        )
         cfg.x.single_muon_trigger_data_effs_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
-            campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
         )
         cfg.x.single_muon_trigger_mc_effs_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
-            campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
         )
         cfg.x.cross_muon_trigger_data_effs_names = MuonSFConfig(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
-            campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
         )
         cfg.x.cross_muon_trigger_mc_effs_names = MuonSFConfig(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
-            campaign="2022_preEE" if campaign.has_tag("preEE") else "2022_postEE",
         )
 
     else:
@@ -1233,7 +1228,7 @@ def add_config(
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
         json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-377439e8"
-        trigger_json_mirror = "/nfs/dust/cms/user/prouvost/cclub_gitlab/AnalysisCore/data/TriggerScaleFactors"
+        trigger_json_mirror = "/data/dust/user/prouvost/cclub_gitlab/AnalysisCore/data/TriggerScaleFactors"
         cfg.x.campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
             if campaign.has_tag(tag, mode=any):
@@ -1319,13 +1314,15 @@ def add_config(
         json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
         if year == 2022:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
+            tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}EE"
             tau_pog_dir = tau_pog_era
         elif year == 2023:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
+            tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
             tau_pog_dir = str(year)  # yes, it's inconsistent w.r.t. 2022
         add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_dir}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa
         # tau trigger scale factors
-        add_external("tau_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_2022preEE.json", "v1"))  # noqa
+        add_external("tau_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json", "v1"))  # noqa
 
     else:
         assert False

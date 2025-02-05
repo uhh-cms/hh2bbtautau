@@ -15,8 +15,8 @@ from hbt.production.weights import (
     normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight,
 )
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
-from hbt.production.tau import tau_weights, tau_trigger_weights
-from hbt.production.custom_trigger_sf import build_etau_mutau_trigger_weights
+from hbt.production.tau import tau_weights
+from hbt.production.trigger_sf import trigger_weights
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
 
 ak = maybe_import("awkward")
@@ -76,10 +76,8 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             events = self[muon_weights](events, **kwargs)
 
         # trigger weights
-        if self.has_dep(tau_trigger_weights):
-            events = self[tau_trigger_weights](events, **kwargs)
-        if self.has_dep(build_etau_mutau_trigger_weights):
-            events = self[build_etau_mutau_trigger_weights](events, **kwargs)
+        if self.has_dep(trigger_weights):
+            events = self[trigger_weights](events, **kwargs)
 
     return events
 
@@ -88,8 +86,8 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 def default_init(self: Producer) -> None:
     if self.produce_weights:
         weight_producers = {
-            tau_weights, electron_weights, muon_weights, tau_trigger_weights,
-            build_etau_mutau_trigger_weights,
+            tau_weights, electron_weights, muon_weights,
+            trigger_weights,
         }
         self.uses |= weight_producers
         self.produces |= weight_producers
