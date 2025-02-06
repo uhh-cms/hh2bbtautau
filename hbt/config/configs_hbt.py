@@ -26,6 +26,8 @@ from columnflow.columnar_util import ColumnCollection, skip_column
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
+logger = law.logger.get_logger(__name__)
+
 
 def add_config(
     analysis: od.Analysis,
@@ -563,7 +565,9 @@ def add_config(
 
     # shift groups for conveniently looping over certain shifts
     # (used during plotting)
-    cfg.x.shift_groups = {}
+    cfg.x.shift_groups = {
+
+    }
 
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
@@ -1112,11 +1116,12 @@ def add_config(
     # TODO: energy corrections are currently only available for 2022 (Jan 2025)
     #       include them when available
     if run == 3 and year == 2022:
-        cfg.add_shift(name="eec_up", id=92, type="shape", tags={"eec"})
-        cfg.add_shift(name="eec_down", id=93, type="shape", tags={"eec"})
+        logger.debug("adding ees and eer shifts")
+        cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
+        cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
         add_shift_aliases(
             cfg,
-            "eec",
+            "ees",
             {
                 "Electron.pt": "Electron.pt_scale_{direction}",
             },
@@ -1231,8 +1236,6 @@ def add_config(
     add_external("jet_veto_map", (f"{json_mirror}/POG/JME/{json_pog_era}/jetvetomaps.json.gz", "v1"))
     # btag scale factor
     add_external("btag_sf_corr", (f"{json_mirror}/POG/BTV/{json_pog_era}/btagging.json.gz", "v1"))
-    # hh-btag repository (lightweight) with TF saved model directories
-    add_external("hh_btag_repo", ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"))  # noqa
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
@@ -1250,6 +1253,9 @@ def add_config(
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # met phi correction
         add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
+        # hh-btag repository with TF saved model directories trained on Run2 UL samples
+        add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v2"))  # noqa
+
     elif run == 3:
         # DY reweighting
         add_external("dy_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v1.json.gz", "v1"))  # noqa
@@ -1259,6 +1265,8 @@ def add_config(
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+        # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
+        add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v3"))  # noqa
 
         # TODO: electron (and photon) energy corrections and smearing are only available for 2022
         #       include them when available
@@ -1342,10 +1350,42 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        if dataset.has_tag("ttbar"):
-            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
-        if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": []}
+        # skipped for now
+        # if dataset.has_tag("ttbar"):
+        #     dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        pass
+
+    cfg.x.shift_groups = {
+        "jec": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("jec", "jer"))
+        ],
+        "lepton_sf": [
+            shift_inst.name for shift_inst in (*get_shifts("e"), *get_shifts("mu"))
+        ],
+        "tec": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("tec"))
+        ],
+        "eec": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("ees", "eer"))
+        ],
+        "ees": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("ees"))
+        ],
+        "eer": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("eer"))
+        ],
+        "btag_sf": [
+            shift_inst.name for shift_inst in get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names))
+        ],
+        "pdf": [shift_inst.name for shift_inst in get_shifts("pdf")],
+        "murmuf": (shift_inst.name for shift_inst in get_shifts("murmuf")),
+        "pu": [shift_inst.name for shift_inst in get_shifts("minbias_xs")],
+    }
 
     ################################################################################################
     # external configs: channels, categories, met filters, triggers, variables, hist hooks
