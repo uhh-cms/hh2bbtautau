@@ -1326,8 +1326,10 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        if dataset.has_tag("ttbar"):
-            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        # skipped for now
+        # if dataset.has_tag("ttbar"):
+        #     dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        pass
 
     cfg.x.shift_groups = {
         "jec": [
