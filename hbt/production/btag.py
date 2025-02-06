@@ -93,11 +93,9 @@ def _normalized_btag_weights_init(self: Producer) -> None:
 @_normalized_btag_weights.requires
 def _normalized_btag_weights_requires(self: Producer, reqs: dict) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
-    reqs["selection_stats"] = MergeSelectionStats.req(
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
         self.task,
-        tree_index=0,
-        branch=-1,
-        _exclude=MergeSelectionStats.exclude_params_forest_merge,
+        branch=-1 if self.task.is_workflow() else 0,
     )
 
 
@@ -106,11 +104,11 @@ def _normalized_btag_weights_setup(self: Producer, reqs: dict, inputs: dict, rea
     # load the selection stats
     selection_stats = self.task.cached_value(
         key="selection_stats",
-        func=lambda: inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json"),
+        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )
 
     # get the unique process ids in that dataset
-    key = f"sum_mc_weight_selected_nob_{self.tagger_name}_per_process_and_njet"
+    key = f"sum_btag_weight_{self.tagger_name}_selected_nob_{self.tagger_name}_per_process_and_njet"
     self.unique_process_ids = list(map(int, selection_stats[key].keys()))
 
     # get the maximum numbers of jets

@@ -51,6 +51,11 @@ def IF_RUN_3(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | s
 
 
 @deferred_column
+def IF_RUN_3_2022(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2022) else None
+
+
+@deferred_column
 def IF_DATASET_HAS_LHE_WEIGHTS(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
@@ -58,7 +63,7 @@ def IF_DATASET_HAS_LHE_WEIGHTS(
     if getattr(func, "dataset_inst", None) is None:
         return self.get()
 
-    return None if func.dataset_inst.has_tag("no_lhe_weights") else self.get()
+    return self.get() if not func.dataset_inst.has_tag("no_lhe_weights") else None
 
 
 @deferred_column
@@ -69,7 +74,18 @@ def IF_DATASET_IS_DY(
     if getattr(func, "dataset_inst", None) is None:
         return self.get()
 
-    return self.get() if func.dataset_inst.has_tag("is_dy") else None
+    return self.get() if func.dataset_inst.has_tag("dy") else None
+
+
+@deferred_column
+def IF_DATASET_IS_W_LNU(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    if getattr(func, "dataset_inst", None) is None:
+        return self.get()
+
+    return self.get() if func.dataset_inst.has_tag("w_lnu") else None
 
 
 def hash_events(arr: np.ndarray) -> np.ndarray:

@@ -53,10 +53,12 @@ analysis_hbt.x.store_parts_modifiers = {}
 #
 
 def add_lazy_config(
+    *,
     campaign_module: str,
     campaign_attr: str,
     config_name: str,
     config_id: int,
+    add_limited: bool = True,
     **kwargs,
 ):
     def create_factory(
@@ -80,79 +82,54 @@ def add_lazy_config(
         return factory
 
     analysis_hbt.configs.add_lazy_factory(config_name, create_factory(config_id))
-    analysis_hbt.configs.add_lazy_factory(f"{config_name}_limited", create_factory(config_id + 200, "_limited", 2))
+    if add_limited:
+        analysis_hbt.configs.add_lazy_factory(f"{config_name}_limited", create_factory(config_id + 200, "_limited", 2))
 
-
-#
-# Run 2 configs
-#
-
-# 2016 HIPM (also known as APV or preVFP), TODO: campaign needs consistency and content check
-# add_lazy_config(
-#     campaign_module="cmsdb.campaigns.run2_2016_HIPM_nano_uhh_v12",
-#     campaign_attr="campaign_run2_2016_HIPM_nano_uhh_v12",
-#     config_name="run2_2016_HIPM_nano_uhh_v12",
-#     config_id=1,
-# )
-
-# 2016 (also known postVFP), TODO: campaign needs consistency and content check
-# add_lazy_config(
-#     campaign_module="cmsdb.campaigns.run2_2016_nano_uhh_v12",
-#     campaign_attr="campaign_run2_2016_nano_uhh_v12",
-#     config_name="run2_2016_nano_uhh_v12",
-#     config_id=2,
-# )
-
-# 2017, old nano version, TODO: needs re-processing
-# add_lazy_config(
-#     campaign_module="cmsdb.campaigns.run2_2017_nano_uhh_v11",
-#     campaign_attr="campaign_run2_2017_nano_uhh_v11",
-#     config_name="run2_2017_nano_uhh_v11",
-#     config_id=3,
-# )
-
-# 2018, TODO: not processed yet
-# add_lazy_config(
-#     campaign_module="cmsdb.campaigns.run2_2018_nano_uhh_v12",
-#     campaign_attr="campaign_run2_2018_nano_uhh_v12",
-#     config_name="run2_2018_nano_uhh_v12",
-#     config_id=4,
-# )
-
-#
-# Run 3 configs
-#
 
 # 2022, preEE
+# TODO: remove after move to v14
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v12",
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
-    config_name="run3_2022_preEE",
-    config_id=5,
+    config_name="22pre_v12",
+    config_id=5012,
+)
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
+    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
+    config_name="22pre_v14",
+    config_id=5014,
 )
 
 # 2022, postEE
+# TODO: remove after move to v14
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v12",
     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v12",
-    config_name="run3_2022_postEE",
-    config_id=6,
+    config_name="22post_v12",
+    config_id=6012,
+)
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
+    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
+    config_name="22post_v14",
+    config_id=6014,
 )
 
 # 2023, preBPix
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_uhh_v14",
     campaign_attr="campaign_run3_2023_preBPix_nano_uhh_v14",
-    config_name="run3_2023_preBPix",
-    config_id=7,
+    config_name="23pre_v14",
+    config_id=7014,
 )
 
 # 2023, postBPix
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_uhh_v14",
     campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14",
-    config_name="run3_2023_postBPix",
-    config_id=8,
+    config_name="23post_v14",
+    config_id=8014,
 )
 
 #
@@ -163,8 +140,9 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_v12",
     campaign_attr="campaign_run3_2022_preEE_nano_v12",
-    config_name="run3_2022_preEE_sync",
-    config_id=5005,
+    config_name="22pre_v12_sync",
+    config_id=5112,
+    add_limited=False,
     sync_mode=True,
 )
 
@@ -172,8 +150,9 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_v12",
     campaign_attr="campaign_run3_2022_postEE_nano_v12",
-    config_name="run3_2022_postEE_sync",
-    config_id=5006,
+    config_name="22post_v12_sync",
+    config_id=6112,
+    add_limited=False,
     sync_mode=True,
 )
 
@@ -181,8 +160,9 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_v13",
     campaign_attr="campaign_run3_2023_preBPix_nano_v13",
-    config_name="run3_2023_preBPix_sync",
-    config_id=5007,
+    config_name="23pre_v13_sync",
+    config_id=7113,
+    add_limited=False,
     sync_mode=True,
 )
 
@@ -190,7 +170,8 @@ add_lazy_config(
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_v13",
     campaign_attr="campaign_run3_2023_postBPix_nano_v13",
-    config_name="run3_2023_postBPix_sync",
-    config_id=5008,
+    config_name="23post_v13_sync",
+    config_id=8113,
+    add_limited=False,
     sync_mode=True,
 )
