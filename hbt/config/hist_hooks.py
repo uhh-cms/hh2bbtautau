@@ -6,6 +6,7 @@ Histogram hooks.
 
 from __future__ import annotations
 
+import functools
 from collections import defaultdict
 
 import law
@@ -208,7 +209,12 @@ def add_hist_hooks(config: od.Config) -> None:
 
         return hists
 
-    def flat_s(task, hists: dict[od.Process, hist.Histogram]) -> dict[od.Process, hist.Histogram]:
+    def flat_s(
+        task,
+        hists: dict[od.Process, hist.Histogram],
+        signal_process_name: str = "",
+        n_bins: int = 10,
+    ) -> dict[od.Process, hist.Histogram]:
         """Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
 
         :param task: task instance that contains the process informations
@@ -440,15 +446,13 @@ def add_hist_hooks(config: od.Config) -> None:
 
             return new_hist
 
-        n_bins = 10
-
         # find signal histogram for which you will optimize, only 1 signal process is allowed
-        siganl_proc = None
+        signal_proc = None
         signal_hist = None
         background_hists = {}
         for process, histogram in hists.items():
-            if process.has_tag("signal"):
-                if siganl_proc:
+            if process.has_tag("signal") and (signal_process_name in (process.name, "")):
+                if signal_proc:
                     logger.warning("more than one signal process found, use the first one")
                 else:
                     signal_proc = process
@@ -469,8 +473,10 @@ def add_hist_hooks(config: od.Config) -> None:
             else category_inst.get_leaf_categories()
         )
 
+        # filter categories not existing in histogram
+        cat_ids_locations = [hist.loc(c.id) for c in leaf_cats if c.id in signal_hist.axes["category"]]
+
         # sum over different leaf categories
-        cat_ids_locations = [hist.loc(c.id) for c in leaf_cats]
         combined_signal_hist = signal_hist[{"category": cat_ids_locations}][{"category": sum}]
         combined_signal_hist = combined_signal_hist[{"shift": hist.loc(0)}]
 
@@ -503,4 +509,5 @@ def add_hist_hooks(config: od.Config) -> None:
         "blind": remove_data,
         "qcd": qcd_estimation,
         "flat_s": flat_s,
+        "flat_s_kl1_n10": functools.partial(flat_s, signal_process_name="hh_ggf_hbb_htt_kl1_kt1", n_bins=10),
     }
