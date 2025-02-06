@@ -2,7 +2,8 @@
 
 """
 Producers for the HHBtag score.
-See https://github.com/hh-italian-group/HHbtag.
+See https://github.com/hh-italian-group/HHbtag for v1 and v2,
+and https://gitlab.cern.ch/hh/bbtautau/hh-btag for v3.
 """
 
 import law
@@ -61,10 +62,10 @@ def hhbtag(
         jets.mass / jets.pt,
         jets.energy / jets.pt,
         abs(jets.eta - htt.eta),
-        jets.btagDeepFlavB,
+        (jets.btagDeepFlavB if self.hhbtag_version == "v2" else jets.btagPNetB),
         jets.delta_phi(htt),
-        jet_shape * (self.config_inst.campaign.x.year),
-        jet_shape * (events[event_mask].channel_id - 1),
+        jet_shape * (self.hhbtag_campaign),
+        jet_shape * self.hhbtag_channel_map[events[event_mask].channel_id],
         jet_shape * htt.pt,
         jet_shape * htt.eta,
         jet_shape * htt.delta_phi(met),
@@ -152,22 +153,71 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     """
     Sets up the two HHBtag TF models.
     """
-    tf = maybe_import("tensorflow")
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    import tensorflow as tf
+
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
 
     # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
     bundle = reqs["external_files"]
+
+    # unpack repo
+    repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
     arc = bundle.files.hh_btag_repo
-    repo_dir = bundle.files_dir.child("hh_btag_repo", type="d")
     arc.load(repo_dir, formatter="tar")
-    repo_dir = repo_dir.child(repo_dir.listdir(pattern="HHbtag-*")[0])
 
     # get the version of the external file
     self.hhbtag_version = self.config_inst.x.external_files["hh_btag_repo"][1]
 
     # define the model path
-    model_path = f"models/HHbtag_{self.hhbtag_version}_par"
-
+    model_dir = repo_dir.child("hh-btag-master/models")
+    model_path = f"HHbtag_{self.hhbtag_version}_par"
     # save both models (even and odd event numbers)
     with self.task.publish_step("loading hhbtag models ..."):
-        self.hhbtag_model_even = tf.saved_model.load(repo_dir.child(f"{model_path}_0").path)
-        self.hhbtag_model_odd = tf.saved_model.load(repo_dir.child(f"{model_path}_1").path)
+        self.hhbtag_model_even = tf.saved_model.load(model_dir.child(f"{model_path}_0").path)
+        self.hhbtag_model_odd = tf.saved_model.load(model_dir.child(f"{model_path}_1").path)
+
+    # prepare mappings for the HHBtag model
+    # (see links above for mapping information)
+    channel_map = {
+        self.config_inst.channels.n.etau.id: 1 if self.hhbtag_version == "v3" else 0,
+        self.config_inst.channels.n.mutau.id: 0 if self.hhbtag_version == "v3" else 1,
+        self.config_inst.channels.n.tautau.id: 2,
+        # for versions before v3, control channels were not used in the training, so we map them to
+        # the most similar analysis channel
+        self.config_inst.channels.n.ee.id: 4 if self.hhbtag_version == "v3" else 0,
+        self.config_inst.channels.n.mumu.id: 3 if self.hhbtag_version == "v3" else 1,
+        self.config_inst.channels.n.emu.id: 5 if self.hhbtag_version == "v3" else 0,
+    }
+    # convert to
+    self.hhbtag_channel_map = np.array([
+        channel_map.get(cid, np.nan)
+        for cid in range(max(channel_map.keys()) + 1)
+    ])
+
+    # campaign year mapping
+    campaign_key = (self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)
+    if self.hhbtag_version in ("v1", "v2") and self.config_inst.campaign.x.run == 3:
+        # note: we might want to drop this fallback once the new v3 model is validated
+        logger.debug("using '2018' as evaluation year for hhbtag model in run 3")
+        campaign_key = (2018, "")
+    self.hhbtag_campaign = {
+        (2016, "APV"): 2016,
+        (2016, ""): 2016,
+        (2017, ""): 2017,
+        (2018, ""): 2018,
+        (2022, ""): 0,
+        (2022, "EE"): 1,
+        (2023, ""): 2,
+        (2023, "BPix"): 3,
+    }[campaign_key]
+
+    # validate the met name
+    hhbtag_met_name = "PuppiMET" if self.hhbtag_version == "v3" else "MET"
+    if self.config_inst.x.met_name != hhbtag_met_name:
+        raise ValueError(
+            f"hhbtag model {self.hhbtag_version} uses {hhbtag_met_name}, but config requests "
+            f"{self.config_inst.x.met_name}",
+        )

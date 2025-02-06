@@ -6,6 +6,7 @@ Histogram hooks.
 
 from __future__ import annotations
 
+import functools
 from collections import defaultdict
 
 import law
@@ -42,6 +43,13 @@ def add_hist_hooks(config: od.Config) -> None:
                 for unc_name, (unc_values_up, unc_values_down) in num.uncertainties.items()
             },
         )
+
+    def remove_data(task, hists):
+        if not hists:
+            return hists
+
+        # remove data histograms
+        return {p: h for p, h in hists.items() if not p.is_data}
 
     def qcd_estimation(task, hists):
         if not hists:
@@ -201,7 +209,12 @@ def add_hist_hooks(config: od.Config) -> None:
 
         return hists
 
-    def flat_s(task, hists: dict[od.Process, hist.Histogram]) -> dict[od.Process, hist.Histogram]:
+    def flat_s(
+        task,
+        hists: dict[od.Process, hist.Histogram],
+        signal_process_name: str = "",
+        n_bins: int = 10,
+    ) -> dict[od.Process, hist.Histogram]:
         """Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
 
         :param task: task instance that contains the process informations
@@ -259,6 +272,7 @@ def add_hist_hooks(config: od.Config) -> None:
                     np.flip(number_of_equivalent_bins, axis=-1),
                     cumulative_bin_yield,
                 )
+
             # prepare parameters
             low_edge, max_edge = 0, 1
             bin_edges = [max_edge]
@@ -286,11 +300,10 @@ def add_hist_hooks(config: od.Config) -> None:
             num_events = len(cumulu_y_signal)
 
             # prepare background
-
             for process, histogram in background_histograms.items():
-                if process.name == "ttbar":
+                if process.has_tag("tt"):
                     tt_y, tt_num_eq, cumulu_tt_y = prepare_background(histogram)
-                elif process.name == "dy":
+                elif process.has_tag("dy"):
                     dy_y, dy_num_eq, cumulu_dy_y = prepare_background(histogram)
 
             # start binning
@@ -433,15 +446,18 @@ def add_hist_hooks(config: od.Config) -> None:
 
             return new_hist
 
-        import hist
-        n_bins = 10
         # find signal histogram for which you will optimize, only 1 signal process is allowed
+        signal_proc = None
+        signal_hist = None
         background_hists = {}
         for process, histogram in hists.items():
-            if process.has_tag("signal"):
-                signal_proc = process
-                signal_hist = histogram
-            else:
+            if process.has_tag("signal") and (signal_process_name in (process.name, "")):
+                if signal_proc:
+                    logger.warning("more than one signal process found, use the first one")
+                else:
+                    signal_proc = process
+                    signal_hist = histogram
+            elif process.is_mc:
                 background_hists[process] = histogram
 
         if not signal_proc:
@@ -450,19 +466,23 @@ def add_hist_hooks(config: od.Config) -> None:
 
         # 1. preparation
         # get the leaf categories (e.g. {etau,mutau}__os__iso)
-        leaf_cats = task.config_inst.get_category(task.branch_data.category).get_leaf_categories()
+        category_inst = task.config_inst.get_category(task.branch_data.category)
+        leaf_cats = (
+            [category_inst]
+            if category_inst.is_leaf_category
+            else category_inst.get_leaf_categories()
+        )
+
+        # filter categories not existing in histogram
+        cat_ids_locations = [hist.loc(c.id) for c in leaf_cats if c.id in signal_hist.axes["category"]]
 
         # sum over different leaf categories
-        cat_ids_locations = [hist.loc(category.id) for category in leaf_cats]
-        combined_signal_hist = signal_hist[{"category": cat_ids_locations}]
-        combined_signal_hist = combined_signal_hist[{"category": sum}]
-        # remove shift axis, since its always nominal
+        combined_signal_hist = signal_hist[{"category": cat_ids_locations}][{"category": sum}]
         combined_signal_hist = combined_signal_hist[{"shift": hist.loc(0)}]
 
         # same for background
         for process, histogram in background_hists.items():
-            combined_background_hist = histogram[{"category": cat_ids_locations}]
-            combined_background_hist = combined_background_hist[{"category": sum}]
+            combined_background_hist = histogram[{"category": cat_ids_locations}][{"category": sum}]
             combined_background_hist = combined_background_hist[{"shift": hist.loc(0)}]
             background_hists[process] = combined_background_hist
 
@@ -486,6 +506,8 @@ def add_hist_hooks(config: od.Config) -> None:
         return hists
 
     config.x.hist_hooks = {
+        "blind": remove_data,
         "qcd": qcd_estimation,
         "flat_s": flat_s,
+        "flat_s_kl1_n10": functools.partial(flat_s, signal_process_name="hh_ggf_hbb_htt_kl1_kt1", n_bins=10),
     }

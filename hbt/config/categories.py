@@ -9,6 +9,7 @@ import functools
 import order as od
 
 from columnflow.config_util import add_category, create_category_combinations
+from columnflow.types import Any
 
 
 def add_categories(config: od.Config) -> None:
@@ -30,21 +31,27 @@ def add_categories(config: od.Config) -> None:
     # qcd regions
     _add_category(config, name="os", id=10, selection="cat_os", label="OS", tags={"os"})
     _add_category(config, name="ss", id=11, selection="cat_ss", label="SS", tags={"ss"})
-    _add_category(config, name="iso", id=12, selection="cat_iso", label=r"$\tau_{h,2} iso$", tags={"iso"})
-    _add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"$\tau_{h,2} non-iso$", tags={"noniso"})  # noqa: E501
+    _add_category(config, name="iso", id=12, selection="cat_iso", label=r"iso", tags={"iso"})
+    _add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"non-iso", tags={"noniso"})  # noqa: E501
 
     # kinematic categories
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
     _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
+    _add_category(config, name="dy", id=210, selection="cat_dy", label="DY enriched")
+    _add_category(config, name="tt", id=220, selection="cat_tt", label=r"$t\bar{t}$ enriched")
+
+    _add_category(config, name="res1b", id=300, selection="cat_res1b", label="res1b")
+    _add_category(config, name="res2b", id=301, selection="cat_res2b", label="res2b")
+    _add_category(config, name="boosted", id=310, selection="cat_boosted", label="boosted")
 
     #
     # build groups
     #
 
-    def name_fn(categories):
+    def name_fn(categories: dict[str, od.Category]) -> str:
         return "__".join(cat.name for cat in categories.values() if cat)
 
-    def kwargs_fn(categories, add_qcd_group=True):
+    def kwargs_fn(categories: dict[str, od.Category], add_qcd_group: bool = True) -> dict[str, Any]:
         # build auxiliary information
         aux = {}
         if add_qcd_group:
@@ -76,11 +83,18 @@ def add_categories(config: od.Config) -> None:
             config.get_category("etau"), config.get_category("mutau"), config.get_category("tautau"),
         ],
         # kinematic regions in the middle (to be extended)
-        "kin": [config.get_category("incl"), config.get_category("2j")],
+        "kin": [
+            config.get_category("incl"),
+            config.get_category("2j"),
+            config.get_category("res1b"),
+            config.get_category("res2b"),
+            config.get_category("boosted"),
+        ],
         # qcd regions last
         "sign": [config.get_category("os"), config.get_category("ss")],
         "tau2": [config.get_category("iso"), config.get_category("noniso")],
     }
+
     create_category_combinations(
         config=config,
         categories=main_categories,
@@ -95,13 +109,28 @@ def add_categories(config: od.Config) -> None:
             config.get_category("ee"), config.get_category("mumu"), config.get_category("emu"),
         ],
         # kinematic regions in the middle (to be extended)
-        "kin": [config.get_category("incl"), config.get_category("2j")],
+        "kin": [config.get_category("incl"), config.get_category("dy"), config.get_category("tt")],
         # relative sign last
         "sign": [config.get_category("os")],
     }
+
+    def skip_fn_ctrl(categories: dict[str, od.Category]) -> bool:
+        if "channel" not in categories or "kin" not in categories:
+            return False
+        ch_cat = categories["channel"]
+        kin_cat = categories["kin"]
+        # skip dy in emu
+        if kin_cat.name == "dy" and ch_cat.name == "emu":
+            return True
+        # skip tt in ee/mumu
+        if kin_cat.name == "tt" and ch_cat.name in ("ee", "mumu"):
+            return True
+        return False
+
     create_category_combinations(
         config=config,
         categories=control_categories,
         name_fn=name_fn,
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=False),
+        skip_fn=skip_fn_ctrl,
     )
