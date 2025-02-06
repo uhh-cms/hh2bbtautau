@@ -1119,6 +1119,7 @@ def add_config(
         cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape")
         add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_" + "{direction}"})
 
+    # TODO: add shifts trigger scale factors
     cfg.add_shift(name="tautau_trigger_up", id=80, type="shape")
     cfg.add_shift(name="tautau_trigger_down", id=81, type="shape")
     add_shift_aliases(cfg, "tautau_trigger", {"tau_trigger_weight": "tau_trigger_weight_tautau_{direction}"})

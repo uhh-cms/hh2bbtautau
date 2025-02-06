@@ -2,6 +2,10 @@
 
 """
 Custom trigger scale factor production.
+
+Note : The trigger weights producers multiply the sfs for all objects in an event to get the total
+trigger scale factor of the event. Since we might want to use different objects in different channels,
+we will derive the trigger weights producers for each channel separately to apply the correct masks.
 """
 
 import functools
@@ -145,7 +149,7 @@ def reshape_masked_to_oneslike_original(masked_array: ak.Array, mask: ak.Array) 
     return oneslike_original
 
 
-def calculate_ditrigger_efficiency(
+def calculate_correlated_ditrigger_efficiency(
     single_triggered,
     cross_triggered,
     single_trigger_effs,
@@ -282,7 +286,7 @@ def etau_mutau_trigger_weights(
         cross_etau_trigger_mc_efficiencies = events.cross_etau_trigger_mc_effs
 
         # compute the trigger weights
-        muon_trigger_efficiency_data = calculate_ditrigger_efficiency(
+        muon_trigger_efficiency_data = calculate_correlated_ditrigger_efficiency(
             single_muon_triggered,
             cross_muon_triggered,
             single_muon_trigger_data_efficiencies,
@@ -290,7 +294,7 @@ def etau_mutau_trigger_weights(
             cross_mutau_trigger_data_efficiencies,
         )
 
-        electron_trigger_efficiency_data = calculate_ditrigger_efficiency(
+        electron_trigger_efficiency_data = calculate_correlated_ditrigger_efficiency(
             single_electron_triggered,
             cross_electron_triggered,
             single_electron_trigger_data_efficiencies,
@@ -298,7 +302,7 @@ def etau_mutau_trigger_weights(
             cross_etau_trigger_data_efficiencies,
         )
 
-        muon_trigger_efficiency_mc = calculate_ditrigger_efficiency(
+        muon_trigger_efficiency_mc = calculate_correlated_ditrigger_efficiency(
             single_muon_triggered,
             cross_muon_triggered,
             single_muon_trigger_mc_efficiencies,
@@ -306,7 +310,7 @@ def etau_mutau_trigger_weights(
             cross_mutau_trigger_mc_efficiencies,
         )
 
-        electron_trigger_efficiency_mc = calculate_ditrigger_efficiency(
+        electron_trigger_efficiency_mc = calculate_correlated_ditrigger_efficiency(
             single_electron_triggered,
             cross_electron_triggered,
             single_electron_trigger_mc_efficiencies,
@@ -331,30 +335,44 @@ def etau_mutau_trigger_weights(
 ee_trigger_weights = electron_trigger_weights.derive(
     "ee_trigger_weights",
     cls_dict={
-        "weight_name": "ee_trigger_weight",
+        "weight_name": "ee_trigger_weights",
     },
 )
 
 mumu_trigger_weights = muon_trigger_weights.derive(
     "mumu_trigger_weights",
     cls_dict={
-        "weight_name": "mumu_trigger_weight",
+        "weight_name": "mumu_trigger_weights",
+    },
+)
+
+emu_e_trigger_weights = electron_trigger_weights.derive(
+    "emu_e_trigger_weights",
+    cls_dict={
+        "weight_name": "emu_e_trigger_weights",
+    },
+)
+
+emu_mu_trigger_weights = muon_trigger_weights.derive(
+    "emu_mu_trigger_weights",
+    cls_dict={
+        "weight_name": "emu_mu_trigger_weights",
     },
 )
 
 
 @producer(
     uses={
-        "channel_id", "trigger_ids", "emu_triggers_info",
-        electron_trigger_weights, muon_trigger_weights,
+        "channel_id", "trigger_ids",
+        emu_e_trigger_weights, emu_mu_trigger_weights,
     },
     produces={
-        "emu_trigger_weight",
+        "emu_trigger_weights",
     } | {
-        f"emu_trigger_weight_muon_{direction}"
+        f"emu_trigger_weights_muon_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"emu_trigger_weight_electron_{direction}"
+        f"emu_trigger_weights_electron_{direction}"
         for direction in ["up", "down"]
     },
 )
@@ -367,48 +385,46 @@ def emu_trigger_weights(
     Producer for emu trigger scale factors.
     """
 
-    # emu_triggers_info stores 0 if not in emu, 1 if only single mu, 2 if only single e, 3 if both
+    # find out which triggers are passed
+    mu_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    e_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    for trigger in self.config_inst.x.triggers:
+        if trigger.has_tag("single_mu"):
+            mu_trigger_passed = mu_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+        if trigger.has_tag("single_e"):
+            e_trigger_passed = e_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+
     pass_muon = (
-        (events.channel_id == self.config_inst.channels.n.emu.id) &
-        ((events.emu_triggers_info == 1) | (events.emu_triggers_info == 3))
+        (events.channel_id == self.config_inst.channels.n.emu.id) & mu_trigger_passed
     )
 
     pass_electron = (
-        (events.channel_id == self.config_inst.channels.n.emu.id) &
-        ((events.emu_triggers_info == 2) | (events.emu_triggers_info == 3))
+        (events.channel_id == self.config_inst.channels.n.emu.id) & e_trigger_passed
     )
 
-    muon_mask = pass_muon & events.Muon.pt > 0.0
-    electron_mask = pass_electron & events.Electron.pt > 0.0
+    # create object masks for the triggered objects
+    muon_object_mask = pass_muon & (ak.local_index(events.Muon.pt) == 0)
+    electron_object_mask = pass_electron & (ak.local_index(events.Electron.pt) == 0)
 
-    events = self[electron_trigger_weights](events, electron_mask=electron_mask, **kwargs)
-    events = self[muon_trigger_weights](events, muon_mask=muon_mask, **kwargs)
+    # calculate the scale factors for the triggered objects, if the object was not triggered, the SF is 1
+    # therefore we can just multiply the SFs for the objects in the event
+    events = self[emu_e_trigger_weights](events, electron_mask=electron_object_mask, **kwargs)
+    events = self[emu_mu_trigger_weights](events, muon_mask=muon_object_mask, **kwargs)
 
-    # for postfix in ["", "_electron_up", "_electron_down", "_muon_up", "_muon_down"]:
-    for postfix in ["", "_up", "_down"]:
-        trigger_sf = ak.ones_like(events.channel_id, np.float32)
-
+    for postfix in ["", "_electron_up", "_electron_down", "_muon_up", "_muon_down"]:
         # start with the nominal case
         if postfix == "":
-            # get the trigger efficiencies
-            muon_sf = Route(f"muon_trigger_weight{postfix}").apply(events, 1)
-            electron_sf = Route(f"electron_trigger_weight{postfix}").apply(events, 1)
-
-            # calculate SFs
-            trigger_sf = ak.where(events.emu_triggers_info == 1, muon_sf, trigger_sf)
-        else:
-            # muon shifts
-            random_stuff = 0
-
+            trigger_sf = events.emu_e_trigger_weights * events.emu_mu_trigger_weights
+        elif postfix.startswith("_electron"):
+            shift = postfix.split("_")[-1]
             # electron shifts
-
-        muon_sf = Route(f"muon_trigger_weight{postfix}").apply(events, 1)
-        electron_sf = Route(f"electron_trigger_weight{postfix}").apply(events, 1)
-
-        # calculate SFs
-        trigger_sf = muon_sf * electron_sf
-
-        events = set_ak_column_f32(events, f"emu_trigger_weight{postfix}", trigger_sf)
+            trigger_sf = Route(f"emu_e_trigger_weights_{shift}").apply(events) * events.emu_mu_trigger_weights
+        elif postfix.startswith("_muon"):
+            shift = postfix.split("_")[-1]
+            trigger_sf = events.emu_e_trigger_weights * Route(f"emu_mu_trigger_weights_{shift}").apply(events)
+        else:
+            raise ValueError(f"Unknown postfix {postfix}")
+        events = set_ak_column_f32(events, f"emu_trigger_weights{postfix}", trigger_sf)
 
     return events
 
@@ -417,12 +433,12 @@ def emu_trigger_weights(
     uses={
         # etau_mutau_trigger_weights, tau_tau_trigger_weights,
         ee_trigger_weights,
-        mumu_trigger_weights,  # emu_trigger_weights,
+        mumu_trigger_weights, emu_trigger_weights,
     },
     produces={
         # etau_mutau_trigger_weights, tau_tau_trigger_weights,
         ee_trigger_weights,
-        mumu_trigger_weights,  # emu_trigger_weights,
+        mumu_trigger_weights, emu_trigger_weights,
     },
 )
 def trigger_weights(
@@ -441,14 +457,13 @@ def trigger_weights(
     # # tautau
     # events = self[tau_tau_trigger_weights](events, **kwargs)
 
-    # # ee and mumu
-    from IPython import embed; embed(header="trigger scale factors")
-    ee_mask = (events.channel_id == self.config_inst.channels.n.ee.id) & events.Electron.pt > 0.0
-    mumu_mask = (events.channel_id == self.config_inst.channels.n.mumu.id) & events.Muon.pt > 0.0
+    # ee and mumu
+    ee_mask = (events.channel_id == self.config_inst.channels.n.ee.id) & (ak.local_index(events.Electron.pt) == 0)
+    mumu_mask = (events.channel_id == self.config_inst.channels.n.mumu.id) & (ak.local_index(events.Muon.pt) == 0)
     events = self[ee_trigger_weights](events, electron_mask=ee_mask, **kwargs)
     events = self[mumu_trigger_weights](events, muon_mask=mumu_mask, **kwargs)
 
-    # # emu
-    # events = self[emu_trigger_weights](events, **kwargs)
+    # emu
+    events = self[emu_trigger_weights](events, **kwargs)
 
     return events
