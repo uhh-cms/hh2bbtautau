@@ -334,7 +334,7 @@ def add_hist_hooks(config: od.Config) -> None:
 
                 # Background constraints
                 while next_idx < num_events:
-                    tt# get the number of monte carlo tt and dy events
+                    # get the number of monte carlo tt and dy events
                     tt_num_events = get_integral(tt_num_eq, next_idx, offset)
                     dy_num_events = get_integral(tt_num_eq, next_idx, offset)
                     tt_yield = get_integral(cumulu_tt_y, next_idx, offset)
@@ -493,6 +493,7 @@ def add_hist_hooks(config: od.Config) -> None:
             background_histograms=background_hists,
             n_bins=n_bins,
         )
+
         # 3. apply to hists
         for process, histogram in hists.items():
             hists[process] = apply_edges(
@@ -501,6 +502,7 @@ def add_hist_hooks(config: od.Config) -> None:
                 flat_s_indices,
                 task.variables[0],
             )
+
         return hists
 
     config.x.hist_hooks = {
