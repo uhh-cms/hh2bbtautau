@@ -1,9 +1,11 @@
+from __future__ import annotations
 import law.decorator
 from columnflow.tasks.union import UniteColumns, UniteColumnsWrapper
 from columnflow.util import dev_sandbox, DotDict, maybe_import
 from columnflow.tasks.framework.remote import RemoteWorkflow
 from columnflow.tasks.framework.base import Requirements
 from columnflow.tasks.selection import MergeSelectionStats
+from columnflow.types import Callable
 
 from hbt.tasks.base import HBTTask
 # from hbt.ml.pytorch_util import ListDataset, MapAndCollate
@@ -120,36 +122,13 @@ class HBTPytorchTask(
     @law.decorator.safe_output
     @law.decorator.localize(input=True, output=True)
     def run(self):
+        from hbt.tasks.studies.torch_util import (
+            NodesDataLoader, ListDataset
+        )
+        from torch.utils.data import default_collate
         import torchdata.nodes as tn
-        from torch.utils.data import RandomSampler, SequentialSampler, default_collate, Dataset
-        from torchdata.nodes import MultiNodeWeightedSampler, IterableWrapper
-
-        class ListDataset(Dataset):
-
-            def __init__(self, len: int, prefix: str = "data"):
-                self.len = len
-                self.prefix = prefix
-            
-            def __len__(self):
-                return self.len
-            
-            def __getitem__(self, i: int) -> str:
-                return f"{self.prefix}_{i}"
-            
-        class MapAndCollate:
-            """A simple transform that takes a batch of indices, maps with dataset, and then applies
-            collate.
-            TODO: make this a standard utility in torchdata.nodes
-            """
-            
-            def __init__(self, dataset, collate_fn):
-                self.dataset = dataset
-                self.collate_fn = collate_fn
-                
-            def __call__(self, batch_of_indices: list[int]):
-                batch = [self.dataset[i] for i in batch_of_indices]
-                return self.collate_fn(batch)
-
+        from torchdata.nodes import MultiNodeWeightedSampler
+        
         print("hello!")
 
         inputs = self.input()
@@ -157,53 +136,74 @@ class HBTPytorchTask(
         signals = ["hh_ggf_hbb_htt_kl1_kt1_powheg"]
         backgrounds = ["tt_sl_powheg"]
 
-        signal_targets = [inputs.events[s].run3_2022_postEE_limited.collection for s in signals]
-        backgrounds_targets = [inputs.events[b].run3_2022_postEE_limited.collection for b in backgrounds]
+        configs = self.configs
 
-        signal_dfs = dd.read_parquet(
-            [
-                t.path
-                for collections in signal_targets
-                for targets in collections.targets.values()
-                for t in targets.values() 
-            ]
-        )
-        background_dfs = dd.read_parquet(
-            [
-                t.path
-                for collections in backgrounds_targets
-                for targets in collections.targets.values()
-                for t in targets.values() 
-            ]
-        )
+        # signal_targets = [inputs.events[s][configs[0]].collection for s in signals]
+        # backgrounds_targets = [inputs.events[b][configs[0]].collection for b in backgrounds]
+
+        # signal_dfs = dd.read_parquet(
+        #     [
+        #         t.path
+        #         for collections in signal_targets
+        #         for targets in collections.targets.values()
+        #         for t in targets.values() 
+        #     ]
+        # )
+        # background_dfs = dd.read_parquet(
+        #     [
+        #         t.path
+        #         for collections in backgrounds_targets
+        #         for targets in collections.targets.values()
+        #         for t in targets.values() 
+        #     ]
+        # )
 
         #### test case
 
         data_s = ListDataset(5, "signal")
         data_b = ListDataset(40, "background")
 
-        foo_s = RandomSampler(data_s)
-        foo_b = RandomSampler(data_b)
+        # foo_s = RandomSampler(data_s)
+        # foo_b = RandomSampler(data_b)
 
-        foo_s = tn.Batcher(tn.SamplerWrapper(foo_s), batch_size=20, drop_last=False)
-        foo_b = tn.Batcher(tn.SamplerWrapper(foo_b), batch_size=20, drop_last=False)
-        mapping_s = MapAndCollate(data_s, default_collate)
-        mapping_b = MapAndCollate(data_b, default_collate)
+        # foo_s = tn.Batcher(tn.SamplerWrapper(foo_s), batch_size=20, drop_last=False)
+        # foo_b = tn.Batcher(tn.SamplerWrapper(foo_b), batch_size=20, drop_last=False)
+        # mapping_s = MapAndCollate(data_s, default_collate)
+        # mapping_b = MapAndCollate(data_b, default_collate)
 
-        node_s = tn.ParallelMapper(
-            foo_s,
-            map_fn=mapping_s,
+        # node_s = tn.ParallelMapper(
+        #     foo_s,
+        #     map_fn=mapping_s,
+        #     num_workers=1,
+        #     in_order=True,
+        #     method="process",
+        # )
+
+        # node_b = tn.ParallelMapper(
+        #     foo_b,
+        #     map_fn=mapping_b,
+        #     num_workers=1,
+        #     in_order=True,
+        #     method="process",
+        # )
+        node_s = NodesDataLoader(
+            data_s,
+            batch_size=20,
+            shuffle=True,
             num_workers=1,
-            in_order=True,
-            method="process",
+            collate_fn=default_collate,
+            pin_memory=False,
+            drop_last=False,
         )
 
-        node_b = tn.ParallelMapper(
-            foo_b,
-            map_fn=mapping_b,
+        node_b = NodesDataLoader(
+            data_b,
+            batch_size=20,
+            shuffle=True,
             num_workers=1,
-            in_order=True,
-            method="process",
+            collate_fn=default_collate,
+            pin_memory=False,
+            drop_last=False,
         )
 
         node_dict = {"signal": node_s, "bkg": node_b}
@@ -212,7 +212,12 @@ class HBTPytorchTask(
 
         node_equal = MultiNodeWeightedSampler(node_dict, weight_dict)
 
+        # for multinominal batches, simply batch this node
+        batched_node = tn.Batcher(node_equal, batch_size=20, drop_last=False)
 
+        # down-sides of this approach:
+        # - number of batches can vary
+        # - batches are not balanced - only average over all batches is balanced
 
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
         # https://discuss.pytorch.org/t/proper-way-of-using-weightedrandomsampler/73147
