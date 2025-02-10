@@ -123,7 +123,7 @@ def electron_selection(
         mva_iso_wp90 = events.Electron.mvaFall17V2Iso_WP90
 
     # default electron mask
-    default_mask = None
+    analysis_mask = None
     control_mask = None
     if is_single or is_cross:
         min_pt = 26.0 if is_2016 else (31.0 if is_single else 25.0)
@@ -146,7 +146,7 @@ def electron_selection(
 
         # control mask for the electron selection
         control_mask = default_mask & (events.Electron.pt > 24)
-        default_mask = default_mask & (events.Electron.pt > min_pt)
+        analysis_mask = default_mask & (events.Electron.pt > min_pt)
 
     # veto electron mask (must be trigger independent!)
     veto_mask = (
@@ -157,7 +157,7 @@ def electron_selection(
         (events.Electron.pt > 10.0)
     )
 
-    return default_mask, control_mask, veto_mask
+    return analysis_mask, control_mask, veto_mask
 
 
 @electron_selection.init
@@ -222,7 +222,7 @@ def muon_selection(
     is_cross = trigger.has_tag("cross_mu_tau")
 
     # default muon mask
-    default_mask = None
+    analysis_mask = None
     control_mask = None
     if is_single or is_cross:
         if is_2016:
@@ -237,7 +237,7 @@ def muon_selection(
             (events.Muon.pfRelIso04_all < 0.15)
         )
         control_mask = default_mask & (events.Muon.pt > 20)
-        default_mask = default_mask & (events.Muon.pt > min_pt)
+        analysis_mask = default_mask & (events.Muon.pt > min_pt)
 
     # veto muon mask (must be trigger independent!)
     veto_mask = (
@@ -249,7 +249,7 @@ def muon_selection(
         (events.Muon.pt > 10)
     )
 
-    return default_mask, control_mask, veto_mask
+    return analysis_mask, control_mask, veto_mask
 
 
 @selector(
