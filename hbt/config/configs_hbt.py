@@ -554,9 +554,7 @@ def add_config(
         "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "default": [
-            *dijet,
-            *dilep,
-            *hh,
+            *dijet, *dilep, *hh,
             "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
@@ -565,9 +563,7 @@ def add_config(
 
     # shift groups for conveniently looping over certain shifts
     # (used during plotting)
-    cfg.x.shift_groups = {
-
-    }
+    cfg.x.shift_groups = {}
 
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
@@ -1096,7 +1092,7 @@ def add_config(
     # TODO: energy corrections are currently only available for 2022 (Jan 2025)
     #       include them when available
     if run == 3 and year == 2022:
-        logger.info("adding ees and eer shifts")
+        logger.debug("adding ees and eer shifts")
         cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
         cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
         add_shift_aliases(
@@ -1216,8 +1212,6 @@ def add_config(
     add_external("jet_veto_map", (f"{json_mirror}/POG/JME/{json_pog_era}/jetvetomaps.json.gz", "v1"))
     # btag scale factor
     add_external("btag_sf_corr", (f"{json_mirror}/POG/BTV/{json_pog_era}/btagging.json.gz", "v1"))
-    # hh-btag repository (lightweight) with TF saved model directories
-    add_external("hh_btag_repo", ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"))  # noqa
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
@@ -1235,11 +1229,16 @@ def add_config(
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # met phi correction
         add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
+        # hh-btag repository with TF saved model directories trained on Run2 UL samples
+        add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v2"))  # noqa
+
     elif run == 3:
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+        # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
+        add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v3"))  # noqa
 
         # TODO: electron (and photon) energy corrections and smearing are only available for 2022
         #       include them when available
@@ -1323,8 +1322,10 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        if dataset.has_tag("ttbar"):
-            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        # skipped for now
+        # if dataset.has_tag("ttbar"):
+        #     dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        pass
 
     cfg.x.shift_groups = {
         "jec": [
@@ -1359,7 +1360,7 @@ def add_config(
     }
 
     ################################################################################################
-    # external configs: channels, categories, met filters, triggers, variables, hist hooks
+    # external configs: channels, categories, met filters, triggers, variables
     ################################################################################################
 
     # channels
@@ -1401,9 +1402,22 @@ def add_config(
     else:
         raise False
 
-    # add hist hooks
-    from hbt.config.hist_hooks import add_hist_hooks
-    add_hist_hooks(cfg)
+    ################################################################################################
+    # hist hooks
+    ################################################################################################
+
+    cfg.x.hist_hooks = DotDict()
+
+    # simple blinding
+    cfg.x.hist_hooks.blind = lambda task, hists: {p: h for p, h in hists.items() if not p.is_data}
+
+    # qcd estimation
+    from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
+    add_qcd_hooks(cfg)
+
+    # binning
+    from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
+    add_binning_hooks(cfg)
 
     ################################################################################################
     # LFN settings
