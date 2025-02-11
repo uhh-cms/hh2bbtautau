@@ -15,7 +15,8 @@ from hbt.production.weights import (
     normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight,
 )
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
-from hbt.production.tau import tau_weights, trigger_weights
+from hbt.production.tau import tau_weights
+from hbt.production.trigger_sf import trigger_weights
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
 
 ak = maybe_import("awkward")
@@ -84,7 +85,10 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 @default.init
 def default_init(self: Producer) -> None:
     if self.produce_weights:
-        weight_producers = {tau_weights, electron_weights, muon_weights, trigger_weights}
+        weight_producers = {
+            tau_weights, electron_weights, muon_weights,
+            trigger_weights,
+        }
         self.uses |= weight_producers
         self.produces |= weight_producers
 
