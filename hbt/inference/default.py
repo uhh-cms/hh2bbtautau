@@ -33,8 +33,7 @@ def default(self):
     proc_map = dict([
         *[
             (f"hh_ggf_hbb_htt_kl{kl}_kt1", f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt")
-            # for kl in ["0", "1", "2p45", "5"]
-            for kl in ["1"]
+            for kl in ["0", "1", "2p45", "5"]
         ],
         ("tt", "ttbar"),
         ("ttv", "ttbarV"),
@@ -50,6 +49,7 @@ def default(self):
         ("h_ggf", "ggH_htt"),
         ("h_vbf", "qqH_htt"),
         ("tth", "ttH_hbb"),
+        ("qcd", "QCD"),
     ])
 
     #
@@ -61,11 +61,14 @@ def default(self):
             self.add_category(
                 f"cat_{campaign_key}_{ch}_{cat}",
                 config_category=f"{ch}__{cat}__os__iso",
-                config_variable="res_dnn_hh",
-                # config_data_datasets=["data_*"],
+                config_variable="res_dnn_hh_fine",
+                config_data_datasets=["data_*"],
                 data_from_processes=[
                     combine_name for proc_name, combine_name in proc_map.items()
-                    if not self.config_inst.get_process(proc_name).has_tag("nonresonant_signal")
+                    if (
+                        not self.config_inst.get_process(proc_name).has_tag("nonresonant_signal") and
+                        proc_name != "qcd"
+                    )
                 ],
                 mc_stats=10.0,
                 flow_strategy=FlowStrategy.move,
@@ -77,18 +80,22 @@ def default(self):
 
     for proc_name, combine_name in proc_map.items():
         proc_inst = self.config_inst.get_process(proc_name)
-        dataset_names = [dataset.name for dataset in find_datasets(proc_name)]
-        if not dataset_names:
-            logger.debug(
-                f"skipping process {proc_name} in inference model, no datasets found config "
-                f"{self.config_inst.name}",
-            )
-            continue
+        is_dynamic = proc_name == "qcd"
+        dataset_names = []
+        if not is_dynamic:
+            dataset_names = [dataset.name for dataset in find_datasets(proc_name)]
+            if not dataset_names:
+                logger.debug(
+                    f"skipping process {proc_name} in inference model {self.cls_name}, no matching "
+                    f"datasets found in config {self.config_inst.name}",
+                )
+                continue
         self.add_process(
             name=combine_name,
             config_process=proc_name,
             config_mc_datasets=dataset_names,
             is_signal=proc_inst.has_tag("nonresonant_signal"),
+            is_dynamic=is_dynamic,
         )
 
     #
@@ -105,9 +112,9 @@ def default(self):
 
     # parameter that is added by the HH physics model, representing kl-dependent QCDscale + mtop
     # uncertainties on the ggHH cross section
-    # self.add_parameter_to_group("THU_HH", "theory")
-    # self.add_parameter_to_group("THU_HH", "signal_norm_xs")
-    # self.add_parameter_to_group("THU_HH", "signal_norm_xsbr")
+    self.add_parameter_to_group("THU_HH", "theory")
+    self.add_parameter_to_group("THU_HH", "signal_norm_xs")
+    self.add_parameter_to_group("THU_HH", "signal_norm_xsbr")
 
     # theory uncertainties
     self.add_parameter(
@@ -131,20 +138,20 @@ def default(self):
         effect=(0.9, 1.1),
         group=["theory", "signal_norm_xsbr"],
     )
-    # self.add_parameter(
-    #     "pdf_gg",  # contains alpha_s
-    #     type=ParameterType.rate_gauss,
-    #     process="TT",
-    #     effect=1.042,
-    #     group=["theory"],
-    # )
-    # self.add_parameter(
-    #     "pdf_Higgs_ggHH",  # contains alpha_s
-    #     type=ParameterType.rate_gauss,
-    #     process="ggHH_*",
-    #     effect=1.023,
-    #     group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
-    # )
+    self.add_parameter(
+        "pdf_gg",  # contains alpha_s
+        type=ParameterType.rate_gauss,
+        process="TT",
+        effect=1.042,
+        group=["theory"],
+    )
+    self.add_parameter(
+        "pdf_Higgs_ggHH",  # contains alpha_s
+        type=ParameterType.rate_gauss,
+        process="ggHH_*",
+        effect=1.023,
+        group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
+    )
     # self.add_parameter(
     #     "pdf_Higgs_qqHH",  # contains alpha_s
     #     type=ParameterType.rate_gauss,
@@ -152,13 +159,13 @@ def default(self):
     #     effect=1.027,
     #     group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
     # )
-    # self.add_parameter(
-    #     "QCDscale_ttbar",
-    #     type=ParameterType.rate_gauss,
-    #     process="TT",
-    #     effect=(0.965, 1.024),
-    #     group=["theory"],
-    # )
+    self.add_parameter(
+        "QCDscale_ttbar",
+        type=ParameterType.rate_gauss,
+        process="TT",
+        effect=(0.965, 1.024),
+        group=["theory"],
+    )
     # self.add_parameter(
     #     "QCDscale_qqHH",
     #     type=ParameterType.rate_gauss,
