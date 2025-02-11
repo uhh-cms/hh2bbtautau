@@ -12,7 +12,7 @@ import functools
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
-from columnflow.columnar_util import set_ak_column, Route
+from columnflow.columnar_util import set_ak_column, Route, EMPTY_FLOAT
 from columnflow.production.cms.muon import muon_weights, muon_trigger_weights
 from columnflow.production.cms.electron import electron_weights, electron_trigger_weights
 
@@ -165,10 +165,10 @@ def calculate_correlated_ditrigger_efficiency(
         f"etau_trigger_weight_electron_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"mutau_trigger_weight_tau_{direction}"
+        f"mutau_trigger_weight_tau_mu_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"etau_trigger_weight_tau_{direction}"
+        f"etau_trigger_weight_tau_e_{direction}"
         for direction in ["up", "down"]
     },
 )
@@ -228,7 +228,6 @@ def etau_mutau_trigger_weights(
 
     # create all tau weights
     events = self[tau_trigger_sf_and_effs_cclub](events, **kwargs)
-    from IPython import embed; embed(header="trigger scale factors")
 
     for postfix in ["", "_up", "_down"]:
         # create the nominal case
@@ -236,16 +235,16 @@ def etau_mutau_trigger_weights(
             for channel in ["etau", "mutau"]:
                 if channel == "etau":
                     channel_id = self.config_inst.channels.n.etau.id
-                    single_trigger_lepton_data_efficiencies = single_trigger_electron_data_effs
-                    cross_trigger_lepton_data_efficiencies = cross_trigger_electron_data_effs
-                    single_trigger_lepton_mc_efficiencies = single_trigger_electron_mc_effs
-                    cross_trigger_lepton_mc_efficiencies = cross_trigger_electron_mc_effs
+                    single_trigger_lepton_data_efficiencies = events.single_trigger_electron_data_effs
+                    cross_trigger_lepton_data_efficiencies = events.cross_trigger_electron_data_effs
+                    single_trigger_lepton_mc_efficiencies = events.single_trigger_electron_mc_effs
+                    cross_trigger_lepton_mc_efficiencies = events.cross_trigger_electron_mc_effs
                 else:
                     channel_id = self.config_inst.channels.n.mutau.id
-                    single_trigger_lepton_data_efficiencies = single_trigger_muon_data_effs
-                    cross_trigger_lepton_data_efficiencies = cross_trigger_muon_data_effs
-                    single_trigger_lepton_mc_efficiencies = single_trigger_muon_mc_effs
-                    cross_trigger_lepton_mc_efficiencies = cross_trigger_muon_mc_effs
+                    single_trigger_lepton_data_efficiencies = events.single_trigger_muon_data_effs
+                    cross_trigger_lepton_data_efficiencies = events.cross_trigger_muon_data_effs
+                    single_trigger_lepton_mc_efficiencies = events.single_trigger_muon_mc_effs
+                    cross_trigger_lepton_mc_efficiencies = events.cross_trigger_muon_mc_effs
 
                 # tau efficiencies
                 cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_weight
@@ -275,7 +274,9 @@ def etau_mutau_trigger_weights(
                 # electron
                 trigger_sf = trigger_efficiency_data / trigger_efficiency_mc
 
-                events = set_ak_column_f32(events, f"{channel}_trigger_weight{postfix}", trigger_sf)
+                trigger_sf_no_nan = np.nan_to_num(trigger_sf, nan=EMPTY_FLOAT)
+
+                events = set_ak_column_f32(events, f"{channel}_trigger_weight{postfix}", trigger_sf_no_nan)
 
         else:
             # create all variations
@@ -305,10 +306,10 @@ def etau_mutau_trigger_weights(
 
                 elif channel == "etau" and uncert == "_tau_e":
                     channel_id = self.config_inst.channels.n.etau.id
-                    single_trigger_lepton_data_efficiencies = single_trigger_electron_data_effs
-                    cross_trigger_lepton_data_efficiencies = cross_trigger_electron_data_effs
-                    single_trigger_lepton_mc_efficiencies = single_trigger_electron_mc_effs
-                    cross_trigger_lepton_mc_efficiencies = cross_trigger_electron_mc_effs
+                    single_trigger_lepton_data_efficiencies = events.single_trigger_electron_data_effs
+                    cross_trigger_lepton_data_efficiencies = events.cross_trigger_electron_data_effs
+                    single_trigger_lepton_mc_efficiencies = events.single_trigger_electron_mc_effs
+                    cross_trigger_lepton_mc_efficiencies = events.cross_trigger_electron_mc_effs
 
                     # tau efficiencies
                     cross_trigger_tau_data_efficiencies = Route(
@@ -338,10 +339,10 @@ def etau_mutau_trigger_weights(
                     cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_weight
 
                 elif channel == "mutau" and uncert == "_tau_mu":
-                    single_trigger_lepton_data_efficiencies = single_trigger_muon_data_effs
-                    cross_trigger_lepton_data_efficiencies = cross_trigger_muon_data_effs
-                    single_trigger_lepton_mc_efficiencies = single_trigger_muon_mc_effs
-                    cross_trigger_lepton_mc_efficiencies = cross_trigger_muon_mc_effs
+                    single_trigger_lepton_data_efficiencies = events.single_trigger_muon_data_effs
+                    cross_trigger_lepton_data_efficiencies = events.cross_trigger_muon_data_effs
+                    single_trigger_lepton_mc_efficiencies = events.single_trigger_muon_mc_effs
+                    cross_trigger_lepton_mc_efficiencies = events.cross_trigger_muon_mc_effs
 
                     # tau efficiencies
                     cross_trigger_tau_data_efficiencies = Route(
@@ -378,7 +379,9 @@ def etau_mutau_trigger_weights(
                 # electron
                 trigger_sf = trigger_efficiency_data / trigger_efficiency_mc
 
-                events = set_ak_column_f32(events, f"{channel}_trigger_weight{uncert}{postfix}", trigger_sf)
+                trigger_sf_no_nan = np.nan_to_num(trigger_sf, nan=EMPTY_FLOAT)
+
+                events = set_ak_column_f32(events, f"{channel}_trigger_weight{uncert}{postfix}", trigger_sf_no_nan)
     return events
 
 
