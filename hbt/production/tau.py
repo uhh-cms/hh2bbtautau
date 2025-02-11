@@ -266,6 +266,18 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     ch_mutau = self.config_inst.get_channel("mutau")
     ch_tautau = self.config_inst.get_channel("tautau")
 
+    # find out which tautau triggers are passed
+    tautau_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    tautaujet_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    tautauvbf_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    for trigger in self.config_inst.x.triggers:
+        if trigger.has_tag("cross_tau_tau"):
+            tautau_trigger_passed = tautau_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+        if trigger.has_tag("cross_tau_tau_jet"):
+            tautaujet_trigger_passed = tautaujet_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+        if trigger.has_tag("cross_tau_tau_vbf"):
+            tautauvbf_trigger_passed = tautauvbf_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+
     # helper to bring a flat sf array into the shape of taus, and multiply across the tau axis
     reduce_mul = lambda sf: ak.prod(layout_ak_array(sf, events.Tau.pt), axis=1, mask_identity=False)
 
@@ -279,25 +291,27 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # define channel / trigger dependent masks
     channel_id = events.channel_id
-    single_triggered = events.single_triggered
-    dm_mask = (
-        (events.Tau.decayMode == 0) |
-        (events.Tau.decayMode == 1) |
-        (events.Tau.decayMode == 10) |
-        (events.Tau.decayMode == 11)
+    cross_triggered = events.cross_triggered
+
+    default_tautau_mask = (
+        (channel_id == ch_tautau.id) &
+        ((ak.local_index(events.Tau) == 0) | (ak.local_index(events.Tau) == 1))
     )
+    # TODO: add additional phase space requirements for tautau, tautauvbf, tautaujet
     tautau_mask = flat_np_view(
-        dm_mask & (events.Tau.pt >= 40.0) & (channel_id == ch_tautau.id),  # ((ak.local_index(events.Tau) == 0) | (ak.local_index(events.Tau) == 1)),  # noqa
+        default_tautau_mask & tautau_trigger_passed,
         axis=1,
     )
+
     # not existing yet
-    # tautauvbf_mask = flat_np_view(dm_mask & (channel_id == ch_tautau.id), axis=1)
+    # tautaujet_mask = flat_np_view(default_tautau_mask & tautaujet_trigger_passed, axis=1)
+    # tautauvbf_mask = flat_np_view(default_tautau_mask & tautauvbf_trigger_passed, axis=1)
     etau_mask = flat_np_view(
-        dm_mask & (channel_id == ch_etau.id) & single_triggered & (events.Tau.pt >= 25.0),  # (ak.local_index(events.Tau) == 0)  # noqa
+        (channel_id == ch_etau.id) & cross_triggered & (ak.local_index(events.Tau) == 0),
         axis=1,
     )
     mutau_mask = flat_np_view(
-        dm_mask & (channel_id == ch_mutau.id) & single_triggered & (events.Tau.pt >= 25.0),  # (ak.local_index(events.Tau) == 0)  # noqa
+        (channel_id == ch_mutau.id) & cross_triggered & (ak.local_index(events.Tau) == 0),
         axis=1,
     )
 
@@ -307,6 +321,7 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         wp_config = self.config_inst.x.tau_trigger_working_points
         eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, corrtype_, syst)
         # corrtype: sf, eff_data, eff_mc
+        # from IPython import embed; embed(header="tau_trigger_weights")
         sf_nom[etau_mask] = self.trigger_corrector(*eval_args(etau_mask, "etau", "nom"))
         sf_nom[mutau_mask] = self.trigger_corrector(*eval_args(mutau_mask, "mutau", "nom"))
         sf_nom[tautau_mask] = self.trigger_corrector(*eval_args(tautau_mask, "ditau", "nom"))

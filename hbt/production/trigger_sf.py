@@ -178,8 +178,8 @@ def etau_mutau_trigger_weights(
     **kwargs,
 ) -> ak.Array:
     """
-    Producer for muon trigger scale factors derived by Jona Motta. Requires external files in the
-    config under ``muon_trigger_sf`` and ``cross_trigger_muon_sf``:
+    Producer for mutau and etau trigger scale factors derived by Jona Motta. Requires several external files and
+    SF configs in the analysis config, e.g.:
 
     .. code-block:: python
 
@@ -382,6 +382,38 @@ def etau_mutau_trigger_weights(
                 trigger_sf_no_nan = np.nan_to_num(trigger_sf, nan=EMPTY_FLOAT)
 
                 events = set_ak_column_f32(events, f"{channel}_trigger_weight{uncert}{postfix}", trigger_sf_no_nan)
+    return events
+
+
+@producer(
+    uses={
+        "channel_id", "trigger_ids",
+        tau_trigger_sf_and_effs_cclub,
+    },
+    produces={
+        "tautau_trigger_weight",
+    } | {
+        f"tautau_trigger_weight_{direction}"
+        for direction in ["up", "down"]
+    },
+)
+def tautau_trigger_weights(
+    self: Producer,
+    events: ak.Array,
+    **kwargs,
+) -> ak.Array:
+    """
+    Producer for tautau trigger scale factors derived by Jona Motta. Requires external files in the
+    config under ``muon_trigger_sf`` and ``cross_trigger_muon_sf``:
+
+    .. code-block:: python
+
+        cfg.x.external_files = DotDict.wrap({
+            "muon_trigger_sf": "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c/POG/MUO/2017_UL/muon_z.json.gz",  # noqa
+            "cross_trigger_muon_sf": "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c/POG/MUO/2017_UL/muon_z.json.gz",  # noqa
+        })
+    """
+
     return events
 
 
