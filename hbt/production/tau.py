@@ -230,11 +230,12 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
         "Tau.{pt,decayMode}",
     },
     produces={
-        "tau_trigger_weight",
+        f"tau_trigger_{corrtype_}_weight" for corrtype_ in ["sf", "eff_data", "eff_mc"]
     } | {
-        f"tau_trigger_weight_{ch}_{direction}"
+        f"tau_trigger_{corrtype_}_weight_{ch}_{direction}"
         for direction in ["up", "down"]
         for ch in ["etau", "mutau", "tautau"]  # TODO: add tautauvbf when existing
+        for corrtype_ in ["sf", "eff_data", "eff_mc"]
     },
     # only run on mc
     mc_only=True,
@@ -286,45 +287,52 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         (events.Tau.decayMode == 11)
     )
     tautau_mask = flat_np_view(
-        dm_mask & (events.Tau.pt >= 40.0) & (channel_id == ch_tautau.id),
+        dm_mask & (events.Tau.pt >= 40.0) & (channel_id == ch_tautau.id),  # ((ak.local_index(events.Tau) == 0) | (ak.local_index(events.Tau) == 1)),  # noqa
         axis=1,
     )
     # not existing yet
     # tautauvbf_mask = flat_np_view(dm_mask & (channel_id == ch_tautau.id), axis=1)
     etau_mask = flat_np_view(
-        dm_mask & (channel_id == ch_etau.id) & single_triggered & (events.Tau.pt >= 25.0),
+        dm_mask & (channel_id == ch_etau.id) & single_triggered & (events.Tau.pt >= 25.0),  # (ak.local_index(events.Tau) == 0)  # noqa
         axis=1,
     )
     mutau_mask = flat_np_view(
-        dm_mask & (channel_id == ch_mutau.id) & single_triggered & (events.Tau.pt >= 25.0),
+        dm_mask & (channel_id == ch_mutau.id) & single_triggered & (events.Tau.pt >= 25.0),  # (ak.local_index(events.Tau) == 0)  # noqa
         axis=1,
     )
 
     # start with flat ones
-    sf_nom = np.ones_like(pt, dtype=np.float32)
-    wp_config = self.config_inst.x.tau_trigger_working_points
-    eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, "sf", syst)
-    sf_nom[etau_mask] = self.trigger_corrector(*eval_args(etau_mask, "etau", "nom"))
-    sf_nom[mutau_mask] = self.trigger_corrector(*eval_args(mutau_mask, "mutau", "nom"))
-    sf_nom[tautau_mask] = self.trigger_corrector(*eval_args(tautau_mask, "ditau", "nom"))
+    for corrtype_ in ["sf", "eff_data", "eff_mc"]:
+        sf_nom = np.ones_like(pt, dtype=np.float32)
+        wp_config = self.config_inst.x.tau_trigger_working_points
+        eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, corrtype_, syst)
+        # corrtype: sf, eff_data, eff_mc
+        sf_nom[etau_mask] = self.trigger_corrector(*eval_args(etau_mask, "etau", "nom"))
+        sf_nom[mutau_mask] = self.trigger_corrector(*eval_args(mutau_mask, "mutau", "nom"))
+        sf_nom[tautau_mask] = self.trigger_corrector(*eval_args(tautau_mask, "ditau", "nom"))
 
-    # create and store weights
-    events = set_ak_column_f32(events, "tau_trigger_weight", reduce_mul(sf_nom))
+        # create and store weights
 
-    #
-    # compute varied trigger weights
-    #
+        events = set_ak_column_f32(events, f"tau_trigger_{corrtype_}_weight", reduce_mul(sf_nom))
 
-    for direction in ["up", "down"]:
-        for ch, ch_corr, mask in [
-            ("etau", "etau", etau_mask),
-            ("mutau", "mutau", mutau_mask),
-            ("tautau", "ditau", tautau_mask),
-            # ("tautauvbf", "ditauvbf", tautauvbf_mask),
-        ]:
-            sf_unc = sf_nom.copy()
-            sf_unc[mask] = self.trigger_corrector(*eval_args(mask, ch_corr, direction))
-            events = set_ak_column_f32(events, f"tau_trigger_weight_{ch}_{direction}", reduce_mul(sf_unc))
+        #
+        # compute varied trigger weights
+        #
+
+        for direction in ["up", "down"]:
+            for ch, ch_corr, mask in [
+                ("etau", "etau", etau_mask),
+                ("mutau", "mutau", mutau_mask),
+                ("tautau", "ditau", tautau_mask),
+                # ("tautauvbf", "ditauvbf", tautauvbf_mask),
+            ]:
+                sf_unc = sf_nom.copy()
+                sf_unc[mask] = self.trigger_corrector(*eval_args(mask, ch_corr, direction))
+                events = set_ak_column_f32(
+                    events,
+                    f"tau_trigger_{corrtype_}_weight_{ch}_{direction}",
+                    reduce_mul(sf_unc),
+                )
 
     return events
 

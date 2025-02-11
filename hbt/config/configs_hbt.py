@@ -841,22 +841,22 @@ def add_config(
             campaign=cmpgn,
             hlt_path="HLT_SF_Ele30_TightID",
         )
-        cfg.x.single_electron_trigger_data_effs_names = ElectronSFConfig(
+        cfg.x.single_trigger_electron_data_effs_names = ElectronSFConfig(
             correction="Electron-HLT-DataEff",
             campaign=cmpgn,
             hlt_path="HLT_SF_Ele30_TightID",
         )
-        cfg.x.single_electron_trigger_mc_effs_names = ElectronSFConfig(
+        cfg.x.single_trigger_electron_mc_effs_names = ElectronSFConfig(
             correction="Electron-HLT-McEff",
             campaign=cmpgn,
             hlt_path="HLT_SF_Ele30_TightID",
         )
-        cfg.x.cross_electron_trigger_data_effs_names = ElectronSFConfig(
+        cfg.x.cross_trigger_electron_data_effs_names = ElectronSFConfig(
             correction="Electron-HLT-DataEff",
             campaign=cmpgn,
             hlt_path="HLT_SF_Ele24_TightID",
         )
-        cfg.x.cross_electron_trigger_mc_effs_names = ElectronSFConfig(
+        cfg.x.cross_trigger_electron_mc_effs_names = ElectronSFConfig(
             correction="Electron-HLT-McEff",
             campaign=cmpgn,
             hlt_path="HLT_SF_Ele24_TightID",
@@ -882,16 +882,16 @@ def add_config(
         cfg.x.muon_trigger_sf_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
         )
-        cfg.x.single_muon_trigger_data_effs_names = MuonSFConfig(
+        cfg.x.single_trigger_muon_data_effs_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
         )
-        cfg.x.single_muon_trigger_mc_effs_names = MuonSFConfig(
+        cfg.x.single_trigger_muon_mc_effs_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
         )
-        cfg.x.cross_muon_trigger_data_effs_names = MuonSFConfig(
+        cfg.x.cross_trigger_muon_data_effs_names = MuonSFConfig(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
         )
-        cfg.x.cross_muon_trigger_mc_effs_names = MuonSFConfig(
+        cfg.x.cross_trigger_muon_mc_effs_names = MuonSFConfig(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
         )
 
@@ -1298,12 +1298,12 @@ def add_config(
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # muon trigger scale factors
         add_external("muon_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/temporary_MuHlt_abseta_pt.json", "v1"))  # noqa
-        add_external("cross_muon_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossMuTauHlt.json", "v1"))
+        add_external("cross_trigger_muon_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossMuTauHlt.json", "v1"))
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # electron trigger scale factors
         add_external("electron_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/electronHlt.json", "v1"))
-        add_external("cross_electron_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossEleTauHlt.json", "v1"))
+        add_external("cross_trigger_electron_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossEleTauHlt.json", "v1"))
         # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
         add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v3"))  # noqa
 
