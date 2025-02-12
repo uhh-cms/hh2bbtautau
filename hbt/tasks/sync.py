@@ -6,7 +6,7 @@ Tasks that create files for synchronization efforts with other frameworks.
 
 from __future__ import annotations
 
-from functools import reduce
+from functools import reduce, partial
 from operator import or_
 
 import luigi
@@ -249,6 +249,32 @@ class CreateSyncFiles(
             array = np.where(empty_mask, str(empty[np.uint64][0]), array)
             return array
 
+        def get_category_id(category_id: ak.Array, config_inst, category_replacement_map, axis=-1) -> ak.Array:
+            # Helper function to map leaf category ids ids specified in *category_replacement_map*.
+            def get_mapping(config_inst, demanded_categories):
+                # get all leaf ids for the required categories
+                all_categories = config_inst.get_category(-1).categories
+                categories = {category.name: category.id for category in all_categories}
+                mapping = {}
+                for cat_name in demanded_categories:
+                    leafs = config_inst.get_category(categories[cat_name]).get_leaf_categories()
+                    mapping[cat_name] = [category.id for category in leafs]
+                return mapping
+            root_category_map = get_mapping(config_inst, category_replacement_map.keys())
+            flat_category_view = np.asarray(ak.flatten(category_id, axis=axis))
+            output_array = np.zeros(shape=(len(category_id)), dtype=np.int32)
+            ak_layout = ak.num(category_id)
+
+            # replace ids with category ids by replacement
+            for cat_name, replacement_value in category_replacement_map.items():
+                # events can have multiple categories,
+                ids = root_category_map[cat_name]
+                mask = ak.any(
+                    ak.unflatten(np.isin(flat_category_view, ids), ak_layout), axis=axis,
+                )
+                output_array[mask] = replacement_value
+            return output_array
+
         # event chunk loop
         # optional filter to get only the events that overlap with given external LFN
         if self.filter_file:
@@ -290,6 +316,26 @@ class CreateSyncFiles(
 
             # insert leptons
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty[np.float32][1]})
+
+            # find ids for specific categories
+            cat_mapper = partial(
+                get_category_id,
+                category_id=events.category_ids,
+                config_inst=self.config_inst,
+                axis=-1,
+            )
+
+            kinematic_id = cat_mapper(category_replacement_map={
+                "res1b": 0,
+                "res2b": 1,
+                "boosted": 2},
+            )
+
+            particle_enriched_id = cat_mapper(category_replacement_map={
+                "dy": 0,
+                "tt": 1},
+            )
+
             # project into dataframe
             met_name = self.config_inst.x.met_name
             df = ak.to_dataframe({
@@ -299,6 +345,8 @@ class CreateSyncFiles(
                 "lumi": events.luminosityBlock,
                 # high-level events variables
                 "channel_id": events.channel_id,
+                "kinematic_id": kinematic_id,
+                "particle_enriched_id": particle_enriched_id,
                 "os": events.leptons_os * 1,
                 "iso": events.tau2_isolated * 1,
                 "deterministic_seed": uint64_to_str(events.deterministic_seed),
@@ -349,6 +397,17 @@ class CreateSyncFiles(
                         f"fatjet{i + 1}_eta": select(events.FatJet.eta, i),
                         f"fatjet{i + 1}_phi": select(events.FatJet.phi, i),
                         f"fatjet{i + 1}_mass": select(events.FatJet.mass, i),
+                    }
+                    for i in range(2)
+                )),
+                # hhbjets
+                **reduce(or_, (
+                    {
+                        f"hhbjet{i + 1}_pt": select(events.HHBJet.pt, i),
+                        f"hhbjet{i + 1}_eta": select(events.HHBJet.eta, i),
+                        f"hhbjet{i + 1}_phi": select(events.HHBJet.phi, i),
+                        f"hhbjet{i + 1}_mass": select(events.HHBJet.mass, i),
+                        f"hhbjet{i + 1}_hhbtag": select(events.HHBJet.hhbtag, i),
                     }
                     for i in range(2)
                 )),
