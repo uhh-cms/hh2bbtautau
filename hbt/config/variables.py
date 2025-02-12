@@ -170,7 +170,7 @@ def add_variables(config: od.Config) -> None:
         config,
         name="dy_weight",
         expression="dy_weight",
-        binning=(60, 0, 3),
+        binning=(200, 0.94, 1.01),
         x_title="DY weight",
     )
 
