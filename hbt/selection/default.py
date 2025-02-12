@@ -20,7 +20,7 @@ from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
-from columnflow.production.cms.dy import get_gen_dilepton
+from columnflow.production.cms.dy import gen_dilepton
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
 from columnflow.production.util import attach_coffea_behavior
@@ -89,14 +89,14 @@ def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
         jet_selection, mc_weight, pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet),
         process_ids, cutflow_features, increment_stats, attach_coffea_behavior,
         patch_ecalBadCalibFilter, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
-        IF_DATASET_IS_RUN3_DY(get_gen_dilepton),
+        IF_DATASET_IS_RUN3_DY(gen_dilepton),
 
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight,
         btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
         increment_stats, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
-        IF_DATASET_IS_RUN3_DY(get_gen_dilepton),
+        IF_DATASET_IS_RUN3_DY(gen_dilepton),
     },
     exposed=True,
 )
@@ -158,8 +158,8 @@ def default(
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
-        if self.has_dep(get_gen_dilepton):
-            events = self[get_gen_dilepton](events, **kwargs)
+        if self.has_dep(gen_dilepton):
+            events = self[gen_dilepton](events, **kwargs)
 
         # pdf weights
         if self.has_dep(pdf_weights):
