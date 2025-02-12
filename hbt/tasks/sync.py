@@ -6,7 +6,7 @@ Tasks that create files for synchronization efforts with other frameworks.
 
 from __future__ import annotations
 
-from functools import reduce, partial
+from functools import reduce
 from operator import or_
 
 import luigi
@@ -318,22 +318,14 @@ class CreateSyncFiles(
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty[np.float32][1]})
 
             # find ids for specific categories
-            cat_mapper = partial(
-                get_category_id,
+            category_id = get_category_id(
                 category_id=events.category_ids,
                 config_inst=self.config_inst,
+                category_replacement_map={
+                    "res1b": 0,
+                    "res2b": 1,
+                    "boosted": 2},
                 axis=-1,
-            )
-
-            kinematic_id = cat_mapper(category_replacement_map={
-                "res1b": 0,
-                "res2b": 1,
-                "boosted": 2},
-            )
-
-            particle_enriched_id = cat_mapper(category_replacement_map={
-                "dy": 0,
-                "tt": 1},
             )
 
             # project into dataframe
@@ -345,8 +337,7 @@ class CreateSyncFiles(
                 "lumi": events.luminosityBlock,
                 # high-level events variables
                 "channel_id": events.channel_id,
-                "kinematic_id": kinematic_id,
-                "particle_enriched_id": particle_enriched_id,
+                "category_id": category_id,
                 "os": events.leptons_os * 1,
                 "iso": events.tau2_isolated * 1,
                 "deterministic_seed": uint64_to_str(events.deterministic_seed),
