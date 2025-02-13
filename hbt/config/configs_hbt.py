@@ -863,7 +863,7 @@ def add_config(
         dy_order = "NLO"  # 'LO'= madgraph, 'NLO'= amcatnlo, 'NNLO'= powheg
         dy_era = f"{year}{dy_postfix}_{dy_order}"
 
-        cfg.x.dy_config = DrellYanConfig(
+        cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             order=dy_order,
             correction="DY_pTll_reweighting",
@@ -1255,9 +1255,9 @@ def add_config(
 
     elif run == 3:
         # DY reweighting
-        add_external("dy_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v1.json.gz", "v1"))  # noqa
+        add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v1.json.gz", "v1"))  # noqa
         # DY recoil corrections
-        add_external("dy_recoil", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v1.json.gz", "v1"))  # noqa
+        add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v1.json.gz", "v1"))  # noqa
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # electron scale factors
