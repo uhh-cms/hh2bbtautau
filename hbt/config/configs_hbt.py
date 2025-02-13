@@ -865,6 +865,7 @@ def add_config(
 
         cfg.x.dy_config = DrellYanConfig(
             era=dy_era,
+            order=dy_order,
             correction="DY_pTll_reweighting",
             unc_correction="DY_pTll_reweighting_N_uncertainty",
         )
