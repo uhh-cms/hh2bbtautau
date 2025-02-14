@@ -1179,6 +1179,17 @@ def add_config(
         },
     )
 
+    # dy shifts
+    cfg.x.dy_unc_names = []
+    for i in range(10):  # hardcoded number of uncertainties for 2022/23 DY reweighting
+        shift_name = (f"dy_weight{i + 1}")
+        cfg.x.dy_unc_names.append(shift_name)
+
+    for i, unc in enumerate(cfg.x.dy_unc_names):
+        cfg.add_shift(name=f"{unc}_up", id=330 + 2 * i, type="shape")
+        cfg.add_shift(name=f"{unc}_down", id=331 + 2 * i, type="shape")
+        add_shift_aliases(cfg, f"{unc}", {"dy_weight": f"{unc}_" + "{direction}"})
+
     ################################################################################################
     # external files
     ################################################################################################
