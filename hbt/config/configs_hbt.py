@@ -751,6 +751,9 @@ def add_config(
         },
     })
 
+    # trigger sf corrector
+    cfg.x.jet_trigger_corrector = "jetlegSFs"
+
     ################################################################################################
     # tau settings
     ################################################################################################
@@ -1323,6 +1326,10 @@ def add_config(
         add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_dir}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa
         # tau trigger scale factors
         add_external("tau_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json", "v1"))  # noqa
+
+        jet_tag = "preEE" if campaign.has_tag('preEE') else "postEE" if campaign.has_tag('postEE') else "preBPix" if campaign.has_tag('preBPix') else "postBPix" # noqa
+        # jet trigger scale factors
+        add_external("jet_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/ditaujet_jetleg_SFs_{jet_tag}.json", "v1"))  # noqa
 
     else:
         assert False

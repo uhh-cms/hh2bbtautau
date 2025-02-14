@@ -148,7 +148,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         sf_tau_dm10 = sf_nom.copy()
         tau_dm0_mask = tau_mask & (dm == 0)
         tau_dm1_mask = tau_mask & (dm == 1)
-        tau_dm10_mask = tau_mask & ((dm == 10) | (dm == 11))
+        tau_dm10_mask = tau_mask & ((dm == 10) | (dm == 11))  # why both in one?
         sf_tau_dm0[tau_dm0_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm0_mask, direction))
         sf_tau_dm1[tau_dm1_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm1_mask, direction))
         sf_tau_dm10[tau_dm10_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm10_mask, direction))
@@ -232,10 +232,13 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     produces={
         f"tau_trigger_{corrtype_}_weight" for corrtype_ in ["sf", "eff_data", "eff_mc"]
     } | {
-        f"tau_trigger_{corrtype_}_weight_{ch}_{direction}"
+        f"tau_trigger_{corrtype_}_weight_dm_{dm}_{ch}_{direction}"
         for direction in ["up", "down"]
-        for ch in ["etau", "mutau", "tautau"]  # TODO: add tautauvbf when existing
+        for ch in ["etau", "mutau", "tautau", "tautaujet"]  # TODO: add tautauvbf when existing
+        for dm in [0, 1, 10, 11]
         for corrtype_ in ["sf", "eff_data", "eff_mc"]
+    } | {
+        f"tau_trigger_{corrtype_}_weight_tautaujet" for corrtype_ in ["sf", "eff_data", "eff_mc"]
     },
     # only run on mc
     mc_only=True,
@@ -298,22 +301,18 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         ((ak.local_index(events.Tau) == 0) | (ak.local_index(events.Tau) == 1))
     )
     # TODO: add additional phase space requirements for tautau, tautauvbf, tautaujet
-    tautau_mask = flat_np_view(
-        default_tautau_mask & tautau_trigger_passed,
-        axis=1,
-    )
+    tautau_mask = default_tautau_mask & tautau_trigger_passed
+    flat_tautau_mask = flat_np_view(tautau_mask, axis=1)
+    tautaujet_mask = default_tautau_mask & tautaujet_trigger_passed
+    flat_tautaujet_mask = flat_np_view(tautaujet_mask, axis=1)
 
     # not existing yet
-    # tautaujet_mask = flat_np_view(default_tautau_mask & tautaujet_trigger_passed, axis=1)
     # tautauvbf_mask = flat_np_view(default_tautau_mask & tautauvbf_trigger_passed, axis=1)
-    etau_mask = flat_np_view(
-        (channel_id == ch_etau.id) & cross_triggered & (ak.local_index(events.Tau) == 0),
-        axis=1,
-    )
-    mutau_mask = flat_np_view(
-        (channel_id == ch_mutau.id) & cross_triggered & (ak.local_index(events.Tau) == 0),
-        axis=1,
-    )
+    etau_mask = (channel_id == ch_etau.id) & cross_triggered & (ak.local_index(events.Tau) == 0)
+    flat_etau_mask = flat_np_view(etau_mask, axis=1)
+
+    mutau_mask = (channel_id == ch_mutau.id) & cross_triggered & (ak.local_index(events.Tau) == 0)
+    flat_mutau_mask = flat_np_view(mutau_mask, axis=1)
 
     # start with flat ones
     for corrtype_ in ["sf", "eff_data", "eff_mc"]:
@@ -322,13 +321,17 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, corrtype_, syst)
         # corrtype: sf, eff_data, eff_mc
         # from IPython import embed; embed(header="tau_trigger_weights")
-        sf_nom[etau_mask] = self.trigger_corrector(*eval_args(etau_mask, "etau", "nom"))
-        sf_nom[mutau_mask] = self.trigger_corrector(*eval_args(mutau_mask, "mutau", "nom"))
-        sf_nom[tautau_mask] = self.trigger_corrector(*eval_args(tautau_mask, "ditau", "nom"))
+        sf_nom[flat_etau_mask] = self.tau_trig_corrector(*eval_args(flat_etau_mask, "etau", "nom"))
+        sf_nom[flat_mutau_mask] = self.tau_trig_corrector(*eval_args(flat_mutau_mask, "mutau", "nom"))
+        sf_nom[flat_tautau_mask] = self.tau_trig_corrector(*eval_args(flat_tautau_mask, "ditau", "nom"))
+
+        sf_nom_ditaujet = np.ones_like(pt, dtype=np.float32)
+        sf_nom_ditaujet[flat_tautaujet_mask] = self.tau_trig_corrector(*eval_args(flat_tautaujet_mask, "ditaujet", "nom"))  # noqa
 
         # create and store weights
 
         events = set_ak_column_f32(events, f"tau_trigger_{corrtype_}_weight", reduce_mul(sf_nom))
+        events = set_ak_column_f32(events, f"tau_trigger_{corrtype_}_weight_tautaujet", reduce_mul(sf_nom_ditaujet))
 
         #
         # compute varied trigger weights
@@ -339,16 +342,19 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
                 ("etau", "etau", etau_mask),
                 ("mutau", "mutau", mutau_mask),
                 ("tautau", "ditau", tautau_mask),
+                ("tautaujet", "ditaujet", tautaujet_mask),
                 # ("tautauvbf", "ditauvbf", tautauvbf_mask),
             ]:
-                sf_unc = sf_nom.copy()
-                sf_unc[mask] = self.trigger_corrector(*eval_args(mask, ch_corr, direction))
-                events = set_ak_column_f32(
-                    events,
-                    f"tau_trigger_{corrtype_}_weight_{ch}_{direction}",
-                    reduce_mul(sf_unc),
-                )
-
+                for decay_mode in [0, 1, 10, 11]:
+                    decay_mode_mask = mask & (events.Tau.decayMode == decay_mode)
+                    flat_decay_mode_mask = flat_np_view(decay_mode_mask, axis=1)
+                    sf_unc = sf_nom.copy()
+                    sf_unc[flat_decay_mode_mask] = self.tau_trig_corrector(*eval_args(flat_decay_mode_mask, ch_corr, direction))  # noqa
+                    events = set_ak_column_f32(
+                        events,
+                        f"tau_trigger_{corrtype_}_weight_dm_{decay_mode}_{ch}_{direction}",
+                        reduce_mul(sf_unc),
+                    )
     return events
 
 
@@ -370,8 +376,8 @@ def tau_trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_t
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
 
     # load the correction set
-    extension = self.get_tau_file(bundle.files).ext()
-    if extension == "json":
+    tau_file = self.get_tau_file(bundle.files)
+    if tau_file.ext() == "json":
         correction_set = correctionlib.CorrectionSet.from_file(
             self.get_tau_file(bundle.files).abspath,
         )
@@ -381,7 +387,7 @@ def tau_trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_t
         )
 
     corrector_string = self.get_tau_corrector()
-    self.trigger_corrector = correction_set[corrector_string]
+    self.tau_trig_corrector = correction_set[corrector_string]
 
     # check versions
-    assert self.trigger_corrector.version in [0, 1]
+    assert self.tau_trig_corrector.version in [0, 1]
