@@ -173,6 +173,21 @@ def add_variables(config: od.Config) -> None:
         binning=(200, 0.94, 1.01),
         x_title="DY weight",
     )
+    add_variable(
+        config,
+        name="dy_weight1_up",
+        expression="dy_weight1_up",
+        binning=(200, 0.94, 1.01),
+        x_title="DY weight [up1]",
+    )
+    add_variable(
+        config,
+        name="gen_dilepton_pt",
+        expression="gen_dilepton.pt",
+        binning=(40, 50.0, 250.0),
+        unit="GeV",
+        x_title="Gen $p_{T,ll}$",
+    )
 
     # cutflow variables
     add_variable(
