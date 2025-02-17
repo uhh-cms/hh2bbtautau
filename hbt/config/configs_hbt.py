@@ -1354,6 +1354,17 @@ def add_config(
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
         "tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
+        "dy_weight": get_shifts(
+            "dy_weight1",
+            "dy_weight2",
+            "dy_weight3",
+            "dy_weight4",
+            "dy_weight5",
+            "dy_weight6",
+            "dy_weight7",
+            "dy_weight8",
+            "dy_weight9",
+            "dy_weight10"),  # hardcoded number of dy shifts for 2022/23
     })
 
     # define per-dataset event weights
