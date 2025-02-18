@@ -16,6 +16,7 @@ from columnflow.util import maybe_import, dev_sandbox
 from columnflow.columnar_util import Route, set_ak_column
 
 
+np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
 law.contrib.load("tensorflow")
@@ -25,18 +26,12 @@ class TestModel(MLModel):
 
     def setup(self):
         # dynamically add variables for the quantities produced by this model
-        if f"{self.cls_name}.n_muon" not in self.config_inst.variables:
+        if f"{self.cls_name}.kl" not in self.config_inst.variables:
             self.config_inst.add_variable(
-                name=f"{self.cls_name}.n_muon",
+                name=f"{self.cls_name}_kl",
                 null_value=-1,
-                binning=(4, -1.5, 2.5),
-                x_title="Predicted number of muons",
-            )
-            self.config_inst.add_variable(
-                name=f"{self.cls_name}.n_electron",
-                null_value=-1,
-                binning=(4, -1.5, 2.5),
-                x_title="Predicted number of electrons",
+                binning=(20, -10, 10),
+                x_title="Predicted kappa-lambda",
             )
 
     def sandbox(self, task: law.Task) -> str:
@@ -44,22 +39,39 @@ class TestModel(MLModel):
 
     def datasets(self, config_inst: od.Config) -> set[od.Dataset]:
         return {
-            config_inst.get_dataset("hh_ggf_bbtautau_madgraph"),
-            config_inst.get_dataset("tt_sl_powheg"),
+            config_inst.get_dataset("hh_ggf_hbb_htt_kl1_kt1_powheg"),
+            config_inst.get_dataset("hh_ggf_hbb_htt_kl0_kt1_powheg"),
         }
 
     def uses(self, config_inst: od.Config) -> set[Route | str]:
-        return {
-            "ht", "n_jet", "n_muon", "n_electron", "normalization_weight",
-        }
+        return {"Jet.{pt,eta,phi}"}
 
     def produces(self, config_inst: od.Config) -> set[Route | str]:
-        return {
-            f"{self.cls_name}.n_muon", f"{self.cls_name}.n_electron",
-        }
+        return {f"{self.cls_name}.kl"}
+
+    def training_calibrators(
+        self,
+        config_inst: od.Config,
+        requested_calibrators: list[str],
+    ) -> list[str]:
+        return ["default"]
+
+    def training_selectors(
+        self,
+        config_inst: od.Config,
+        requested_selectors: list[str],
+    ) -> list[str]:
+        return ["default"]
+
+    def training_producers(
+        self,
+        config_inst: od.Config,
+        requested_producers: list[str],
+    ) -> list[str]:
+        return ["default"]
 
     def output(self, task: law.Task) -> law.FileSystemDirectoryTarget:
-        return task.target(f"mlmodel_f{task.fold}of{self.folds}", dir=True)
+        return task.target(f"mlmodel_f{task.fold}of{self.folds}.keras")
 
     def open_model(self, target: law.FileSystemDirectoryTarget):
         return target.load(formatter="tf_keras_model")
@@ -90,11 +102,10 @@ class TestModel(MLModel):
         events_used_in_training: bool = False,
     ) -> ak.Array:
         # fake evaluation
-        events = set_ak_column(events, f"{self.cls_name}.n_muon", 1)
-        events = set_ak_column(events, f"{self.cls_name}.n_electron", 1)
+        events = set_ak_column(events, f"{self.cls_name}.kl", 0.5, value_type=np.float32)
 
         return events
 
 
 # usable derivations
-test_model = TestModel.derive("test_model", cls_dict={"folds": 3})
+test_model = TestModel.derive("test_model", cls_dict={"folds": 2})

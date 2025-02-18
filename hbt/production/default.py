@@ -9,6 +9,7 @@ from columnflow.production.normalization import stitched_normalization_weights
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
+from columnflow.production.cms.top_pt_weight import top_pt_weight
 from columnflow.util import maybe_import
 
 from hbt.production.weights import (
@@ -26,13 +27,13 @@ ak = maybe_import("awkward")
         category_ids, stitched_normalization_weights, normalized_pu_weight,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
-        # weight producers added if not produce_weights
+        # weight producers added dynamically if produce_weights is set
     },
     produces={
         category_ids, stitched_normalization_weights, normalized_pu_weight,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
-        # weight producers added if not produce_weights
+        # weight producers added dynamically if produce_weights is set
     },
     # whether weight producers should be added and called
     produce_weights=True,
@@ -78,6 +79,10 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         if self.has_dep(trigger_weights):
             events = self[trigger_weights](events, **kwargs)
 
+        # top pt weight
+        if self.has_dep(top_pt_weight):
+            events = self[top_pt_weight](events, **kwargs)
+
     return events
 
 
@@ -85,6 +90,10 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 def default_init(self: Producer) -> None:
     if self.produce_weights:
         weight_producers = {tau_weights, electron_weights, muon_weights, trigger_weights}
+
+        if (dataset_inst := getattr(self, "dataset_inst", None)) and dataset_inst.has_tag("ttbar"):
+            weight_producers.add(top_pt_weight)
+
         self.uses |= weight_producers
         self.produces |= weight_producers
 
