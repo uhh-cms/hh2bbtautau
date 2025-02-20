@@ -332,12 +332,10 @@ if not isinstance(torchdata, MockModule):
     # To keep things simple, let's assume that the following args are provided by the caller
     def NodesDataLoader(
         dataset: Sized,
-        batch_size: int,
         shuffle: bool,
         num_workers: int,
         collate_fn: Callable | None,
         pin_memory: bool,
-        drop_last: bool,
         parallelize_method: Literal["thread", "process"] = "process",
     ) -> tn.Loader[Sized]:
         # Assume we're working with a map-style dataset
