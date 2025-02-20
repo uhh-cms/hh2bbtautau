@@ -187,7 +187,7 @@ if not isinstance(torchdata, MockModule):
         #         yield tuple(map(torch.convert_to_tensor, data))
         #         self.batches_seen += 1
         
-        def _next_per_dataset(self, key: str, overwrite: bool = False):
+        def _next_per_dataset(self, key: str, force: bool = False):
             # print(f"entering _next_per_dataset for node {key}")
             item = None
             try:
@@ -200,10 +200,12 @@ if not isinstance(torchdata, MockModule):
                 self._datasets_exhausted[key] = True
 
                 # Based on updated _check_for_stop_iteration, check if we should raise StopIteration
-                self._check_for_stop_iteration()
+                # optionally disable this in case an update is needed regardless of external criteria
+                if not force:
+                    self._check_for_stop_iteration()
 
                 # If StopCriteria is ALL_DATASETS_EXHAUSTED, move to next key
-                if self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED and not overwrite:
+                if self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED and not force:
                     return
 
                 # If StopCriteria is CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED,
@@ -233,14 +235,16 @@ if not isinstance(torchdata, MockModule):
                         if item:
                             sub_batch.append(item)
                     except StopIteration as e:
-                        if not self.drop_last and len(sub_batch) > 0:
-                            from IPython import embed
-                            embed(header=f"encountered error {e} for key {key}")
+                        if not self.drop_last and len(sub_batch) > 0 and self.stop_criteria == StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED:
+                            item = self._next_per_dataset(key, force=True)
+                            if item:
+                                sub_batch.append(item)
                         elif self.drop_last:
                             self._check_for_stop_iteration()
                         # in this case, the stop criteria (e.g. ALL_DATASETS_EXHAUSTED)
                         # are met and we can break the loop
-                        break
+                        if not self.stop_criteria == StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED:
+                            break
                 
                 # if stop criterium is ALL_DATASETS_EXHAUSTED, allow for partial batches
                 if len(sub_batch) == batch_size or self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
@@ -251,6 +255,8 @@ if not isinstance(torchdata, MockModule):
                 # at this point
                 # StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED should produce a full batch
                 # StopCriteria.FIRST_DATASET_EXHAUSTED should have already raised a StopIteration
+                from IPython import embed
+                embed(header="DANGERZONE: batch is not full")
                 raise StopIteration()
 
             
