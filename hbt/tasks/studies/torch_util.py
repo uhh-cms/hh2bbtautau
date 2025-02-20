@@ -6,7 +6,8 @@ __all__ = [
 
 from collections import defaultdict
 from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import T
+from columnflow.types import T, Any, Callable
+import copy
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
@@ -51,7 +52,7 @@ if not isinstance(torchdata, MockModule):
             # dictionary to store meta information: is a weighted sampler
             # needed for a top-level dataset?
             self._weight_samplers = list()
-            for key, weight in self.weights:
+            for key, weight in self.weights.items():
 
                 # if the weight is a float number, add it to the sum
                 if isinstance(weight, (int, float)):
@@ -64,8 +65,8 @@ if not isinstance(torchdata, MockModule):
                     self._weight_samplers.append(key)
 
             # calculate the composition of the batches
-            self._batch_composition = {
-                key: (weight*self.batch_size // total_weight_sum
+            self._batch_composition: dict[str, int] = {
+                key: int(weight*self.batch_size // total_weight_sum
                     if isinstance(weight, (int, float))
                     else sum(weight.values())*self.batch_size // total_weight_sum
                 )
@@ -73,18 +74,26 @@ if not isinstance(torchdata, MockModule):
             }
             
             # default dictionary to store weighted samplers where necessary
-            self._weighted_sampler = defaultdict(None)
+            self._weighted_sampler = DotDict()
             
-        def _get_new_weighted_sampler(self, initial_state=None):
+        def _get_new_weighted_sampler(self, initial_state=None) -> DotDict[str, _WeightedSampler]:
+            _weighted_sampler = DotDict()
             for key in self._weight_samplers:
-                self._weighted_sampler[key] = _WeightedSampler(
+                initial_sampler_state = None
+                if isinstance(initial_state, dict):
+                    initial_sampler_state = initial_state[self.WEIGHTED_SAMPLER_STATE_KEY].get(key, None)
+                _weighted_sampler[key] = _WeightedSampler(
                     weights=self.weights[key],
                     seed=self.seed,
                     rank=self.rank,
                     world_size=self.world_size,
                     epoch=self._epoch,
-                    initial_state=(initial_state[self.WEIGHTED_SAMPLER_STATE_KEY] if initial_state is not None else None),
+                    initial_state=initial_sampler_state,
+                    # explicitely give size of random numbers to draw to ensure
+                    # that the sub batch composition adds up correctly
+                    random_tensor_batch_size=self._batch_composition[key],
                 )
+            return _weighted_sampler
 
         
         def _validate(self) -> None:
@@ -117,8 +126,9 @@ if not isinstance(torchdata, MockModule):
                     )
 
             all_keys = set(self.weights.keys())
-            for weight in self.weights.values():
+            for key, weight in self.weights.items():
                 if isinstance(weight, dict):
+                    all_keys.remove(key)
                     all_keys.update(weight.keys())
                     for w in weight.values():
                         _weight_check(w)
@@ -134,77 +144,110 @@ if not isinstance(torchdata, MockModule):
                 )
                 
 
-        def next_tautauNN(self) -> T:
-            # prepare indices for random sampling
-            indices = [np.array([], dtype=np.int32) for _ in range(self.n_datasets)]
-            offsets = [0] * self.n_datasets
+        # def next_tautauNN(self) -> T:
+        #     # prepare indices for random sampling
+        #     indices = [np.array([], dtype=np.int32) for _ in range(self.n_datasets)]
+        #     offsets = [0] * self.n_datasets
 
-            # start iterating
-            while True:
-                # determine batch sizes per dataset for this chunk
-                batch_sizes = torch.multinomial(self.batch_size, self.weights.values)
+        #     # start iterating
+        #     while True:
+        #         # determine batch sizes per dataset for this chunk
+        #         batch_sizes = torch.multinomial(self.batch_size, self.weights.values)
 
-                # fill chunks per dataset that eventually form a batch
-                chunks = []
-                for i, (arrays, _indices, batch_size, offset) in enumerate(zip(
-                        self.source_nodes.values, indices, batch_sizes, offsets
-                    )):
-                    # update indices and offset
-                    if len(_indices) - offset < batch_size:
-                        new_indices = np.arange(len(arrays[0]), dtype=np.int32)
-                        np.random.shuffle(new_indices)
-                        _indices = indices[i] = np.concatenate([_indices[offset:], new_indices], axis=0)
-                        offset = 0
+        #         # fill chunks per dataset that eventually form a batch
+        #         chunks = []
+        #         for i, (arrays, _indices, batch_size, offset) in enumerate(zip(
+        #                 self.source_nodes.values, indices, batch_sizes, offsets
+        #             )):
+        #             # update indices and offset
+        #             if len(_indices) - offset < batch_size:
+        #                 new_indices = np.arange(len(arrays[0]), dtype=np.int32)
+        #                 np.random.shuffle(new_indices)
+        #                 _indices = indices[i] = np.concatenate([_indices[offset:], new_indices], axis=0)
+        #                 offset = 0
 
-                    # fill the chunk and adjust the offset
-                    chunks.append([a[_indices[offset:offset + batch_size]] for a in arrays])
-                    offsets[i] = offset + batch_size
+        #             # fill the chunk and adjust the offset
+        #             chunks.append([a[_indices[offset:offset + batch_size]] for a in arrays])
+        #             offsets[i] = offset + batch_size
 
-                # yield
-                data = tuple(
-                    np.concatenate([chunk[i] for chunk in chunks], axis=0)
-                    for i in range(self.tuple_length)
-                )
-                data = transform_data(self, *data)
-                chunks.clear()
+        #         # yield
+        #         data = tuple(
+        #             np.concatenate([chunk[i] for chunk in chunks], axis=0)
+        #             for i in range(self.tuple_length)
+        #         )
+        #         data = transform_data(self, *data)
+        #         chunks.clear()
 
-                yield tuple(map(torch.convert_to_tensor, data))
-                self.batches_seen += 1
+        #         yield tuple(map(torch.convert_to_tensor, data))
+        #         self.batches_seen += 1
         
-        def next(self) -> T:
+        def _next_per_dataset(self, key: str, overwrite: bool = False):
+            item = None
+            try:
+                if not(self._datasets_exhausted[key] and self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED):
+                    # Before fetching a new item check if key corresponds to an already
+                    # exhaused dataset and StopCriteria is ALL_DATASETS_EXHAUSTED, move to next key
+                    return
+                print(f"obtaining item for node {key}")
+                item = next(self.source_nodes[key])
+            except StopIteration as e:
+                
+                print(f"{e}")
+                # Mark the dataset as exhausted
+                self._datasets_exhausted[key] = True
+
+                # Based on updated _check_for_stop_iteration, check if we should raise StopIteration
+                self._check_for_stop_iteration()
+
+                # If StopCriteria is ALL_DATASETS_EXHAUSTED, move to next key
+                if self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED and not overwrite:
+                    return
+
+                # If StopCriteria is CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED,
+                # reset the iterator and try again
+                print(f"resetting node {key}")
+                self.source_nodes[key].reset()
+                item = next(self.source_nodes[key])
+            from IPython import embed
+            embed(header=f"obtained item for node {key}")
+            return item
+
+        def next(self) -> list[T]:
             self._started = True
             while True:
                 self._check_for_stop_iteration()
 
-                # Fetch the next item's key from the weighted sampler
-                key = next(self._weighted_sampler)
-                try:
-                    if self._datasets_exhausted[key] and self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
-                        # Before fetching a new item check if key corresponds to an already
-                        # exhaused dataset and StopCriteria is ALL_DATASETS_EXHAUSTED, move to next key
-                        continue
-                    item = next(self.source_nodes[key])
-                except StopIteration:
-                    # Mark the dataset as exhausted
-                    self._datasets_exhausted[key] = True
-
-                    # Based on updated _check_for_stop_iteration, check if we should raise StopIteration
-                    self._check_for_stop_iteration()
-
-                    # If StopCriteria is ALL_DATASETS_EXHAUSTED, move to next key
-                    if self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
-                        continue
-
-                    # If StopCriteria is CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED,
-                    # reset the iterator and try again
-                    self.source_nodes[key].reset()
-                    item = next(self.source_nodes[key])
+                batch = list()
+                for source_name in self.weights:
+                    batch_size = self._batch_composition[source_name]
+                    key = source_name
+                    for _ in range(batch_size):
+                        sampler = self._weighted_sampler.get(source_name, None)
+                        if sampler:
+                            key = next(sampler)
+                        try:
+                            batch.append(self._next_per_dataset(key))
+                        except StopIteration as e:
+                            from IPython import embed
+                            embed(header=f"encountered error {e} for key {key}")
+                            # in this case, the stop criteria (e.g. ALL_DATASETS_EXHAUSTED)
+                            # are met and we can break the loop
+                            break
                 break
-
+            
+                
             # If we did't throw StopIteration, increment the number of items yielded and return the item
             self._num_yielded += 1
-            return item
+            return batch
 
+        def get_state(self) -> dict[str, Any]:
+            return {
+                self.DATASETS_EXHAUSTED_KEY: copy.deepcopy(self._datasets_exhausted),
+                self.DATASET_NODE_STATES_KEY: {k: self.source_nodes[k].state_dict() for k in self.dataset_names},
+                self.EPOCH_KEY: self._epoch,
+                self.NUM_YIELDED_KEY: self._num_yielded,
+                self.WEIGHTED_SAMPLER_STATE_KEY: {k: self._weighted_sampler[k].state_dict() for k in self._weight_samplers},
+            }
         
 
     class ListDataset(Dataset):
@@ -263,7 +306,7 @@ if not isinstance(torchdata, MockModule):
         pin_memory: bool,
         drop_last: bool,
         parallelize_method: Literal["thread", "process"] = "process",
-    ):
+    ) -> tn.Loader[Sized]:
         # Assume we're working with a map-style dataset
         assert hasattr(dataset, "__getitem__") and hasattr(dataset, "__len__")
         # Start with a sampler, since caller did not provide one
