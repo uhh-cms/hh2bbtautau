@@ -206,7 +206,7 @@ class HBTPytorchTask(
             drop_last=False,
         )
 
-        node_dict = {"signal": node_s, "bkg": node_b}
+        node_dict = {"signal": tn.SamplerWrapper(node_s), "bkg": tn.SamplerWrapper(node_b)}
 
         weight_dict = {"signal": 1., "bkg": 1.}
 
@@ -219,6 +219,18 @@ class HBTPytorchTask(
         # - number of batches can vary
         # - batches are not balanced - only average over all batches is balanced
 
+        from hbt.tasks.studies.torch_util import (BatchedMultiNodeWeightedSampler)
+
+        composite_batched_sampler = BatchedMultiNodeWeightedSampler(
+            node_dict,
+            weights=weight_dict,
+            batch_size=20,
+        )
+
+        composite_batched_sampler.reset()
+        
+        # get first element
+        foo = composite_batched_sampler.next()
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
         # https://discuss.pytorch.org/t/proper-way-of-using-weightedrandomsampler/73147
         # https://pytorch.org/data/0.10/stateful_dataloader_tutorial.html
