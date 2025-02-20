@@ -3,3 +3,5 @@
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.jpeg filter=lfs diff=lfs merge=lfs -text
 *.root filter=lfs diff=lfs merge=lfs -text
+tests/torch_util_results_balanced.json filter=lfs diff=lfs merge=lfs -text
+tests/torch_util_results_unbalanced.json filter=lfs diff=lfs merge=lfs -text
