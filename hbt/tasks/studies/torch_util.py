@@ -33,9 +33,11 @@ if not isinstance(torchdata, MockModule):
             *args,
             batch_size: int,
             weights: dict[str, float | dict[str, float]],  # type: ignore
+            drop_last: bool = False,
             **kwargs
         ):
             self.batch_size = batch_size
+            self.drop_last = drop_last
             super().__init__(*args, weights = weights, **kwargs)
 
             # the weights dictionary is used to determine the composition of each batch
@@ -73,6 +75,14 @@ if not isinstance(torchdata, MockModule):
                 for key, weight in self.weights.items()
             }
             
+            # due to the integer division above, the sum of the batch composition
+            # might not add up to the requested batch size. In this case, we adjust
+            # the batch size to the sum of the batch composition
+            _real_total_size = sum(self._batch_composition.values())
+            if _real_total_size != self.batch_size:
+                print("Warning: requested batch size is not equal to the sum of the computed batch composition sizes. "
+                      f"Adjusting batch size from {self.batch_size} to {_real_total_size}")
+                self.batch_size = _real_total_size
             # default dictionary to store weighted samplers where necessary
             self._weighted_sampler = DotDict()
             
@@ -105,16 +115,12 @@ if not isinstance(torchdata, MockModule):
                 raise ValueError(
                     f"Invalid {self.stop_criteria=}. stop_criteria must be one of: CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED, FIRST_DATASET_EXHAUSTED, ALL_DATASETS_EXHAUSTED"
                 )
-
-            # Validate if keys of source_nodes and weights are the same
-            if set(self.dataset_names) != set(self.weights.keys()) or len(self.dataset_names) != len(self.weights):
-                raise ValueError(
-                    f"Invalid {self.weights=}. For multi-dataset weighted sampling, keys of source_nodes and weights must be the same",
-                )
             
             if not isinstance(self.batch_size, int) and not self.batch_size >= 1:
                 raise ValueError(f"batch_size argument must be >= 1, received {self.batch_size}")
 
+            if not isinstance(self.drop_last, bool):
+                raise ValueError(f"drop_last argument must be a boolean, received {self.drop_last}")
 
             def _weight_check(weight):
                 if not isinstance(weight, float) or weight <= 0:
@@ -182,17 +188,14 @@ if not isinstance(torchdata, MockModule):
         #         self.batches_seen += 1
         
         def _next_per_dataset(self, key: str, overwrite: bool = False):
+            # print(f"entering _next_per_dataset for node {key}")
             item = None
             try:
                 if not(self._datasets_exhausted[key] and self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED):
                     # Before fetching a new item check if key corresponds to an already
                     # exhaused dataset and StopCriteria is ALL_DATASETS_EXHAUSTED, move to next key
-                    return
-                print(f"obtaining item for node {key}")
-                item = next(self.source_nodes[key])
+                    item = next(self.source_nodes[key])
             except StopIteration as e:
-                
-                print(f"{e}")
                 # Mark the dataset as exhausted
                 self._datasets_exhausted[key] = True
 
@@ -205,37 +208,61 @@ if not isinstance(torchdata, MockModule):
 
                 # If StopCriteria is CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED,
                 # reset the iterator and try again
-                print(f"resetting node {key}")
                 self.source_nodes[key].reset()
                 item = next(self.source_nodes[key])
-            from IPython import embed
-            embed(header=f"obtained item for node {key}")
+            # from IPython import embed
+            # embed(header=f"obtained item for node {key}")
             return item
 
         def next(self) -> list[T]:
             self._started = True
-            while True:
-                self._check_for_stop_iteration()
 
-                batch = list()
-                for source_name in self.weights:
-                    batch_size = self._batch_composition[source_name]
-                    key = source_name
-                    for _ in range(batch_size):
-                        sampler = self._weighted_sampler.get(source_name, None)
-                        if sampler:
-                            key = next(sampler)
-                        try:
-                            batch.append(self._next_per_dataset(key))
-                        except StopIteration as e:
+            self._check_for_stop_iteration()
+
+            batch = list()
+            for source_name in self.weights:
+                batch_size = self._batch_composition[source_name]
+                key = source_name
+                sub_batch = list()
+                for _ in range(batch_size):
+                    sampler = self._weighted_sampler.get(source_name, None)
+                    if sampler:
+                        key = next(sampler)
+                    try:
+                        item = self._next_per_dataset(key)
+                        if item:
+                            sub_batch.append(item)
+                    except StopIteration as e:
+                        if not self.drop_last and len(sub_batch) > 0:
                             from IPython import embed
                             embed(header=f"encountered error {e} for key {key}")
-                            # in this case, the stop criteria (e.g. ALL_DATASETS_EXHAUSTED)
-                            # are met and we can break the loop
-                            break
-                break
-            
+                        elif self.drop_last:
+                            self._check_for_stop_iteration()
+                        # in this case, the stop criteria (e.g. ALL_DATASETS_EXHAUSTED)
+                        # are met and we can break the loop
+                        break
                 
+                # if stop criterium is ALL_DATASETS_EXHAUSTED, allow for partial batches
+                if len(sub_batch) == batch_size or self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
+                    batch.extend(sub_batch)
+            
+            # if the batch is not completely full, check if we should raise a StopIteration
+            if len(batch) < self.batch_size and not self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
+                # at this point
+                # StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED should produce a full batch
+                # StopCriteria.FIRST_DATASET_EXHAUSTED should have already raised a StopIteration
+                raise StopIteration()
+
+            
+            # # check again that the datasets have something left to give
+            # for source_name in self.source_nodes:
+            #     # skip check if dataset is already marked as exhausted
+            #     if self._datasets_exhausted[source_name]:
+            #         continue
+            #     dataset = self.source_nodes[source_name]
+            #     dataset_state = dataset.state_dict()
+            #     # if the dataset has already yielded all items, mark it as exhausted
+            #     self._datasets_exhausted = dataset_state[dataset.NUM_YIELDED_KEY] == len(dataset)
             # If we did't throw StopIteration, increment the number of items yielded and return the item
             self._num_yielded += 1
             return batch
