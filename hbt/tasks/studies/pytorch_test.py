@@ -16,6 +16,9 @@ logger = law.logger.get_logger(__name__)
 dd = maybe_import("dask.dataframe")
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
+dak = maybe_import("dask_awkward")
+ak = maybe_import("awkward")
+
 
 
 
@@ -123,11 +126,10 @@ class HBTPytorchTask(
     @law.decorator.localize(input=True, output=True)
     def run(self):
         from hbt.tasks.studies.torch_util import (
-            NodesDataLoader, ListDataset
+            NodesDataLoader, ParquetDataset, BatchedMultiNodeWeightedSampler
         )
         from torch.utils.data import default_collate
         import torchdata.nodes as tn
-        from torchdata.nodes import MultiNodeWeightedSampler
         
         print("hello!")
 
@@ -137,10 +139,25 @@ class HBTPytorchTask(
         backgrounds = ["tt_sl_powheg"]
 
         configs = self.configs
+        columns = ["Jet.*", "Muon.*", "Electron.pt"]
+        open_options = {}
 
-        # signal_targets = [inputs.events[s][configs[0]].collection for s in signals]
-        # backgrounds_targets = [inputs.events[b][configs[0]].collection for b in backgrounds]
+        signal_targets = [inputs.events[s][configs[0]].collection for s in signals]
+        signal_target_paths = [
+            t.path
+            for collections in signal_targets
+            for targets in collections.targets.values()
+            for t in targets.values()
+        ]
+        backgrounds_targets = [inputs.events[b][configs[0]].collection for b in backgrounds]
+        background_target_paths = [
+            t.path
+            for collections in backgrounds_targets
+            for targets in collections.targets.values()
+            for t in targets.values()
+        ]
 
+        ### read via dask dataframe ######################################################
         # signal_dfs = dd.read_parquet(
         #     [
         #         t.path
@@ -158,74 +175,84 @@ class HBTPytorchTask(
         #     ]
         # )
 
+        ### read via dask awkward ###################################################
+        # signal_daks = dak.from_parquet(
+        #     signal_target_paths,
+        #     split_row_groups=True,
+        # )
+
+        # pro:
+        # - can read multiple parquet files w/o loading to memory
+        # - can read only the columns we need
+        # - option to split between row groups
+        # con:
+        # - when accessing single elements, there seems to be a lot of overhead/
+        #   leaked memory
+        # - each compute step takes time
+
+
+        #### read via awkward array #####################################################
+        # signal_daks = ak.from_parquet(
+        #     signal_target_paths,
+        # )
+
+        # pro:
+        # - can read multiple parquet files
+        # - can read only the columns we need
+        # - fast
+        # - can also read individual partitions (not implemented now)
+        # con:
+        # - eager loading of all data (problem?)
+
         #### test case
 
-        data_s = ListDataset(5, "signal")
-        data_b = ListDataset(40, "background")
+        data_s = ParquetDataset(
+            signal_target_paths,
+            open_options=open_options,
+            columns=columns,
+        )
+        data_b = ParquetDataset(
+            background_target_paths,
+            open_options=open_options,
+            columns=columns,
+        )
 
-        # foo_s = RandomSampler(data_s)
-        # foo_b = RandomSampler(data_b)
-
-        # foo_s = tn.Batcher(tn.SamplerWrapper(foo_s), batch_size=20, drop_last=False)
-        # foo_b = tn.Batcher(tn.SamplerWrapper(foo_b), batch_size=20, drop_last=False)
-        # mapping_s = MapAndCollate(data_s, default_collate)
-        # mapping_b = MapAndCollate(data_b, default_collate)
-
-        # node_s = tn.ParallelMapper(
-        #     foo_s,
-        #     map_fn=mapping_s,
-        #     num_workers=1,
-        #     in_order=True,
-        #     method="process",
-        # )
-
-        # node_b = tn.ParallelMapper(
-        #     foo_b,
-        #     map_fn=mapping_b,
-        #     num_workers=1,
-        #     in_order=True,
-        #     method="process",
-        # )
         node_s = NodesDataLoader(
             data_s,
-            batch_size=20,
             shuffle=True,
             num_workers=1,
-            collate_fn=default_collate,
+            collate_fn=lambda x: x,
             pin_memory=False,
-            drop_last=False,
         )
-
         node_b = NodesDataLoader(
             data_b,
-            batch_size=20,
             shuffle=True,
             num_workers=1,
-            collate_fn=default_collate,
+            collate_fn=lambda x: x,
             pin_memory=False,
-            drop_last=False,
         )
-
-        node_dict = {"signal": tn.SamplerWrapper(node_s), "bkg": tn.SamplerWrapper(node_b)}
-
-        weight_dict = {"signal": 1., "bkg": 1.}
-
-        node_equal = MultiNodeWeightedSampler(node_dict, weight_dict)
-
-        # for multinominal batches, simply batch this node
-        batched_node = tn.Batcher(node_equal, batch_size=20, drop_last=False)
 
         # down-sides of this approach:
         # - number of batches can vary
         # - batches are not balanced - only average over all batches is balanced
 
-        from hbt.tasks.studies.torch_util import (BatchedMultiNodeWeightedSampler)
+        node_dict = {
+            "signal": tn.SamplerWrapper(node_s),
+            "background": tn.SamplerWrapper(node_b),
+        }
+        weight_dict = {
+            "signal": 1.,
+            "background": 1.,
+        }
 
         composite_batched_sampler = BatchedMultiNodeWeightedSampler(
             node_dict,
             weights=weight_dict,
-            batch_size=20,
+            batch_size=256,
         )
+
+        from IPython import embed
+        embed(header="running task")
 
         composite_batched_sampler.reset()
         
@@ -234,5 +261,4 @@ class HBTPytorchTask(
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
         # https://discuss.pytorch.org/t/proper-way-of-using-weightedrandomsampler/73147
         # https://pytorch.org/data/0.10/stateful_dataloader_tutorial.html
-        from IPython import embed
-        embed(header="running task")
+        
