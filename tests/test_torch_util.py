@@ -1,6 +1,8 @@
 import unittest
 import os
 
+from hbt.tasks.studies.torch_util import BatchedMultiNodeWeightedSampler
+
 this_dir = os.path.realpath(os.path.dirname(__file__))
 
 class TorchUtilTests(unittest.TestCase):
@@ -17,6 +19,7 @@ class TorchUtilTests(unittest.TestCase):
 
         self.data_s = ListDataset(15, "signal")
         self.data_b = ListDataset(43, "background")
+        self.data_b2 = ListDataset(25, "bkg2")
         self.node_s = NodesDataLoader(
                     self.data_s,
                     shuffle=False,
@@ -33,8 +36,16 @@ class TorchUtilTests(unittest.TestCase):
             pin_memory=False,
         )
 
+        self.node_b2 = NodesDataLoader(
+            self.data_b2,
+            shuffle=False,
+            num_workers=1,
+            collate_fn=default_collate,
+            pin_memory=False,
+        )
+
     def _compare_values(self, node_dict, weight_dict, results):
-        from hbt.tasks.studies.torch_util import BatchedMultiNodeWeightedSampler
+        
 
         for i, result in results.items():
             with self.subTest(i=i):
@@ -81,3 +92,83 @@ class TorchUtilTests(unittest.TestCase):
         node_dict = {"signal": tn.SamplerWrapper(self.node_s), "bkg": tn.SamplerWrapper(self.node_b)}
 
         self._compare_values(node_dict, {"signal": 2., "bkg": 1.}, results)
+
+    def test_BatchedMultiNodeWeightedSampler_subsampling(self):
+        import torchdata.nodes as tn
+        from hbt.tasks.studies.torch_util import BatchedMultiNodeWeightedSampler
+        import json
+        
+        # load the results
+        with open(os.path.join(this_dir, "torch_util_results_unbalanced.json"), "r") as f:
+            results = json.load(f)
+        
+        node_dict = {
+            "signal": tn.SamplerWrapper(self.node_s),
+            "bkg1": tn.SamplerWrapper(self.node_b),
+            "bkg2": tn.SamplerWrapper(self.node_b2),
+        }
+
+        batch_size = 20
+
+        faulty_weight_dicts = [
+            {
+                "signal": 2.,
+                "bkg1": 1.,
+            },
+            {
+                "signal": 1.,
+                "bkg1": {
+                    "bkg2": 1.,
+                },
+            },
+            {
+                "signal": 1.,
+                "background": 1.,
+                "bkg2": 1.,
+            },
+            {
+                "signal": 1.,
+                "background": {
+                    "bkg1": [0.5, 0.25],
+                    "bkg2": [0.15, 0.10],
+                },
+            },
+        ]
+        for weight_dict in faulty_weight_dicts:
+            with self.subTest(weight_dict=weight_dict):
+                with self.assertRaises(ValueError):
+                    composite_batched_sampler = BatchedMultiNodeWeightedSampler(
+                        node_dict,
+                        weights=weight_dict,
+                        batch_size=batch_size,
+                    )
+        
+        allowed_weight_dicts = [
+            {
+                "signal": 1.,
+                "background": {
+                    "bkg1": 0.5,
+                    "bkg2": 0.5,
+                }
+            },
+        ]
+        for weight_dict in allowed_weight_dicts:
+            with self.subTest(weight_dict=weight_dict):
+                composite_batched_sampler = BatchedMultiNodeWeightedSampler(
+                    node_dict,
+                    weights=weight_dict,
+                    batch_size=batch_size,
+                )
+        
+                batch_composition = int(batch_size // 2)
+                self.assertDictEqual(
+                    composite_batched_sampler._batch_composition,
+                    {
+                        "signal": batch_composition,
+                        "background": batch_composition,
+                    },
+                )
+                self.assertListEqual(
+                    composite_batched_sampler._weight_samplers,
+                    ["background"]
+                )
