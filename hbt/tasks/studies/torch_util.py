@@ -6,12 +6,13 @@ __all__ = [
 
 from collections import defaultdict
 from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import T, Any, Callable
+from columnflow.types import T, Any, Callable, Sequence
 import copy
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
 np = maybe_import("numpy")
+ak = maybe_import("awkward")
 
 ListDataset = MockModule("ListDataset")
 MapAndCollate = MockModule("MapAndCollate")
@@ -25,6 +26,35 @@ if not isinstance(torchdata, MockModule):
     from torchdata.nodes.samplers.stop_criteria import StopCriteria
     from torchdata.nodes.samplers.multi_node_weighted_sampler import _WeightedSampler
     from typing import Literal, Sized
+
+    class ParquetDataset(Dataset):
+        def __init__(
+            self,
+            input: Sequence[str] | ak.Array,
+            columns: Sequence[str] | None = None,
+            open_options: dict[str, Any] | None = None,
+        ):
+            open_options = open_options or {}
+            if columns:
+                open_options["columns"] = columns
+
+            if isinstance(input, (str, list)):
+                self.path = input
+                self.data = ak.from_parquet(input, **open_options)
+            elif isinstance(input, ak.Array):
+                self.data = input
+        
+        def __len__(self):
+            return len(self.data)
+        
+        def __getitem__(self, i: int) -> ak.Array:
+            return self.data[i]
+        
+        def __getitems__(self, idx: Sequence[int]) -> ak.Array:
+            return self.data[idx]
+        
+        def to_list(self) -> list[dict[str, Any]]:
+            return self.data.to_list()
 
     class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
 
@@ -232,12 +262,12 @@ if not isinstance(torchdata, MockModule):
                         key = next(sampler)
                     try:
                         item = self._next_per_dataset(key)
-                        if item:
+                        if item is not None:
                             sub_batch.append(item)
                     except StopIteration as e:
                         if not self.drop_last and len(sub_batch) > 0 and self.stop_criteria == StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED:
                             item = self._next_per_dataset(key, force=True)
-                            if item:
+                            if item is not None:
                                 sub_batch.append(item)
                         elif self.drop_last:
                             self._check_for_stop_iteration()
@@ -306,7 +336,10 @@ if not isinstance(torchdata, MockModule):
         TODO: make this a standard utility in torchdata.nodes
         """
         
-        def __init__(self, dataset, collate_fn):
+        def __init__(self,
+            dataset: Sized,
+            collate_fn: Callable,
+        ):
             self.dataset = dataset
             self.collate_fn = collate_fn
             
@@ -314,20 +347,14 @@ if not isinstance(torchdata, MockModule):
             batch = [self.dataset[i] for i in batch_of_indices]
             return self.collate_fn(batch)
         
-    class FlatMapAndCollate:
+    class FlatMapAndCollate(MapAndCollate):
         """A simple transform that takes a batch of indices, maps with dataset, and then applies
         collate.
         TODO: make this a standard utility in torchdata.nodes
         """
-        
-        def __init__(self, dataset, collate_fn):
-            self.dataset = dataset
-            self.collate_fn = collate_fn
-            
         def __call__(self, idx: int):
             batch = self.dataset[idx]
             return self.collate_fn(batch)
-
 
     # To keep things simple, let's assume that the following args are provided by the caller
     def NodesDataLoader(
@@ -337,6 +364,7 @@ if not isinstance(torchdata, MockModule):
         collate_fn: Callable | None,
         pin_memory: bool,
         parallelize_method: Literal["thread", "process"] = "process",
+        mapping_base_cls: MapAndCollate | None = None, 
     ) -> tn.Loader[Sized]:
         # Assume we're working with a map-style dataset
         assert hasattr(dataset, "__getitem__") and hasattr(dataset, "__len__")
@@ -350,7 +378,10 @@ if not isinstance(torchdata, MockModule):
 
         # Create a Map Function that accepts a list of indices, applies getitem to it, and
         # then collates them
-        map_and_collate = FlatMapAndCollate(dataset, collate_fn or default_collate)
+        if not mapping_base_cls:
+            map_and_collate = FlatMapAndCollate(dataset, collate_fn or default_collate)
+        else:
+            map_and_collate = mapping_base_cls(dataset, collate_fn or default_collate)
 
         # MapAndCollate is doing most of the heavy lifting, so let's parallelize it. We could
         # choose process or thread workers. Note that if you're not using Free-Threaded
