@@ -246,12 +246,12 @@ if not isinstance(torchdata, MockModule):
             # embed(header=f"obtained item for node {key}")
             return item
 
-        def next(self) -> list[T]:
+        def next(self) -> dict[str, list[T]]:
             self._started = True
 
             self._check_for_stop_iteration()
 
-            batch = list()
+            batch = dict()
             for source_name in self.weights:
                 batch_size = self._batch_composition[source_name]
                 key = source_name
@@ -278,10 +278,10 @@ if not isinstance(torchdata, MockModule):
                 
                 # if stop criterium is ALL_DATASETS_EXHAUSTED, allow for partial batches
                 if len(sub_batch) == batch_size or self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
-                    batch.extend(sub_batch)
+                    batch[source_name] = sub_batch
             
             # if the batch is not completely full, check if we should raise a StopIteration
-            if len(batch) < self.batch_size and not self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
+            if sum((len(x) for x in batch.values())) < self.batch_size and not self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
                 # at this point
                 # StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED should produce a full batch
                 # StopCriteria.FIRST_DATASET_EXHAUSTED should have already raised a StopIteration
@@ -354,6 +354,20 @@ if not isinstance(torchdata, MockModule):
         """
         def __call__(self, idx: int):
             batch = self.dataset[idx]
+            return self.collate_fn(batch)
+        
+    class NestedMapAndCollate(MapAndCollate):
+        def __init__(self,
+            dataset: dict[str, Sized],
+            collate_fn: Callable,
+        ):
+            self.dataset = dataset
+            self.collate_fn = collate_fn
+
+        def __call__(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
+            batch = []
+            for key, indices in idx.items():
+                batch = ak.concatenate((batch, self.dataset[key][indices]))
             return self.collate_fn(batch)
 
     # To keep things simple, let's assume that the following args are provided by the caller
