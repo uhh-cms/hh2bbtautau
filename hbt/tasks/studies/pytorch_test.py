@@ -216,7 +216,24 @@ class HBTPytorchTask(
             open_options=open_options,
             columns=columns,
         )
+        from torch.utils.data import RandomSampler, SequentialSampler
+        node_dict = {"signal": tn.SamplerWrapper(RandomSampler(data_s)), "bkg": tn.SamplerWrapper(RandomSampler(data_b))}
+        weight_dict = {"signal": 1., "bkg": 1.}
+        batcher = BatchedMultiNodeWeightedSampler(node_dict, weights=weight_dict, batch_size=256)
+        from hbt.tasks.studies.torch_util import NestedMapAndCollate
 
+        data_map = {"signal": data_s, "bkg": data_b}
+        mapping = NestedMapAndCollate(data_map, collate_fn=lambda x: x)
+        
+        parallel_node = tn.ParallelMapper(
+            batcher,
+            map_fn=mapping,
+            num_workers=1,
+            method="process",  # Set this to "thread" for multi-threading
+            in_order=True,
+        )
+        from IPython import embed
+        embed(header=f"intialized data_s and data_b")
         node_s = NodesDataLoader(
             data_s,
             shuffle=True,
