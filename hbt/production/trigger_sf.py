@@ -197,7 +197,7 @@ def create_OR_trigger_weights(
 
 @producer(
     uses={
-        "channel_id", "single_triggered", "cross_triggered",  # "trigger_ids"
+        "channel_id", "single_triggered", "cross_triggered",  # "matched_trigger_ids"
         single_trigger_electron_data_effs, cross_trigger_electron_data_effs,
         single_trigger_electron_mc_effs, cross_trigger_electron_mc_effs,
         single_trigger_muon_data_effs, cross_trigger_muon_data_effs,
@@ -207,17 +207,17 @@ def create_OR_trigger_weights(
     produces={
         "etau_trigger_weights", "mutau_trigger_weights",
     } | {
-        f"mutau_trigger_weights_muon_{direction}"
+        f"mutau_trigger_weights_mu_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"etau_trigger_weights_electron_{direction}"
+        f"etau_trigger_weights_e_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"mutau_trigger_weights_tau_dm_{dm}_{direction}"
+        f"mutau_trigger_weights_tau_dm{dm}_{direction}"
         for direction in ["up", "down"]
         for dm in [0, 1, 10, 11]
     } | {
-        f"etau_trigger_weights_tau_dm_{dm}_{direction}"
+        f"etau_trigger_weights_tau_dm{dm}_{direction}"
         for direction in ["up", "down"]
         for dm in [0, 1, 10, 11]
     },
@@ -319,8 +319,8 @@ def etau_mutau_trigger_weights(
                 )
         else:
             # create all variations
-            for uncert in ["_electron", "_muon", "_tau_mu", "_tau_e"]:
-                if uncert == "_electron" or uncert == "_tau_e":
+            for uncert in ["_e", "_mu", "_tau_mu", "_tau_e"]:
+                if uncert == "_e" or uncert == "_tau_e":
                     channel = "etau"
                     channel_id = self.config_inst.channels.n.etau.id
                 else:
@@ -330,8 +330,8 @@ def etau_mutau_trigger_weights(
                 cross_triggered = (events.channel_id == channel_id) & events.cross_triggered
 
                 # deal with the electron and muon variation, as there is no additional dm separation
-                if uncert == "_electron" or uncert == "_muon":
-                    if uncert == "_electron":
+                if uncert == "_e" or uncert == "_mu":
+                    if uncert == "_e":
                         single_trigger_lepton_data_efficiencies = Route(
                             f"single_trigger_electron_data_effs{postfix}",
                         ).apply(events)
@@ -430,20 +430,20 @@ def etau_mutau_trigger_weights(
                             channel_id,
                             single_triggered,
                             cross_triggered,
-                            f"_tau_dm_{dm}{postfix}",
+                            f"_tau_dm{dm}{postfix}",
                         )
     return events
 
 
 @producer(
     uses={
-        "channel_id", "trigger_ids",
+        "channel_id", "matched_trigger_ids",
         tau_trigger_sf_and_effs_cclub, jet_trigger_weights,
     },
     produces={
         "tautau_trigger_weights",
     } | {
-        f"tautau_trigger_weights_tau_dm_{dm}_{direction}"
+        f"tautau_trigger_weights_tau_dm{dm}_{direction}"
         for direction in ["up", "down"]
         for dm in [0, 1, 10, 11]
     } | {
@@ -479,11 +479,11 @@ def tautau_trigger_weights(
     tautauvbf_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
     for trigger in self.config_inst.x.triggers:
         if trigger.has_tag("cross_tau_tau"):
-            tautau_trigger_passed = tautau_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+            tautau_trigger_passed = tautau_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)
         if trigger.has_tag("cross_tau_tau_jet"):
-            tautaujet_trigger_passed = tautaujet_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+            tautaujet_trigger_passed = tautaujet_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)  # noqa
         if trigger.has_tag("cross_tau_tau_vbf"):
-            tautauvbf_trigger_passed = tautauvbf_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+            tautauvbf_trigger_passed = tautauvbf_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)  # noqa
 
     ditau_triggered = ((events.channel_id == channel_id) & tautau_trigger_passed)
     ditaujet_triggered = ((events.channel_id == channel_id) & tautaujet_trigger_passed)
@@ -579,7 +579,7 @@ def tautau_trigger_weights(
                     channel_id=channel_id,
                     single_triggered=ditau_triggered,
                     cross_triggered=ditaujet_triggered,
-                    postfix=f"_tau_dm_{dm}{postfix}",
+                    postfix=f"_tau_dm{dm}{postfix}",
                 )
     return events
 
@@ -615,16 +615,16 @@ emu_mu_trigger_weights = muon_trigger_weights.derive(
 
 @producer(
     uses={
-        "channel_id", "trigger_ids",
+        "channel_id", "matched_trigger_ids",
         emu_e_trigger_weights, emu_mu_trigger_weights,
     },
     produces={
         "emu_trigger_weights",
     } | {
-        f"emu_trigger_weights_muon_{direction}"
+        f"emu_trigger_weights_mu_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"emu_trigger_weights_electron_{direction}"
+        f"emu_trigger_weights_e_{direction}"
         for direction in ["up", "down"]
     },
 )
@@ -642,9 +642,9 @@ def emu_trigger_weights(
     e_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
     for trigger in self.config_inst.x.triggers:
         if trigger.has_tag("single_mu"):
-            mu_trigger_passed = mu_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+            mu_trigger_passed = mu_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)
         if trigger.has_tag("single_e"):
-            e_trigger_passed = e_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+            e_trigger_passed = e_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)
 
     pass_muon = (
         (events.channel_id == self.config_inst.channels.n.emu.id) & mu_trigger_passed
@@ -663,15 +663,15 @@ def emu_trigger_weights(
     events = self[emu_e_trigger_weights](events, electron_mask=electron_object_mask, **kwargs)
     events = self[emu_mu_trigger_weights](events, muon_mask=muon_object_mask, **kwargs)
 
-    for postfix in ["", "_electron_up", "_electron_down", "_muon_up", "_muon_down"]:
+    for postfix in ["", "_e_up", "_e_down", "_mu_up", "_mu_down"]:
         # start with the nominal case
         if postfix == "":
             trigger_sf = events.emu_e_trigger_weights * events.emu_mu_trigger_weights
-        elif postfix.startswith("_electron"):
+        elif postfix.startswith("_e"):
             shift = postfix.split("_")[-1]
             # electron shifts
             trigger_sf = Route(f"emu_e_trigger_weights_{shift}").apply(events) * events.emu_mu_trigger_weights
-        elif postfix.startswith("_muon"):
+        elif postfix.startswith("_mu"):
             shift = postfix.split("_")[-1]
             trigger_sf = events.emu_e_trigger_weights * Route(f"emu_mu_trigger_weights_{shift}").apply(events)
         else:
@@ -689,19 +689,19 @@ def emu_trigger_weights(
         mumu_trigger_weights, emu_trigger_weights,
     },
     produces={
-        "trigger_sf_weights",
+        "trigger_weight",
     } | {
-        f"trigger_sf_weights_muon_{direction}"
+        f"trigger_weight_mu_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"trigger_sf_weights_electron_{direction}"
+        f"trigger_weight_e_{direction}"
         for direction in ["up", "down"]
     } | {
-        f"trigger_sf_weights_tau_dm_{dm}_{direction}"
+        f"trigger_weight_tau_dm{dm}_{direction}"
         for direction in ["up", "down"]
         for dm in [0, 1, 10, 11]
     } | {
-        f"trigger_sf_weights_jet_{direction}"
+        f"trigger_weight_jet_{direction}"
         for direction in ["up", "down"]
     },
 )
@@ -728,21 +728,28 @@ def trigger_weights(
     events = self[mumu_trigger_weights](events, muon_mask=mumu_mask, **kwargs)
 
     # rename ee and mumu variations for consistency
-    for variation in ["_muon_up", "_muon_down"]:
+    for variation in ["_mu_up", "_mu_down"]:
         events = set_ak_column_f32(
             events,
             f"mumu_trigger_weights{variation}",
-            Route(f"mumu_trigger_weights{variation.replace('_muon', '')}").apply(events),
+            Route(f"mumu_trigger_weights{variation.replace('_mu', '')}").apply(events),
         )
-    for variation in ["_electron_up", "_electron_down"]:
+    for variation in ["_e_up", "_e_down"]:
         events = set_ak_column_f32(
             events,
             f"ee_trigger_weights{variation}",
-            Route(f"ee_trigger_weights{variation.replace('_electron', '')}").apply(events),
+            Route(f"ee_trigger_weights{variation.replace('_e', '')}").apply(events),
         )
 
     # emu
     events = self[emu_trigger_weights](events, **kwargs)
+
+    # TODO: verify that varied trigger weights are always nominal if the variation doesn't apply
+    # e.g. trigger_sf_weights_tau_dm_0_up must be trigger_sf_weights for all events in mumu, ee, and emu
+    # -> easy: put all columns as nominal and update them if the product is different from 1
+
+    # TODO: change names columns : trigger_weight (no s and no sf) and electron-> e, muon->mu, dm_ -> dm
+    # -> done?
 
     # create the total trigger scale factor
     for postfix in ["", "_up", "_down"]:
@@ -755,12 +762,12 @@ def trigger_weights(
                 events.mumu_trigger_weights *
                 events.emu_trigger_weights
             )
-            events = set_ak_column_f32(events, "trigger_sf_weights", trigger_sf)
+            events = set_ak_column_f32(events, "trigger_sf_weight", trigger_sf)
         else:
-            for object_ in ["electron", "muon", "tau_dm_0", "tau_dm_1", "tau_dm_10", "tau_dm_11", "jet"]:
-                if object_ == "electron":
+            for object_ in ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]:
+                if object_ == "e":
                     channels = ["ee", "emu", "etau"]
-                if object_ == "muon":
+                if object_ == "mu":
                     channels = ["mumu", "emu", "mutau"]
                 if object_.startswith("tau_dm"):
                     channels = ["etau", "mutau", "tautau"]
@@ -771,5 +778,5 @@ def trigger_weights(
                 for channel in channels:
                     trigger_sf = trigger_sf * Route(f"{channel}_trigger_weights_{object_}{postfix}").apply(events)
 
-                events = set_ak_column_f32(events, f"trigger_sf_weights_{object_}{postfix}", trigger_sf)
+                events = set_ak_column_f32(events, f"trigger_weight_{object_}{postfix}", trigger_sf)
     return events
