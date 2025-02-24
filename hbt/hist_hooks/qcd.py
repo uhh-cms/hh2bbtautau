@@ -618,7 +618,7 @@ def add_hooks(config: od.Config) -> None:
                 )
         return hists
 
-    # calculate the transfer factor for a chosen category for all decay channels (etau AND muta AND tautau)
+    # calculate the transfer factor for a chosen category for all decay channels (etau AND mutau AND tautau)
     def fake_factor_incl(task, hists):
         if not hists:
             return hists
@@ -738,8 +738,6 @@ def add_hooks(config: od.Config) -> None:
                             f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
                             f"for category {group.os_iso}",
                         )
-        from IPython import embed
-        embed()
         return hists
 
     # add all hooks
