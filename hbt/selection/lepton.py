@@ -872,7 +872,6 @@ def lepton_selection(
                     # to know for which events the single electron trigger matched, we use the
                     # emu_electron_mask_for_matching on the events where the electron trigger fired and
                     # a match was found
-                    from IPython import embed; embed(header="emu_electron_mask_for_matching")
 
                     matched_electron_mask = full_like(events.Electron.pt, False, dtype=bool)
                     matched_electron_mask = ak.where(e_match_mask, emu_electron_mask_for_matching, matched_electron_mask)  # noqa
@@ -922,8 +921,6 @@ def lepton_selection(
             sel_muon_mask = ak.where(is_emu, trig_muon_mask, sel_muon_mask)
 
             # store the matched trigger id
-            # TODO: here needs to separate the trigger ids and accept events that match muon but not electron
-            # even if electron fired
             if emu_from_e:
                 # all selected events match only the electron trigger
                 ids = ak.where(is_emu, np.float32(trigger.id), np.float32(np.nan))
@@ -935,7 +932,6 @@ def lepton_selection(
 
                 # but they can also match the electron triggers
                 ids = ak.where(is_emu, e_match_trigger_ids, np.float32(np.nan))
-                from IPython import embed; embed(header="ids for e in emu_mu")
                 matched_trigger_ids.append(e_match_trigger_ids)
 
     # some final type conversions
