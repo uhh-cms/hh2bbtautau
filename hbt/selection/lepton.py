@@ -456,6 +456,7 @@ def tau_trigger_matching(
         tau_selection, tau_trigger_matching,
         # new columns
         "channel_id", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
+        "matched_trigger_ids",
     },
 )
 def lepton_selection(
@@ -489,6 +490,10 @@ def lepton_selection(
     sel_muon_mask = full_like(events.Muon.pt, False, dtype=bool)
     sel_tau_mask = full_like(events.Tau.pt, False, dtype=bool)
     leading_taus = events.Tau[:, :0]
+    # store trigger ids for the fully matched triggers
+    matched_trigger_ids = []
+    # store trigger ids for the matched triggers that do have additional jet legs
+    lepton_part_trigger_ids = []
 
     # indices for sorting taus first by isolation, then by pt
     # for this, combine iso and pt values, e.g. iso 255 and pt 32.3 -> 2550032.3
@@ -587,6 +592,10 @@ def lepton_selection(
             sel_tau_mask = ak.where(is_etau, trig_tau_mask, sel_tau_mask)
             leading_taus = ak.where(is_etau, sorted_sel_taus[:, :1], leading_taus)
 
+            # store the matched trigger id
+            ids = ak.where(is_etau, np.float32(trigger.id), np.float32(np.nan))
+            matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+
         # mutau channel
         if trigger.has_tag({"single_mu", "cross_mu_tau"}) and (
             self.dataset_inst.is_mc or
@@ -646,6 +655,10 @@ def lepton_selection(
             sel_tau_mask = ak.where(is_mutau, trig_tau_mask, sel_tau_mask)
             leading_taus = ak.where(is_mutau, sorted_sel_taus[:, :1], leading_taus)
 
+            # store the matched trigger id
+            ids = ak.where(is_mutau, np.float32(trigger.id), np.float32(np.nan))
+            matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+
         # tautau channel
         if (
             trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}) and
@@ -696,6 +709,13 @@ def lepton_selection(
             sel_tau_mask = ak.where(is_tautau, trig_tau_mask, sel_tau_mask)
             leading_taus = ak.where(is_tautau, sorted_sel_taus[:, :2], leading_taus)
 
+            # store the matched trigger id
+            ids = ak.where(is_tautau, np.float32(trigger.id), np.float32(np.nan))
+            if trigger.has_tag({"cross_tau_tau_vbf", "cross_tau_tau_jet"}):
+                lepton_part_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+            else:
+                matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+
         # ee channel
         if trigger.has_tag("single_e") and (
             self.dataset_inst.is_mc or
@@ -738,6 +758,10 @@ def lepton_selection(
             cross_triggered = ak.where(is_ee & is_cross, True, cross_triggered)
             sel_electron_mask = ak.where(is_ee, electron_control_mask, sel_electron_mask)
 
+            # store the matched trigger id
+            ids = ak.where(is_ee, np.float32(trigger.id), np.float32(np.nan))
+            matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+
         # mumu channel
         if trigger.has_tag("single_mu") and (
             self.dataset_inst.is_mc or
@@ -779,6 +803,10 @@ def lepton_selection(
             single_triggered = ak.where(is_mumu & is_single, True, single_triggered)
             cross_triggered = ak.where(is_mumu & is_cross, True, cross_triggered)
             sel_muon_mask = ak.where(is_mumu, muon_control_mask, sel_muon_mask)
+
+            # store the matched trigger id
+            ids = ak.where(is_mumu, np.float32(trigger.id), np.float32(np.nan))
+            matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
 
         # emu channel
         if (
@@ -825,12 +853,13 @@ def lepton_selection(
                 emu_electron_mask = False
                 e_trig_fired = full_like(events.event, False, dtype=bool)
                 e_match_mask = full_like(events.Electron.pt, False, dtype=bool)
+                e_match_trigger_ids = []
                 for _trigger, _trigger_fired, _leg_masks in trigger_results.x.trigger_data:
                     if not _trigger.has_tag("single_e"):
                         continue
                     # evaluate the electron selection once (it is the same for all single triggers)
                     if emu_electron_mask is False:
-                        emu_electron_mask_if_triggered, emu_electron_control_mask, _ = self[electron_selection](events, _trigger, **sel_kwargs)  # noqa
+                        emu_electron_mask_for_matching, emu_electron_control_mask, _ = self[electron_selection](events, _trigger, **sel_kwargs)  # noqa
                     # store the trigger decision
                     e_trig_fired = e_trig_fired | _trigger_fired
                     # evaluate the matching
@@ -839,12 +868,35 @@ def lepton_selection(
                         _trigger_fired
                     )
 
-                # the correct electron mask is the control electron mask where the trigger did not fire
-                # and the electron_mask_triggered where the trigger did fire
-                emu_electron_mask = ak.where(e_trig_fired, emu_electron_mask_if_triggered, emu_electron_control_mask)
-                # for events in which no single e trigger fired, consider the matching as successful
-                e_match_mask = e_match_mask | ~e_trig_fired
-                trig_electron_mask = emu_electron_mask & e_match_mask
+                    # still, we need to know which electrons matched the trigger for the trigger SFs
+                    # to know for which events the single electron trigger matched, we use the
+                    # emu_electron_mask_for_matching on the events where the electron trigger fired and
+                    # a match was found
+                    from IPython import embed; embed(header="emu_electron_mask_for_matching")
+
+                    matched_electron_mask = full_like(events.Electron.pt, False, dtype=bool)
+                    matched_electron_mask = ak.where(e_match_mask, emu_electron_mask_for_matching, matched_electron_mask)  # noqa
+                    matched_events = ak.any(matched_electron_mask, axis=1)
+
+                    # store the matched trigger id
+                    ids = ak.where(matched_events, np.float32(_trigger.id), np.float32(np.nan))
+                    e_match_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+
+                e_match_trigger_ids = ak.concatenate(e_match_trigger_ids, axis=1)
+
+                # the correct electron mask for the selection is the control electron mask
+                emu_electron_mask = emu_electron_control_mask
+                # TODO: verify that this is the way we want to select events in the emu channel, e.g.
+                # we do not remove events where the electron trigger fired and a match was found
+                # but the emu_electron_mask_for_matching was not fulfilled.
+                # this would be ak.where(e_match_mask , emu_electron_mask_for_matching, emu_electron_control_mask)
+
+                # OUTDATED! based on the idea that we only select triggered electrons if they match
+                # # for events in which no single e trigger fired, consider the matching as successful
+                # e_match_mask = e_match_mask | ~e_trig_fired
+
+                # electron do not have any specific trigger rules for the selection
+                trig_electron_mask = emu_electron_mask
 
             # expect 1 electron, 1 muon, 1 veto electron, 1 veto muon, and ignore taus
             is_emu = (
@@ -869,9 +921,30 @@ def lepton_selection(
             sel_electron_mask = ak.where(is_emu, trig_electron_mask, sel_electron_mask)
             sel_muon_mask = ak.where(is_emu, trig_muon_mask, sel_muon_mask)
 
+            # store the matched trigger id
+            # TODO: here needs to separate the trigger ids and accept events that match muon but not electron
+            # even if electron fired
+            if emu_from_e:
+                # all selected events match only the electron trigger
+                ids = ak.where(is_emu, np.float32(trigger.id), np.float32(np.nan))
+                matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+            else:
+                # all selected events match at least the muon trigger
+                ids = ak.where(is_emu, np.float32(trigger.id), np.float32(np.nan))
+                matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+
+                # but they can also match the electron triggers
+                ids = ak.where(is_emu, e_match_trigger_ids, np.float32(np.nan))
+                from IPython import embed; embed(header="ids for e in emu_mu")
+                matched_trigger_ids.append(e_match_trigger_ids)
+
     # some final type conversions
     channel_id = ak.values_astype(channel_id, np.uint8)
     leptons_os = ak.fill_none(leptons_os, False)
+
+    # concatenate matched trigger ids
+    matched_trigger_ids = ak.concatenate(matched_trigger_ids, axis=1)
+    lepton_part_trigger_ids = ak.concatenate(lepton_part_trigger_ids, axis=1)
 
     # save new columns
     events = set_ak_column(events, "channel_id", channel_id)
@@ -879,6 +952,7 @@ def lepton_selection(
     events = set_ak_column(events, "tau2_isolated", tau2_isolated)
     events = set_ak_column(events, "single_triggered", single_triggered)
     events = set_ak_column(events, "cross_triggered", cross_triggered)
+    events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
 
     # convert lepton masks to sorted indices (pt for e/mu, iso for tau)
     sel_electron_indices = sorted_indices_from_mask(sel_electron_mask, events.Electron.pt, ascending=False)
@@ -911,6 +985,10 @@ def lepton_selection(
                 ],
                 axis=1,
             )[:, :2],
+
+            # save the matched trigger ids of the trigger with jet legs for the duration of the selection
+            # these will be updated in the jet selection and then stored in the matched_trigger_ids column
+            "lepton_part_trigger_ids": lepton_part_trigger_ids,
 
             # save the leading taus for the duration of the selection
             # exactly 1 for etau/mutau and exactly 2 for tautau

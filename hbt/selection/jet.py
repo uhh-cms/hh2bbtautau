@@ -25,14 +25,14 @@ ak = maybe_import("awkward")
 @selector(
     uses={
         hhbtag,
-        "trigger_ids", "TrigObj.{pt,eta,phi}",
+        "fired_trigger_ids", "TrigObj.{pt,eta,phi}",
         "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
         "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
         "SubJet.{pt,eta,phi,mass,btagDeepB}",
     },
     produces={
         # new columns
-        "Jet.hhbtag",
+        "Jet.hhbtag", "matched_trigger_ids",
     },
     # shifts are declared dynamically below in jet_selection_init
 )
@@ -100,30 +100,101 @@ def jet_selection(
     # two strategies were studied a) and b) but strategy a) seems to not comply with how trigger
     # matching should be done and should therefore be ignored.
 
-    # create a mask to select tautau events that were only triggered by a tau-tau-jet cross trigger
+    # create a mask to select tautau events that were triggered by a tau-tau-jet cross trigger
+    # and passed the tautau matching in the lepton selection
     false_mask = full_like(events.event, False, dtype=bool)
     ttj_mask = (
         (events.channel_id == ch_tautau.id) &
-        ak.any(reduce(or_, [(events.trigger_ids == tid) for tid in self.trigger_ids_ttjc], false_mask), axis=1)
+        ak.any(reduce(
+            or_,
+            [(lepton_results.lepton_part_trigger_ids == tid) for tid in self.trigger_ids_ttjc],
+            false_mask,
+        ), axis=1)
     )
+
+    # create mask for tautau events that fired and matched tautau trigger
+    tt_match_mask = (
+        (events.channel_id == ch_tautau.id) &
+        ak.any(reduce(
+            or_,
+            [(events.matched_trigger_ids == tid) for tid in self.trigger_ids_tt],
+            false_mask,
+        ), axis=1)
+    )
+
+    # create mask for tautau events that matched taus in vbf trigger -> TODO: needs to be reused afterwards to remove
+    # events that fired only vbf and tautaujet but did not match tautaujet
+    vbf_tau_trig_matched_mask = (
+        (events.channel_id == ch_tautau.id) &
+        ak.any(reduce(
+            or_,
+            [(lepton_results.lepton_part_trigger_ids == tid) for tid in self.trigger_ids_ttvc],
+            false_mask,
+        ), axis=1)
+    )
+
+    # TODO: create selection mask for ttj events matching
+    # TODO: trigger id for ttj and vbf (for vbf always FOR NOW -> TODO: WRITE COMMENT THERE)
+    # create the event mask to remove events where only tautaujet fired, but that are not matched
+    match_at_least_one_trigger = full_like(events.event, True, dtype=bool)
+
+    # prepare to fill the list of matched trigger ids with the events passing tautaujet and vbf
+    matched_trigger_ids_list = [events.matched_trigger_ids]
 
     # only perform this special treatment when applicable
     if ak.any(ttj_mask):
+        # store the leading hhbjet
+        sel_hhbjet_mask = ak.Array(hhbjet_mask[ttj_mask])
+        pt_sorting_indices = ak.argsort(events.Jet.pt[ttj_mask][sel_hhbjet_mask], axis=1, ascending=False)
+
+        # define mask for matched hhbjets
+        # constrain to jets with a score and a minimum pt corresponding to the trigger jet leg
+        constraints_mask_matched_hhbjet = (
+            (hhbjet_mask[ttj_mask] != EMPTY_FLOAT) &
+            (events.Jet.pt[ttj_mask] > 60.0)  # ! Note: hardcoded value
+        )
+
         # check which jets can be matched to any of the jet legs
         matching_mask = full_like(events.Jet.pt[ttj_mask], False, dtype=bool)
         for trigger, _, leg_masks in trigger_results.x.trigger_data:
             if trigger.id in self.trigger_ids_ttjc:
                 trig_objs = events.TrigObj[leg_masks["jet"]]
+                trigger_matching_mask = trigger_object_matching(events.Jet[ttj_mask], trig_objs[ttj_mask])
+
+                # update overall matching mask to be used for the hhbjet selection
                 matching_mask = (
                     matching_mask |
-                    trigger_object_matching(events.Jet[ttj_mask], trig_objs[ttj_mask])
+                    trigger_matching_mask
                 )
+
+                # update trigger matching mask with constraints on the jets
+                trigger_matching_mask = (
+                    trigger_matching_mask &
+                    constraints_mask_matched_hhbjet
+                )
+
+                # add trigger_id to matched_trigger_ids if the pt-leading jet is matched
+                leading_matched = ak.fill_none(
+                    ak.firsts(trigger_matching_mask[sel_hhbjet_mask][pt_sorting_indices], axis=1),
+                    False,
+                )
+                ids = ak.where(ttj_mask & leading_matched, np.float32(trigger.id), np.float32(np.nan))
+                matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
+
+        # store the matched trigger ids
+        matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
+        from IPython import embed; embed(header="matched_trigger_ids column")
+        events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
 
         # constrain to jets with a score and a minimum pt corresponding to the trigger jet leg
         matching_mask = (
             matching_mask &
-            (hhbjet_mask[ttj_mask] != EMPTY_FLOAT) &
-            (events.Jet.pt[ttj_mask] > 60.0)  # ! Note: hardcoded value
+            constraints_mask_matched_hhbjet
+        )
+
+        # create a mask to select tautau events that were only triggered by a tau-tau-jet cross trigger
+        only_ttj_mask = (
+            ttj_mask & ~tt_match_mask & ~vbf_tau_trig_matched_mask
         )
 
         #
@@ -156,14 +227,17 @@ def jet_selection(
         # b)
         # two hhb-tagged jets must be selected. The highest and second-highest scoring jets are selected.
         #  - If the jet with the highest pt matches the trigger leg, the event is accepted.
-        #  - Otherwise the event is rejected.
+        #  - Otherwise the event is rejected if it was only triggered by the tautaujet trigger.
         #
 
-        # check if the pt-leading jet of the two hhbhets is matchedfold back into hhbjet_mask
-        sel_hhbjet_mask = ak.Array(hhbjet_mask[ttj_mask])
-        pt_sorting_indices = ak.argsort(events.Jet.pt[ttj_mask][sel_hhbjet_mask], axis=1, ascending=False)
+        # check if the pt-leading jet of the two hhbjets is matched for any tautaujet trigger
+        # and fold back into hhbjet_mask
         leading_matched = ak.fill_none(ak.firsts(matching_mask[sel_hhbjet_mask][pt_sorting_indices], axis=1), False)
         sel_hhbjet_mask = sel_hhbjet_mask & leading_matched
+
+        # remove all events where the matching did not work if they were only triggered by the tautaujet trigger
+        from IPython import embed; embed(header="remove only ttj non matched")
+        match_at_least_one_trigger = ak.where(only_ttj_mask & ~leading_matched, False, match_at_least_one_trigger)
 
         # insert back into the full hhbjet_mask
         flat_hhbjet_mask = flat_np_view(hhbjet_mask)
@@ -224,13 +298,41 @@ def jet_selection(
         (abs(vbf1.eta - vbf2.eta) > 3.0)
     )
 
+    # redefine the trigger matched list after it was updated with tautaujet ids
+    matched_trigger_ids_list = [events.matched_trigger_ids]
+
     # extra requirements for events for which only the tau tau vbf cross trigger fired
     if not self.trigger_ids_ttvc:
         cross_vbf_mask = full_like(1 * events.event, False, dtype=bool)
     else:
-        cross_vbf_masks = [events.trigger_ids == tid for tid in self.trigger_ids_ttvc]
+        cross_vbf_masks = [events.fired_trigger_ids == tid for tid in self.trigger_ids_ttvc]
         # This combines "at least one cross trigger is fired" and "no other triggers are fired"
+        from IPython import embed; embed(header="check if vbf trigger requirement is correct with ak.all")
         cross_vbf_mask = ak.all(reduce(or_, cross_vbf_masks), axis=1)
+        # TODO: add vbf jets matching when SF procedure has been decided
+        # not available for now, so returns just the event mask from the lepton selection
+        vbf_matched = full_like(events.event, False, dtype=bool)
+        for trigger, _, leg_masks in trigger_results.x.trigger_data:
+            if trigger.id in self.trigger_ids_ttvc:
+                vbf_fired_tau_matched = (lepton_results.lepton_part_trigger_ids == trigger.id)
+                vbf_trigger_matched = vbf_fired_tau_matched
+                vbf_matched = vbf_matched | vbf_trigger_matched
+                ids = ak.where(vbf_trigger_matched, np.float32(trigger.id), np.float32(np.nan))
+                matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
+        matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
+        from IPython import embed; embed(header="create matched_trigger_ids column in vbf")
+        events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
+
+        from IPython import embed; embed(header="remove only vbf non matched")
+        if ak.any(ttj_mask):
+            vbf_tau_matched_but_not_jet_matched = vbf_tau_trig_matched_mask & ~vbf_matched & ~leading_matched
+        else:
+            vbf_tau_matched_but_not_jet_matched = vbf_tau_trig_matched_mask & ~vbf_matched
+        match_at_least_one_trigger = ak.where(vbf_tau_matched_but_not_jet_matched, False, match_at_least_one_trigger)
+
+        # TODO: create mask that removes all events that fired only vbf trigger but were not matched
+        # TODO: create mask that removes all events that fired vbf and tautaujet triggers but were not matched
+
     vbf_pair_mask = vbf_pair_mask & (
         (~cross_vbf_mask) | (
             (vbfjj.mass > 800) &
@@ -276,7 +378,8 @@ def jet_selection(
     # perform a cut on ≥1 jet and all other cuts first, and then cut on ≥2, resulting in an
     # additional, _skippable_ step
     jet_sel = (
-        (ak.sum(default_mask, axis=1) >= 1)
+        (ak.sum(default_mask, axis=1) >= 1) &
+        match_at_least_one_trigger
         # add additional cuts here in the future
     )
     jet_sel2 = jet_sel & (ak.sum(default_mask, axis=1) >= 2)
@@ -344,6 +447,10 @@ def jet_selection_setup(self: Selector, reqs: dict, inputs: dict, reader_targets
     self.trigger_ids_ttjc = [
         trigger.id for trigger in self.config_inst.x.triggers
         if trigger.has_tag("cross_tau_tau_jet")
+    ]
+    self.trigger_ids_tt = [
+        trigger.id for trigger in self.config_inst.x.triggers
+        if trigger.has_tag("cross_tau_tau")
     ]
     self.trigger_ids_ttvc = [
         trigger.id for trigger in self.config_inst.x.triggers

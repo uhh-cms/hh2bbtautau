@@ -18,7 +18,7 @@ ak = maybe_import("awkward")
         "TrigObj.{id,pt,eta,phi,filterBits}",
     },
     produces={
-        "trigger_ids",
+        "fired_trigger_ids",
     },
     exposed=True,
 )
@@ -84,7 +84,7 @@ def trigger_selection(
 
     # store the fired trigger ids
     trigger_ids = ak.concatenate(trigger_ids, axis=1)
-    events = set_ak_column(events, "trigger_ids", trigger_ids, value_type=np.int32)
+    events = set_ak_column(events, "fired_trigger_ids", trigger_ids, value_type=np.int32)
 
     return events, SelectionResult(
         steps={
