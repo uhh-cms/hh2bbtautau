@@ -1118,21 +1118,6 @@ def add_config(
         cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape")
         add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_" + "{direction}"})
 
-    # TODO: add shifts trigger scale factors
-    cfg.add_shift(name="tautau_trigger_up", id=80, type="shape")
-    cfg.add_shift(name="tautau_trigger_down", id=81, type="shape")
-    add_shift_aliases(cfg, "tautau_trigger", {"tau_trigger_weight": "tau_trigger_weight_tautau_{direction}"})
-    cfg.add_shift(name="etau_trigger_up", id=82, type="shape")
-    cfg.add_shift(name="etau_trigger_down", id=83, type="shape")
-    add_shift_aliases(cfg, "etau_trigger", {"tau_trigger_weight": "tau_trigger_weight_etau_{direction}"})
-    cfg.add_shift(name="mutau_trigger_up", id=84, type="shape")
-    cfg.add_shift(name="mutau_trigger_down", id=85, type="shape")
-    add_shift_aliases(cfg, "mutau_trigger", {"tau_trigger_weight": "tau_trigger_weight_mutau_{direction}"})
-    # no uncertainty for di-tau VBF trigger existing yet
-    # cfg.add_shift(name="mutau_trigger_up", id=86, type="shape")
-    # cfg.add_shift(name="tautauvbf_trigger_down", id=86, type="shape")
-    # add_shift_aliases(cfg, "tautauvbf_trigger", {"tau_trigger_weight": "tau_trigger_weight_tautauvbf_{direction}"})
-
     cfg.add_shift(name="e_up", id=90, type="shape")
     cfg.add_shift(name="e_down", id=91, type="shape")
     add_shift_aliases(cfg, "e", {"electron_weight": "electron_weight_{direction}"})
@@ -1206,6 +1191,13 @@ def add_config(
             "normalized_murmuf_weight": "normalized_murmuf_weight_{direction}",
         },
     )
+
+    # trigger scale factors
+    trigger_legs = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]
+    for i, leg in enumerate(trigger_legs):
+        cfg.add_shift(name=f"trigger_{leg}_up", id=150 + 2 * i, type="shape")
+        cfg.add_shift(name=f"trigger_{leg}_down", id=151 + 2 * i, type="shape")
+        add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
     ################################################################################################
     # external files
@@ -1392,7 +1384,7 @@ def add_config(
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
-        "tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
+        "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in trigger_legs)),
     })
 
     # define per-dataset event weights
