@@ -46,8 +46,6 @@ if not isinstance(torchdata, MockModule):
             self.int_targets = set()
             self.transform = transform
 
-            self._parse_target(target=target)
-
             self.input = input
             self._data: ak.Array | None = None
             self._input_data: ak.Array | None = None
@@ -77,6 +75,8 @@ if not isinstance(torchdata, MockModule):
             self.all_columns = set()
             self._parse_columns()
             
+            self._parse_target(target=target)
+
             self._validate()
 
             self.data_columns = self.all_columns.symmetric_difference(self.target_columns)
@@ -112,13 +112,16 @@ if not isinstance(torchdata, MockModule):
             # if the target is not a list, cast it
             def _add_target(target):
                 if isinstance(target, str):
-                    self.target_columns.add(target)
+                    # target might be regex, so resolve it against all columns
+                    self.target_columns.update(
+                        x for x in self.all_columns if self._check_against_pattern(x, target)
+                    )
                 elif isinstance(target, (int, float)):
                     self.int_targets.add(int(target))
                 else:
                     raise ValueError(f"Target must be string or int, received {target=}")
 
-            if target and not isinstance(target, Iterable):
+            if target is not None and not isinstance(target, Iterable):
                 _add_target(target)
             elif target:
                 for t in target:
@@ -177,13 +180,16 @@ if not isinstance(torchdata, MockModule):
                 if self.target_data:
                     return_data.append(self.target_data)
                 if len(self.int_targets) > 0:
-                    return_data.append(
-                        ak.zip(
-                            [ak.full_like(ak.firsts(self.data[self.data_columns[0]]), i, dtype=np.int32) 
-                                for i in self.int_targets
-                            ]
+                    int_targets = [
+                        ak.full_like(ak.firsts(list(self.data_columns)[0].apply(self.data)[i]), int_target, dtype=np.int32) 
+                        for int_target in self.int_targets
+                    ]
+                    if len(int_targets) == 1:
+                        return_data.append(int_targets[0])
+                    elif len(int_targets) > 1:
+                        return_data.append(
+                            ak.zip(int_targets)
                         )
-                    )
             if self.transform:
                 return_data = self.transform(return_data)
             return tuple(return_data) if isinstance(return_data, list) else return_data
@@ -503,9 +509,15 @@ if not isinstance(torchdata, MockModule):
             self.collate_fn = collate_fn
 
         def __call__(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
-            batch = []
+            batch: list[Any] = []
             for key, indices in idx.items():
-                batch = ak.concatenate((batch, self.dataset[key][indices]))
+                current_batch = self.dataset[key][indices]
+                if isinstance(current_batch, (tuple, list)):
+                    if len(batch) == 0:
+                        batch.append(current_batch)
+                    else:
+                        for idx, item in enumerate(current_batch):
+                            batch[idx] = ak.concatenate((batch[idx], item))
             return self.collate_fn(batch)
 
     # To keep things simple, let's assume that the following args are provided by the caller
