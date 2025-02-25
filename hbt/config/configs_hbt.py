@@ -1339,11 +1339,6 @@ def add_config(
         "tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
     })
 
-    # define per-dataset event weights
-    for dataset in cfg.datasets:
-        if dataset.has_tag("has_top"):
-            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
-
     cfg.x.shift_groups = {
         "jec": [
             shift_inst.name for shift_inst in cfg.shifts
