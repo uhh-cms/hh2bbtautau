@@ -60,9 +60,6 @@ def IF_DATASET_HAS_LHE_WEIGHTS(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
 ) -> Any | set[Any]:
-    if getattr(func, "dataset_inst", None) is None:
-        return self.get()
-
     return self.get() if not func.dataset_inst.has_tag("no_lhe_weights") else None
 
 
@@ -71,9 +68,6 @@ def IF_DATASET_IS_DY(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
 ) -> Any | set[Any]:
-    if getattr(func, "dataset_inst", None) is None:
-        return self.get()
-
     return self.get() if func.dataset_inst.has_tag("dy") else None
 
 
@@ -82,9 +76,6 @@ def IF_DATASET_IS_W_LNU(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
 ) -> Any | set[Any]:
-    if getattr(func, "dataset_inst", None) is None:
-        return self.get()
-
     return self.get() if func.dataset_inst.has_tag("w_lnu") else None
 
 

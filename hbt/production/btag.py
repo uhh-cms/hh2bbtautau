@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import functools
 
+import law
+
 from columnflow.production import Producer, producer
 from columnflow.production.cms.btag import btag_weights
-from columnflow.util import maybe_import, safe_div, InsertableDict
+from columnflow.util import maybe_import, safe_div
 from columnflow.columnar_util import set_ak_column
+from columnflow.types import Any
 
 
 np = maybe_import("numpy")
@@ -72,12 +75,9 @@ def _normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.A
     return events
 
 
-@_normalized_btag_weights.init
-def _normalized_btag_weights_init(self: Producer) -> None:
+@_normalized_btag_weights.post_init
+def _normalized_btag_weights_post_init(self: Producer, **kwargs) -> None:
     assert self.btag_weights_cls, "btag_weights_cls must be set"
-
-    if not getattr(self, "dataset_inst", None):
-        return
 
     # reuse the weight and tagger names
     self.weight_name = self.btag_weights_cls.weight_name
@@ -91,18 +91,23 @@ def _normalized_btag_weights_init(self: Producer) -> None:
 
 
 @_normalized_btag_weights.requires
-def _normalized_btag_weights_requires(self: Producer, reqs: dict) -> None:
+def _normalized_btag_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     from columnflow.tasks.selection import MergeSelectionStats
     reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
-        self.task,
-        branch=-1 if self.task.is_workflow() else 0,
+        task,
+        branch=-1 if task.is_workflow() else 0,
     )
 
 
 @_normalized_btag_weights.setup
-def _normalized_btag_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+def _normalized_btag_weights_setup(
+    self: Producer,
+    task: law.Task,
+    inputs: dict[str, Any],
+    **kwargs,
+) -> None:
     # load the selection stats
-    selection_stats = self.task.cached_value(
+    selection_stats = task.cached_value(
         key="selection_stats",
         func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
     )

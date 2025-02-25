@@ -18,8 +18,7 @@ from scinum import Number
 
 from columnflow.util import DotDict, dev_sandbox
 from columnflow.config_util import (
-    get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
-    verify_config_processes,
+    get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources, verify_config_processes,
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 
@@ -685,7 +684,7 @@ def add_config(
             "jet_type": jet_type,
             "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
             "levels_for_type1_met": ["L1FastJet"],
-            "uncertainty_sources": [
+            "uncertainty_sources": list(filter(bool, [
                 # "AbsoluteStat",
                 # "AbsoluteScale",
                 # "AbsoluteSample",
@@ -738,7 +737,7 @@ def add_config(
                 "CorrelationGroupbJES",
                 "CorrelationGroupFlavor",
                 "CorrelationGroupUncorrelated",
-            ],
+            ])),
         },
     })
 
@@ -964,18 +963,18 @@ def add_config(
 
     # top pt reweighting
     # https://twiki.cern.ch/twiki/bin/view/CMS/TopPtReweighting?rev=31
-    from columnflow.production.cms.top_pt_weight import TopPtWeightConfig
-    cfg.x.top_pt_weight = TopPtWeightConfig(
-        params={
-            "a": 0.0615,
-            "a_up": 0.0615 * 1.5,
-            "a_down": 0.0615 * 0.5,
-            "b": -0.0005,
-            "b_up": -0.0005 * 1.5,
-            "b_down": -0.0005 * 0.5,
-        },
-        pt_max=500.0,
-    )
+    # from columnflow.production.cms.top_pt_weight import TopPtWeightConfig
+    # cfg.x.top_pt_weight = TopPtWeightConfig(
+    #     params={
+    #         "a": 0.0615,
+    #         "a_up": 0.0615 * 1.5,
+    #         "a_down": 0.0615 * 0.5,
+    #         "b": -0.0005,
+    #         "b_up": -0.0005 * 1.5,
+    #         "b_down": -0.0005 * 0.5,
+    #     },
+    #     pt_max=500.0,
+    # )
 
     ################################################################################################
     # shifts
@@ -1418,23 +1417,6 @@ def add_config(
         add_triggers_2023(cfg)
     else:
         raise False
-
-    ################################################################################################
-    # hist hooks
-    ################################################################################################
-
-    cfg.x.hist_hooks = DotDict()
-
-    # simple blinding
-    cfg.x.hist_hooks.blind = lambda task, hists: {p: h for p, h in hists.items() if not p.is_data}
-
-    # qcd estimation
-    from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
-    add_qcd_hooks(cfg)
-
-    # binning
-    from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
-    add_binning_hooks(cfg)
 
     ################################################################################################
     # LFN settings

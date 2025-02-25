@@ -4,6 +4,10 @@
 Calibration methods.
 """
 
+from __future__ import annotations
+
+import law
+
 from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.cms.met import met_phi
 from columnflow.calibration.cms.jets import jec, jec_nominal, jer
@@ -30,23 +34,20 @@ custom_deterministic_event_seeds = deterministic_event_seeds.derive(
         for route in deterministic_event_seeds.object_count_columns
         if not str(route).startswith(("GenPart.", "Photon."))
     ]},
-
 )
 
 
 @calibrator(
     uses={
         mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
-        deterministic_photon_seeds, deterministic_electron_seeds,
-        electron_sceta,
+        deterministic_photon_seeds, deterministic_electron_seeds, electron_sceta,
     },
     produces={
         mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
-        deterministic_photon_seeds, deterministic_electron_seeds,
-        electron_sceta,
+        deterministic_photon_seeds, deterministic_electron_seeds, electron_sceta,
     },
 )
-def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
+def default(self: Calibrator, events: ak.Array, task: law.Task, **kwargs) -> ak.Array:
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
@@ -58,11 +59,10 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     events = self[deterministic_electron_seeds](events, **kwargs)
 
     events = self[electron_sceta](events, **kwargs)
-    if self.dataset_inst.is_data or not self.global_shift_inst.is_nominal:
+    if self.dataset_inst.is_data or not task.global_shift_inst.is_nominal:
         events = self[self.jec_nominal_cls](events, **kwargs)
-        # egamma scale calibrations should only be applied to data
-        # so if the global shift is not nominal, we are in the shifted case
-        # and will only execute something if it's data
+        # egamma scale calibrations should only be applied to data so if the global shift is not
+        # nominal, we are in the shifted case and will only execute something if it's data
         if self.dataset_inst.is_data:
             if self.has_dep(self.electron_scale_nominal_cls):
                 events = self[self.electron_scale_nominal_cls](events, **kwargs)
@@ -82,7 +82,7 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         events = self[self.met_phi_cls](events, **kwargs)
 
     if self.dataset_inst.is_mc:
-        if self.global_shift_inst.is_nominal:
+        if task.global_shift_inst.is_nominal:
             events = self[self.tec_cls](events, **kwargs)
         else:
             events = self[self.tec_nominal_cls](events, **kwargs)
@@ -91,7 +91,8 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
 
 
 @default.init
-def default_init(self: Calibrator) -> None:
+def default_init(self: Calibrator, **kwargs) -> None:
+    # from traceback import print_stack; print_stack()
     # set the name of the met collection to use
     met_name = self.config_inst.x.met_name
     raw_met_name = self.config_inst.x.raw_met_name
@@ -102,7 +103,6 @@ def default_init(self: Calibrator) -> None:
         # jec calibrators
         self.config_inst.x.calib_jec_full_cls = jec.derive("jec_full", cls_dict={
             "mc_only": True,
-            "nominal_only": True,
             "met_name": met_name,
             "raw_met_name": raw_met_name,
         })

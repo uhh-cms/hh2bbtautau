@@ -917,6 +917,6 @@ def lepton_selection(
 
 
 @lepton_selection.init
-def lepton_selection_init(self: Selector) -> None:
+def lepton_selection_init(self: Selector, **kwargs) -> None:
     # add column to load the raw tau tagger score
     self.uses.add(f"Tau.raw{self.config_inst.x.tau_tagger}VSjet")

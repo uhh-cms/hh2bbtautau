@@ -9,8 +9,9 @@ and https://gitlab.cern.ch/hh/bbtautau/hh-btag for v3.
 import law
 
 from columnflow.production import Producer, producer
-from columnflow.util import maybe_import, dev_sandbox, InsertableDict
+from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
+from columnflow.types import Any
 
 from hbt.util import IF_RUN_2
 
@@ -137,7 +138,7 @@ def hhbtag_init(self: Producer, **kwargs) -> None:
 
 
 @hhbtag.requires
-def hhbtag_requires(self: Producer, reqs: dict) -> None:
+def hhbtag_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     """
     Add the external files bundle to requirements.
     """
@@ -145,11 +146,16 @@ def hhbtag_requires(self: Producer, reqs: dict) -> None:
         return
 
     from columnflow.tasks.external import BundleExternalFiles
-    reqs["external_files"] = BundleExternalFiles.req(self.task)
+    reqs["external_files"] = BundleExternalFiles.req(task)
 
 
 @hhbtag.setup
-def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+def hhbtag_setup(
+    self: Producer,
+    task: law.Task,
+    reqs: dict[str, DotDict[str, Any]],
+    **kwargs,
+) -> None:
     """
     Sets up the two HHBtag TF models.
     """
@@ -162,10 +168,10 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
 
     # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
     bundle = reqs["external_files"]
+    arc = bundle.files.hh_btag_repo
 
     # unpack repo
     repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
-    arc = bundle.files.hh_btag_repo
     arc.load(repo_dir, formatter="tar")
 
     # get the version of the external file
@@ -175,7 +181,7 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     model_dir = repo_dir.child("hh-btag-master/models")
     model_path = f"HHbtag_{self.hhbtag_version}_par"
     # save both models (even and odd event numbers)
-    with self.task.publish_step("loading hhbtag models ..."):
+    with task.publish_step("loading hhbtag models ..."):
         self.hhbtag_model_even = tf.saved_model.load(model_dir.child(f"{model_path}_0").path)
         self.hhbtag_model_odd = tf.saved_model.load(model_dir.child(f"{model_path}_1").path)
 
