@@ -4,9 +4,10 @@ __all__ = [
     "ListDataset", "MapAndCollate", "FlatMapAndCollate", "NodesDataLoader"
 ]
 
-from collections import defaultdict
+from collections import Iterable
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import T, Any, Callable, Sequence
+from columnflow.columnar_util import get_ak_routes, Route, remove_ak_column
 import copy
 
 torch = maybe_import("torch")
@@ -26,32 +27,169 @@ if not isinstance(torchdata, MockModule):
     from torchdata.nodes.samplers.stop_criteria import StopCriteria
     from torchdata.nodes.samplers.multi_node_weighted_sampler import _WeightedSampler
     from typing import Literal, Sized
+    import re
 
     class ParquetDataset(Dataset):
         def __init__(
             self,
             input: Sequence[str] | ak.Array,
             columns: Sequence[str] | None = None,
+            target: str | int | Iterable[str | int] | None = None,
             open_options: dict[str, Any] | None = None,
+            transform: Callable | None = None,
         ):
-            open_options = open_options or {}
+            self.open_options = open_options or {}
+            self.columns = columns or set()
+            # container for target columns
+            self.target_columns = set()
+            # container for integer targets
+            self.int_targets = set()
+            self.transform = transform
+
+            self._parse_target(target=target)
+
+            self.input = input
+            self._data: ak.Array | None = None
+            self._input_data: ak.Array | None = None
+            self._target_data: ak.Array | None = None
+            
+            # container for meta data of parquet file(s)
+            # None if input is an ak.Array
+            self.meta_data = None
+
             if columns:
-                open_options["columns"] = columns
+                self.open_options["columns"] = columns
 
             if isinstance(input, (str, list)):
                 self.path = input
-                self.data = ak.from_parquet(input, **open_options)
+                # idea: write sampler that sub samples each partition individually
+                # the __getitem(s)__ method should then check which partition
+                # is currently read, open the corresponding partition with 
+                # line below, and return the requested item(s).
+                # If a new partition is requested, close/delete the current array
+                # and load the next one.
+                # Would require reading the parquet file multiple times after 
+                # each reset call (= overhead?), but would limit the memory consumption
+                self.meta_data = DotDict.wrap(ak.metadata_from_parquet(self.path))
             elif isinstance(input, ak.Array):
-                self.data = input
+                self._data = input
+            
+            self.all_columns = set()
+            self._parse_columns()
+            
+            self._validate()
+
+            self.data_columns = self.all_columns.symmetric_difference(self.target_columns)
+
+            # parse all strings to Route objects
+            self.data_columns = set(Route(x) for x in self.data_columns)
+            self.target_columns = set(Route(x) for x in self.target_columns)
+            self.all_columns = set(Route(x) for x in self.all_columns)
+
+        def _parse_columns(self) -> None:
+            if self.columns:
+                self.all_columns = set(self.columns)
+            elif isinstance(self.data, ak.Array):
+                self.all_columns = set(str(x) for x in get_ak_routes(self.data))
+
+            if self.meta_data:
+                self.all_columns = set(x.replace(".list.item", "") for x in self.meta_data.columns)
+                # columns are not explicitely considered when loading the meta data
+                # so filter the full set of columns accordingly
+                self.all_columns = set(
+                    x for x in self.all_columns
+                    if any(self._check_against_pattern(x, col) for col in self.columns or (".*",))
+                )
+            
+            if len(self.all_columns) == 0:
+                raise ValueError("No columns specified and no metadata found")
+
+        def _check_against_pattern(self, target: str, col: str) -> re.Match | None:
+                pattern = re.compile(f"^{col}$")
+                return pattern.match(target)
+
+        def _parse_target(self, target: str | int | Iterable[str | int]) -> None:
+            # if the target is not a list, cast it
+            def _add_target(target):
+                if isinstance(target, str):
+                    self.target_columns.add(target)
+                elif isinstance(target, (int, float)):
+                    self.int_targets.add(int(target))
+                else:
+                    raise ValueError(f"Target must be string or int, received {target=}")
+
+            if target and not isinstance(target, Iterable):
+                _add_target(target)
+            elif target:
+                for t in target:
+                    _add_target(t)
+
+        def _validate(self) -> None:
+            if self.columns and not isinstance(self.columns, Iterable):
+                raise ValueError(f"columns must be an iterable of strings, received {self.columns}")
+            # sanity checks for targets
+            
+
+            for target in self.target_columns:
+                # if target is a string and specific columns are supposed to be
+                # loaded, check whether the target is also in the columns
+
+                if not any(self._check_against_pattern(target, col) for col in self.all_columns):
+                    raise ValueError(f"target {target} not found in columns")
+                
+            # if target is an integer, this is a class index
+            # this should be >= 0
+            if any(target < 0 for target in self.int_targets):
+                raise ValueError(f"int targets must be >= 0, received {self.int_targets}")
+
+        @property
+        def data(self) -> ak.Array:
+            if self._data is None:
+                self._data = ak.from_parquet(self.path, **self.open_options)
+            return self._data
+
+        @property
+        def input_data(self) -> ak.Array:
+            if self._input_data is None:
+                self._input_data = self.data
+                for col in self.target_columns:
+                    self._input_data = remove_ak_column(self._input_data, col)
+            return self._input_data
         
+        @property
+        def target_data(self) -> ak.Array:
+            if self._target_data is None and len(self.target_columns) > 0:
+                self._target_data = self.data
+                for col in self.data_columns:
+                    self._target_data = remove_ak_column(self._target_data, col)
+            return self._target_data
+
         def __len__(self):
             return len(self.data)
         
-        def __getitem__(self, i: int) -> ak.Array:
-            return self.data[i]
+        def __getitem__(self, i: int | Sequence[int]) -> ak.Array | tuple[ak.Array, ak.Array] | tuple[ak.Array, ak.Array, ak.Array]:
+            # from IPython import embed
+            # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
+            return_data = [self.input_data[i]]
+            if len(self.target_columns) == 0 and len(self.int_targets) == 0:
+                return_data = return_data[0]
+            else:
+                if self.target_data:
+                    return_data.append(self.target_data)
+                if len(self.int_targets) > 0:
+                    return_data.append(
+                        ak.zip(
+                            [ak.full_like(ak.firsts(self.data[self.data_columns[0]]), i, dtype=np.int32) 
+                                for i in self.int_targets
+                            ]
+                        )
+                    )
+            if self.transform:
+                return_data = self.transform(return_data)
+            return tuple(return_data) if isinstance(return_data, list) else return_data
         
         def __getitems__(self, idx: Sequence[int]) -> ak.Array:
-            return self.data[idx]
+            return self.__getitem__(idx)
         
         def to_list(self) -> list[dict[str, Any]]:
             return self.data.to_list()
