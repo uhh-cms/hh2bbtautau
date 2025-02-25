@@ -356,6 +356,8 @@ def tau_selection(
 
     # compute the isolation mask separately as it is used to defined (qcd) categories later on
     iso_mask = events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.medium
+    # add loose iso mask for ABCD validation
+    # iso_mask_loose = events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.loose
 
     return base_mask, iso_mask
 
