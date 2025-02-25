@@ -524,7 +524,8 @@ def lepton_selection(
             muon_mask,
             **sel_kwargs,
         )
-
+        # TODO: change trigger_id column such that only trigger ids of matched triggers are stored,
+        # not all trigger ids of the fired triggers in the event
         # conditions potentially leading to etau channel
         if trigger.has_tag({"single_e", "cross_e_tau"}) and (
             self.dataset_inst.is_mc or
@@ -733,7 +734,7 @@ def lepton_selection(
             leptons_os = ak.where(is_ee, is_os, leptons_os)
             single_triggered = ak.where(is_ee & is_single, True, single_triggered)
             cross_triggered = ak.where(is_ee & is_cross, True, cross_triggered)
-            sel_electron_mask = ak.where(is_ee, electron_mask, sel_electron_mask)
+            sel_electron_mask = ak.where(is_ee, electron_control_mask, sel_electron_mask)
 
         # mumu channel
         if trigger.has_tag("single_mu") and (
@@ -775,7 +776,7 @@ def lepton_selection(
             leptons_os = ak.where(is_mumu, is_os, leptons_os)
             single_triggered = ak.where(is_mumu & is_single, True, single_triggered)
             cross_triggered = ak.where(is_mumu & is_cross, True, cross_triggered)
-            sel_muon_mask = ak.where(is_mumu, muon_mask, sel_muon_mask)
+            sel_muon_mask = ak.where(is_mumu, muon_control_mask, sel_muon_mask)
 
         # emu channel
         if (
