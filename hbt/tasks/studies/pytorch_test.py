@@ -18,7 +18,7 @@ torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
 dak = maybe_import("dask_awkward")
 ak = maybe_import("awkward")
-
+np = maybe_import("numpy")
 
 
 
@@ -126,7 +126,7 @@ class HBTPytorchTask(
     @law.decorator.localize(input=True, output=True)
     def run(self):
         from hbt.tasks.studies.torch_util import (
-            NodesDataLoader, ParquetDataset, BatchedMultiNodeWeightedSampler
+            CompositeDataLoader, ParquetDataset,
         )
         from torch.utils.data import default_collate
         import torchdata.nodes as tn
@@ -156,7 +156,8 @@ class HBTPytorchTask(
             for targets in collections.targets.values()
             for t in targets.values()
         ]
-
+        # from IPython import embed
+        # embed(header="initialized signal and background targets")
         ### read via dask dataframe ######################################################
         # signal_dfs = dd.read_parquet(
         #     [
@@ -210,71 +211,70 @@ class HBTPytorchTask(
             signal_target_paths,
             open_options=open_options,
             columns=columns,
+            target=int(0),
         )
         data_b = ParquetDataset(
             background_target_paths,
             open_options=open_options,
             columns=columns,
+            target=int(1),
         )
-        from torch.utils.data import RandomSampler, SequentialSampler
-        node_dict = {"signal": tn.SamplerWrapper(RandomSampler(data_s)), "bkg": tn.SamplerWrapper(RandomSampler(data_b))}
-        weight_dict = {"signal": 1., "bkg": 1.}
-        batcher = BatchedMultiNodeWeightedSampler(node_dict, weights=weight_dict, batch_size=256)
-        from hbt.tasks.studies.torch_util import NestedMapAndCollate
-
         data_map = {"signal": data_s, "bkg": data_b}
-        mapping = NestedMapAndCollate(data_map, collate_fn=lambda x: x)
+        weight_dict = {"signal": 1., "bkg": 1.}
+
+        parallel_node, batcher = CompositeDataLoader(
+            data_map=data_map, weight_dict=weight_dict,
+        )
+
+        def train_loop(dataloader, model, loss_fn, optimizer, size=None):
+            if not size:
+                size = len(dataloader.dataset)
+            # Set the model to training mode - important for batch normalization and dropout layers
+            # Unnecessary in this situation but added for best practices
+            model.train()
+            for batch, (X, y) in enumerate(dataloader, start=1):
+                # Compute prediction and loss
+                pred = model(X)
+                loss = loss_fn(pred, y)
+
+                # Backpropagation
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+
+                if batch % 100 == 0:
+                    loss = loss.item()
+                    print(f"loss: {loss:>7f}  [{batch:>5d}/{size:>5d}]")
         
-        parallel_node = tn.ParallelMapper(
-            batcher,
-            map_fn=mapping,
-            num_workers=1,
-            method="process",  # Set this to "thread" for multi-threading
-            in_order=True,
-        )
-        from IPython import embed
-        embed(header=f"intialized data_s and data_b")
-        node_s = NodesDataLoader(
-            data_s,
-            shuffle=True,
-            num_workers=1,
-            collate_fn=lambda x: x,
-            pin_memory=False,
-        )
-        node_b = NodesDataLoader(
-            data_b,
-            shuffle=True,
-            num_workers=1,
-            collate_fn=lambda x: x,
-            pin_memory=False,
-        )
+        def test_loop(dataloader, model, loss_fn):
+            # Set the model to evaluation mode - important for batch normalization and dropout layers
+            # Unnecessary in this situation but added for best practices
+            model.eval()
+            size = len(dataloader.dataset)
+            num_batches = len(dataloader)
+            test_loss, correct = 0, 0
 
-        # down-sides of this approach:
-        # - number of batches can vary
-        # - batches are not balanced - only average over all batches is balanced
+            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
+            # also serves to reduce unnecessary gradient computations and memory usage for tensors with requires_grad=True
+            with torch.no_grad():
+                for X, y in dataloader:
+                    pred = model(X)
+                    test_loss += loss_fn(pred, y).item()
+                    correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
-        node_dict = {
-            "signal": tn.SamplerWrapper(node_s),
-            "background": tn.SamplerWrapper(node_b),
-        }
-        weight_dict = {
-            "signal": 1.,
-            "background": 1.,
-        }
-
-        composite_batched_sampler = BatchedMultiNodeWeightedSampler(
-            node_dict,
-            weights=weight_dict,
-            batch_size=256,
-        )
-
-        from IPython import embed
-        embed(header="running task")
-
-        composite_batched_sampler.reset()
+            test_loss /= num_batches
+            correct /= size
+            print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
         
-        # get first element
-        foo = composite_batched_sampler.next()
+        # the total number of batches is defined by the largest dataset, so find it
+        datasets: list[ParquetDataset] = list(data_map.values())
+        dataset_names = list(data_map.keys())
+        max_dataset_idx: int = np.argmax([len(data) for data in datasets])
+        max_batches = len(datasets[max_dataset_idx]) / batcher._batch_composition[dataset_names[max_dataset_idx]]
+        from hbt.ml.torch_models import FeedForwardNet
+        model = FeedForwardNet()
+        from IPython import embed
+        embed(header="initialized model")
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
         # https://discuss.pytorch.org/t/proper-way-of-using-weightedrandomsampler/73147
         # https://pytorch.org/data/0.10/stateful_dataloader_tutorial.html

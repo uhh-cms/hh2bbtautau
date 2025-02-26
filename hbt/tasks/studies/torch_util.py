@@ -4,7 +4,7 @@ __all__ = [
     "ListDataset", "MapAndCollate", "FlatMapAndCollate", "NodesDataLoader"
 ]
 
-from collections import Iterable
+from collections import Iterable, Mapping
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import T, Any, Callable, Sequence
 from columnflow.columnar_util import get_ak_routes, Route, remove_ak_column
@@ -598,3 +598,42 @@ if not isinstance(torchdata, MockModule):
         # Insteaad, we wrap the node in a Loader, which is an iterable and handles reset. It
         # also provides state_dict and load_state_dict methods.
         return tn.Loader(node)
+    
+    def CompositeDataLoader(
+            data_map: Mapping[str, Sized],
+            weight_dict: Mapping[str, float | Mapping[str, float]],
+            shuffle: bool=True,
+            batch_size: int = 256,
+            num_workers: int = 0,
+            parallelize_method: Literal["thread", "process"] = "process",
+            collate_fn: Callable | None = None,
+            batch_sampler_cls: Callable | None = None,
+            index_sampler_cls: Callable | None = None,
+            map_and_collate_cls: Callable | None = None,
+            device=None,
+    ) -> tuple[tn.ParallelMapper, Any]:
+        if not index_sampler_cls:
+            from torch.utils.data import RandomSampler, SequentialSampler
+            if shuffle:
+                index_sampler_cls = RandomSampler
+            else:
+                index_sampler_cls = SequentialSampler
+        
+        node_dict = {key: tn.SamplerWrapper(index_sampler_cls(dataset)) for key, dataset in data_map.items()}
+        batch_sampler_cls = batch_sampler_cls or BatchedMultiNodeWeightedSampler
+        batcher = batch_sampler_cls(node_dict, weights=weight_dict, batch_size=batch_size)
+
+
+        from hbt.tasks.studies.torch_util import NestedMapAndCollate
+        map_cls = map_and_collate_cls or NestedMapAndCollate
+        mapping = map_cls(data_map, collate_fn=(collate_fn or (lambda x: x)))
+        
+        parallel_node = tn.ParallelMapper(
+            batcher,
+            map_fn=mapping,
+            num_workers=num_workers,
+            method=parallelize_method,  # Set this to "thread" for multi-threading
+            in_order=True,
+        )
+
+        return (parallel_node, batcher)
