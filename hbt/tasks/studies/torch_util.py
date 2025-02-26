@@ -180,10 +180,16 @@ if not isinstance(torchdata, MockModule):
                 if self.target_data:
                     return_data.append(self.target_data)
                 if len(self.int_targets) > 0:
-                    int_targets = [
-                        ak.full_like(ak.firsts(list(self.data_columns)[0].apply(self.data)[i]), int_target, dtype=np.int32) 
-                        for int_target in self.int_targets
-                    ]
+                    int_targets = list()
+                    for int_target in self.int_targets:
+                        tmp = ak.full_like(
+                            ak.firsts(list(self.data_columns)[0].apply(self.data)[i]),
+                            int_target,
+                            dtype=np.int32
+                        )
+                        # make sure there are no None values
+                        tmp = ak.fill_none(tmp, int_target)
+                        int_targets.append(tmp) 
                     if len(int_targets) == 1:
                         return_data.append(int_targets[0])
                     elif len(int_targets) > 1:
@@ -509,15 +515,38 @@ if not isinstance(torchdata, MockModule):
             self.collate_fn = collate_fn
 
         def __call__(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
-            batch: list[Any] = []
-            for key, indices in idx.items():
-                current_batch = self.dataset[key][indices]
+            batch: list[T] = []
+
+            # helper function to concatenate different types of objects
+            def _concat_batches(
+                batch: list[T],
+                current_batch: Sequence[T],
+                concat_fn: Callable,
+                *args,
+                **kwargs,
+            ) -> Sequence[T]:
                 if isinstance(current_batch, (tuple, list)):
                     if len(batch) == 0:
-                        batch.append(current_batch)
+                        batch = list(current_batch)
                     else:
                         for idx, item in enumerate(current_batch):
-                            batch[idx] = ak.concatenate((batch[idx], item))
+                            batch[idx] = concat_fn((batch[idx], item), *args, **kwargs)
+                else:
+                    batch = concat_fn((batch, current_batch), *args, **kwargs)
+                return batch
+
+            for key, indices in idx.items():
+                current_batch = self.dataset[key][indices]
+                concat_fn = ak.concatenate
+                if isinstance(current_batch, (list, tuple)):
+                    if all(isinstance(x, torch.Tensor) for x in current_batch):
+                        concat_fn = torch.cat
+                elif isinstance(current_batch, torch.Tensor):
+                    concat_fn = torch.cat
+                
+                batch = _concat_batches(batch=batch, current_batch=current_batch, concat_fn=concat_fn)
+
+                
             return self.collate_fn(batch)
 
     # To keep things simple, let's assume that the following args are provided by the caller
