@@ -869,11 +869,8 @@ def add_hooks(config: od.Config) -> None:
             # --------------------------------------------------------------------------------------
             # choose numerator region for fake factor calculation and region to get the shape from
             # C: ss_iso_qcd, B: os_noniso_qcd
-            num_region = ss_iso_qcd
-            shape_region = os_noniso_qcd
-
-            if num_region == shape_region:
-                raise ValueError("Numerator region and shape region cannot be the same!")
+            num_region = os_noniso_qcd
+            shape_region = ss_iso_qcd
             # --------------------------------------------------------------------------------------
 
             # get integrals in ss regions for the transfer factor
