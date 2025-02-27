@@ -1016,8 +1016,8 @@ def add_hooks(config: od.Config) -> None:
 
             # define the control regions
             # B region: opposite relative sign of tautau pair, passes VVVLoose WP of DeepTau tau vs jets
-            os_noniso_mc = hist_to_num(get_hist(mc_hist, "ss_noniso"), "ss_noniso_mc")
-            os_noniso_data = hist_to_num(get_hist(data_hist, "ss_noniso"), "ss_noniso_data")
+            os_noniso_mc = hist_to_num(get_hist(mc_hist, "os_noniso"), "os_noniso_mc")
+            os_noniso_data = hist_to_num(get_hist(data_hist, "os_noniso"), "os_noniso_data")
             # C region: same relative sign of tautau pair, passes Medium WP
             ss_iso_mc = hist_to_num(get_hist(mc_hist, "ss_iso"), "ss_iso_mc")
             ss_iso_data = hist_to_num(get_hist(data_hist, "ss_iso"), "ss_iso_data")
@@ -1032,15 +1032,15 @@ def add_hooks(config: od.Config) -> None:
 
             # --------------------------------------------------------------------------------------
             # choose numerator region for fake factor calculation C: ss_iso_qcd or B: os_noniso_qcd
-            region = ss_iso_qcd
+            region = os_noniso_qcd
             # --------------------------------------------------------------------------------------
 
-            # calculate the pt-independent fake factor
+            # calculate the integrated fake factor
             int_ss_noniso = integrate_num(ss_noniso_qcd, axis=1)
             int_region = integrate_num(region, axis=1)
             fake_factor_int = (int_region / int_ss_noniso)[0, None]
 
-            # calculate the pt-dependent fake factors
+            # calculate the fake factor per bin
             fake_factor = (region / ss_noniso_qcd)[:, None]
             fake_factor_values = np.squeeze(np.nan_to_num(fake_factor()), axis=0)
             fake_factor_variances = fake_factor(sn.UP, sn.ALL, unc=True)**2
@@ -1048,7 +1048,6 @@ def add_hooks(config: od.Config) -> None:
             # change shape of fake_factor_int for plotting
             fake_factor_int_values = fake_factor_values.copy()
             fake_factor_int_values.fill(fake_factor_int()[0])
-
             # insert values into the qcd histogram
             cat_axis = factor_hist.axes["category"]
             for cat_index in range(cat_axis.size):
@@ -1171,7 +1170,6 @@ def add_hooks(config: od.Config) -> None:
                     # --------------------------------------------------------------------------------------
                     # choose numerator region for fake factor calculation C: ss_iso_qcd or B: os_noniso_qcd
                     region = os_noniso_qcd
-                    print("Using B region for fake factor calculation!")
                     # --------------------------------------------------------------------------------------
 
                     # calculate the pt-independent fake factor
