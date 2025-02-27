@@ -106,12 +106,14 @@ def add_config(
             label="Multiboson",
             processes=[procs.n.vv, procs.n.vvv],
         )
+        """
         cfg.add_process(
             name="all_v",
             id=7996,
             label="Multiboson",
             processes=[cfg.processes.n.v, cfg.processes.n.multiboson],
         )
+        """
         cfg.add_process(
             name="tt_multiboson",
             id=7999,
