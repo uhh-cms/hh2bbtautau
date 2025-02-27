@@ -139,7 +139,6 @@ class HBTPytorchTask(
         backgrounds = ["tt_sl_powheg"]
 
         configs = self.configs
-        columns = ["Jet.*", "Muon.*", "Electron.pt"]
         open_options = {}
 
         signal_targets = [inputs.events[s][configs[0]].collection for s in signals]
@@ -207,6 +206,10 @@ class HBTPytorchTask(
 
         #### test case
 
+        from hbt.ml.torch_models import FeedForwardNet
+        model = FeedForwardNet()
+        columns = model.inputs
+
         data_s = ParquetDataset(
             signal_target_paths,
             open_options=open_options,
@@ -232,7 +235,7 @@ class HBTPytorchTask(
             # Set the model to training mode - important for batch normalization and dropout layers
             # Unnecessary in this situation but added for best practices
             model.train()
-            for batch, (X, y) in enumerate(dataloader, start=1):
+            for ibatch, (X, y) in enumerate(dataloader, start=1):
                 # Compute prediction and loss
                 pred = model(X)
                 loss = loss_fn(pred, y)
@@ -242,9 +245,9 @@ class HBTPytorchTask(
                 optimizer.step()
                 optimizer.zero_grad()
 
-                if batch % 100 == 0:
+                if ibatch % 100 == 0:
                     loss = loss.item()
-                    print(f"loss: {loss:>7f}  [{batch:>5d}/{size:>5d}]")
+                    print(f"loss: {loss:>7f}  [{ibatch:>5d}/{size:>5d}]")
         
         def test_loop(dataloader, model, loss_fn):
             # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -271,8 +274,7 @@ class HBTPytorchTask(
         dataset_names = list(data_map.keys())
         max_dataset_idx: int = np.argmax([len(data) for data in datasets])
         max_batches = len(datasets[max_dataset_idx]) / batcher._batch_composition[dataset_names[max_dataset_idx]]
-        from hbt.ml.torch_models import FeedForwardNet
-        model = FeedForwardNet()
+        
         from IPython import embed
         embed(header="initialized model")
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
