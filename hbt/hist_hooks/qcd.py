@@ -746,20 +746,19 @@ def add_hooks(config: od.Config) -> None:
             for c in [f"incl__{a}__{b}" for a in ["os", "ss"] for b in ["iso", "noniso"]]
         ]
 
-        from IPython import embed
-        embed()
         results = {}
         for process, h in hists.items():
             h_new = hist.Hist(
                 hist.axes.StrCategory([c.name for c in cats], name=h.axes[-1].name),
                 hist.axes.IntCategory([0], name="shift"),
-                hist.axes.IntCategory([101], name="category"),  # custom category to be plotted
+                hist.axes.IntCategory([101], name="category"),  # 101: all_incl
                 storage=hist.storage.Weight(),
             )
             for ind, big_cat in enumerate(cats):
                 h_sum = h[
                     {
-                        "category": [hist.loc(cat.id) for cat in big_cat.get_leaf_categories()],
+                        # use 0: etau; 1: mutau; 2: tautau; remove [] for all_incl
+                        "category": [hist.loc(cat.id) for cat in big_cat.get_leaf_categories()][0],
                         "shift": sum,
                     }
                 ].sum()
