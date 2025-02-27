@@ -7,7 +7,10 @@ __all__ = [
 from collections import Iterable, Mapping
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import T, Any, Callable, Sequence
-from columnflow.columnar_util import get_ak_routes, Route, remove_ak_column
+from columnflow.columnar_util import (
+    get_ak_routes, Route, remove_ak_column, EMPTY_FLOAT, EMPTY_INT,
+    flat_np_view,
+)
 import copy
 
 torch = maybe_import("torch")
@@ -55,9 +58,6 @@ if not isinstance(torchdata, MockModule):
             # None if input is an ak.Array
             self.meta_data = None
 
-            if columns:
-                self.open_options["columns"] = columns
-
             if isinstance(input, (str, list)):
                 self.path = input
                 # idea: write sampler that sub samples each partition individually
@@ -82,31 +82,57 @@ if not isinstance(torchdata, MockModule):
             self.data_columns = self.all_columns.symmetric_difference(self.target_columns)
 
             # parse all strings to Route objects
-            self.data_columns = set(Route(x) for x in self.data_columns)
-            self.target_columns = set(Route(x) for x in self.target_columns)
-            self.all_columns = set(Route(x) for x in self.all_columns)
+            self.data_columns: set[Route] = set(Route(x) for x in self.data_columns)
+            self.target_columns: set[Route] = set(Route(x) for x in self.target_columns)
+            self.all_columns: set[Route] = set(Route(x) for x in self.all_columns)
 
         def _parse_columns(self) -> None:
             if self.columns:
-                self.all_columns = set(self.columns)
+                self.columns = set(Route(x) for x in self.columns)
             elif isinstance(self.data, ak.Array):
-                self.all_columns = set(str(x) for x in get_ak_routes(self.data))
+                self.all_columns = set(x for x in get_ak_routes(self.data))
 
             if self.meta_data:
                 self.all_columns = set(x.replace(".list.item", "") for x in self.meta_data.columns)
                 # columns are not explicitely considered when loading the meta data
                 # so filter the full set of columns accordingly
-                self.all_columns = set(
-                    x for x in self.all_columns
-                    if any(self._check_against_pattern(x, col) for col in self.columns or (".*",))
-                )
+                tmp_cols = set()
+                for x in self.all_columns:
+                    for col in (self.columns or (".*",)):
+                        resolved_route = self._check_against_pattern(x, col)
+                        if resolved_route:
+                            tmp_cols.add(resolved_route)
+                
+                self.all_columns = tmp_cols 
             
             if len(self.all_columns) == 0:
                 raise ValueError("No columns specified and no metadata found")
 
-        def _check_against_pattern(self, target: str, col: str) -> re.Match | None:
-                pattern = re.compile(f"^{col}$")
-                return pattern.match(target)
+        def _check_against_pattern(self, target: str, col: Route) -> Route | None:
+            slice_dict: dict[int, tuple[slice]] = {}
+            str_col: str = str(col)
+
+            if isinstance(col, Route):
+                slice_dict = {
+                    i: field for i, field in enumerate(col.fields) if isinstance(field, tuple)
+                }
+                str_col = col.string_column
+                
+            # make sure there aren't any special characters that aren't caught
+            str_col = str_col.replace("{", "(").replace("}", ")").replace(",", "|")
+            pattern = re.compile(f"^{str_col}$")
+            
+            if not pattern.match(target):
+                return
+            # if there is a match, insert possible slices
+            # from IPython import embed
+            # embed(header=f"found match for target '{target}' and pattern '{col}'")
+            parts = target.split(".")
+            for index in reversed(slice_dict.keys()):
+                parts.insert(index, slice_dict[index])
+            
+            return Route(Route.join(parts))
+
 
         def _parse_target(self, target: str | int | Iterable[str | int]) -> None:
             # if the target is not a list, cast it
@@ -148,6 +174,7 @@ if not isinstance(torchdata, MockModule):
         @property
         def data(self) -> ak.Array:
             if self._data is None:
+                self.open_options["columns"] = [x.string_column for x in self.all_columns]
                 self._data = ak.from_parquet(self.path, **self.open_options)
             return self._data
 
@@ -156,7 +183,7 @@ if not isinstance(torchdata, MockModule):
             if self._input_data is None:
                 self._input_data = self.data
                 for col in self.target_columns:
-                    self._input_data = remove_ak_column(self._input_data, col)
+                    self._input_data = remove_ak_column(self._input_data, col.string_column)
             return self._input_data
         
         @property
@@ -164,7 +191,7 @@ if not isinstance(torchdata, MockModule):
             if self._target_data is None and len(self.target_columns) > 0:
                 self._target_data = self.data
                 for col in self.data_columns:
-                    self._target_data = remove_ak_column(self._target_data, col)
+                    self._target_data = remove_ak_column(self._target_data, col.string_column)
             return self._target_data
 
         def __len__(self):
@@ -182,14 +209,9 @@ if not isinstance(torchdata, MockModule):
                 if len(self.int_targets) > 0:
                     int_targets = list()
                     for int_target in self.int_targets:
-                        tmp = ak.full_like(
-                            ak.firsts(list(self.data_columns)[0].apply(self.data)[i]),
-                            int_target,
-                            dtype=np.int32
+                        int_targets.append(
+                            ak.Array([int_target]*int(ak.num(return_data[0], axis=0)))
                         )
-                        # make sure there are no None values
-                        tmp = ak.fill_none(tmp, int_target)
-                        int_targets.append(tmp) 
                     if len(int_targets) == 1:
                         return_data.append(int_targets[0])
                     elif len(int_targets) > 1:
@@ -205,6 +227,68 @@ if not isinstance(torchdata, MockModule):
         
         def to_list(self) -> list[dict[str, Any]]:
             return self.data.to_list()
+
+
+    class FlatParquetDataset(ParquetDataset):
+        def __init__(
+            self,
+            *args,
+            padd_value_float: float = EMPTY_FLOAT,
+            padd_value_int: int = EMPTY_INT,
+            **kwargs,
+        ):
+            super().__init__(*args, **kwargs)
+            self.padd_values = {
+                t: padd_value_float
+                for t in [np.float16, np.float32, np.float64, np.float128]
+            }
+            self.padd_values.update({
+                t: padd_value_int
+                for t in [
+                    np.uint8, np.uint16, np.uint32, np.uint64,
+                    np.int8, np.int16, np.int32, np.int64,
+                ]
+            })
+
+            self._input_data: Mapping[str, ak.Array] | None = None
+            self._target_data: Mapping[str, ak.Array] | None = None
+        
+        def _extract_columns(self, array: ak.Array, route: Route):
+            # first, get super set of column
+            super_route = Route(route.string_column)
+            total_array = super_route.apply(array)
+
+            # determine the type of the array values
+            view = flat_np_view(total_array)
+            val_type = view.dtype.type
+            padding = self.padd_values.get(val_type, None)
+            
+            if padding is None:
+                from IPython import embed
+                embed(header=f"Error for route {route}, val_type={val_type}")
+                raise ValueError(f"Could not determine padding value for type {val_type}")
+            
+            return route.apply(array, padding)
+
+        @property
+        def input_data(self) -> Mapping[str, ak.Array]:
+            if self._input_data is None:
+                self._input_data = super().input_data
+                self._input_data = {
+                    str(r): self._extract_columns(self._input_data, r)
+                    for r in self.data_columns
+                }
+            return self._input_data
+        
+        @property
+        def target_data(self) -> Mapping[str, ak.Array]:
+            if self._target_data is None:
+                self._target_data = super().target_data
+                self._target_data = {
+                    str(r): self._extract_columns(self._target_data, r)
+                    for r in self.target_columns
+                }
+            return self._target_data
 
     class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
 
