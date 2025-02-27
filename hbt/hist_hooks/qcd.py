@@ -741,6 +741,16 @@ def add_hooks(config: od.Config) -> None:
         return hists
 
     def abcd_stats(task, hists):
+        """
+        hist hook to plot the statistics in each of the ABCD qcd regions.
+        When calling the abcd_stats hook make sure to also call --categories all_incl
+        To plot the ABCD regions for a specific channel, modify l771 accordingly.
+
+        Note:
+        The plotting style of the x-axis must be set in l190 of columnflow/columnflow/tasks/plotting.py
+        over/underflow of histograms must be commented out in l287-290 of columnflow/columnflow/plotting/plot_util.py
+        """
+
         cats = [
             task.config_inst.get_category(c)
             for c in [f"incl__{a}__{b}" for a in ["os", "ss"] for b in ["iso", "noniso"]]
@@ -757,8 +767,8 @@ def add_hooks(config: od.Config) -> None:
             for ind, big_cat in enumerate(cats):
                 h_sum = h[
                     {
-                        # use 0: etau; 1: mutau; 2: tautau; remove [] for all_incl
-                        "category": [hist.loc(cat.id) for cat in big_cat.get_leaf_categories()][0],
+                        # use [0]: etau; [1]: mutau; [2]: tautau; remove [] for all_incl
+                        "category": [hist.loc(cat.id) for cat in big_cat.get_leaf_categories()][2],
                         "shift": sum,
                     }
                 ].sum()
