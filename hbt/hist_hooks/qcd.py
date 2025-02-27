@@ -551,7 +551,6 @@ def add_hooks(config: od.Config) -> None:
 
         return hists
 
-    # calculate the transfer factor for a chosen category and single decay channel (etau OR mutau OR tautau)
     def fake_factor_original(task, hists):
         if not hists:
             return hists
@@ -655,7 +654,6 @@ def add_hooks(config: od.Config) -> None:
                 )
         return hists
 
-    # calculate the transfer factor for a chosen category for all decay channels (etau AND mutau AND tautau)
     def fake_factor_incl_original(task, hists):
         if not hists:
             return hists
@@ -777,6 +775,7 @@ def add_hooks(config: od.Config) -> None:
                         )
         return hists
 
+    # estimate qcd histogram in signal region. Works for all categories.
     def qcd_estimation(task, hists):
         if not hists:
             return hists
@@ -948,7 +947,7 @@ def add_hooks(config: od.Config) -> None:
 
         return hists
 
-    # calculate the transfer factor for a chosen category and single decay channel (etau OR mutau OR tautau)
+    # calculate the fake factor for one category and single decay channel (e.g. etau_incl OR mutau_incl OR tautau_incl)
     def fake_factor(task, hists):
         if not hists:
             return hists
@@ -1066,7 +1065,7 @@ def add_hooks(config: od.Config) -> None:
                 )
         return hists
 
-    # calculate the transfer factor for a chosen category for all decay channels (etau AND mutau AND tautau)
+    # calculate the fake factor for one category and ALL decay channels (etau_incl AND mutau_incl AND tautau_incl)
     def fake_factor_incl(task, hists):
         if not hists:
             return hists
@@ -1134,16 +1133,22 @@ def add_hooks(config: od.Config) -> None:
             # each one storing an array of values with uncertainties
             # shapes: (SHIFT, VAR)
             get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
-            ss_noniso_mc = hist_to_num(get_hist(mc_hist, "ss_noniso"), "ss_noniso_mc")
+
+            os_noniso_mc = hist_to_num(get_hist(mc_hist, "os_noniso"), "os_noniso_mc")
+            os_noniso_data = hist_to_num(get_hist(data_hist, "os_noniso"), "os_noniso_data")
             ss_iso_mc = hist_to_num(get_hist(mc_hist, "ss_iso"), "ss_iso_mc")
-            ss_noniso_data = hist_to_num(get_hist(data_hist, "ss_noniso"), "ss_noniso_data")
             ss_iso_data = hist_to_num(get_hist(data_hist, "ss_iso"), "ss_iso_data")
+            ss_noniso_mc = hist_to_num(get_hist(mc_hist, "ss_noniso"), "ss_noniso_mc")
+            ss_noniso_data = hist_to_num(get_hist(data_hist, "ss_noniso"), "ss_noniso_data")
 
             channels[group_name] = {}
+            channels[group_name]["os_noniso_mc"] = os_noniso_mc
+            channels[group_name]["os_noniso_data"] = os_noniso_data
             channels[group_name]["ss_iso_mc"] = ss_iso_mc
-            channels[group_name]["ss_noniso_mc"] = ss_noniso_mc
             channels[group_name]["ss_iso_data"] = ss_iso_data
+            channels[group_name]["ss_noniso_mc"] = ss_noniso_mc
             channels[group_name]["ss_noniso_data"] = ss_noniso_data
+
 
         for group_name in complete_groups:
             for k in ["incl"]:  # INDICATE WHICH CATEGORY TO CALCULATE THE FACTOR FOR ! e.g. "incl", "2j" ...
@@ -1165,7 +1170,8 @@ def add_hooks(config: od.Config) -> None:
 
                     # --------------------------------------------------------------------------------------
                     # choose numerator region for fake factor calculation C: ss_iso_qcd or B: os_noniso_qcd
-                    region = ss_iso_qcd
+                    region = os_noniso_qcd
+                    print("Using B region for fake factor calculation!")
                     # --------------------------------------------------------------------------------------
 
                     # calculate the pt-independent fake factor
@@ -1203,4 +1209,3 @@ def add_hooks(config: od.Config) -> None:
     config.x.hist_hooks.qcd = qcd_estimation
     config.x.hist_hooks.fake_factor = fake_factor
     config.x.hist_hooks.fake_factor_incl = fake_factor_incl
-
