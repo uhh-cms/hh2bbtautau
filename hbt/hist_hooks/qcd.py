@@ -740,9 +740,38 @@ def add_hooks(config: od.Config) -> None:
                         )
         return hists
 
+    def abcd_stats(task, hists):
+        cats = [
+            task.config_inst.get_category(c)
+            for c in [f"incl__{a}__{b}" for a in ["os", "ss"] for b in ["iso", "noniso"]]
+        ]
+
+        from IPython import embed
+        embed()
+        results = {}
+        for process, h in hists.items():
+            h_new = hist.Hist(
+                hist.axes.StrCategory([c.name for c in cats], name=h.axes[-1].name),
+                hist.axes.IntCategory([0], name="shift"),
+                hist.axes.IntCategory([101], name="category"),  # custom category to be plotted
+                storage=hist.storage.Weight(),
+            )
+            for ind, big_cat in enumerate(cats):
+                h_sum = h[
+                    {
+                        "category": [hist.loc(cat.id) for cat in big_cat.get_leaf_categories()],
+                        "shift": sum,
+                    }
+                ].sum()
+                h_new.values()[ind][0][0] = h_sum.value
+                h_new.variances()[ind][0][0] = h_sum.variance
+            results[process] = h_new
+        return results
+
     # add all hooks
     config.x.hist_hooks.qcd = qcd_estimation
     config.x.hist_hooks.qcd_inverted = qcd_inverted
+    config.x.hist_hooks.closure = closure_test
     config.x.hist_hooks.fake_factor = fake_factor
     config.x.hist_hooks.fake_factor_incl = fake_factor_incl
-    config.x.hist_hooks.closure = closure_test
+    config.x.hist_hooks.abcd_stats = abcd_stats
