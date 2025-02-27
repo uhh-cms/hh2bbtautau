@@ -71,7 +71,7 @@ if not isinstance(torch, MockModule):
             elif isinstance(X, NestedTensor):
                 return_tensor = X
 
-            if not return_tensor:
+            if return_tensor is None:
                 raise ValueError(f"Could not convert input {X=}")
             
             return return_tensor
@@ -89,4 +89,22 @@ if not isinstance(torch, MockModule):
             else:
                 return_tensor = self._transform_input(X)
 
+            return return_tensor
+        
+    class AkToTensor(AkToNestedTensor):
+        def _transform_input(self, X):
+            return_tensor = None
+            if isinstance(X, ak.Array):
+                # first, get flat numpy view to avoid copy operations
+                try:
+                    return_tensor = ak.to_torch(X)
+                except Exception as e:
+                    # default back to NestedTensor
+                    return_tensor = super()._transform_input(X)
+            elif isinstance(X, (torch.Tensor, NestedTensor)):
+                return_tensor = X
+
+            if return_tensor is None:
+                raise ValueError(f"Could not convert input {X=}")
+            
             return return_tensor
