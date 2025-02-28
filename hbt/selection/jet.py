@@ -107,7 +107,7 @@ def jet_selection(
         (events.channel_id == ch_tautau.id) &
         ak.any(reduce(
             or_,
-            [(lepton_results.lepton_part_trigger_ids == tid) for tid in self.trigger_ids_ttjc],
+            [(lepton_results.x.lepton_part_trigger_ids == tid) for tid in self.trigger_ids_ttjc],
             false_mask,
         ), axis=1)
     )
@@ -122,19 +122,16 @@ def jet_selection(
         ), axis=1)
     )
 
-    # create mask for tautau events that matched taus in vbf trigger -> TODO: needs to be reused afterwards to remove
-    # events that fired only vbf and tautaujet but did not match tautaujet
+    # create mask for tautau events that matched taus in vbf trigger
     vbf_tau_trig_matched_mask = (
         (events.channel_id == ch_tautau.id) &
         ak.any(reduce(
             or_,
-            [(lepton_results.lepton_part_trigger_ids == tid) for tid in self.trigger_ids_ttvc],
+            [(lepton_results.x.lepton_part_trigger_ids == tid) for tid in self.trigger_ids_ttvc],
             false_mask,
         ), axis=1)
     )
 
-    # TODO: create selection mask for ttj events matching
-    # TODO: trigger id for ttj and vbf (for vbf always FOR NOW -> TODO: WRITE COMMENT THERE)
     # create the event mask to remove events where only tautaujet fired, but that are not matched
     match_at_least_one_trigger = full_like(events.event, True, dtype=bool)
 
@@ -178,12 +175,21 @@ def jet_selection(
                     ak.firsts(trigger_matching_mask[sel_hhbjet_mask][pt_sorting_indices], axis=1),
                     False,
                 )
-                ids = ak.where(ttj_mask & leading_matched, np.float32(trigger.id), np.float32(np.nan))
+
+                # cast leading matched mask to event mask
+                leading_matched_all_events = full_like(events.event, False, dtype=bool)
+                flat_leading_matched_all_events = flat_np_view(leading_matched_all_events)
+                flat_leading_matched = flat_np_view(leading_matched)
+                flat_ttj_mask = flat_np_view(ttj_mask)
+                flat_leading_matched_all_events[flat_ttj_mask] = flat_leading_matched
+
+                # store the matched trigger ids
+                ids = ak.where(leading_matched_all_events, np.float32(trigger.id), np.float32(np.nan))
                 matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
 
         # store the matched trigger ids
         matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
-        from IPython import embed; embed(header="matched_trigger_ids column")
+        # replace the existing column matched_trigger_ids from the lepton selection with the updated one
         events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
 
         # constrain to jets with a score and a minimum pt corresponding to the trigger jet leg
@@ -235,14 +241,24 @@ def jet_selection(
         leading_matched = ak.fill_none(ak.firsts(matching_mask[sel_hhbjet_mask][pt_sorting_indices], axis=1), False)
         sel_hhbjet_mask = sel_hhbjet_mask & leading_matched
 
-        # remove all events where the matching did not work if they were only triggered by the tautaujet trigger
-        from IPython import embed; embed(header="remove only ttj non matched")
-        match_at_least_one_trigger = ak.where(only_ttj_mask & ~leading_matched, False, match_at_least_one_trigger)
-
         # insert back into the full hhbjet_mask
         flat_hhbjet_mask = flat_np_view(hhbjet_mask)
         flat_jet_mask = ak.flatten(full_like(events.Jet.pt, False, dtype=bool) | ttj_mask)
         flat_hhbjet_mask[flat_jet_mask] = ak.flatten(sel_hhbjet_mask)
+
+        # cast full leading matched mask to event mask
+        full_leading_matched_all_events = full_like(events.event, False, dtype=bool)
+        flat_full_leading_matched_all_events = flat_np_view(full_leading_matched_all_events)
+        flat_leading_matched = flat_np_view(leading_matched)
+        flat_ttj_mask = flat_np_view(ttj_mask)
+        flat_full_leading_matched_all_events[flat_ttj_mask] = flat_leading_matched
+
+        # remove all events where the matching did not work if they were only triggered by the tautaujet trigger
+        match_at_least_one_trigger = ak.where(
+            only_ttj_mask & ~flat_full_leading_matched_all_events,
+            False,
+            match_at_least_one_trigger,
+        )
 
     # validate that either none or two hhbjets were identified
     assert ak.all(((n_hhbjets := ak.sum(hhbjet_mask, axis=1)) == 0) | (n_hhbjets == 2))
@@ -306,32 +322,58 @@ def jet_selection(
         cross_vbf_mask = full_like(1 * events.event, False, dtype=bool)
     else:
         cross_vbf_masks = [events.fired_trigger_ids == tid for tid in self.trigger_ids_ttvc]
-        # This combines "at least one cross trigger is fired" and "no other triggers are fired"
-        from IPython import embed; embed(header="check if vbf trigger requirement is correct with ak.all")
+        # TODO: this should probably be used on the trigger matched vbf only events, not the
+        # ones that only fired the vbf trigger
         cross_vbf_mask = ak.all(reduce(or_, cross_vbf_masks), axis=1)
-        # TODO: add vbf jets matching when SF procedure has been decided
-        # not available for now, so returns just the event mask from the lepton selection
+
         vbf_matched = full_like(events.event, False, dtype=bool)
         for trigger, _, leg_masks in trigger_results.x.trigger_data:
             if trigger.id in self.trigger_ids_ttvc:
-                vbf_fired_tau_matched = (lepton_results.lepton_part_trigger_ids == trigger.id)
+                vbf_fired_tau_matched = (
+                    (events.channel_id == ch_tautau.id) &
+                    ak.any(lepton_results.x.lepton_part_trigger_ids == trigger.id, axis=1)
+                )
+                # TODO: add vbf jets matching when SF procedure has been decided
+                # not available for now, so returns just the event mask from the lepton selection
                 vbf_trigger_matched = vbf_fired_tau_matched
                 vbf_matched = vbf_matched | vbf_trigger_matched
                 ids = ak.where(vbf_trigger_matched, np.float32(trigger.id), np.float32(np.nan))
                 matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
+
+        # store the matched trigger ids
         matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
-        from IPython import embed; embed(header="create matched_trigger_ids column in vbf")
         events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
 
-        from IPython import embed; embed(header="remove only vbf non matched")
-        if ak.any(ttj_mask):
-            vbf_tau_matched_but_not_jet_matched = vbf_tau_trig_matched_mask & ~vbf_matched & ~leading_matched
-        else:
-            vbf_tau_matched_but_not_jet_matched = vbf_tau_trig_matched_mask & ~vbf_matched
-        match_at_least_one_trigger = ak.where(vbf_tau_matched_but_not_jet_matched, False, match_at_least_one_trigger)
+        # remove all events that fired only vbf trigger but were not matched or
+        # that fired vbf and tautaujet triggers and matched the taus but not the jets
+        vbf_tau_matched_but_not_jet_matched = (
+            # need to match either only vbf or vbf and tautaujet triggers
+            (events.channel_id == ch_tautau.id) &  # need to be a tautau event
+            ~tt_match_mask &  # need to not match the tautau trigger
+            vbf_tau_trig_matched_mask &  # need to match the taus in the vbf trigger
 
-        # TODO: create mask that removes all events that fired only vbf trigger but were not matched
-        # TODO: create mask that removes all events that fired vbf and tautaujet triggers but were not matched
+            # need to not match the jet legs in the vbf trigger
+            ~vbf_matched    # need to not match the jet legs in the vbf trigger
+        )
+        if ak.any(ttj_mask):
+            # case where vbf and tautaujet triggers were both fired
+            vbf_and_tautaujet_tau_matched_but_not_jet_matched = (
+                vbf_tau_matched_but_not_jet_matched &
+                ttj_mask &
+                ~full_leading_matched_all_events
+            )
+            match_at_least_one_trigger = ak.where(
+                vbf_and_tautaujet_tau_matched_but_not_jet_matched,
+                False,
+                match_at_least_one_trigger,
+            )
+            # case where only vbf trigger was fired
+            vbf_tau_matched_but_not_jet_matched = (
+                vbf_tau_matched_but_not_jet_matched &
+                ~ttj_mask
+            )
+
+        match_at_least_one_trigger = ak.where(vbf_tau_matched_but_not_jet_matched, False, match_at_least_one_trigger)
 
     vbf_pair_mask = vbf_pair_mask & (
         (~cross_vbf_mask) | (
