@@ -14,7 +14,7 @@ from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
 from columnflow.production.cms.muon import muon_weights, muon_trigger_weights
-from columnflow.production.cms.electron import electron_weights, electron_trigger_weights
+from columnflow.production.cms.electron import electron_trigger_weights
 
 
 from hbt.production.tau import tau_trigger_weights
@@ -27,7 +27,7 @@ np = maybe_import("numpy")
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 # subclass the electron weights producer to create the electron efficiencies
-single_trigger_electron_data_effs = electron_weights.derive(
+single_trigger_electron_data_effs = electron_trigger_weights.derive(
     "single_trigger_electron_data_effs",
     cls_dict={
         "get_electron_file": (lambda self, external_files: external_files.electron_trigger_sf),
@@ -36,7 +36,7 @@ single_trigger_electron_data_effs = electron_weights.derive(
     },
 )
 
-single_trigger_electron_mc_effs = electron_weights.derive(
+single_trigger_electron_mc_effs = electron_trigger_weights.derive(
     "single_trigger_electron_mc_effs",
     cls_dict={
         "get_electron_file": (lambda self, external_files: external_files.electron_trigger_sf),
@@ -45,7 +45,7 @@ single_trigger_electron_mc_effs = electron_weights.derive(
     },
 )
 
-cross_trigger_electron_data_effs = electron_weights.derive(
+cross_trigger_electron_data_effs = electron_trigger_weights.derive(
     "cross_trigger_electron_data_effs",
     cls_dict={
         "get_electron_file": (lambda self, external_files: external_files.cross_trigger_electron_sf),
@@ -54,7 +54,7 @@ cross_trigger_electron_data_effs = electron_weights.derive(
     },
 )
 
-cross_trigger_electron_mc_effs = electron_weights.derive(
+cross_trigger_electron_mc_effs = electron_trigger_weights.derive(
     "cross_trigger_electron_mc_effs",
     cls_dict={
         "get_electron_file": (lambda self, external_files: external_files.cross_trigger_electron_sf),
@@ -210,7 +210,13 @@ def create_OR_trigger_weights(
         f"mutau_trigger_weights_mu_{direction}"
         for direction in ["up", "down"]
     } | {
+        f"mutau_trigger_weights_e_{direction}"
+        for direction in ["up", "down"]
+    } | {
         f"etau_trigger_weights_e_{direction}"
+        for direction in ["up", "down"]
+    } | {
+        f"etau_trigger_weights_mu_{direction}"
         for direction in ["up", "down"]
     } | {
         f"mutau_trigger_weights_tau_dm{dm}_{direction}"
@@ -220,6 +226,12 @@ def create_OR_trigger_weights(
         f"etau_trigger_weights_tau_dm{dm}_{direction}"
         for direction in ["up", "down"]
         for dm in [0, 1, 10, 11]
+    } | {
+        f"etau_trigger_weights_jet_{direction}"
+        for direction in ["up", "down"]
+    } | {
+        f"mutau_trigger_weights_jet_{direction}"
+        for direction in ["up", "down"]
     },
 )
 def etau_mutau_trigger_weights(
@@ -432,6 +444,14 @@ def etau_mutau_trigger_weights(
                             cross_triggered,
                             f"_tau_dm{dm}{postfix}",
                         )
+    for postfix in ["_up", "_down"]:
+        for variation in ["e", "jet"]:
+            trigger_sf = events.mutau_trigger_weights
+            events = set_ak_column_f32(events, f"mutau_trigger_weights_{variation}{postfix}", trigger_sf)
+    for postfix in ["_up", "_down"]:
+        for variation in ["mu", "jet"]:
+            trigger_sf = events.etau_trigger_weights
+            events = set_ak_column_f32(events, f"etau_trigger_weights_{variation}{postfix}", trigger_sf)
     return events
 
 
@@ -448,6 +468,12 @@ def etau_mutau_trigger_weights(
         for dm in [0, 1, 10, 11]
     } | {
         f"tautau_trigger_weights_jet_{direction}"
+        for direction in ["up", "down"]
+    } | {
+        f"tautau_trigger_weights_e_{direction}"
+        for direction in ["up", "down"]
+    } | {
+        f"tautau_trigger_weights_mu_{direction}"
         for direction in ["up", "down"]
     },
 )
@@ -581,6 +607,11 @@ def tautau_trigger_weights(
                     cross_triggered=ditaujet_triggered,
                     postfix=f"_tau_dm{dm}{postfix}",
                 )
+
+    for postfix in ["_up", "_down"]:
+        for variation in ["e", "mu"]:
+            trigger_sf = events.tautau_trigger_weights
+            events = set_ak_column_f32(events, f"tautau_trigger_weights_{variation}{postfix}", trigger_sf)
     return events
 
 
@@ -625,6 +656,13 @@ emu_mu_trigger_weights = muon_trigger_weights.derive(
         for direction in ["up", "down"]
     } | {
         f"emu_trigger_weights_e_{direction}"
+        for direction in ["up", "down"]
+    } | {
+        f"emu_trigger_weights_tau_dm{dm}_{direction}"
+        for direction in ["up", "down"]
+        for dm in [0, 1, 10, 11]
+    } | {
+        f"emu_trigger_weights_jet_{direction}"
         for direction in ["up", "down"]
     },
 )
@@ -678,6 +716,10 @@ def emu_trigger_weights(
             raise ValueError(f"Unknown postfix {postfix}")
         events = set_ak_column_f32(events, f"emu_trigger_weights{postfix}", trigger_sf)
 
+    for postfix in ["_up", "_down"]:
+        for variation in ["tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]:
+            trigger_sf = events.emu_trigger_weights
+            events = set_ak_column_f32(events, f"emu_trigger_weights_{variation}{postfix}", trigger_sf)
     return events
 
 
@@ -741,15 +783,19 @@ def trigger_weights(
             Route(f"ee_trigger_weights{variation.replace('_e', '')}").apply(events),
         )
 
+    # create the variations for non varying objects in ee and mumu
+    for postfix in ["_up", "_down"]:
+        for variation in ["mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]:
+            trigger_sf = events.ee_trigger_weights
+            events = set_ak_column_f32(events, f"ee_trigger_weights_{variation}{postfix}", trigger_sf)
+
+    for postfix in ["_up", "_down"]:
+        for variation in ["e", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]:
+            trigger_sf = events.mumu_trigger_weights
+            events = set_ak_column_f32(events, f"mumu_trigger_weights_{variation}{postfix}", trigger_sf)
+
     # emu
     events = self[emu_trigger_weights](events, **kwargs)
-
-    # TODO: verify that varied trigger weights are always nominal if the variation doesn't apply
-    # e.g. trigger_sf_weights_tau_dm_0_up must be trigger_sf_weights for all events in mumu, ee, and emu
-    # -> easy: put all columns as nominal and update them if the product is different from 1
-
-    # TODO: change names columns : trigger_weight (no s and no sf) and electron-> e, muon->mu, dm_ -> dm
-    # -> done?
 
     # create the total trigger scale factor
     for postfix in ["", "_up", "_down"]:
@@ -762,21 +808,16 @@ def trigger_weights(
                 events.mumu_trigger_weights *
                 events.emu_trigger_weights
             )
-            events = set_ak_column_f32(events, "trigger_sf_weight", trigger_sf)
+            events = set_ak_column_f32(events, "trigger_weight", trigger_sf)
         else:
+            channels = ["ee", "mumu", "emu", "etau", "mutau", "tautau"]
             for object_ in ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]:
-                if object_ == "e":
-                    channels = ["ee", "emu", "etau"]
-                if object_ == "mu":
-                    channels = ["mumu", "emu", "mutau"]
-                if object_.startswith("tau_dm"):
-                    channels = ["etau", "mutau", "tautau"]
-                if object_ == "jet":
-                    channels = ["tautau"]
-
-                trigger_sf = ak.ones_like(events.channel_id, dtype=np.float32)
+                trigger_sf = events.trigger_weight
                 for channel in channels:
-                    trigger_sf = trigger_sf * Route(f"{channel}_trigger_weights_{object_}{postfix}").apply(events)
-
+                    # for all variations, the default is the nominal trigger weights
+                    variation = Route(f"{channel}_trigger_weights_{object_}{postfix}").apply(events)
+                    # update the trigger weights with the value for the variation
+                    channel_mask = (events.channel_id == self.config_inst.channels.get(channel).id)
+                    trigger_sf = ak.where(channel_mask, variation, trigger_sf)
                 events = set_ak_column_f32(events, f"trigger_weight_{object_}{postfix}", trigger_sf)
     return events

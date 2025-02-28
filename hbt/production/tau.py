@@ -227,7 +227,7 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
 @producer(
     uses={
         "channel_id", "single_triggered", "cross_triggered",
-        "Tau.{pt,decayMode}",
+        "Tau.{pt,decayMode}", "matched_trigger_ids",
     },
     produces={
         f"tau_trigger_{corrtype_}_weight" for corrtype_ in ["sf", "eff_data", "eff_mc"]
@@ -275,11 +275,20 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     tautauvbf_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
     for trigger in self.config_inst.x.triggers:
         if trigger.has_tag("cross_tau_tau"):
-            tautau_trigger_passed = tautau_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+            tautau_trigger_passed = (
+                tautau_trigger_passed |
+                np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+            )
         if trigger.has_tag("cross_tau_tau_jet"):
-            tautaujet_trigger_passed = tautaujet_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+            tautaujet_trigger_passed = (
+                tautaujet_trigger_passed |
+                np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+            )
         if trigger.has_tag("cross_tau_tau_vbf"):
-            tautauvbf_trigger_passed = tautauvbf_trigger_passed | np.any(events.trigger_ids == trigger.id, axis=-1)
+            tautauvbf_trigger_passed = (
+                tautauvbf_trigger_passed |
+                np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+            )
 
     # helper to bring a flat sf array into the shape of taus, and multiply across the tau axis
     reduce_mul = lambda sf: ak.prod(layout_ak_array(sf, events.Tau.pt), axis=1, mask_identity=False)
@@ -320,7 +329,6 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         wp_config = self.config_inst.x.tau_trigger_working_points
         eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, corrtype_, syst)
         # corrtype: sf, eff_data, eff_mc
-        # from IPython import embed; embed(header="tau_trigger_weights")
         sf_nom[flat_etau_mask] = self.tau_trig_corrector(*eval_args(flat_etau_mask, "etau", "nom"))
         sf_nom[flat_mutau_mask] = self.tau_trig_corrector(*eval_args(flat_mutau_mask, "mutau", "nom"))
         sf_nom[flat_tautau_mask] = self.tau_trig_corrector(*eval_args(flat_tautau_mask, "ditau", "nom"))
@@ -329,7 +337,6 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         sf_nom_ditaujet[flat_tautaujet_mask] = self.tau_trig_corrector(*eval_args(flat_tautaujet_mask, "ditaujet", "nom"))  # noqa
 
         # create and store weights
-
         events = set_ak_column_f32(events, f"tau_trigger_{corrtype_}_weight", reduce_mul(sf_nom))
         events = set_ak_column_f32(events, f"tau_trigger_{corrtype_}_weight_tautaujet", reduce_mul(sf_nom_ditaujet))
 
