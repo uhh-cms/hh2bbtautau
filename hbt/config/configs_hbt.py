@@ -94,27 +94,27 @@ def add_config(
 
     # add custom processes
     if not sync_mode:
-        cfg.add_process(
+        procs.add(
             name="v",
             id=7997,
             label="W/Z",
             processes=[procs.n.w, procs.n.z],
         )
-        cfg.add_process(
+        procs.add(
             name="multiboson",
             id=7998,
             label="Multiboson",
             processes=[procs.n.vv, procs.n.vvv],
         )
-        """
-        cfg.add_process(
+
+        procs.add(
             name="all_v",
             id=7996,
             label="Multiboson",
-            processes=[cfg.processes.n.v, cfg.processes.n.multiboson],
+            processes=[procs.n.v, procs.n.multiboson],
         )
-        """
-        cfg.add_process(
+
+        procs.add(
             name="tt_multiboson",
             id=7999,
             label=r"$t\bar{t}$ + Multiboson",
@@ -127,8 +127,7 @@ def add_config(
         "tt",
         "st",
         "dy",
-        "v",
-        "multiboson",
+        "all_v",
         "tt_multiboson",
         "qcd",
         "h",
@@ -182,7 +181,6 @@ def add_config(
 
         # add the process
         cfg.add_process(proc)
-
     # configure colors, labels, etc
     from hbt.config.styles import stylize_processes
     stylize_processes(cfg)
