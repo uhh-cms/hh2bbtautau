@@ -22,6 +22,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
+from columnflow.production.cms.top_pt_weight import gen_parton_top
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import full_like
 from columnflow.util import maybe_import
@@ -260,6 +261,10 @@ def default_init(self: Selector) -> None:
             self.produces.add(prod)
             # save it as an attribute
             setattr(self, prod_name, prod)
+
+    if self.dataset_inst.has_tag("ttbar"):
+        self.uses.add(gen_parton_top)
+        self.produces.add(gen_parton_top)
 
 
 empty = default.derive("empty", cls_dict={})
