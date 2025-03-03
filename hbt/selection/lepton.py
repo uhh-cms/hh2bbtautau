@@ -733,7 +733,7 @@ def lepton_selection(
             leptons_os = ak.where(is_ee, is_os, leptons_os)
             single_triggered = ak.where(is_ee & is_single, True, single_triggered)
             cross_triggered = ak.where(is_ee & is_cross, True, cross_triggered)
-            sel_electron_mask = ak.where(is_ee, electron_mask, sel_electron_mask)
+            sel_electron_mask = ak.where(is_ee, electron_control_mask, sel_electron_mask)
 
         # mumu channel
         if trigger.has_tag("single_mu") and (
@@ -775,7 +775,7 @@ def lepton_selection(
             leptons_os = ak.where(is_mumu, is_os, leptons_os)
             single_triggered = ak.where(is_mumu & is_single, True, single_triggered)
             cross_triggered = ak.where(is_mumu & is_cross, True, cross_triggered)
-            sel_muon_mask = ak.where(is_mumu, muon_mask, sel_muon_mask)
+            sel_muon_mask = ak.where(is_mumu, muon_control_mask, sel_muon_mask)
 
         # emu channel
         if (

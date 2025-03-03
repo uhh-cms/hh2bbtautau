@@ -871,6 +871,12 @@ def add_config(
                 "medium": {"2016APV": 0.6001, "2016": 0.5847, "2017": 0.4506, "2018": 0.4168}[btag_key],
                 "tight": {"2016APV": 0.8819, "2016": 0.8767, "2017": 0.7738, "2018": 0.7665}[btag_key],
             },
+            # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005
+            "particleNet-MD": {
+                "HP": {"2016APV": 0.9883, "2016": 0.9883, "2017": 0.9870, "2018": 0.9880}[btag_key],
+                "MP": {"2016APV": 0.9737, "2016": 0.9735, "2017": 0.9714, "2018": 0.9734}[btag_key],
+                "LP": {"2016APV": 0.9088, "2016": 0.9137, "2017": 0.9105, "2018": 0.9172}[btag_key],
+            },
         })
     elif run == 3:
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22
@@ -898,6 +904,13 @@ def add_config(
                 "tight": {"2022": 0.8482, "2022EE": 0.8604, "2023": 0.7969, "2023BPix": 0.7994}[btag_key],
                 "xtight": {"2022": 0.9151, "2022EE": 0.9234, "2023": 0.8882, "2023BPix": 0.8877}[btag_key],
                 "xxtight": {"2022": 0.9874, "2022EE": 0.9893, "2023": 0.9883, "2023BPix": 0.9883}[btag_key],
+            },
+            # https://cds.cern.ch/record/2904691/files/DP2024_055.pdf
+            # TODO: fallback to run2, due to missing values
+            "particleNet-MD": {
+                "HP": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880}[btag_key],
+                "MP": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734}[btag_key],
+                "LP": {"2022": 0.9088, "2022EE": 0.9137, "2023": 0.9105, "2023BPix": 0.9172}[btag_key],
             },
         })
     else:

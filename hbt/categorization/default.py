@@ -98,31 +98,65 @@ def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
     return events, ak.num(events.Jet.pt, axis=1) >= 2
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={"Jet.{btagPNetB,mass,hhbtag}", "Tau.mass", "*"})
 def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # exactly pnet b-tags
     wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
     tagged = events.Jet.btagPNetB > wp
-    return events, ak.sum(tagged, axis=1) == 1
+
+    diBJet_mass = events.HHBJet.mass.sum(axis=1)
+    diTau_mass = events.Tau.mass[:, :2].sum(axis=1)
+    mask = (
+        (ak.sum(tagged, axis=1) == 1) &
+        (diTau_mass >= 15) &
+        (diTau_mass <= 130) &
+        (diBJet_mass >= 40) &
+        (diBJet_mass <= 270)
+    )
+    return events, mask
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={"Jet.{btagPNetB,mass,hhbtag}", "Tau.mass"})
 def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # at least two medium pnet b-tags
     wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
     tagged = events.Jet.btagPNetB > wp
-    return events, ak.sum(tagged, axis=1) >= 2
+    diBJet_mass = events.Jet.mass.sum(axis=1)
+    diTau_mass = events.Tau.mass[:, :2].sum(axis=1)
+
+    mask = (
+        (ak.sum(tagged, axis=1) >= 2) &
+        (diTau_mass >= 15) &
+        (diTau_mass <= 130) &
+        (diBJet_mass >= 40) &
+        (diBJet_mass <= 270)
+    )
+    return events, mask
 
 
-@categorizer(uses={cat_res1b, cat_res2b, "FatJet.{pt,phi}"})
+@categorizer(uses={cat_res1b, cat_res2b, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD}", "Tau.mass"})
 def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # not res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
-    # note: this is just a draft
+    # TODO: run3 wp are not released falling back to run2, replace score with commented out line
+    pnet_md_xbb = events.FatJet.particleNetLegacy_Xbb
+    pnet_md_qcd = events.FatJet.particleNetLegacy_QCD
+    pnet_md_score = pnet_md_xbb / (pnet_md_xbb + pnet_md_qcd)
+
+    wp = self.config_inst.x.btag_working_points["particleNet-MD"]["LP"]
+    tagged = pnet_md_score > wp
+
+    diTau_mass = events.Tau.mass[:, :2].sum(axis=1)
     mask = (
         (ak.num(events.FatJet, axis=1) == 1) &
         (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
+        (ak.sum(tagged, axis=1) >= 1) &
+        # remove not?
         ~self[cat_res1b](events, **kwargs)[1] &
         ~self[cat_res2b](events, **kwargs)[1]
+        (diTau_mass >= 15) &
+        (diTau_mass <= 130) &
+        (events.FatJet.msoftdrop >= 30) &
+        (events.FatJet.msoftdrop <= 450)
     )
     return events, mask
 
