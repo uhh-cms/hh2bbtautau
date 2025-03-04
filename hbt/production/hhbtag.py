@@ -10,7 +10,7 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict
-from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
+from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column, get_ak_routes, remove_ak_column
 
 from hbt.util import IF_RUN_2
 
@@ -44,8 +44,12 @@ def hhbtag(
         (ak.num(lepton_pair, axis=1) >= 2) &
         (ak.sum(jet_mask, axis=1) >= 2)
     )
-
     # prepare objects
+
+    # remove coffea internal columns that hinder ellipses slicing
+    for jet_route in get_ak_routes(events.Jet):
+        if jet_route.column.endswith("IdxG"):
+            events = remove_ak_column(events.Jet, jet_route)
     n_jets_max = 10
     jets = events.Jet[jet_mask][event_mask][..., :n_jets_max]
     leps = lepton_pair[event_mask][..., [0, 1]]
@@ -53,7 +57,6 @@ def hhbtag(
     met = events[event_mask][self.config_inst.x.met_name]
     jet_shape = abs(jets.pt) >= 0
     n_jets_capped = ak.num(jets, axis=1)
-
     # get input features
     input_features = [
         jet_shape * 1,
@@ -128,11 +131,48 @@ def hhbtag(
     all_scores = ak.fill_none(ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
     np.asarray(ak.flatten(all_scores))[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(scores))
 
-    return all_scores
+    events = set_ak_column(events, "hhbtag_score", all_scores)
+    # all inputs
+
+    if self.config_inst.x.sync:
+        # for sync produce input variables additionally
+        input_feature_names = (
+            "hhbtag.input_jet_shape", "hhbtag.input_jets_pt", "hhbtag.input_jets_eta",
+            "hhbtag.input_jets_ratio_mass_to_pt", "hhbtag.input_jets_ratio_energy_to_pt",
+            "hhbtag.input_delta_eta_jets_to_htt", "hhbtag.input_pnet_btag_score",
+            "hhbtag.input_delta_phi_jets_to_htt", "hhbtag.input_campaign",
+            "hhbtag.input_channel_id", "hhbtag.input_htt_pt",
+            "hhbtag.input_htt_eta", "hhbtag.input_delta_phi_htt_to_met",
+            "hhbtag.input_ratio_pt_met_to_htt", "hhbtag.input_all_lepton_pt", "hhbtag.output_score",
+        )
+
+        store_sync_columns = dict(zip(
+            input_feature_names + self.output_columns,
+            input_features + all_scores,
+        ))
+
+        for column, values in store_sync_columns.items():
+            value_placeholder = ak.fill_none(
+                ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1,
+            )
+            np.asarray(
+                ak.flatten(value_placeholder),
+            )[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(values))
+            events = set_ak_column(events, column, value_placeholder)
+    return events
 
 
 @hhbtag.init
 def hhbtag_init(self: Producer, **kwargs) -> None:
+    self.output_columns = [
+        f"hhbtag_{name}"
+        for name in ["score"]
+    ]
+    # produce input columns
+    if self.config_inst.x.sync:
+        self.produces |= set(["hhbtag.*"])
+
+    # add (puppi)met dynamically
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
 
@@ -156,16 +196,14 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     import os
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     import tensorflow as tf
-
     tf.config.threading.set_inter_op_parallelism_threads(1)
     tf.config.threading.set_intra_op_parallelism_threads(1)
 
     # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
     bundle = reqs["external_files"]
-
     # unpack repo
-    repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
     arc = bundle.files.hh_btag_repo
+    repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
     arc.load(repo_dir, formatter="tar")
 
     # get the version of the external file
