@@ -4,45 +4,99 @@
 Default inference model.
 """
 
-from columnflow.inference import inference_model, ParameterType
+import functools
+
+import law
+
+from columnflow.inference import inference_model, ParameterType, FlowStrategy
+from columnflow.config_util import get_datasets_from_process
+
+
+logger = law.logger.get_logger(__name__)
 
 
 @inference_model
 def default(self):
+    # gather config and campaign info
+    year2 = self.config_inst.campaign.x.year % 100
+    campaign_suffix = ""
+    if self.config_inst.campaign.has_tag({"preEE", "preBPix"}):
+        campaign_suffix = "pre"
+    elif self.config_inst.campaign.has_tag({"postEE", "postBPix"}):
+        campaign_suffix = "post"
+    campaign_key = f"{year2}{campaign_suffix}"
+
+    # helper
+    find_datasets = functools.partial(get_datasets_from_process, self.config_inst, strategy="all")
+
+    # mapping between names of processes in the config and how combine datacards should see them
+    proc_map = dict([
+        *[
+            (f"hh_ggf_hbb_htt_kl{kl}_kt1", f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt")
+            for kl in ["0", "1", "2p45", "5"]
+        ],
+        ("tt", "ttbar"),
+        ("ttv", "ttbarV"),
+        ("ttvv", "ttbarVV"),
+        ("st", "singlet"),
+        ("dy", "DY"),
+        # ("z", "EWK"),  # currently not used
+        ("w", "W"),
+        ("vv", "VV"),
+        ("vvv", "VVV"),
+        ("wh", "WH_htt"),
+        ("zh", "ZH_hbb"),
+        ("h_ggf", "ggH_htt"),
+        ("h_vbf", "qqH_htt"),
+        ("tth", "ttH_hbb"),
+        ("qcd", "QCD"),
+    ])
 
     #
     # categories
     #
 
-    self.add_category(
-        "incl",
-        config_category="incl__os__iso",
-        config_variable="res_dnn_hh",
-        config_data_datasets=["data_*"],
-        mc_stats=8.0,
-    )
+    for ch in ["etau", "mutau", "tautau"]:
+        for cat in ["res1b", "res2b", "boosted"]:
+            self.add_category(
+                f"cat_{campaign_key}_{ch}_{cat}",
+                config_category=f"{ch}__{cat}__os__iso",
+                config_variable="res_dnn_hh_fine",
+                config_data_datasets=["data_*"],
+                data_from_processes=[
+                    combine_name for proc_name, combine_name in proc_map.items()
+                    if (
+                        not self.config_inst.get_process(proc_name).has_tag("nonresonant_signal") and
+                        proc_name != "qcd"
+                    )
+                ],
+                mc_stats=10.0,
+                flow_strategy=FlowStrategy.move,
+            )
 
     #
     # processes
     #
 
-    for kl in ["0", "1", "2p45", "5"]:
+    for proc_name, combine_name in proc_map.items():
+        proc_inst = self.config_inst.get_process(proc_name)
+        is_dynamic = proc_name == "qcd"
+        dataset_names = []
+        if not is_dynamic:
+            dataset_names = [dataset.name for dataset in find_datasets(proc_name)]
+            if not dataset_names:
+                logger.debug(
+                    f"skipping process {proc_name} in inference model {self.cls_name}, no matching "
+                    f"datasets found in config {self.config_inst.name}",
+                )
+                continue
         self.add_process(
-            f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt",
-            is_signal=True,
-            config_process=f"hh_ggf_hbb_htt_kl{kl}_kt1",
-            config_mc_datasets=[f"hh_ggf_hbb_htt_kl{kl}_kt1_powheg"],
+            name=combine_name,
+            config_process=proc_name,
+            config_mc_datasets=dataset_names,
+            is_signal=proc_inst.has_tag("nonresonant_signal"),
+            is_dynamic=is_dynamic,
         )
-    self.add_process(
-        "TT",
-        config_process="tt",
-        config_mc_datasets=["^tt_(sl|dl|fh)_powheg$"],
-    )
-    self.add_process(
-        "DY",
-        config_process="dy",
-        config_mc_datasets=["dy_*_amcatnlo"],
-    )
 
     #
     # parameters
@@ -78,6 +132,13 @@ def default(self):
         group=["theory", "signal_norm_xsbr"],
     )
     self.add_parameter(
+        "BR_htt",
+        type=ParameterType.rate_gauss,
+        process=["tt*"],
+        effect=(0.9, 1.1),
+        group=["theory", "signal_norm_xsbr"],
+    )
+    self.add_parameter(
         "pdf_gg",  # contains alpha_s
         type=ParameterType.rate_gauss,
         process="TT",
@@ -91,13 +152,13 @@ def default(self):
         effect=1.023,
         group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
     )
-    self.add_parameter(
-        "pdf_Higgs_qqHH",  # contains alpha_s
-        type=ParameterType.rate_gauss,
-        process="qqHH_*",
-        effect=1.027,
-        group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
-    )
+    # self.add_parameter(
+    #     "pdf_Higgs_qqHH",  # contains alpha_s
+    #     type=ParameterType.rate_gauss,
+    #     process="qqHH_*",
+    #     effect=1.027,
+    #     group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
+    # )
     self.add_parameter(
         "QCDscale_ttbar",
         type=ParameterType.rate_gauss,
@@ -105,13 +166,13 @@ def default(self):
         effect=(0.965, 1.024),
         group=["theory"],
     )
-    self.add_parameter(
-        "QCDscale_qqHH",
-        type=ParameterType.rate_gauss,
-        process="qqHH_*",
-        effect=(0.9997, 1.0005),
-        group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
-    )
+    # self.add_parameter(
+    #     "QCDscale_qqHH",
+    #     type=ParameterType.rate_gauss,
+    #     process="qqHH_*",
+    #     effect=(0.9997, 1.0005),
+    #     group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
+    # )
 
     # lumi
     lumi = self.config_inst.x.luminosity
@@ -124,21 +185,21 @@ def default(self):
         )
 
     # btag
-    for name in self.config_inst.x.btag_unc_names:
-        self.add_parameter(
-            f"CMS_btag_{name}",
-            type=ParameterType.shape,
-            config_shift_source=f"btag_{name}",
-            group="experiment",
-        )
+    # for name in self.config_inst.x.btag_unc_names:
+    #     self.add_parameter(
+    #         f"CMS_btag_{name}",
+    #         type=ParameterType.shape,
+    #         config_shift_source=f"btag_{name}",
+    #         group="experiment",
+    #     )
 
     # pileup
-    self.add_parameter(
-        "CMS_pileup_2022",
-        type=ParameterType.shape,
-        config_shift_source="minbias_xs",
-        group="experiment",
-    )
+    # self.add_parameter(
+    #     "CMS_pileup_2022",
+    #     type=ParameterType.shape,
+    #     config_shift_source="minbias_xs",
+    #     group="experiment",
+    # )
 
     #
     # cleanup

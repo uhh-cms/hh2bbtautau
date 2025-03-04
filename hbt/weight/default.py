@@ -31,6 +31,8 @@ def default(self: WeightProducer, events: ak.Array, **kwargs) -> ak.Array:
 
 @default.init
 def default_init(self: WeightProducer) -> None:
+    dataset_inst = getattr(self, "dataset_inst", None)
+
     # use the config's auxiliary event_weights, drop some of them based on drop_weights, and on this
     # weight producer instance, store weight_columns, used columns, and shifts
     self.weight_columns = []
@@ -39,25 +41,23 @@ def default_init(self: WeightProducer) -> None:
     do_keep = pattern_matcher(self.keep_weights) if self.keep_weights else (lambda _, /: True)
     do_drop = pattern_matcher(self.drop_weights) if self.drop_weights else (lambda _, /: False)
 
-    for weight_name in self.config_inst.x.event_weights:
+    # collect all possible weight columns and affected shifts
+    all_weights = self.config_inst.x.event_weights
+    if dataset_inst:
+        all_weights.update(dataset_inst.x("event_weights", {}))
+    for weight_name, shift_insts in all_weights.items():
         if not do_keep(weight_name) or do_drop(weight_name):
             continue
 
         # manually skip pdf and scale weights for samples that do not have lhe info
-        if getattr(self, "dataset_inst", None) is not None:
-            is_lhe_weight = any(
-                shift_inst.has_tag("lhe_weight")
-                for shift_inst in self.config_inst.x.event_weights[weight_name]
-            )
+        if dataset_inst:
+            is_lhe_weight = any(shift_inst.has_tag("lhe_weight") for shift_inst in shift_insts)
             if is_lhe_weight and self.dataset_inst.has_tag("no_lhe_weights"):
                 continue
 
         self.weight_columns.append(weight_name)
         self.uses.add(weight_name)
-        self.shifts |= {
-            shift_inst.name
-            for shift_inst in self.config_inst.x.event_weights[weight_name]
-        }
+        self.shifts |= {shift_inst.name for shift_inst in shift_insts}
 
 
 normalization_inclusive = default.derive(

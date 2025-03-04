@@ -30,6 +30,11 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
         if not weight_name.startswith("pu_weight"):
             continue
 
+        # if there are postfixes to veto (i.e. we are not in the nominal case)
+        # skip the weight if it has a vetoed postfix
+        if any(weight_name.endswith(postfix) for postfix in self.veto_postfix):
+            continue
+
         # create a weight vector starting with ones
         norm_weight_per_pid = np.ones(len(events), dtype=np.float32)
 
@@ -50,10 +55,15 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
 
 @normalized_pu_weight.init
 def normalized_pu_weight_init(self: Producer) -> None:
+    self.veto_postfix = []
+    if getattr(self, "global_shift_inst", None):
+        if not self.global_shift_inst.is_nominal:
+            self.veto_postfix.extend(("up", "down"))
     self.produces |= {
         f"normalized_{weight_name}"
         for weight_name in (str(route) for route in self[pu_weight].produced_columns)
         if weight_name.startswith("pu_weight")
+        if not any(weight_name.endswith(postfix) for postfix in self.veto_postfix)
     }
 
 
@@ -104,13 +114,11 @@ def normalized_pu_weight_setup(
 
 
 @producer(
-    uses={"pdf_weight{,_up,_down}"},
-    produces={"normalized_pdf_weight{,_up,_down}"},
     # only run on mc
     mc_only=True,
 )
 def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for postfix in ["", "_up", "_down"]:
+    for postfix in self.postfixes:
         # create the normalized weight
         avg = self.average_pdf_weights[postfix]
         normalized_weight = events[f"pdf_weight{postfix}"] / avg
@@ -119,6 +127,19 @@ def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Arra
         events = set_ak_column(events, f"normalized_pdf_weight{postfix}", normalized_weight, value_type=np.float32)
 
     return events
+
+
+@normalized_pdf_weight.init
+def normalized_pdf_weight_init(self: Producer) -> None:
+
+    self.postfixes = [""]
+    if getattr(self, "global_shift_inst", None):
+        if self.global_shift_inst.is_nominal:
+            self.postfixes.extend(("_up", "_down"))
+    columns = {f"pdf_weight{postfix}" for postfix in self.postfixes}
+
+    self.uses |= columns
+    self.produces |= {f"normalized_{column}" for column in columns}
 
 
 @normalized_pdf_weight.requires
@@ -146,7 +167,7 @@ def normalized_pdf_weight_setup(
     # save average weights
     self.average_pdf_weights = {
         postfix: safe_div(selection_stats[f"sum_pdf_weight{postfix}"], selection_stats["num_events"])
-        for postfix in ["", "_up", "_down"]
+        for postfix in self.postfixes
     }
 
 
@@ -156,13 +177,11 @@ all_pdf_weights = pdf_weights.derive("all_pdf_weights", cls_dict={"store_all_wei
 
 
 @producer(
-    uses={"murmuf_weight{,_up,_down}"},
-    produces={"normalized_murmuf_weight{,_up,_down}"},
     # only run on mc
     mc_only=True,
 )
 def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    for postfix in ["", "_up", "_down"]:
+    for postfix in self.postfixes:
         # create the normalized weight
         avg = self.average_murmuf_weights[postfix]
         normalized_weight = events[f"murmuf_weight{postfix}"] / avg
@@ -171,6 +190,18 @@ def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.A
         events = set_ak_column(events, f"normalized_murmuf_weight{postfix}", normalized_weight, value_type=np.float32)
 
     return events
+
+
+@normalized_murmuf_weight.init
+def normalized_murmuf_weight_init(self: Producer) -> None:
+    self.postfixes = [""]
+    if getattr(self, "global_shift_inst", None):
+        if self.global_shift_inst.is_nominal:
+            self.postfixes.extend(("_up", "_down"))
+    columns = {f"murmuf_weight{postfix}" for postfix in self.postfixes}
+
+    self.uses |= columns
+    self.produces |= {f"normalized_{column}" for column in columns}
 
 
 @normalized_murmuf_weight.requires
@@ -198,5 +229,5 @@ def normalized_murmuf_weight_setup(
     # save average weights
     self.average_murmuf_weights = {
         postfix: safe_div(selection_stats[f"sum_murmuf_weight{postfix}"], selection_stats["num_events"])
-        for postfix in ["", "_up", "_down"]
+        for postfix in self.postfixes
     }
