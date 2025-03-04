@@ -4,7 +4,7 @@ __all__ = [
     "ListDataset", "MapAndCollate", "FlatMapAndCollate", "NodesDataLoader"
 ]
 
-from collections import Iterable, Mapping
+from collections import Iterable, Mapping, Collection
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import T, Any, Callable, Sequence
 from columnflow.columnar_util import (
@@ -53,6 +53,8 @@ if not isinstance(torchdata, MockModule):
             self._data: ak.Array | None = None
             self._input_data: ak.Array | None = None
             self._target_data: ak.Array | None = None
+            self.class_target: int
+
             
             # container for meta data of parquet file(s)
             # None if input is an ak.Array
@@ -79,6 +81,8 @@ if not isinstance(torchdata, MockModule):
 
             self._validate()
 
+            if len(self.int_targets) > 0:
+                self.class_target = list(self.int_targets)[0]
             self.data_columns = self.all_columns.symmetric_difference(self.target_columns)
 
             # parse all strings to Route objects
@@ -170,6 +174,10 @@ if not isinstance(torchdata, MockModule):
             # this should be >= 0
             if any(target < 0 for target in self.int_targets):
                 raise ValueError(f"int targets must be >= 0, received {self.int_targets}")
+            if len(self.int_targets) > 1:
+                raise ValueError("There cannot be more than one categorical target per dataset"
+                                 f", received {self.int_targets}"
+                )
 
         @property
         def data(self) -> ak.Array:
@@ -196,28 +204,32 @@ if not isinstance(torchdata, MockModule):
 
         def __len__(self):
             return len(self.data)
+
+        def _get_data(self, i: int| Sequence[int], input_data: ak.Array | None = None) -> ak.Array:
+            data: ak.Array
+            if input_data is None:
+                data = self.input_data
+            else:
+                data = input_data
+            return data[i]
+
+        def _create_class_target(self, length: int, input_int_targets: int | None = None) -> ak.Array:
+            int_target: int = input_int_targets or self.class_target
+
+            return ak.Array([int_target]*int(length))
         
         def __getitem__(self, i: int | Sequence[int]) -> ak.Array | tuple[ak.Array, ak.Array] | tuple[ak.Array, ak.Array, ak.Array]:
             # from IPython import embed
             # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
-            return_data = [self.input_data[i]]
+            return_data = [self._get_data(i)]
             if len(self.target_columns) == 0 and len(self.int_targets) == 0:
                 return_data = return_data[0]
             else:
                 if self.target_data:
-                    return_data.append(self.target_data)
+                    return_data.append(self._get_data(i, self.target_data))
                 if len(self.int_targets) > 0:
-                    int_targets = list()
-                    for int_target in self.int_targets:
-                        int_targets.append(
-                            ak.Array([int_target]*int(ak.num(return_data[0], axis=0)))
-                        )
-                    if len(int_targets) == 1:
-                        return_data.append(int_targets[0])
-                    elif len(int_targets) > 1:
-                        return_data.append(
-                            ak.zip(int_targets)
-                        )
+                    return_data.append(self._create_class_target(ak.num(return_data[0], axis=0)))
+                    
             if self.transform:
                 return_data = self.transform(return_data)
             return tuple(return_data) if isinstance(return_data, list) else return_data
@@ -289,6 +301,28 @@ if not isinstance(torchdata, MockModule):
                     for r in self.target_columns
                 }
             return self._target_data
+        
+        def __getitem__(self, i: int | Sequence[int]) -> Any | tuple | tuple:
+            # from IPython import embed
+            # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
+            return_data = [{key: self._get_data(i, data) for key, data in self.input_data.items()}]
+            if len(self.target_columns) == 0 and len(self.int_targets) == 0:
+                return_data = return_data[0]
+            else:
+                if self.target_data:
+                    return_data.append({key: self._get_data(i, data) for key, data in self.target_data.items()})
+                if len(self.int_targets) > 0:
+                    first_key = list(return_data[0].keys())[0]
+
+                    return_data.append({
+                        "categorical_target": self._create_class_target(
+                            ak.num(return_data[0][first_key], axis=0), input_int_targets=self.class_target
+                        )
+                    })
+                    
+            if self.transform:
+                return_data = self.transform(return_data)
+            return tuple(return_data) if isinstance(return_data, list) else return_data
 
     class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
 
@@ -593,16 +627,13 @@ if not isinstance(torchdata, MockModule):
     class NestedMapAndCollate(MapAndCollate):
         def __init__(self,
             dataset: dict[str, Sized],
-            collate_fn: Callable,
+            collate_fn: Callable | None = None,
         ):
             self.dataset = dataset
-            self.collate_fn = collate_fn
+            self.collate_fn: Callable = collate_fn or self._default_collate
 
-        def __call__(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
-            batch: list[T] = []
-
-            # helper function to concatenate different types of objects
-            def _concat_batches(
+        def _concat_batches(
+                self,
                 batch: list[T],
                 current_batch: Sequence[T],
                 concat_fn: Callable,
@@ -619,6 +650,12 @@ if not isinstance(torchdata, MockModule):
                     batch = concat_fn((batch, current_batch), *args, **kwargs)
                 return batch
 
+        def _default_collate(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
+            batch: list[T] = []
+
+            # helper function to concatenate different types of objects
+            
+
             for key, indices in idx.items():
                 current_batch = self.dataset[key][indices]
                 concat_fn = ak.concatenate
@@ -628,10 +665,47 @@ if not isinstance(torchdata, MockModule):
                 elif isinstance(current_batch, torch.Tensor):
                     concat_fn = torch.cat
                 
-                batch = _concat_batches(batch=batch, current_batch=current_batch, concat_fn=concat_fn)
+                batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=concat_fn)
+            
+            return batch
 
-                
-            return self.collate_fn(batch)
+        def __call__(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
+            
+            return self.collate_fn(idx)
+        
+    
+    class NestedDictMapAndCollate(NestedMapAndCollate):
+        def _default_collate(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
+            batch: list[T] = []
+
+            # helper function to concatenate different types of objects
+            def _concat_dicts(
+                input_arrays: Sequence[dict[str, T]],
+                *args,
+                **kwargs,
+            ) -> dict[str, T]:
+                return_dict = dict()
+                first_dict = input_arrays[0]
+                for key in first_dict.keys():
+                    sub_arrays = list(map(lambda x: x.get(key), input_arrays))
+                    collate_fn = ak.concatenate
+                    if all(isinstance(x, torch.Tensor) for x in sub_arrays):
+                        collate_fn = torch.cat
+                    try:
+                        return_dict[key] = collate_fn(sub_arrays, *args, **kwargs)
+                    except Exception as e:
+                        print(e)
+                        from IPython import embed
+                        embed(header=f"Encountered error for key {key} in {self.__class__.__name__}._concat_dict")
+
+                return return_dict
+
+
+            for key, indices in idx.items():
+                current_batch = self.dataset[key][indices]
+                batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=_concat_dicts)
+            
+            return batch
 
     # To keep things simple, let's assume that the following args are provided by the caller
     def NodesDataLoader(
@@ -682,7 +756,7 @@ if not isinstance(torchdata, MockModule):
         # Insteaad, we wrap the node in a Loader, which is an iterable and handles reset. It
         # also provides state_dict and load_state_dict methods.
         return tn.Loader(node)
-    
+
     def CompositeDataLoader(
             data_map: Mapping[str, Sized],
             weight_dict: Mapping[str, float | Mapping[str, float]],
@@ -710,7 +784,8 @@ if not isinstance(torchdata, MockModule):
 
         from hbt.tasks.studies.torch_util import NestedMapAndCollate
         map_cls = map_and_collate_cls or NestedMapAndCollate
-        mapping = map_cls(data_map, collate_fn=(collate_fn or (lambda x: x)))
+
+        mapping = map_cls(data_map, collate_fn=collate_fn)
         
         parallel_node = tn.ParallelMapper(
             batcher,
