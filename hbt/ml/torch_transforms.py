@@ -57,8 +57,17 @@ if not isinstance(torch, MockModule):
                     from IPython import embed
                     embed(header=f"raised Exception '{e}', debugging")
                     raise e
-                # now directly construct NestedTensor
+                
+                # alternative way to get underlying offsets and data structure
+                # array = ak.to_layout(X)
+                # offsets = array.offsets.data
+                # view = array.content.content.data
+                # this should always yield the correct offsets, regardless of slicing
 
+
+                # now directly construct NestedTensor
+                # DANGERZONE: after comparing hex(id(values)) vs hex(id(return_tensor.values()))
+                # realized that there must be a copy going on somewhere...
                 return_tensor = torch.nested._internal.nested_tensor.NestedTensor(
                     values=values, offsets=torch.Tensor(cumsum),
                     requires_grad=self.requires_grad, device=self.device,
@@ -103,6 +112,10 @@ if not isinstance(torch, MockModule):
                     return_tensor = super()._transform_input(X)
             elif isinstance(X, (torch.Tensor, NestedTensor)):
                 return_tensor = X
+            elif isinstance(X, (list, tuple)):
+                return_tensor = [self._transform_input(entry) for entry in X]
+            elif isinstance(X, dict):
+                return_tensor = {key: self._transform_input(val) for key, val in X.items()}
 
             if return_tensor is None:
                 raise ValueError(f"Could not convert input {X=}")
