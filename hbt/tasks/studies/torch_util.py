@@ -757,42 +757,87 @@ if not isinstance(torchdata, MockModule):
         # also provides state_dict and load_state_dict methods.
         return tn.Loader(node)
 
-    def CompositeDataLoader(
-            data_map: Mapping[str, Sized],
-            weight_dict: Mapping[str, float | Mapping[str, float]],
-            shuffle: bool=True,
-            batch_size: int = 256,
-            num_workers: int = 0,
-            parallelize_method: Literal["thread", "process"] = "process",
-            collate_fn: Callable | None = None,
-            batch_sampler_cls: Callable | None = None,
-            index_sampler_cls: Callable | None = None,
-            map_and_collate_cls: Callable | None = None,
-            device=None,
-    ) -> tuple[tn.ParallelMapper, Any]:
-        if not index_sampler_cls:
-            from torch.utils.data import RandomSampler, SequentialSampler
-            if shuffle:
-                index_sampler_cls = RandomSampler
-            else:
-                index_sampler_cls = SequentialSampler
+    class CompositeDataLoader(object):
+    
+        def __init__(
+                self,
+                data_map: Mapping[str, Sized],
+                weight_dict: Mapping[str, float | Mapping[str, float]],
+                shuffle: bool=True,
+                batch_size: int = 256,
+                num_workers: int = 0,
+                parallelize_method: Literal["thread", "process"] = "process",
+                collate_fn: Callable | None = None,
+                batch_sampler_cls: Callable | None = None,
+                index_sampler_cls: Callable | None = None,
+                map_and_collate_cls: Callable | None = None,
+                device=None,
+        ):
+            
+            self.data_map = data_map
+            self.weight_dict = weight_dict
+            self.shuffle = shuffle
+            self.batch_size = batch_size
+            self.num_workers = num_workers
+            self.parallelize_method = parallelize_method
+            self.collate_fn = collate_fn
+            self.batch_sampler_cls = batch_sampler_cls
+            self.index_sampler_cls = index_sampler_cls
+            self.map_and_collate_cls = map_and_collate_cls
+            self.device = device
+
+            # property for maximum number of batches
+            self._num_batches: int | None = None
+
+            self._resolve_defaults()
+
+            self.data_loader, self.batcher = self._create_composite_node()
+
+        def _resolve_defaults(self):
+            self.index_sampler_cls: Callable
+            if not self.index_sampler_cls:
+                from torch.utils.data import RandomSampler, SequentialSampler
+                if self.shuffle:
+                    self.index_sampler_cls = RandomSampler
+                else:
+                    self.index_sampler_cls = SequentialSampler
+            
+            self.batch_sampler_cls: Callable = self.batch_sampler_cls or BatchedMultiNodeWeightedSampler
+
+            self.map_cls: Callable = self.map_and_collate_cls or NestedMapAndCollate
+
+        def _create_composite_node(self) -> tuple[tn.ParallelMapper, _WeightedSampler]:
+
+            node_dict = {
+                key: tn.SamplerWrapper(self.index_sampler_cls(dataset))
+                for key, dataset in self.data_map.items()
+            }
+            
+            batcher = self.batch_sampler_cls(
+                node_dict, weights=self.weight_dict, batch_size=self.batch_size,
+            )
+
+            mapping = self.map_cls(self.data_map, collate_fn=self.collate_fn)
+            
+            parallel_node = tn.ParallelMapper(
+                batcher,
+                map_fn=mapping,
+                num_workers=self.num_workers,
+                method=self.parallelize_method,  # Set this to "thread" for multi-threading
+                in_order=True,
+            )
+
+            return (parallel_node, batcher)
         
-        node_dict = {key: tn.SamplerWrapper(index_sampler_cls(dataset)) for key, dataset in data_map.items()}
-        batch_sampler_cls = batch_sampler_cls or BatchedMultiNodeWeightedSampler
-        batcher = batch_sampler_cls(node_dict, weights=weight_dict, batch_size=batch_size)
-
-
-        from hbt.tasks.studies.torch_util import NestedMapAndCollate
-        map_cls = map_and_collate_cls or NestedMapAndCollate
-
-        mapping = map_cls(data_map, collate_fn=collate_fn)
+        def __len__(self):
+            return sum(len(x) for x in self.data_map.values())
         
-        parallel_node = tn.ParallelMapper(
-            batcher,
-            map_fn=mapping,
-            num_workers=num_workers,
-            method=parallelize_method,  # Set this to "thread" for multi-threading
-            in_order=True,
-        )
-
-        return (parallel_node, batcher)
+        @property
+        def num_batches(self):
+            if not self._num_batches:
+                datasets: list[ParquetDataset] = list(self.data_map.values())
+                dataset_names = list(self.data_map.keys())
+                max_dataset_idx: int = np.argmax([len(data) for data in datasets])
+                max_composition: int = self.batcher._batch_composition[dataset_names[max_dataset_idx]]
+                self._num_batches = int(len(datasets[max_dataset_idx]) / max_composition)
+            return self._num_batches
