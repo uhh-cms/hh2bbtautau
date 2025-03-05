@@ -228,22 +228,22 @@ class HBTPytorchTask(
         data_map = {"signal": data_s, "bkg": data_b}
         weight_dict = {"signal": 1., "bkg": 1.}
 
-        parallel_node, batcher = CompositeDataLoader(
+        composite_loader = CompositeDataLoader(
             data_map=data_map, weight_dict=weight_dict,
             map_and_collate_cls=NestedDictMapAndCollate,
         )
 
         def train_loop(dataloader, model, loss_fn, optimizer, size=None):
             if not size:
-                size = len(dataloader.dataset)
+                size = len(dataloader)
             # Set the model to training mode - important for batch normalization and dropout layers
             # Unnecessary in this situation but added for best practices
             model.train()
-            for ibatch, (X, y) in enumerate(dataloader, start=1):
+            for ibatch, (X, y) in enumerate(dataloader.data_loader, start=1):
                 # Compute prediction and loss
                 pred = model(X)
-                target = y["categorical_target"].reshape(-1, 1).to(torch.float32)
-                loss = loss_fn(pred, target)
+                target = y["categorical_target"].to(torch.float32)
+                loss = loss_fn(pred.squeeze(1), target)
 
                 # Backpropagation
                 loss.backward()
@@ -258,28 +258,23 @@ class HBTPytorchTask(
             # Set the model to evaluation mode - important for batch normalization and dropout layers
             # Unnecessary in this situation but added for best practices
             model.eval()
-            size = len(dataloader.dataset)
-            num_batches = len(dataloader)
+            size = len(dataloader)
+            num_batches = dataloader.num_batches
             test_loss, correct = 0, 0
 
             # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
             # also serves to reduce unnecessary gradient computations and memory usage for tensors with requires_grad=True
             with torch.no_grad():
-                for X, y in dataloader:
+                for X, y in dataloader.data_loader:
                     pred = model(X)
-                    target = y["categorical_target"].reshape(-1, 1).to(torch.float32)
-                    test_loss += loss_fn(pred, target).item()
+                    target = y["categorical_target"].to(torch.float32)
+                    test_loss += loss_fn(pred.squeeze(1), target).item()
                     correct += (pred.argmax(1) == target).type(torch.float).sum().item()
 
             test_loss /= num_batches
             correct /= size
             print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
         
-        # the total number of batches is defined by the largest dataset, so find it
-        datasets: list[ParquetDataset] = list(data_map.values())
-        dataset_names = list(data_map.keys())
-        max_dataset_idx: int = np.argmax([len(data) for data in datasets])
-        max_batches = len(datasets[max_dataset_idx]) / batcher._batch_composition[dataset_names[max_dataset_idx]]
         
         from IPython import embed
         embed(header="initialized model")
