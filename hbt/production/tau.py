@@ -23,7 +23,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         # custom columns created upstream, probably by a selector
         "single_triggered", "cross_triggered",
         # nano columns
-        "Tau.{pt,eta,genPartFlav,decayMode}",
+        "Tau.{pt,eta,phi,decayMode,getPartFlav}",
     },
     produces={
         "tau_weight",

@@ -10,7 +10,7 @@ from functools import reduce
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import (
     EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view,
-    full_like,
+    full_like, get_ak_routes, remove_ak_column,
 )
 from columnflow.util import maybe_import, InsertableDict
 
@@ -32,7 +32,7 @@ ak = maybe_import("awkward")
     },
     produces={
         # new columns
-        "Jet.hhbtag",
+        "Jet.hhbtag", hhbtag
     },
     # shifts are declared dynamically below in jet_selection_init
 )
@@ -52,6 +52,12 @@ def jet_selection(
     https://twiki.cern.ch/twiki/bin/view/CMS/PileupJetIDUL?rev=17
     https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookNanoAOD?rev=100#Jets
     """
+    # remove coffea columns only used for internal processes. This hinder ellipses slicing due to dimensionality issues
+    # local_index is also affected by this behavior
+    for jet_route in get_ak_routes(events.Jet):
+        if jet_route.column.endswith("IdxG"):
+            events = remove_ak_column(events, f"Jet.{jet_route}")
+
     is_2016 = self.config_inst.campaign.x.year == 2016
     ch_tautau = self.config_inst.get_channel("tautau")
 
@@ -87,8 +93,8 @@ def jet_selection(
     #
 
     # get the hhbtag values per jet per event
-    hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
-
+    events = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
+    hhbtag_scores = events.hhbtag_score
     # create a mask where only the two highest scoring hhbjets are selected
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
     hhbjet_mask = mask_from_indices(score_indices[:, :2], hhbtag_scores)
