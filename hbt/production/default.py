@@ -5,12 +5,14 @@ Wrappers for some default sets of producers.
 """
 
 from columnflow.production import Producer, producer
+from columnflow.production.util import attach_coffea_behavior
 from columnflow.production.normalization import stitched_normalization_weights
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
 from columnflow.production.cms.top_pt_weight import top_pt_weight
 from columnflow.util import maybe_import
+from columnflow.columnar_util import default_coffea_collections
 
 from hbt.production.weights import (
     normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight,
@@ -24,7 +26,8 @@ ak = maybe_import("awkward")
 
 @producer(
     uses={
-        category_ids, stitched_normalization_weights, normalized_pu_weight,
+        attach_coffea_behavior, category_ids,
+        stitched_normalization_weights, normalized_pu_weight,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
@@ -40,6 +43,10 @@ ak = maybe_import("awkward")
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # category ids
+    events = self[attach_coffea_behavior](
+        events,
+        collections={"HHBJet": default_coffea_collections["Jet"]},
+    )
     events = self[category_ids](events, **kwargs)
 
     # mc-only weights

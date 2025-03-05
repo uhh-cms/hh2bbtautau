@@ -1314,8 +1314,10 @@ def add_config(
             "Muon.*",
             "Tau.*",
             f"{cfg.x.met_name}.{{pt,phi,significance,covXX,covXY,covYY}}",
+            "MET.{{pt,phi,significance,covXX,covXY,covYY}}" if sync_mode,
             "PV.npvs",
             "FatJet.*",
+            "diTau.mass", "diBJet.mass",
             # additional event info
             "deterministic_seed", "Jet.deterministic_seed",
             # keep all columns added during selection, but skip cutflow feature
