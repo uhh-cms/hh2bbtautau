@@ -10,7 +10,7 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict
-from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column, get_ak_routes, remove_ak_column
+from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column
 
 from hbt.util import IF_RUN_2
 
@@ -45,11 +45,6 @@ def hhbtag(
         (ak.sum(jet_mask, axis=1) >= 2)
     )
     # prepare objects
-
-    # remove coffea internal columns that hinder ellipses slicing
-    for jet_route in get_ak_routes(events.Jet):
-        if jet_route.column.endswith("IdxG"):
-            events = remove_ak_column(events.Jet, jet_route)
     n_jets_max = 10
     jets = events.Jet[jet_mask][event_mask][..., :n_jets_max]
     leps = lepton_pair[event_mask][..., [0, 1]]
@@ -132,29 +127,30 @@ def hhbtag(
     np.asarray(ak.flatten(all_scores))[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(scores))
 
     events = set_ak_column(events, "hhbtag_score", all_scores)
-    # all inputs
 
     if self.config_inst.x.sync:
-        # for sync produce input variables additionally
-        input_feature_names = (
-            "hhbtag.input_jet_shape", "hhbtag.input_jets_pt", "hhbtag.input_jets_eta",
-            "hhbtag.input_jets_ratio_mass_to_pt", "hhbtag.input_jets_ratio_energy_to_pt",
-            "hhbtag.input_delta_eta_jets_to_htt", "hhbtag.input_pnet_btag_score",
-            "hhbtag.input_delta_phi_jets_to_htt", "hhbtag.input_campaign",
-            "hhbtag.input_channel_id", "hhbtag.input_htt_pt",
-            "hhbtag.input_htt_eta", "hhbtag.input_delta_phi_htt_to_met",
-            "hhbtag.input_ratio_pt_met_to_htt", "hhbtag.input_all_lepton_pt", "hhbtag.output_score",
-        )
-
+        # for sync save input variables as additionall columns in the sync collection
+        input_feature_names = [
+            "sync.hhbtag.jet_shape", "sync.hhbtag.jets_pt", "sync.hhbtag.jets_eta",
+            "sync.hhbtag.jets_ratio_mass_to_pt", "sync.hhbtag.jets_ratio_energy_to_pt",
+            "sync.hhbtag.delta_eta_jets_to_htt", "sync.hhbtag.pnet_btag_score",
+            "sync.hhbtag.delta_phi_jets_to_htt", "sync.hhbtag.campaign",
+            "sync.hhbtag.channel_id", "sync.hhbtag.htt_pt",
+            "sync.hhbtag.htt_eta", "sync.hhbtag.delta_phi_htt_to_met",
+            "sync.hhbtag.ratio_pt_met_to_htt", "sync.hhbtag.all_lepton_pt",
+        ]
         store_sync_columns = dict(zip(
-            input_feature_names + self.output_columns,
-            input_features + all_scores,
+            input_feature_names,
+            input_features,
         ))
 
+        # store inputs
         for column, values in store_sync_columns.items():
+            # create empty multi dim placeholder
             value_placeholder = ak.fill_none(
                 ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1,
             )
+            # fill placeholder
             np.asarray(
                 ak.flatten(value_placeholder),
             )[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(values))
@@ -170,7 +166,7 @@ def hhbtag_init(self: Producer, **kwargs) -> None:
     ]
     # produce input columns
     if self.config_inst.x.sync:
-        self.produces |= set(["hhbtag.*"])
+        self.produces |= set(["sync.*"])
 
     # add (puppi)met dynamically
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")

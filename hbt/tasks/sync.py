@@ -53,7 +53,7 @@ class CheckExternalLFNOverlap(
     def output(self):
         return {
             "overlap": self.target("lfn_overlap.json"),
-            "unique_identifiers": self.target("unique_identifiers.parquet"),
+            "index_variabless": self.target("index_variabless.parquet"),
         }
 
     def run(self):
@@ -105,7 +105,7 @@ class CheckExternalLFNOverlap(
             formatter="json",
         )
 
-        output["unique_identifiers"].dump(
+        output["index_variabless"].dump(
             ak.Array(overlapping_identifier),
             formatter="awkward",
         )
@@ -183,7 +183,11 @@ class CreateSyncFiles(
 
     @workflow_condition.output
     def output(self):
-        return self.target(f"sync_{self.dataset_inst.name}_{self.branch}.csv")
+        return {
+            "normal": self.target(f"sync_{self.dataset_inst.name}_{self.branch}.csv"),
+            "hhbtag": self.target(f"sync_{self.dataset_inst.name}_{self.branch}_hhbtag.csv"),
+            "ressonant": self.target(f"sync_{self.dataset_inst.name}_{self.branch}_ressonant.csv"),
+        }
 
     @law.decorator.log
     @law.decorator.localize
@@ -249,6 +253,33 @@ class CreateSyncFiles(
             array = np.where(empty_mask, str(empty[np.uint64][0]), array)
             return array
 
+        def get_category_id(category_id: ak.Array, config_inst, category_replacement_map, axis=-1) -> ak.Array:
+            # Helper function to map leaf category ids ids specified in *category_replacement_map*.
+            def get_mapping(config_inst, demanded_categories):
+                # get all leaf ids for the required categories
+                all_categories = config_inst.get_category(-1).categories
+                categories = {category.name: category.id for category in all_categories}
+                mapping = {}
+                for cat_name in demanded_categories:
+                    leafs = config_inst.get_category(categories[cat_name]).get_leaf_categories()
+                    mapping[cat_name] = [category.id for category in leafs]
+                return mapping
+
+            root_category_map = get_mapping(config_inst, category_replacement_map.keys())
+            flat_category_view = np.asarray(ak.flatten(category_id, axis=axis))
+            output_array = np.zeros(shape=(len(category_id)), dtype=np.int32)
+            ak_layout = ak.num(category_id)
+
+            # replace ids with category ids by replacement
+            for cat_name, replacement_value in category_replacement_map.items():
+                # events can have multiple categories,
+                ids = root_category_map[cat_name]
+                mask = ak.any(
+                    ak.unflatten(np.isin(flat_category_view, ids), ak_layout), axis=axis,
+                )
+                output_array[mask] = replacement_value
+            return output_array
+
         # event chunk loop
         # optional filter to get only the events that overlap with given external LFN
         if self.filter_file:
@@ -288,19 +319,63 @@ class CreateSyncFiles(
                     """,
                 )
 
+            #
+            # create new columns, do mapping
+            #
+
+            # map category ids to given values
+            category_id = get_category_id(
+                category_id=events.category_ids,
+                config_inst=self.config_inst,
+                category_replacement_map={
+                    "res1b": 0,
+                    "res2b": 1,
+                    "boosted": 2},
+                axis=-1,
+            )
+
             # insert leptons
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty[np.float32][1]})
-            # project into dataframe
-            met_name = self.config_inst.x.met_name
-            df = ak.to_dataframe({
-                # index variables
+            # met_name = self.config_inst.x.met_name
+            met_name = "MET"
+
+            index_variables = {
                 "event": events.event,
                 "run": events.run,
                 "lumi": events.luminosityBlock,
+            }
+
+            #
+            # combine all columns in a pandas df and save it
+            #
+            df_res = ak.to_dataframe({
+                **index_variables,
+                "dnn_dy": events.res_dnn_dy,
+                "dnn_hh": events.res_dnn_hh,
+                "dnn_tt": events.res_dnn_tt,
+                **{key: events.sync.res_dnn[key] for key in events.sync.res_dnn.fields},
+            })
+
+            df_hhb = ak.to_dataframe({
+                **index_variables,
+                **{
+                    f"hhbtag_{i + 1}_score": select(events.Jet.hhbtag, i)
+                    for i in range(3)
+                },
+                **{
+                    f"hhbtag_{i + 1}_{field}": select(events.sync.hhbtag[field], i)
+                    for field in events.sync.hhbtag.fields
+                    for i in range(3)
+                },
+            })
+
+            df = ak.to_dataframe({
+                **index_variables,
                 # high-level events variables
                 "channel_id": events.channel_id,
                 "os": events.leptons_os * 1,
                 "iso": events.tau2_isolated * 1,
+                "category_id": category_id,
                 "deterministic_seed": uint64_to_str(events.deterministic_seed),
                 # jets
                 **reduce(or_, (
@@ -352,10 +427,29 @@ class CreateSyncFiles(
                     }
                     for i in range(2)
                 )),
+                "dnn_dy": events.res_dnn_dy,
+                "dnn_hh": events.res_dnn_hh,
+                "dnn_tt": events.res_dnn_tt,
             })
             # save as csv in output, append if necessary
-            output.dump(
+            output["normal"].dump(
                 df,
+                formatter="pandas",
+                index=False,
+                header=pos.index == 0,
+                mode="w" if pos.index == 0 else "a",
+            )
+
+            output["ressonant"].dump(
+                df_res,
+                formatter="pandas",
+                index=False,
+                header=pos.index == 0,
+                mode="w" if pos.index == 0 else "a",
+            )
+
+            output["hhbtag"].dump(
+                df_hhb,
                 formatter="pandas",
                 index=False,
                 header=pos.index == 0,

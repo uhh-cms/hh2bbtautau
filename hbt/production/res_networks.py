@@ -211,7 +211,12 @@ def _res_dnn_evaluation(
     mask_values(~has_fatjet, 0.0, "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz")
 
     # MET variables
-    _met = _events[self.config_inst.x.met_name]
+    if self.config_inst.x.sync:
+        _met = _events["MET"]
+        for field in _events["PuppiMET"].fields:
+            _met[field] = _events["PuppiMET"][field]
+    else:
+        _met = _events[self.config_inst.x.met_name]
     f.met_px, f.met_py = rotate_to_phi(
         phi_lep,
         _met.pt * np.cos(_met.phi),
@@ -273,12 +278,52 @@ def _res_dnn_evaluation(
         values[event_mask] = scores[:, i]
         events = set_ak_column_f32(events, column, values)
 
+    if self.config_inst.x.sync:
+        # store input columns for sync
+        cont_inputs_names = [
+            "sync.res_dnn.met_px", "sync.res_dnn.met_py", "sync.res_dnn.met_cov00",
+            "sync.res_dnn.met_cov01", "sync.res_dnn.met_cov11", "sync.res_dnn.vis_tau1_px",
+            "sync.res_dnn.vis_tau1_py", "sync.res_dnn.vis_tau1_pz", "sync.res_dnn.vis_tau1_e",
+            "sync.res_dnn.vis_tau2_px", "sync.res_dnn.vis_tau2_py", "sync.res_dnn.vis_tau2_pz",
+            "sync.res_dnn.vis_tau2_e", "sync.res_dnn.bjet1_px", "sync.res_dnn.bjet1_py",
+            "sync.res_dnn.bjet1_pz", "sync.res_dnn.bjet1_e", "sync.res_dnn.bjet1_btag_df",
+            "sync.res_dnn.bjet1_cvsb", "sync.res_dnn.bjet1_cvsl", "sync.res_dnn.bjet1_hhbtag",
+            "sync.res_dnn.bjet2_px", "sync.res_dnn.bjet2_py", "sync.res_dnn.bjet2_pz",
+            "sync.res_dnn.bjet2_e", "sync.res_dnn.bjet2_btag_df", "sync.res_dnn.bjet2_cvsb",
+            "sync.res_dnn.bjet2_cvsl", "sync.res_dnn.bjet2_hhbtag", "sync.res_dnn.fatjet_px",
+            "sync.res_dnn.fatjet_py", "sync.res_dnn.fatjet_pz", "sync.res_dnn.fatjet_e",
+            "sync.res_dnn.htt_e", "sync.res_dnn.htt_px", "sync.res_dnn.htt_py",
+            "sync.res_dnn.htt_pz", "sync.res_dnn.hbb_e", "sync.res_dnn.hbb_px",
+            "sync.res_dnn.hbb_py", "sync.res_dnn.hbb_pz", "sync.res_dnn.htthbb_e",
+            "sync.res_dnn.htthbb_px", "sync.res_dnn.htthbb_py", "sync.res_dnn.htthbb_pz",
+            "sync.res_dnn.httfatjet_e", "sync.res_dnn.httfatjet_px", "sync.res_dnn.httfatjet_py",
+            "sync.res_dnn.httfatjet_pz",
+        ]
+
+        cat_inputs_names = [
+            "sync.res_dnn.pair_type", "sync.res_dnn.dm1",
+            "sync.res_dnn.dm2", "sync.res_dnn.vis_tau1_charge", "sync.res_dnn.vis_tau2_charge",
+            "sync.res_dnn.has_jet_pair", "sync.res_dnn.has_fatjet",
+        ]
+
+        for column, values in zip(
+            cont_inputs_names + cat_inputs_names,
+            continous_inputs + categorical_inputs
+        ):
+            values_placeholder = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
+            values_placeholder[event_mask] = ak.flatten(values)
+            events = set_ak_column_f32(events, column, values_placeholder)
     return events
 
 
 @_res_dnn_evaluation.init
 def _res_dnn_evaluation_init(self: Producer) -> None:
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
+    if self.config_inst.x.sync:
+        # v12 does not have Puppi covariances
+        self.uses.add("MET.{covXX,covXY,covYY}")
+        self.uses.add("PuppiMET.{pt,phi}")
+    else:
+        self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
 
 
 @_res_dnn_evaluation.requires
@@ -416,6 +461,8 @@ def res_dnn_init(self: Producer) -> None:
 
     # update produced columns
     self.produces |= set(self.output_columns)
+    if self.config_inst.x.sync:
+        self.produces |= set(["sync.*"])
 
 
 #
