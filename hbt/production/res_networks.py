@@ -308,7 +308,7 @@ def _res_dnn_evaluation(
 
         for column, values in zip(
             cont_inputs_names + cat_inputs_names,
-            continous_inputs + categorical_inputs
+            continous_inputs + categorical_inputs,
         ):
             values_placeholder = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
             values_placeholder[event_mask] = ak.flatten(values)

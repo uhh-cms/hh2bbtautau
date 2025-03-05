@@ -1333,7 +1333,7 @@ def add_config(
     if sync_mode:
         cfg.x.keep_columns["cf.ReduceEvents"].add(
             "MET.{pt,phi,significance,covXX,covXY,covYY}",
-            "PuppiMet.{pt,phi,significance,covXX,covXY,covYY}"
+            "PuppiMet.{pt,phi,significance,covXX,covXY,covYY}",
         )
 
     ################################################################################################
