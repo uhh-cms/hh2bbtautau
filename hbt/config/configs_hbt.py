@@ -554,9 +554,7 @@ def add_config(
         "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "default": [
-            *dijet,
-            *dilep,
-            *hh,
+            *dijet, *dilep, *hh,
             "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
@@ -565,9 +563,7 @@ def add_config(
 
     # shift groups for conveniently looping over certain shifts
     # (used during plotting)
-    cfg.x.shift_groups = {
-
-    }
+    cfg.x.shift_groups = {}
 
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
@@ -963,6 +959,25 @@ def add_config(
         )
 
     ################################################################################################
+    # dataset / process specific methods
+    ################################################################################################
+
+    # top pt reweighting
+    # https://twiki.cern.ch/twiki/bin/view/CMS/TopPtReweighting?rev=31
+    from columnflow.production.cms.top_pt_weight import TopPtWeightConfig
+    cfg.x.top_pt_weight = TopPtWeightConfig(
+        params={
+            "a": 0.0615,
+            "a_up": 0.0615 * 1.5,
+            "a_down": 0.0615 * 0.5,
+            "b": -0.0005,
+            "b_up": -0.0005 * 1.5,
+            "b_down": -0.0005 * 0.5,
+        },
+        pt_max=500.0,
+    )
+
+    ################################################################################################
     # shifts
     ################################################################################################
 
@@ -1326,10 +1341,8 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        # skipped for now
-        # if dataset.has_tag("ttbar"):
-        #     dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
-        pass
+        if dataset.has_tag("has_top"):
+            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
 
     cfg.x.shift_groups = {
         "jec": [
@@ -1364,7 +1377,7 @@ def add_config(
     }
 
     ################################################################################################
-    # external configs: channels, categories, met filters, triggers, variables, hist hooks
+    # external configs: channels, categories, met filters, triggers, variables
     ################################################################################################
 
     # channels
@@ -1406,9 +1419,22 @@ def add_config(
     else:
         raise False
 
-    # add hist hooks
-    from hbt.config.hist_hooks import add_hist_hooks
-    add_hist_hooks(cfg)
+    ################################################################################################
+    # hist hooks
+    ################################################################################################
+
+    cfg.x.hist_hooks = DotDict()
+
+    # simple blinding
+    cfg.x.hist_hooks.blind = lambda task, hists: {p: h for p, h in hists.items() if not p.is_data}
+
+    # qcd estimation
+    from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
+    add_qcd_hooks(cfg)
+
+    # binning
+    from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
+    add_binning_hooks(cfg)
 
     ################################################################################################
     # LFN settings
