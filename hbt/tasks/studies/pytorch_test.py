@@ -126,7 +126,8 @@ class HBTPytorchTask(
     @law.decorator.localize(input=True, output=True)
     def run(self):
         from hbt.tasks.studies.torch_util import (
-            CompositeDataLoader, ParquetDataset,
+            CompositeDataLoader, ParquetDataset, FlatParquetDataset,
+            NestedDictMapAndCollate,
         )
         from torch.utils.data import default_collate
         import torchdata.nodes as tn
@@ -205,28 +206,31 @@ class HBTPytorchTask(
         # - eager loading of all data (problem?)
 
         #### test case
-
+        from hbt.ml.torch_transforms import AkToTensor
         from hbt.ml.torch_models import FeedForwardNet
         model = FeedForwardNet()
         columns = model.inputs
 
-        data_s = ParquetDataset(
+        data_s = FlatParquetDataset(
             signal_target_paths,
             open_options=open_options,
             columns=columns,
             target=int(0),
+            transform = AkToTensor(),
         )
-        data_b = ParquetDataset(
+        data_b = FlatParquetDataset(
             background_target_paths,
             open_options=open_options,
             columns=columns,
             target=int(1),
+            transform = AkToTensor(),
         )
         data_map = {"signal": data_s, "bkg": data_b}
         weight_dict = {"signal": 1., "bkg": 1.}
 
         parallel_node, batcher = CompositeDataLoader(
             data_map=data_map, weight_dict=weight_dict,
+            map_and_collate_cls=NestedDictMapAndCollate,
         )
 
         def train_loop(dataloader, model, loss_fn, optimizer, size=None):
@@ -238,7 +242,8 @@ class HBTPytorchTask(
             for ibatch, (X, y) in enumerate(dataloader, start=1):
                 # Compute prediction and loss
                 pred = model(X)
-                loss = loss_fn(pred, y)
+                target = y["categorical_target"].reshape(-1, 1).to(torch.float32)
+                loss = loss_fn(pred, target)
 
                 # Backpropagation
                 loss.backward()
@@ -262,8 +267,9 @@ class HBTPytorchTask(
             with torch.no_grad():
                 for X, y in dataloader:
                     pred = model(X)
-                    test_loss += loss_fn(pred, y).item()
-                    correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+                    target = y["categorical_target"].reshape(-1, 1).to(torch.float32)
+                    test_loss += loss_fn(pred, target).item()
+                    correct += (pred.argmax(1) == target).type(torch.float).sum().item()
 
             test_loss /= num_batches
             correct /= size
