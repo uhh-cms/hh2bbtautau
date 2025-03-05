@@ -70,6 +70,18 @@ def cat_ss(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
     return events, events.leptons_os == 0
 
 
+@categorizer(uses={"leptons_os", "Tau.charge"})
+def cat_ss_pos(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # same sign positivly charged leptons
+    return events, events.leptons_os == 0, events.Tau.charge > 0
+
+
+@categorizer(uses={"leptons_os", "Tau.charge"})
+def cat_ss_neg(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # same sign negatively charged leptons
+    return events, events.leptons_os == 0, events.Tau.charge < 0
+
+
 @categorizer(uses={"tau2_isolated"})
 def cat_iso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # isolated tau2

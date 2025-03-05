@@ -33,8 +33,10 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="ss", id=11, selection="cat_ss", label="SS", tags={"ss"})
     _add_category(config, name="iso", id=12, selection="cat_iso", label=r"iso", tags={"iso"})
     _add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"non-iso", tags={"noniso"})  # noqa: E501
-    # costum category for ploting ABCD regions
+    # costum categories for ABCD tests
     _add_category(config, name="all_incl", id=101, selection="cat_incl", label="inclusive")
+    _add_category(config, name="ss_pos", id=102, selection="cat_ss_pos", label="SS_POS", tags={"ss_pos"})
+    _add_category(config, name="ss_neg", id=103, selection="cat_ss_neg", label="SS_NEG", tags={"ss_neg"})
 
     # kinematic categories
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
