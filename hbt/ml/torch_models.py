@@ -33,6 +33,13 @@ if not isinstance(torch, MockModule):
             
 
         def forward(self, x):
-            logits = self.linear_relu_stack(x)
+            input_data = x
+            if isinstance(x, dict):
+                input_data = torch.cat([
+                    val.reshape(-1, 1) for key, val in x.items()
+                    if key in [str(r) for r in self.inputs]],
+                    axis=-1
+                )
+            logits = self.linear_relu_stack(input_data.to(torch.float32))
             return logits
         
