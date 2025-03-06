@@ -246,11 +246,18 @@ def add_hooks(config: od.Config) -> None:
 
     def factor(task, hists):
         """
-        This hook calculates the per bin ratio factor for a choosen category e.g. etau_incl
-
-        Control/signal regions can be set within SETUP code snippets, as well as which ones to use as
-        the numerator or denominator for the factor calculation.
+        This hook calculates the per bin ratio factor for a choosen category.
+        In the command line call --categories {etau,mutau,tautau}_{incl,2j,...}__os__iso
         """
+
+        # SETUP
+        # --------------------------------------------------------------------------------------
+        control_regions = ["ss_iso", "ss_noniso", "os_noniso"]
+        sig_region = "os_iso"
+        numerator = "ss_iso"
+        denominator = "ss_noniso"
+        # --------------------------------------------------------------------------------------
+
         if not hists:
             return hists
 
@@ -308,24 +315,18 @@ def add_hooks(config: od.Config) -> None:
         hists[factor_bin] = factor_hist = mc_hist.copy().reset()
         hists[factor_int] = factor_hist_int = mc_hist.copy().reset()
 
-        # SETUP
-        # --------------------------------------------------------------------------------------
-        # define control regions, channels and 1 single kinematic region
-        control_regions = ["ss_iso", "ss_noniso", "os_noniso"]
-        # --------------------------------------------------------------------------------------
-
         # initializing dictionary for later use
         dict_hists = {}
 
-        # get the corresponding histograms and convert them to number objects,
-        # each one storing an array of values with uncertainties
-        # shapes: (SHIFT, VAR)
         for group_name in complete_groups:
             group = qcd_groups[group_name]
             # helper
             get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
 
             for region in control_regions:
+                # get the corresponding histograms and convert them to number objects,
+                # each one storing an array of values with uncertainties
+                # shapes: (SHIFT, VAR)
                 hist_mc = hist_to_num(get_hist(mc_hist, region), region + "_mc")
                 hist_data = hist_to_num(get_hist(data_hist, region), region + "_data")
                 hist_qcd = hist_data - hist_mc
@@ -335,14 +336,9 @@ def add_hooks(config: od.Config) -> None:
                 dict_hists[region + "_data"] = (hist_data)
                 dict_hists[region + "_qcd"] = (hist_qcd)
 
-            # --------------------------------------------------------------------------------------
-            # SETUP
-            # choose numerator/denominator regions from dict_hists for factor calculation
-            num_region = dict_hists["os_noniso_qcd"]
-            den_region = dict_hists["ss_noniso_qcd"]
-            # choose signal region (e.g. group.os_iso)
-            signal_region = group.os_iso
-            # --------------------------------------------------------------------------------------
+            num_region = dict_hists[numerator + "_qcd"]
+            den_region = dict_hists[denominator + "_qcd"]
+            signal_region = getattr(group, sig_region)
 
             # calculate the ratio factor per bin
             factor = (num_region / den_region)[:, None]
@@ -375,11 +371,19 @@ def add_hooks(config: od.Config) -> None:
     def factor_incl(task, hists):
         """
         This hook calculates the summed over ratio factor for a choosen kinematic category considering
-        all decay channels simultaneously, e.g. etau_incl + mutau_incl + tautau_incl.
-
-        Numerator/denominator regions to use for the factors calculation can be set within SETUP code snippets,
-        as well as which control/signal regions to consider, and which kinematic region to be summed over.
+        all decay channels simultaneously (e.g. etau + mutau + tautau)
+        In the command line call --categories {incl,2j,...}__os__iso
         """
+
+        # SETUP
+        # --------------------------------------------------------------------------------------
+        control_regions = ["ss_iso", "ss_noniso", "os_noniso"]
+        decay_channels = ["etau", "mutau", "tautau"]
+        kinematic_region = ["incl"]
+        sig_region = "os_iso"
+        numerator = "ss_iso"
+        denominator = "ss_noniso"
+        # --------------------------------------------------------------------------------------
 
         if not hists:
             return hists
@@ -388,7 +392,6 @@ def add_hooks(config: od.Config) -> None:
         factor_bin = config.get_process("qcd", default=None)
         if not factor_bin:
             return hists
-
         factor_int = config.get_process("dy", default=None)
         if not factor_int:
             return hists
@@ -440,14 +443,6 @@ def add_hooks(config: od.Config) -> None:
         hists[factor_bin] = factor_hist = mc_hist.copy().reset()
         hists[factor_int] = factor_hist_int = mc_hist.copy().reset()
 
-        # SETUP
-        # --------------------------------------------------------------------------------------
-        # define control regions, channels and 1 single kinematic region
-        control_regions = ["ss_iso", "ss_noniso", "os_noniso"]
-        decay_channels = ["etau", "mutau", "tautau"]
-        kinematic_region = ["incl"]
-        # --------------------------------------------------------------------------------------
-
         # initializing dictionaries for later use
         channels = {}
         dict_hists = {}
@@ -462,10 +457,10 @@ def add_hooks(config: od.Config) -> None:
                     # helper
                     get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
 
-                    # get hists per region and convert them to number objects
-                    # each number object stores an array of values with uncertainties
-                    # shapes: (SHIFT, VAR)
                     for region in control_regions:
+                        # get hists per region and convert them to number objects
+                        # each number object stores an array of values with uncertainties
+                        # shapes: (SHIFT, VAR)
                         hist_mc = hist_to_num(get_hist(mc_hist, region), region + "_mc")
                         hist_data = hist_to_num(get_hist(data_hist, region), region + "_data")
 
@@ -493,14 +488,11 @@ def add_hooks(config: od.Config) -> None:
                         dict_hists[region + "_data"] = hist_data
                         dict_hists[region + "_qcd"] = hist_qcd
 
-                    # SETUP
-                    # --------------------------------------------------------------------------------------
-                    # choose numerator/denominator regions from dict_hists for factor calculation
-                    num_region = dict_hists["os_noniso_qcd"]
-                    den_region = dict_hists["ss_noniso_qcd"]
-                    # choose signal region (e.g. group.os_iso)
-                    signal_region = group.os_iso
-                    # --------------------------------------------------------------------------------------
+                    # define numerator/denominator for factor calculation
+                    num_region = dict_hists[numerator + "_qcd"]
+                    den_region = dict_hists[denominator + "_qcd"]
+                    # define signal region
+                    signal_region = getattr(group, sig_region)
 
                     # calculate the pt-independent fake factor
                     int_num = integrate_num(num_region, axis=1)
