@@ -131,13 +131,13 @@ def hhbtag(
     if self.config_inst.x.sync:
         # for sync save input variables as additionall columns in the sync collection
         input_feature_names = [
-            "sync.hhbtag.jet_shape", "sync.hhbtag.jets_pt", "sync.hhbtag.jets_eta",
-            "sync.hhbtag.jets_ratio_mass_to_pt", "sync.hhbtag.jets_ratio_energy_to_pt",
-            "sync.hhbtag.delta_eta_jets_to_htt", "sync.hhbtag.pnet_btag_score",
-            "sync.hhbtag.delta_phi_jets_to_htt", "sync.hhbtag.campaign",
-            "sync.hhbtag.channel_id", "sync.hhbtag.htt_pt",
-            "sync.hhbtag.htt_eta", "sync.hhbtag.delta_phi_htt_to_met",
-            "sync.hhbtag.ratio_pt_met_to_htt", "sync.hhbtag.all_lepton_pt",
+            "sync_hhbtag_jet_shape", "sync_hhbtag_jets_pt", "sync_hhbtag_jets_eta",
+            "sync_hhbtag_jets_ratio_mass_to_pt", "sync_hhbtag_jets_ratio_energy_to_pt",
+            "sync_hhbtag_delta_eta_jets_to_htt", "sync_hhbtag_pnet_btag_score",
+            "sync_hhbtag_delta_phi_jets_to_htt", "sync_hhbtag_campaign",
+            "sync_hhbtag_channel_id", "sync_hhbtag_htt_pt",
+            "sync_hhbtag_htt_eta", "sync_hhbtag_delta_phi_htt_to_met",
+            "sync_hhbtag_ratio_pt_met_to_htt", "sync_hhbtag_all_lepton_pt",
         ]
         store_sync_columns = dict(zip(
             input_feature_names,
@@ -166,7 +166,7 @@ def hhbtag_init(self: Producer, **kwargs) -> None:
     ]
     # produce input columns
     if self.config_inst.x.sync:
-        self.produces |= set(["sync.*"])
+        self.produces |= set(["sync_*"])
 
     # add (puppi)met dynamically
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")

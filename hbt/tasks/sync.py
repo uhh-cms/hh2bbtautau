@@ -295,7 +295,6 @@ class CreateSyncFiles(
             # optional check for overlapping inputs
             if self.check_overlapping_inputs:
                 self.raise_if_overlapping([events] + list(columns))
-
             # add additional columns
             events = update_ak_array(events, *columns)
             # apply mask if optional filter is given
@@ -353,7 +352,10 @@ class CreateSyncFiles(
                 "dnn_dy": events.res_dnn_dy,
                 "dnn_hh": events.res_dnn_hh,
                 "dnn_tt": events.res_dnn_tt,
-                **{key: events.sync.res_dnn[key] for key in events.sync.res_dnn.fields},
+                **{
+                    field.replace("sync_", ""): events[field]
+                    for field in events.fields
+                    if field.startswith("sync_res_dnn")},
             })
 
             df_hhb = ak.to_dataframe({
@@ -363,8 +365,8 @@ class CreateSyncFiles(
                     for i in range(3)
                 },
                 **{
-                    f"hhbtag_{i + 1}_{field}": select(events.sync.hhbtag[field], i)
-                    for field in events.sync.hhbtag.fields
+                    f"hhbtag_{i + 1}_{field.replace('sync_hhbtag', '')}": select(events[field], i)
+                    for field in events.fields if field.startswith("sync_hhbtag")
                     for i in range(3)
                 },
             })
