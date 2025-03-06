@@ -1331,11 +1331,13 @@ def add_config(
         },
     })
     if sync_mode:
-        cfg.x.keep_columns["cf.ReduceEvents"].add(
+        # ignore all change MET for sync
+        # TODO: remove when switching to V14, only necessary
+        # due to v12 not having PuppiMet.cov
+        cfg.x.keep_columns["cf.ReduceEvents"] = cfg.x.keep_columns["cf.ReduceEvents"].union({
             "MET.{pt,phi,significance,covXX,covXY,covYY}",
-            "PuppiMet.{pt,phi,significance,covXX,covXY,covYY}",
-        )
-
+            "PuppiMET.{pt,phi,significance,covXX,covXY,covYY}",
+        })
     ################################################################################################
     # weights
     ################################################################################################

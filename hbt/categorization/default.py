@@ -134,7 +134,7 @@ def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
 
 
 @categorizer(uses={
-    cat_res1b, cat_res2b, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD}", "Tau.mass",
+    cat_res1b, cat_res2b, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD}", "Tau.{mass,charge}",
 })
 def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # exclude res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
