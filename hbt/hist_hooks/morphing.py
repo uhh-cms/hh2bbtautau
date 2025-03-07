@@ -195,6 +195,22 @@ def add_hooks(config: od.Config) -> None:
                 r", $C_{3}=$" + target_params_oi["kl"] + ")",
             )
 
+        # fill all histograms with an empty axis if some are missing
+        all_categories = task.config_inst.get_leaf_categories()
+        for h in model_hists:
+            if len(h.axes[0]) != len(all_categories):
+                set_all_categories_id = set([cat.id for cat in all_categories])
+                set_h_categories_id = set(list(h.axes[0]))
+                missing_categories = list(set_all_categories_id - set_h_categories_id)
+                filling_dict = {
+                    "category": missing_categories,  # missing category indices to add as axes
+                    "shift": h.axes[1][0],  # reuse existing shift to avoid creating a new axis
+                    h.axes[2].name: h.axes[2][0][0],  # reuse existing bin edge to avoid creating a new axis
+                    # for variables, take the first bin and from that the first (left) edge
+                    "weight": 0.0,  # fill with 0
+                }
+                h.fill(**filling_dict)  # fill with 0, the rest of the axes are filled with 0 to get a regular array
+
         # create the new hist
         new_hist = model_hists[0].copy().reset()
 
@@ -587,8 +603,6 @@ def add_hooks(config: od.Config) -> None:
         # insert values into the new histogram
         hists[new_proc].view().value = morphed_values_correct_categorization
         hists[new_proc].view().variance = morphed_variances_correct_categorization
-
-        # from IPython import embed; embed(header="morphing")
 
         return hists
 
