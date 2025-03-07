@@ -229,9 +229,10 @@ def muon_selection(
             min_pt = 23.0 if is_single else 20.0
         else:
             min_pt = 26.0 if is_single else 22.0
+        eta_cut = 2.4 if is_single else 2.1
         default_mask = (
             (events.Muon.tightId == 1) &
-            (abs(events.Muon.eta) < 2.4) &
+            (abs(events.Muon.eta) < eta_cut) &
             (abs(events.Muon.dxy) < 0.045) &
             (abs(events.Muon.dz) < 0.2) &
             (events.Muon.pfRelIso04_all < 0.15)
