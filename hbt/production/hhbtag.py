@@ -164,12 +164,13 @@ def hhbtag_init(self: Producer, **kwargs) -> None:
         f"hhbtag_{name}"
         for name in ["score"]
     ]
-    # produce input columns
-    if self.config_inst.x.sync:
-        self.produces |= set(["sync_*"])
 
     # add (puppi)met dynamically
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+
+    # produce input columns
+    if self.config_inst.x.sync:
+        self.produces |= set(["sync_*"])
 
 
 @hhbtag.requires

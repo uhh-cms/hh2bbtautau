@@ -211,12 +211,7 @@ def _res_dnn_evaluation(
     mask_values(~has_fatjet, 0.0, "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz")
 
     # MET variables
-    if self.config_inst.x.sync:
-        _met = _events["MET"]
-        for field in _events["PuppiMET"].fields:
-            _met[field] = _events["PuppiMET"][field]
-    else:
-        _met = _events[self.config_inst.x.met_name]
+    _met = _events[self.config_inst.x.met_name]
     f.met_px, f.met_py = rotate_to_phi(
         phi_lep,
         _met.pt * np.cos(_met.phi),
@@ -317,12 +312,7 @@ def _res_dnn_evaluation(
 
 @_res_dnn_evaluation.init
 def _res_dnn_evaluation_init(self: Producer) -> None:
-    if self.config_inst.x.sync:
-        # v12 does not have Puppi covariances
-        self.uses.add("MET.{covXX,covXY,covYY}")
-        self.uses.add("PuppiMET.{pt,phi}")
-    else:
-        self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
 
 
 @_res_dnn_evaluation.requires
