@@ -83,9 +83,17 @@ def add_hooks(config: od.Config) -> None:
             results[process] = h_new
         return results
 
-    def qcd_estimation(task, hists, perbin: bool = True, method_I: bool = True):
+    def qcd_estimation(task, hists, perbin: bool = True, method_I: bool = False):
         """
-        This hook calculates qcd estimation (shape x factor) for a choosen category.
+        This hook calculates the qcd estimation (shape x factor) for a choosen decay channel
+        and kinematic category and adds it to all other existing MC histograms.
+
+        If perbin is set to True, factor values will be applied per bin, otherwise a single summed factor
+        will be applied to all bins.
+
+        The qcd estimation can be calculated by two methods, depending on which control region is choosen to extract
+        the shape estimation, and which one is choosen as the numerator for the factor calculation.
+
         In the command line call --categories {etau,mutau,tautau}_{incl,2j,...}__os__iso
         """
 
@@ -146,10 +154,6 @@ def add_hooks(config: od.Config) -> None:
                 qcd_groups[cat_inst.x.qcd_group].os_noniso = cat_inst
             elif cat_inst.has_tag({"ss", "iso"}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].ss_iso = cat_inst
-            elif cat_inst.has_tag({"ss_pos", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_pos_iso = cat_inst
-            elif cat_inst.has_tag({"ss_neg", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_neg_iso = cat_inst
             elif cat_inst.has_tag({"ss", "noniso"}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].ss_noniso = cat_inst
 
@@ -244,6 +248,15 @@ def add_hooks(config: od.Config) -> None:
                 qcd_estimation = shape_estimation * factor
             elif not perbin:
                 qcd_estimation = shape_estimation * factor_int
+
+            if group_name == "tautau__incl":
+                print("----------------------------------------------")
+                print("group name ", group_name)
+                print("int factor", factor_int)
+                print("----------------------------------------------")
+                print("num region", num_region)
+                print("den region", den_region)
+                print("factor", factor)
             # ------------------------------------------------------
 
             # combine uncertainties and store values in bare arrays
@@ -290,20 +303,16 @@ def add_hooks(config: od.Config) -> None:
                     f"could not find index of bin on 'category' axis of qcd histogram {qcd_hist} "
                     f"for category {signal_region}",
                 )
-        print("----------------------------------------------")
-        print("Used qcd estimation from ", shape_region)
-        print("Calculated factor from numerator", numerator)
-        print("Calculated factor from denominator", denominator)
-        print("----------------------------------------------")
-        print(shape_estimation)
-        print(num_region)
-        print(den_region)
-        print("----------------------------------------------")
         return hists
 
-    def factor(task, hists, method_I: bool = True):
+    def factor(task, hists, method_I: bool = False):
         """
-        This hook calculates the factor in the ABCD method for a choosen category.
+        This hook calculates the per-bin and summed over factors in the ABCD method for a choosen decay channel
+        and kinematic category.
+
+        The factor can be calculated by two methods, depending on which control region is choosen
+        as the numerator for the factor calculation.
+
         In the command line call --categories {etau,mutau,tautau}_{incl,2j,...}__os__iso
         """
 
@@ -423,6 +432,10 @@ def add_hooks(config: od.Config) -> None:
             factor_int_values.fill(factor_int()[0])
             factor_int_variances = factor_int(sn.UP, sn.ALL, unc=True)**2
 
+            if group_name == "etau__incl" or group_name == "mutau__incl" or group_name == "tautau__incl":
+                print("group name: ", group_name)
+                print("factor_int: ", factor_int)
+
             # insert qcd estimation into the qcd histogram
             cat_axis = factor_hist.axes["category"]
             for cat_index in range(cat_axis.size):
@@ -441,8 +454,12 @@ def add_hooks(config: od.Config) -> None:
 
     def factor_incl(task, hists, method_I: bool = True):
         """
-        This hook calculates the summed over ratio factor for a choosen kinematic category considering
-        all decay channels simultaneously (e.g. etau + mutau + tautau)
+        This hook calculates the per-bin and summed over factors in the ABCD method for a choosen kinematic category
+        considering all decay channels simultaneously (e.g. etau + mutau + tautau)
+
+        The factor can be calculated by two methods, depending on which control region is choosen
+        as the numerator for the factor calculation.
+
         In the command line call --categories {incl,2j,...}__os__iso
         """
 
@@ -551,6 +568,9 @@ def add_hooks(config: od.Config) -> None:
                         channels[group_name][region + "_mc"] = hist_mc
                         channels[group_name][region + "_data"] = hist_data
 
+        print("channels")
+        print(channels)
+
         for group_name in complete_groups:
             for k in kinematic_region:
                 # loop should only run once. use dummy group_name
@@ -571,11 +591,6 @@ def add_hooks(config: od.Config) -> None:
                         dict_hists[region + "_mc"] = hist_mc
                         dict_hists[region + "_data"] = hist_data
                         dict_hists[region + "_qcd"] = hist_qcd
-
-                        if region == "ss_iso":
-                            print("group_name: ", group_name)
-                            print("dict_hists[ss_iso_mc]")
-                            print(dict_hists["ss_iso_mc"])
 
                     # define numerator/denominator for factor calculation
                     num_region = dict_hists[numerator + "_qcd"]
@@ -598,6 +613,21 @@ def add_hooks(config: od.Config) -> None:
                     factor_int_values.fill(factor_int()[0])
                     factor_int_variances = factor_int(sn.UP, sn.ALL, unc=True)**2
 
+                    print("----------------------------")
+                    print("group name: ", group_name)
+                    print("dict_hists[ss_iso_data]")
+                    print(dict_hists["ss_iso_data"])
+                    print("dict_hists[ss_iso_mc]")
+                    print(dict_hists["ss_iso_mc"])
+                    print("Numerator: ", numerator)
+                    print("num_region: ", num_region)
+                    print("Denominator: ", denominator)
+                    print("den_region: ", den_region)
+                    print("----------------------------")
+                    print("Factor: ", factor_int)
+                    print("factor")
+                    print(factor)
+
                     # insert values into the qcd histogram
                     cat_axis = factor_hist.axes["category"]
                     for cat_index in range(cat_axis.size):
@@ -612,19 +642,6 @@ def add_hooks(config: od.Config) -> None:
                             f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
                             f"for category {signal_region}",
                         )
-
-        print("----------------------------")
-        print("Factor: ", factor_int)
-        print("----------------------------")
-        print("Denominator: ", denominator)
-        print("den_region: ", den_region)
-        print("----------------------------")
-        print("Numerator: ", numerator)
-        print("dict_hists[ss_iso_data]")
-        print(dict_hists["ss_iso_data"])
-        print("dict_hists[ss_iso_mc]")
-        print(dict_hists["ss_iso_mc"])
-        print("num_region: ", num_region)
         return hists
 
     # -----------------------------------------------------------------------------------------------------------
@@ -1336,9 +1353,21 @@ def add_hooks(config: od.Config) -> None:
         print("----------------------------")
         return hists
 
-    def qcd_shape(task, hists, perbin: bool = True, method_I: bool = True):
+    def qcd_shape(task, hists, perbin: bool = False, method_I: bool = False, qcd_shape: bool = True):
         """
-        This hook calculates the per bin ratio factor for a choosen category.
+        This hook calculates the qcd estimation (shape x factor) for a choosen decay channel
+        and kinematic category and plots it.
+
+        If perbin is set to True, factor values will be applied per bin, otherwise a single summed factor
+        will be applied to all bins.
+
+        The qcd estimation can be calculated by two methods, depending on which control region is choosen to extract
+        the shape estimation, and which one is choosen as the numerator for the factor calculation. This can be
+        controlled by the method_I boolean.
+
+        If qcd_shape is set to True, the final qcd estimation histogram (shape * factor) will be plotted.
+        Otherwise, only the factors will be plotted.
+
         In the command line call --categories {etau,mutau,tautau}_{incl,2j,...}__os__iso
         """
 
@@ -1446,17 +1475,19 @@ def add_hooks(config: od.Config) -> None:
             shape_estimation = dict_hists[shape_region + "_qcd"]
             signal_region = getattr(group, sig_region)
 
-            # calculate the pt-independent fake factor
-            int_num = integrate_num(num_region, axis=1)
-            int_dem = integrate_num(den_region, axis=1)
-            factor_int = (int_num / int_dem)[0, None]
-            factor_int_values = np.squeeze(np.nan_to_num(factor_int()), axis=0)
-            factor_int_variances = factor_int(sn.UP, sn.ALL, unc=True)**2
-
-            # calculate the pt-dependent fake factor
+            # calculate the ratio factor per bin
             factor = (num_region / den_region)[:, None]
             factor_values = np.squeeze(np.nan_to_num(factor()), axis=0)
-            # factor_variances = factor(sn.UP, sn.ALL, unc=True)**2
+            factor_variances = factor(sn.UP, sn.ALL, unc=True)**2
+
+            # calculate the average ratio factor summed over bins
+            int_num = integrate_num(num_region, axis=1)
+            int_den = integrate_num(den_region, axis=1)
+            factor_int = (int_num / int_den)[0, None]
+            # change shape of factor_int for plotting
+            factor_int_values = factor_values.copy()
+            factor_int_values.fill(factor_int()[0])
+            factor_int_variances = factor_int(sn.UP, sn.ALL, unc=True)**2
 
             # -----------------------------------------------
             # ABCD method
@@ -1465,35 +1496,47 @@ def add_hooks(config: od.Config) -> None:
                 qcd_estimation = shape_estimation * factor
             elif not perbin:
                 qcd_estimation = shape_estimation * factor_int
-            # -----------------------------------------------
 
-            # define values and variances
             qcd_estimation_values = np.squeeze(np.nan_to_num(qcd_estimation()), axis=0)
             qcd_estimation_variances = qcd_estimation(sn.UP, sn.ALL, unc=True)**2
+            shape_estimation_values = np.squeeze(np.nan_to_num(shape_estimation()), axis=0)
+            shape_estimation_variances = shape_estimation(sn.UP, sn.ALL, unc=True)**2
 
-            # change shape of factor_int for plotting
-            factor_int_values = factor_values.copy()
-            factor_int_values.fill(factor_int()[0])
+            if qcd_shape:
+                plot_values = qcd_estimation_values
+                plot_variances = qcd_estimation_variances
+                plot_values_v2 = shape_estimation_values
+                plot_variances_v2 = shape_estimation_variances
+            elif not qcd_shape:
+                plot_values = factor_values
+                plot_variances = factor_variances
+                plot_values_v2 = factor_int_values
+                plot_variances_v2 = factor_int_variances
+
+            # -----------------------------------------------
+
+            if group_name == "tautau__incl":
+                print("----------------------------")
+                print("Shape region: ", shape_region)
+                print("Numerator: ", numerator)
+                print("Factor: ", factor)
+                print("Factor int: ", factor_int)
+                print("----------------------------")
 
             # insert qcd estimation into the qcd histogram
             cat_axis = factor_hist.axes["category"]
             for cat_index in range(cat_axis.size):
                 if cat_axis.value(cat_index) == signal_region.id:
-                    factor_hist.view().value[cat_index, ...] = qcd_estimation_values
-                    factor_hist.view().variance[cat_index, ...] = qcd_estimation_variances
-                    factor_hist_int.view().value[cat_index, ...] = factor_int_values
+                    factor_hist.view().value[cat_index, ...] = plot_values
+                    factor_hist.view().variance[cat_index, ...] = plot_variances
+                    factor_hist_int.view().value[cat_index, ...] = plot_values_v2
+                    factor_hist_int.view().variance[cat_index, ...] = plot_variances_v2
                     break
             else:
                 raise RuntimeError(
                     f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
                     f"for category {signal_region}",
                 )
-        print("----------------------------")
-        print("Shape region: ", shape_region)
-        print("Numerator: ", numerator)
-        print("Factor: ", factor_int)
-        print(factor_int_variances)
-        print("----------------------------")
         return hists
 
     # add all hooks
