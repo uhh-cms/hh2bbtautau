@@ -303,15 +303,13 @@ def add_hooks(config: od.Config) -> None:
 
     def factor(task, hists, method_I: bool = True):
         """
-        This hook calculates the per bin ratio factor for a choosen category.
+        This hook calculates the factor in the ABCD method for a choosen category.
         In the command line call --categories {etau,mutau,tautau}_{incl,2j,...}__os__iso
         """
 
         # SETUP
         # --------------------------------------------------------------------------------------
         control_regions = ["ss_iso", "os_noniso", "ss_noniso"]
-        decay_channels = ["tautau"]
-        kinematic_region = ["incl"]
         sig_region = "os_iso"
         # choose shape estimation and numerator for factor calculation
         if method_I:
@@ -387,12 +385,10 @@ def add_hooks(config: od.Config) -> None:
 
         # initializing dictionary for later use
         dict_hists = {}
-        channels = {}
 
-        """
         for group_name in complete_groups:
-            print(complete_groups)
             group = qcd_groups[group_name]
+
             # helper
             get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
 
@@ -408,11 +404,6 @@ def add_hooks(config: od.Config) -> None:
                 dict_hists[region + "_mc"] = (hist_mc)
                 dict_hists[region + "_data"] = (hist_data)
                 dict_hists[region + "_qcd"] = (hist_qcd)
-
-                if region == "ss_iso":
-                    print("group_name: ", group_name)
-                    print("dict_hists[ss_iso_mc]")
-                    print(dict_hists["ss_iso_mc"])
 
             num_region = dict_hists[numerator + "_qcd"]
             den_region = dict_hists[denominator + "_qcd"]
@@ -446,103 +437,6 @@ def add_hooks(config: od.Config) -> None:
                     f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
                     f"for category {signal_region}",
                 )
-        """
-
-        for group_name in complete_groups:
-            for k in kinematic_region:
-                # loop should only run once, in the chosen kinematic region
-                if k in group_name:
-                    group = qcd_groups[group_name]
-                    channels[group_name] = {}
-
-                    # helper
-                    get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
-
-                    for region in control_regions:
-                        # get hists per region and convert them to number objects
-                        # each number object stores an array of values with uncertainties
-                        # shapes: (SHIFT, VAR)
-                        hist_mc = hist_to_num(get_hist(mc_hist, region), region + "_mc")
-                        hist_data = hist_to_num(get_hist(data_hist, region), region + "_data")
-
-                        channels[group_name][region + "_mc"] = hist_mc
-                        channels[group_name][region + "_data"] = hist_data
-
-        for group_name in complete_groups:
-            for k in kinematic_region:
-                # loop should only run once. use dummy group_name
-                if group_name == f"{decay_channels[0]}__{k}":
-                    group = qcd_groups[group_name]
-
-                    # sum all channels into single hists
-                    for region in control_regions:
-                        hist_mc = sn.Number()
-                        hist_data = sn.Number()
-                        for c in decay_channels:
-                            hist_mc = channels[f"{c}__{k}"][f"{region}_mc"]
-                            hist_data = channels[f"{c}__{k}"][f"{region}_data"]
-
-                        hist_qcd = hist_data - hist_mc
-
-                        # save hists
-                        dict_hists[region + "_mc"] = hist_mc
-                        dict_hists[region + "_data"] = hist_data
-                        dict_hists[region + "_qcd"] = hist_qcd
-
-                        if region == "ss_iso":
-                            print("group_name: ", group_name)
-                            print("dict_hists[ss_iso_mc]")
-                            print(dict_hists["ss_iso_mc"])
-
-                    # define numerator/denominator for factor calculation
-                    num_region = dict_hists[numerator + "_qcd"]
-                    den_region = dict_hists[denominator + "_qcd"]
-                    # define signal region
-                    signal_region = getattr(group, sig_region)
-
-                    # calculate the pt-independent fake factor
-                    int_num = integrate_num(num_region, axis=1)
-                    int_dem = integrate_num(den_region, axis=1)
-                    factor_int = (int_num / int_dem)[0, None]
-
-                    # calculate the pt-dependent fake factor
-                    factor = (num_region / den_region)[:, None]
-                    factor_values = np.squeeze(np.nan_to_num(factor()), axis=0)
-                    factor_variances = factor(sn.UP, sn.ALL, unc=True)**2
-
-                    # change shape of factor_int for plotting
-                    factor_int_values = factor_values.copy()
-                    factor_int_values.fill(factor_int()[0])
-                    factor_int_variances = factor_int(sn.UP, sn.ALL, unc=True)**2
-
-                    # insert values into the qcd histogram
-                    cat_axis = factor_hist.axes["category"]
-                    for cat_index in range(cat_axis.size):
-                        if cat_axis.value(cat_index) == signal_region.id:
-                            factor_hist.view().value[cat_index, ...] = factor_values
-                            factor_hist.view().variance[cat_index, ...] = factor_variances
-                            factor_hist_int.view().value[cat_index, ...] = factor_int_values
-                            factor_hist_int.view().variance[cat_index, ...] = factor_int_variances
-                            break
-                    else:
-                        raise RuntimeError(
-                            f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
-                            f"for category {signal_region}",
-                        )
-
-
-        print("----------------------------")
-        print("Factor: ", factor_int)
-        print("----------------------------")
-        print("Denominator: ", denominator)
-        print("den_region: ", den_region)
-        print("----------------------------")
-        print("Numerator: ", numerator)
-        print("dict_hists[ss_iso_data]")
-        print(dict_hists["ss_iso_data"])
-        print("dict_hists[ss_iso_mc]")
-        print(dict_hists["ss_iso_mc"])
-        print("num_region: ", num_region)
         return hists
 
     def factor_incl(task, hists, method_I: bool = True):
