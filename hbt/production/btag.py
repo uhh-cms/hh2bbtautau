@@ -35,7 +35,7 @@ btag_weights_pnet = btag_weights.derive("btag_weights_pnet", cls_dict={
 
 
 @producer(
-    uses={"process_id", "Jet.{pt,phi,eta}"},
+    uses={"process_id", "Jet.{mass,pt,phi,eta}"},
     # only run on mc
     mc_only=True,
     # configurable weight producer class

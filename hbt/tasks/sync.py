@@ -53,7 +53,7 @@ class CheckExternalLFNOverlap(
     def output(self):
         return {
             "overlap": self.target("lfn_overlap.json"),
-            "index_variabless": self.target("index_variabless.parquet"),
+            "index_variables": self.target("index_variables.parquet"),
         }
 
     def run(self):
@@ -105,7 +105,7 @@ class CheckExternalLFNOverlap(
             formatter="json",
         )
 
-        output["index_variabless"].dump(
+        output["index_variables"].dump(
             ak.Array(overlapping_identifier),
             formatter="awkward",
         )
@@ -186,7 +186,7 @@ class CreateSyncFiles(
         return {
             "normal": self.target(f"sync_{self.dataset_inst.name}_{self.branch}.csv"),
             "hhbtag": self.target(f"sync_{self.dataset_inst.name}_{self.branch}_hhbtag.csv"),
-            "ressonant": self.target(f"sync_{self.dataset_inst.name}_{self.branch}_ressonant.csv"),
+            "resonant": self.target(f"sync_{self.dataset_inst.name}_{self.branch}_resonant.csv"),
         }
 
     @law.decorator.log
@@ -261,8 +261,8 @@ class CreateSyncFiles(
                 categories = {category.name: category.id for category in all_categories}
                 mapping = {}
                 for cat_name in demanded_categories:
-                    leafs = config_inst.get_category(categories[cat_name]).get_leaf_categories()
-                    mapping[cat_name] = [category.id for category in leafs]
+                    leaves = config_inst.get_category(categories[cat_name]).get_leaf_categories()
+                    mapping[cat_name] = [category.id for category in leaves]
                 return mapping
 
             root_category_map = get_mapping(config_inst, category_replacement_map.keys())
@@ -442,7 +442,7 @@ class CreateSyncFiles(
                 mode="w" if pos.index == 0 else "a",
             )
 
-            output["ressonant"].dump(
+            output["resonant"].dump(
                 df_res,
                 formatter="pandas",
                 index=False,

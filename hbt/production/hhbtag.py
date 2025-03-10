@@ -129,7 +129,7 @@ def hhbtag(
     events = set_ak_column(events, "hhbtag_score", all_scores)
 
     if self.config_inst.x.sync:
-        # for sync save input variables as additionall columns in the sync collection
+        # for sync save input variables as additional columns in the sync collection
         input_feature_names = [
             "sync_hhbtag_jet_shape", "sync_hhbtag_jets_pt", "sync_hhbtag_jets_eta",
             "sync_hhbtag_jets_ratio_mass_to_pt", "sync_hhbtag_jets_ratio_energy_to_pt",
