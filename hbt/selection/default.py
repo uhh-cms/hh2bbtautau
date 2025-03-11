@@ -170,6 +170,9 @@ def default(
         # pileup weights
         events = self[pu_weight](events, **kwargs)
 
+        if self.has_dep(gen_parton_top):
+            events = self[gen_parton_top](events, **kwargs)
+
         # btag weights
         btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
         events = self[btag_weights_deepjet](
