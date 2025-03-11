@@ -95,6 +95,7 @@ def add_categories(config: od.Config) -> None:
             config.get_category("boosted"),
         ],
         # qcd regions last
+        # "sign": [config.get_category("os"), config.get_category("ss_pos"), config.get_category("ss_neg")],
         "sign": [config.get_category("os"), config.get_category("ss")],
         "tau2": [config.get_category("iso"), config.get_category("noniso")],
     }
