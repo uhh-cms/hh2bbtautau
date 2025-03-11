@@ -85,22 +85,58 @@ def cat_noniso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array,
 
 
 # positive and negative SS regions
-@categorizer(uses={"leptons_os", "Tau.charge"})
+
+# helper function
+def get_ss_mask(
+    self: Categorizer,
+    events: ak.Array,
+    positive: bool,
+) -> ak.Array:
+
+    # define channels
+    is_etau = events.channel_id == self.config_inst.channels.n.etau.id
+    is_mutau = events.channel_id == self.config_inst.channels.n.mutau.id
+    is_tautau = events.channel_id == self.config_inst.channels.n.tautau.id
+
+    # initialize fill mask for later
+    fill_mask = (abs(events.event) < 0)
+
+    # define intermediate same sign mask
+    ss_mask = (events.leptons_os == 0)
+
+    if positive is True:
+        ss_mask = ss_mask & (events.Tau.charge > 0)
+    elif positive is False:
+        ss_mask = ss_mask & (events.Tau.charge < 0)
+
+    # channel dependent isolation mask
+    ss_etau = ak.sum(ss_mask, axis=1) >= 1  # same for mutau
+    ss_tautau = ak.sum(ss_mask, axis=1) >= 2
+    # define tau2 same sign mask
+    tau2_ss_mask = (
+        ak.where(is_etau, ss_etau, fill_mask) |
+        ak.where(is_mutau, ss_etau, fill_mask) |
+        ak.where(is_tautau, ss_tautau, fill_mask)
+    )
+
+    return tau2_ss_mask
+
+
+@categorizer(uses={"leptons_os", "Tau.charge", "channel_id"})
 def cat_ss_pos(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
-    # same sign leptons (both positive)
-    ss_pos_mask = (events.leptons_os == 0 & events.Tau.charge > 0)
+    tau2_mask = get_ss_mask(self, events, positive=True)
 
-    return events, ss_pos_mask == 1
+    return events, tau2_mask == 1
 
 
-@categorizer(uses={"leptons_os", "Tau.charge"})
+@categorizer(uses={"leptons_os", "Tau.charge", "channel_id"})
 def cat_ss_neg(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
-    # same sign leptons (both negative)
-    ss_neg_mask = (events.leptons_os == 0 & events.Tau.charge < 0)
+    # define same sign negative tau2
+    tau2_mask = get_ss_mask(self, events, positive=False)
 
-    return events, ss_neg_mask == 1
+    return events, tau2_mask == 1
 
 
 # alternative isolation categorization
@@ -113,45 +149,40 @@ def get_iso_mask(
     fails_wp: Optional[str] = None,
 ) -> ak.Array:
 
-    # get tagger
-    tagger_name = self.config_inst.x.tau_tagger
-
-    # define lowest working point
-    wp_pass = getattr(self.config_inst.x.tau_id_working_points.tau_vs_jet, passes_wp)
-
-    # define isolation mask
-    iso_mask = (
-        events.sel_tau_mask == 1 &
-        # passes wp_down
-        (events.Tau[tagger_name] >= wp_pass)
-    )
-
-    # define upper working point, if given
-    if fails_wp is not None:
-        wp_fail = getattr(self.config_inst.x.tau_id_working_points.tau_vs_jet, fails_wp)
-        iso_mask = iso_mask & (events.Tau[tagger_name] < wp_fail)
-
-    # channel dependent mask
-    is_iso_etau = ak.sum(iso_mask, axis=1) >= 1  # same for mutau
-    is_iso_tautau = ak.sum(iso_mask, axis=1) >= 2
-
     # define channels
     is_etau = events.channel_id == self.config_inst.channels.n.etau.id
     is_mutau = events.channel_id == self.config_inst.channels.n.mutau.id
     is_tautau = events.channel_id == self.config_inst.channels.n.tautau.id
 
-    # get tau2 loose
-    tau2_mask = (abs(events.event) < 0)
-    tau2_mask = (
-        ak.where(is_etau, is_iso_etau, tau2_mask) |
-        ak.where(is_mutau, is_iso_etau, tau2_mask) |
-        ak.where(is_tautau, is_iso_tautau, tau2_mask)
+    # initialize fill mask for later
+    fill_mask = (abs(events.event) < 0)
+
+    # get tau vs jet tagger
+    tagger = f"id{self.config_inst.x.tau_tagger}VSjet"
+
+    # define working points and intermediate isolation mask
+    if passes_wp is not None:
+        wp_pass = getattr(self.config_inst.x.tau_id_working_points.tau_vs_jet, passes_wp)
+        iso_mask = (getattr(events.Tau, tagger) >= wp_pass)
+
+        # define highest working point (optional)
+        if fails_wp is not None:
+            wp_fail = getattr(self.config_inst.x.tau_id_working_points.tau_vs_jet, fails_wp)
+            iso_mask = iso_mask & (getattr(events.Tau, tagger) < wp_fail)
+    # define channel dependent isolation masks
+    is_iso_etau = ak.sum(iso_mask, axis=1) >= 1  # same for mutau
+    is_iso_tautau = ak.sum(iso_mask, axis=1) >= 2
+    # final tau2 isolation mask
+    tau2_iso_mask = (
+        ak.where(is_etau, is_iso_etau, fill_mask) |
+        ak.where(is_mutau, is_iso_etau, fill_mask) |
+        ak.where(is_tautau, is_iso_tautau, fill_mask)
     )
 
-    return tau2_mask
+    return tau2_iso_mask
 
 
-@categorizer(uses={"Tau.*", "sel_tau_mask", "channel_id"})
+@categorizer(uses={"Tau.*", "channel_id"})
 def cat_iso_l(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
     # get tau2 passing Loose
@@ -160,7 +191,7 @@ def cat_iso_l(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
     return events, tau2_mask == 1
 
 
-@categorizer(uses={"Tau.*", "sel_tau_mask", "channel_id"})
+@categorizer(uses={"Tau.*", "channel_id"})
 def cat_iso_vl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
     # get tau2 passing VLoose
@@ -169,7 +200,7 @@ def cat_iso_vl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array,
     return events, tau2_mask == 1
 
 
-@categorizer(uses={"Tau.*", "sel_tau_mask", "channel_id"})
+@categorizer(uses={"Tau.*", "channel_id"})
 def cat_iso_vvl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
     # get tau2 passing VVLoose
@@ -178,7 +209,7 @@ def cat_iso_vvl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, tau2_mask == 1
 
 
-@categorizer(uses={"Tau.*", "sel_tau_mask", "channel_id"})
+@categorizer(uses={"Tau.*", "channel_id"})
 def cat_l_m(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
     # get isolated tau2 (passing Loose but failing Medium)
@@ -187,7 +218,7 @@ def cat_l_m(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak
     return events, tau2_mask == 1
 
 
-@categorizer(uses={"Tau.*", "sel_tau_mask", "channel_id"})
+@categorizer(uses={"Tau.*", "channel_id"})
 def cat_vl_l(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
     # get isolated tau2 (passing VLoose but failing Loose)
@@ -196,7 +227,7 @@ def cat_vl_l(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, tau2_mask == 1
 
 
-@categorizer(uses={"Tau.*", "sel_tau_mask", "channel_id"})
+@categorizer(uses={"Tau.*", "channel_id"})
 def cat_vvl_vl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
     # get isolated tau2 (passing VVLoose but failing VLoose)
@@ -205,7 +236,7 @@ def cat_vvl_vl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array,
     return events, tau2_mask == 1
 
 
-@categorizer(uses={"Tau.*", "sel_tau_mask", "channel_id"})
+@categorizer(uses={"Tau.*", "channel_id"})
 def cat_vvvl_vvl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
     # get isolated tau2 (passing VVVLoose but failing VVLoose)
