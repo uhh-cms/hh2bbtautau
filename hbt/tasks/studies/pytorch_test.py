@@ -1,7 +1,9 @@
 from __future__ import annotations
 import law.decorator
+from collections import Collection
 from columnflow.tasks.union import UniteColumns, UniteColumnsWrapper
 from columnflow.util import dev_sandbox, DotDict, maybe_import
+from columnflow.columnar_util import Route
 from columnflow.tasks.framework.remote import RemoteWorkflow
 from columnflow.tasks.framework.base import Requirements
 from columnflow.tasks.selection import MergeSelectionStats
@@ -19,7 +21,7 @@ torchdata = maybe_import("torchdata")
 dak = maybe_import("dask_awkward")
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
-
+tqdm = maybe_import("tqdm")
 
 
 def run_task(datasets=["hh_ggf_hbb_htt_kl1_kt1_powheg", "tt_sl_powheg"]):
@@ -131,33 +133,61 @@ class HBTPytorchTask(
         )
         from torch.utils.data import default_collate
         import torchdata.nodes as tn
+        from hbt.ml.torch_transforms import AkToTensor
+        from hbt.ml.torch_models import FeedForwardNet
         
         print("hello!")
 
         inputs = self.input()
-
-        signals = ["hh_ggf_hbb_htt_kl1_kt1_powheg"]
-        backgrounds = ["tt_sl_powheg"]
-
         configs = self.configs
         open_options = {}
 
-        signal_targets = [inputs.events[s][configs[0]].collection for s in signals]
-        signal_target_paths = [
-            t.path
-            for collections in signal_targets
-            for targets in collections.targets.values()
-            for t in targets.values()
-        ]
-        backgrounds_targets = [inputs.events[b][configs[0]].collection for b in backgrounds]
-        background_target_paths = [
-            t.path
-            for collections in backgrounds_targets
-            for targets in collections.targets.values()
-            for t in targets.values()
-        ]
-        # from IPython import embed
-        # embed(header="initialized signal and background targets")
+        def split_training_validation(
+            target_paths,
+            ratio=0.7,
+            open_options: dict | None = None,
+            columns: Collection[str | Route] | None = None,
+            targets: Collection[str | int | Route] | str | Route | int | None = None,
+            transformations: torch.nn.Module | None = None,
+        ):
+            meta = ak.metadata_from_parquet(target_paths)
+            total_row_groups = meta["num_row_groups"]
+            max_training_group = int( total_row_groups*ratio)
+            training_row_groups = None
+            if max_training_group == 0:
+                logger.warning(
+                    "Could not split into training and validation data"
+                    f" number of row groups for '{target_paths}' is  {total_row_groups}"
+                )
+            else:
+                training_row_groups = np.arange(max_training_group)
+
+            final_options = open_options or dict()
+
+            logger.info(f"Constructing training dataset for {dataset} with row_groups {training_row_groups}")
+            training = FlatParquetDataset(
+                target_paths,
+                open_options=final_options.update({"row_groups": training_row_groups}),
+                columns=columns,
+                target=targets,
+                transform=transformations,
+            )
+
+            validation = None
+            if training_row_groups is None:
+                validation = training
+            else:
+                validation_row_groups = np.arange(max_training_group, total_row_groups)
+                logger.info(f"Constructing validation dataset for {dataset} with row_groups {validation_row_groups}")
+                validation = FlatParquetDataset(
+                    target_paths,
+                    open_options=final_options.update({"row_groups": validation_row_groups}),
+                    columns=columns,
+                    target=targets,
+                    transform=transformations,
+                )
+            return training, validation
+
         ### read via dask dataframe ######################################################
         # signal_dfs = dd.read_parquet(
         #     [
@@ -206,76 +236,120 @@ class HBTPytorchTask(
         # - eager loading of all data (problem?)
 
         #### test case
-        from hbt.ml.torch_transforms import AkToTensor
-        from hbt.ml.torch_models import FeedForwardNet
+        
         model = FeedForwardNet()
         columns = model.inputs
+        # construct datamap
+        training_data_map = dict()
+        validation_data_map = dict()
+        for dataset in self.datasets:
+            targets = [inputs.events[dataset][c].collection for c in configs]
+            target_paths = [
+                t.path
+                for collections in targets
+                for targets in collections.targets.values()
+                for t in targets.values()
+            ]
+            training, validation = split_training_validation(
+                target_paths=target_paths, open_options=open_options,
+                columns=columns, transformations=AkToTensor(),
+                targets=int(1) if dataset.startswith("hh") else int(0)
+            )
+            training_data_map[dataset] = training
+            validation_data_map[dataset] = validation
 
-        data_s = FlatParquetDataset(
-            signal_target_paths,
-            open_options=open_options,
-            columns=columns,
-            target=int(0),
-            transform = AkToTensor(),
-        )
-        data_b = FlatParquetDataset(
-            background_target_paths,
-            open_options=open_options,
-            columns=columns,
-            target=int(1),
-            transform = AkToTensor(),
-        )
-        data_map = {"signal": data_s, "bkg": data_b}
-        weight_dict = {"signal": 1., "bkg": 1.}
+        
+        # extract ttbar sub phase space
+        tt_datasets = [d for d in self.datasets if d.startswith("tt_")]
+        def extract_probability(dataset: str, keyword: str = "sum_mc_weight_selected"):
+            expected_events = list()
+            sel_stat = self.input().selection_stats
+            for config in self.configs:
+                config_inst = self.analysis_inst.get_config(config)
+                lumi = config_inst.x.luminosity.nominal
+                target = sel_stat[dataset][config].collection[0]["stats"]
+                stats = target.load(formatter="json")
+                xs = stats.get(keyword, 0)
+                expected_events.append(xs * lumi)
+            return sum(expected_events)
+        weight_dict: dict[str, float | dict[str, float]] = {
+            d: 1. for d in self.datasets if not d in tt_datasets
+        }
+        ttbar_probs = {
+            d: extract_probability(d) for d in tt_datasets
+        }
+        ttbar_prob_sum = sum(ttbar_probs.values())
+        weight_dict["ttbar"] = {
+            d: val/ttbar_prob_sum for d, val in ttbar_probs.items()
+        }
 
-        composite_loader = CompositeDataLoader(
-            data_map=data_map, weight_dict=weight_dict,
+        training_composite_loader = CompositeDataLoader(
+            data_map=training_data_map, weight_dict=weight_dict,
             map_and_collate_cls=NestedDictMapAndCollate,
+            batch_size=1024,
+        )
+        validation_composite_loader = CompositeDataLoader(
+            data_map=validation_data_map, weight_dict=weight_dict,
+            map_and_collate_cls=NestedDictMapAndCollate,
+            batch_size=1024,
         )
 
-        def train_loop(dataloader, model, loss_fn, optimizer, size=None):
-            if not size:
-                size = len(dataloader)
+        def train_loop(dataloader, model, loss_fn, optimizer, update_interval=100):
             # Set the model to training mode - important for batch normalization and dropout layers
             # Unnecessary in this situation but added for best practices
             model.train()
-            for ibatch, (X, y) in enumerate(dataloader.data_loader, start=1):
+            source_node_names = sorted(dataloader.batcher.source_nodes.keys())
+            process_bar: tqdm.std.tqdm = tqdm.tqdm(enumerate(dataloader.data_loader, start=1))
+            for ibatch, (X, y) in process_bar:
                 # Compute prediction and loss
                 pred = model(X)
                 target = y["categorical_target"].to(torch.float32)
                 loss = loss_fn(pred.squeeze(1), target)
-
                 # Backpropagation
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
 
-                if ibatch % 100 == 0:
+                if int(ibatch) % int(update_interval) == 0:
                     loss = loss.item()
-                    print(f"loss: {loss:>7f}  [{ibatch:>5d}/{size:>5d}]")
+                    update = f"loss: {loss:>7f} "
+                    node_stats = list()
+                    for node in source_node_names:
+                        n_yielded = dataloader.batcher.source_nodes[node].state_dict()["_num_yielded"]
+                        total = len(dataloader.data_map[node])
+                        node_stats.append(f"{node}: {n_yielded:>5d} / {total:>5d}")
+                    update += "[ {} ]".format(" | ".join(node_stats))
+                    process_bar.set_description(update)
         
         def test_loop(dataloader, model, loss_fn):
             # Set the model to evaluation mode - important for batch normalization and dropout layers
             # Unnecessary in this situation but added for best practices
             model.eval()
             size = len(dataloader)
-            num_batches = dataloader.num_batches
+            # num_batches = dataloader.num_batches
             test_loss, correct = 0, 0
 
             # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
             # also serves to reduce unnecessary gradient computations and memory usage for tensors with requires_grad=True
             with torch.no_grad():
-                for X, y in dataloader.data_loader:
+                num_batches = 0
+                process_bar = tqdm.tqdm(dataloader.data_loader, desc="Validation")
+                for X, y in process_bar:
                     pred = model(X)
                     target = y["categorical_target"].to(torch.float32)
                     test_loss += loss_fn(pred.squeeze(1), target).item()
                     correct += (pred.argmax(1) == target).type(torch.float).sum().item()
+                    num_batches += 1
 
             test_loss /= num_batches
             correct /= size
             print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
         
-        
+        logger.info("Constructing loss and optimizer")
+        loss_fn = torch.nn.CrossEntropyLoss()
+        from torch.optim import Adam
+        optimizer = Adam(model.parameters(), lr=1e-3)
+
         from IPython import embed
         embed(header="initialized model")
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
