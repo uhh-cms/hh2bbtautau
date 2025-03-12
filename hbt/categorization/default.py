@@ -104,7 +104,7 @@ def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
     tagged = events.Jet.btagPNetB > wp
 
     diBJet_mass = events.HHBJet.sum(axis=1).mass
-    diTau_mass = events.Tau[:,:2].sum(axis=1).mass
+    diTau_mass = events.Tau[:, :2].sum(axis=1).mass
     mask = (
         (ak.sum(tagged, axis=1) == 1) &
         (diTau_mass >= 15) &
@@ -121,7 +121,7 @@ def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
     wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
     tagged = events.Jet.btagPNetB > wp
     diBJet_mass = events.Jet.sum(axis=1).mass
-    diTau_mass = events.Tau[:,:2].sum(axis=1).mass
+    diTau_mass = events.Tau[:, :2].sum(axis=1).mass
 
     mask = (
         (ak.sum(tagged, axis=1) >= 2) &
@@ -141,7 +141,7 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     # TODO: run3 wp are not released, falling back to run2
     wp = self.config_inst.x.btag_working_points["particleNet-MD"]["LP"]
     tagged = events.FatJet.particleNet_XbbVsQCD > wp
-    diTau_mass = events.Tau[:,:2].sum(axis=1).mass
+    diTau_mass = events.Tau[:, :2].sum(axis=1).mass
     mask = (
         (ak.num(events.FatJet, axis=1) == 1) &
         (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
