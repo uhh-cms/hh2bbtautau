@@ -335,8 +335,7 @@ class CreateSyncFiles(
 
             # insert leptons
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty[np.float32][1]})
-            # met_name = self.config_inst.x.met_name
-            met_name = "MET"
+            met_name = self.config_inst.x.met_name
 
             index_variables = {
                 "event": events.event,
