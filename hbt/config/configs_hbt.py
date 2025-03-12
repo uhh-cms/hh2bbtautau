@@ -1319,7 +1319,6 @@ def add_config(
             f"{cfg.x.met_name}.{{pt,phi,significance,covXX,covXY,covYY}}",
             "PV.npvs",
             "FatJet.*",
-            "diTau.mass", "diBJet.mass",
             # additional event info
             "deterministic_seed", "Jet.deterministic_seed",
             # keep all columns added during selection, but skip cutflow feature
