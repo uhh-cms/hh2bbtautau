@@ -175,3 +175,22 @@ add_lazy_config(
     add_limited=False,
     sync_mode=True,
 )
+
+# 2022, preEE, v14
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
+    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
+    config_name="22post_v14_sync",
+    config_id=6114,
+    add_limited=False,
+    sync_mode=True,
+)
+
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
+    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
+    config_name="22pre_v14_sync",
+    config_id=5114,
+    add_limited=False,
+    sync_mode=True,
+)
