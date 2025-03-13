@@ -12,6 +12,7 @@ from columnflow.columnar_util import (
     flat_np_view,
 )
 import copy
+import law
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
@@ -40,6 +41,8 @@ if not isinstance(torchdata, MockModule):
             target: str | int | Iterable[str | int] | None = None,
             open_options: dict[str, Any] | None = None,
             transform: Callable | None = None,
+            global_transform: Callable | None = None,
+            device: str | None = None,
         ):
             self.open_options = open_options or {}
             self.columns = columns or set()
@@ -48,6 +51,7 @@ if not isinstance(torchdata, MockModule):
             # container for integer targets
             self.int_targets = set()
             self.transform = transform
+            self.global_transform = global_transform
 
             self.input = input
             self._data: ak.Array | None = None
@@ -107,7 +111,12 @@ if not isinstance(torchdata, MockModule):
                         if resolved_route:
                             tmp_cols.add(resolved_route)
                 
-                self.all_columns = tmp_cols 
+                self.all_columns = tmp_cols
+
+            # check if transformations define columns to use and
+            # make sure that the needed inputs are loaded, a.k.a. add them to all_columns
+            self.all_columns.update(self._extract_transform_columns())
+
             
             if len(self.all_columns) == 0:
                 raise ValueError("No columns specified and no metadata found")
@@ -137,6 +146,19 @@ if not isinstance(torchdata, MockModule):
             
             return Route(Route.join(parts))
 
+        def _extract_transform_columns(self, attr: Literal["uses", "produces"] = "uses") -> set[Route]:
+            """
+            Small function to extract columns from transformations
+
+            :param attr: attribute to extract from transformations, either "uses" or "produces"
+            :returns: Set with resolved Routes to columns in awkward array (braces are expanded)
+            """
+            transform_inputs: set[Route] = set()
+            for t in [self.transform, self.global_transform]:
+                transform_inputs.update(
+                    *list(map(Route, law.util.brace_expand(obj)) for obj in getattr(t, attr, []))
+                )
+            return transform_inputs
 
         def _parse_target(self, target: str | int | Iterable[str | int]) -> None:
             # if the target is not a list, cast it
@@ -167,8 +189,12 @@ if not isinstance(torchdata, MockModule):
                 # if target is a string and specific columns are supposed to be
                 # loaded, check whether the target is also in the columns
 
-                if not any(self._check_against_pattern(target, col) for col in self.all_columns):
-                    raise ValueError(f"target {target} not found in columns")
+                # targets can also be produced by a transformation, so first collect all
+                # columns in one super set
+                full_column_set = self.all_columns | self._extract_transform_columns(attr="produces")
+                
+                if not any(self._check_against_pattern(target, col) for col in full_column_set):
+                    raise ValueError(f"target {target} not found in columns {full_column_set=}")
                 
             # if target is an integer, this is a class index
             # this should be >= 0
@@ -184,6 +210,8 @@ if not isinstance(torchdata, MockModule):
             if self._data is None:
                 self.open_options["columns"] = [x.string_column for x in self.all_columns]
                 self._data = ak.from_parquet(self.path, **self.open_options)
+                if self.global_transform:
+                    self._data = self.global_transform(self._data)
             return self._data
 
         @property
