@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from collections import Mapping
+from collections.abc import Mapping, Collection
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import T, Any, Callable, Sequence
-from columnflow.columnar_util import flat_np_view
+from columnflow.columnar_util import (
+    flat_np_view, attach_behavior, default_coffea_collections, set_ak_column,
+    Route, attach_coffea_behavior,
+)
 import copy
 
 torch = maybe_import("torch")
@@ -13,6 +16,7 @@ ak = maybe_import("awkward")
 
 if not isinstance(torch, MockModule):
     from torch.nested._internal.nested_tensor import NestedTensor
+    from IPython import embed
     class AkToNestedTensor(torch.nn.Module):
         
         def __init__(self, requires_grad=False, device=None, *args, **kwargs):
@@ -121,3 +125,82 @@ if not isinstance(torch, MockModule):
                 raise ValueError(f"Could not convert input {X=}")
             
             return return_tensor
+        
+    class PreProcessFloatValues(torch.nn.Module):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.uses = {
+                "Tau.{eta,phi,pt,mass,charge}",
+                "Electron.{eta,phi,pt,mass,charge}",
+                "Muon.{eta,phi,pt,mass,charge}",
+                "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+                "FatJet.{eta,phi,pt,mass}",
+            }
+            self.produces = {
+                "leptons.*",
+                "bjets.*",
+                "fatjets.*",
+            }
+
+        def rotate_to_phi(self, ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Array, ak.Array]:
+            """
+            Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
+            angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
+            """
+            new_phi = np.arctan2(py, px) - ref_phi
+            pt = (px**2 + py**2)**0.5
+            return pt * np.cos(new_phi), pt * np.sin(new_phi)
+
+        def forward(self, events: ak.Array) -> ak.Array:
+            
+            # generally attach coffea behavior
+            events = attach_coffea_behavior(events, collections={"HHBJet": default_coffea_collections["Jet"]})
+
+            # sanity masks for later usage
+            # has_jet_pair = ak.num(events.HHBJet) >= 2
+            # has_fatjet = ak.num(events.FatJet) >= 1
+
+            # first extract Leptons
+            leptons = attach_behavior(
+                ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
+                type_name="Tau",
+            )
+            # make sure to actually have two leptons
+            has_lepton_pair = ak.num(leptons, axis=1) >= 2
+            events = events[has_lepton_pair]
+            leptons = leptons[has_lepton_pair]
+            lep1, lep2 = leptons[:, 0], leptons[:, 1]
+
+            # calculate phi of lepton system
+            phi_lep = np.arctan2(lep1.py + lep2.py, lep1.px + lep2.px)
+
+            def save_rotated_momentum(
+                events: ak.Array,
+                array: ak.Array,
+                target_field: str,
+                additional_targets: Collection[str] | None = None
+            ) -> ak.Array:
+                px, py = self.rotate_to_phi(phi_lep, array.px, array.py)
+                # save px and py
+                events = set_ak_column(events, f"{target_field}.px", px)
+                events = set_ak_column(events, f"{target_field}.py", py)
+
+                routes: set[str] = set(("pz", "energy",))
+                if additional_targets is not None:
+                    routes.update(additional_targets)
+                for field in routes:
+                    events = set_ak_column(events, f"{target_field}.{field}", getattr(array, field))
+                return events
+            
+            events = save_rotated_momentum(events, leptons, "leptons", additional_targets=("charge", "mass"))
+
+            # there might be less than two jets or no fatjet, so pad them
+            # bjets = ak.pad_none(_events.HHBJet, 2, axis=1)
+            # fatjet = ak.pad_none(_events.FatJet, 1, axis=1)[:, 0]
+
+            jet_columns = ("btagDeepFlavB", "hhbtag", "btagDeepFlavCvB", "btagDeepFlavCvL")
+            events = save_rotated_momentum(events, events.HHBJet, "bjets", additional_targets=jet_columns)
+
+            # fatjet variables
+            events = save_rotated_momentum(events, events.FatJet, "fatjet", additional_targets=None)
+            return events
