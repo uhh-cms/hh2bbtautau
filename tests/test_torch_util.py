@@ -1,14 +1,15 @@
 import unittest
 import os
 
-from hbt.tasks.studies.torch_util import BatchedMultiNodeWeightedSampler
+from hbt.ml.torch_utils.batcher import BatchedMultiNodeWeightedSampler
 
 this_dir = os.path.realpath(os.path.dirname(__file__))
 
 class TorchUtilTests(unittest.TestCase):
     
     def setUp(self):
-        from hbt.tasks.studies.torch_util import ListDataset, NodesDataLoader
+        from hbt.ml.torch_utils.datasets import ListDataset
+        from hbt.ml.torch_utils.dataloaders import NodesDataLoader
         from torch.utils.data import default_collate
         import numpy as np
         import json
@@ -82,7 +83,7 @@ class TorchUtilTests(unittest.TestCase):
     
     def test_BatchedMultiNodeWeightedSampler_unbalanced(self):
         import torchdata.nodes as tn
-        from hbt.tasks.studies.torch_util import BatchedMultiNodeWeightedSampler
+        from hbt.ml.torch_utils.batcher import BatchedMultiNodeWeightedSampler
         import json
         
         # load the results
@@ -95,7 +96,7 @@ class TorchUtilTests(unittest.TestCase):
 
     def test_BatchedMultiNodeWeightedSampler_subsampling(self):
         import torchdata.nodes as tn
-        from hbt.tasks.studies.torch_util import BatchedMultiNodeWeightedSampler
+        from hbt.ml.torch_utils.batcher import BatchedMultiNodeWeightedSampler
         import json
         
         # load the results
