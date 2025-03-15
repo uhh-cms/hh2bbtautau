@@ -46,14 +46,14 @@ def add_hooks(config: od.Config) -> None:
     Add histogram hooks related to QCD estimation to a configuration.
     """
 
-    def abcd_stats(task, hists, all_incl: bool = False):
+    def abcd_stats(task, hists, all_channels: bool = False):
         """
         hist hook to plot the statistics in each of the ABCD qcd regions.
 
         In the command line always call --categories all_incl
 
-        To plot the ABCD regions for all decay channels, flag all_incl to True.
-        To plot only for a specific channel, flag all_incl to False and choose the channel in the SETUP.
+        To plot the ABCD regions for all decay channels, flag *all_channels* to True.
+        Else, specify the decay channel in the *channel* variable in SETUP.
 
         Note:
         The plotting style of the x-axis must be set in l190 of columnflow/columnflow/tasks/plotting.py
@@ -62,44 +62,64 @@ def add_hooks(config: od.Config) -> None:
 
         # SETUP
         # --------------------------------------------------------------------------------------
-        # choose the decay channel to plot the ABCD regions
-        channel = 1  # 0: etau; 1: mutau; 2: tautau
-        # choose which same sign region to plot. Either inclusive, or both lepton pairs being
-        # positivly (or negatively) charged
-        ss_region = "ss"  # options: "ss" , "ss_pos" , "ss_neg"
+        # choose the decay channel to plot the ABCD regions.
+        channel = "tautau"
+
+        # define kinematic regions. options:"incl","2j","res1b","res2b","boosted"
+        kin_region = "incl"
+
+        # define sign regions. options:["os","ss"] or ["os","ss_pos"] or ["os","ss_neg"]
+        sign_region = ["os", "ss"]
+
+        # define isolation regions.
+        iso_region = ["iso", "noniso"]
         # --------------------------------------------------------------------------------------
 
-        cats = [
-            task.config_inst.get_category(c)
-            for c in [f"incl__{a}__{b}" for a in ["os", ss_region] for b in ["iso", "noniso"]]
-        ]
+        cats_to_plot = [f"{kin_region}__{s}__{i}" for s in sign_region for i in iso_region]
 
+        if all_channels is False:
+            cats_to_plot = [f"{channel}__{c}" for c in cats_to_plot]
+
+        cats = [task.config_inst.get_category(c) for c in cats_to_plot]
+
+        # initialize objects for later use
         results = {}
-        for process, h in hists.items():
+        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
+        category_ids = set()
+
+        # get the histograms for each ABCD regions
+        for proc, h in hists.items():
+            # validate axes
+            assert len(h.axes) == 3
+            assert h.axes[CAT_AXIS].name == "category"
+            assert h.axes[SHIFT_AXIS].name == "shift"
+            # get the category axis
+            cat_ax = h.axes["category"]
+            for cat_index in range(cat_ax.size):
+                category_ids.add(cat_ax.value(cat_index))
+
+            # create new histogram to be filled with event statistics
             h_new = hist.Hist(
                 hist.axes.StrCategory([c.name for c in cats], name=h.axes[-1].name),
                 hist.axes.IntCategory([0], name="shift"),
                 hist.axes.IntCategory([101], name="category"),  # 101: all_incl. do not change!
                 storage=hist.storage.Weight(),
             )
-            for ind, big_cat in enumerate(cats):
-                if all_incl:
-                    h_sum = h[
-                        {
-                            "category": [hist.loc(cat.id) for cat in big_cat.get_leaf_categories()],
-                            "shift": sum,
-                        }
-                    ].sum()
-                elif not all_incl:
-                    h_sum = h[
-                        {
-                            "category": [hist.loc(cat.id) for cat in big_cat.get_leaf_categories()][channel],
-                            "shift": sum,
-                        }
-                    ].sum()
+
+            # get histograms
+            for ind, cat in enumerate(cats):
+                h_sum = h[
+                    {
+                        "category": [hist.loc(cat.id)],
+                        "shift": sum,
+                    }
+                ].sum()
+
+                # fill histogram
                 h_new.values()[ind][0][0] = h_sum.value
                 h_new.variances()[ind][0][0] = h_sum.variance
-            results[process] = h_new
+            results[proc] = h_new
+        print(results)
         return results
 
     def qcd_estimation(task, hists, perbin: bool = True, method_I: bool = False):
@@ -107,11 +127,12 @@ def add_hooks(config: od.Config) -> None:
         This hook calculates the qcd estimation (shape x factor) for a choosen decay channel
         and kinematic category and adds it to all other existing MC histograms.
 
-        If perbin is set to True, factor values will be applied per bin, otherwise a single summed factor
+        If *perbin* is set to True, factor values will be applied per bin, otherwise a single summed factor
         will be applied to all bins.
 
         The qcd estimation can be calculated by two methods, depending on which control region is choosen to extract
         the shape estimation, and which one is choosen as the numerator for the factor calculation.
+        The methods can be switched by setting the *method_I* boolean.
 
         In the command line call --categories {etau,mutau,tautau}_{incl,2j,...}__os__iso
         """
