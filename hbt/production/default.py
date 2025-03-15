@@ -80,8 +80,8 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             events = self[trigger_weights](events, **kwargs)
 
         # top pt weight
-        if self.has_dep(top_pt_weight):
-            events = self[top_pt_weight](events, **kwargs)
+        #if self.has_dep(top_pt_weight):
+        #    events = self[top_pt_weight](events, **kwargs)
 
     return events
 
@@ -91,8 +91,8 @@ def default_init(self: Producer) -> None:
     if self.produce_weights:
         weight_producers = {tau_weights, electron_weights, muon_weights, trigger_weights}
 
-        if (dataset_inst := getattr(self, "dataset_inst", None)) and dataset_inst.has_tag("ttbar"):
-            weight_producers.add(top_pt_weight)
+        #if (dataset_inst := getattr(self, "dataset_inst", None)) and dataset_inst.has_tag("ttbar"):
+        #    weight_producers.add(top_pt_weight)
 
         self.uses |= weight_producers
         self.produces |= weight_producers
