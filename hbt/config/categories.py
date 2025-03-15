@@ -93,6 +93,7 @@ def add_categories(config: od.Config) -> None:
         }
 
     # main analysis categories
+    """
     main_categories = {
         # channels first
         "channel": [
@@ -110,6 +111,33 @@ def add_categories(config: od.Config) -> None:
         # "sign": [config.get_category("os"), config.get_category("ss_pos"), config.get_category("ss_neg")],
         "sign": [config.get_category("os"), config.get_category("ss")],
         "tau2": [config.get_category("iso"), config.get_category("noniso")],
+    }
+    """
+
+    main_categories = {
+        # channels first
+        "channel": [
+            config.get_category("etau"), config.get_category("mutau"), config.get_category("tautau"),
+        ],
+        # kinematic regions in the middle (to be extended)
+        "kin": [
+            config.get_category("incl"),
+            config.get_category("2j"),
+            config.get_category("res1b"),
+            config.get_category("res2b"),
+            config.get_category("boosted"),
+        ],
+        # qcd regions last
+        "sign": [
+            config.get_category("os"), config.get_category("ss"),
+            config.get_category("ss_pos"), config.get_category("ss_neg"),
+        ],
+        "tau2": [
+            config.get_category("iso"), config.get_category("noniso"),
+            config.get_category("iso_l"), config.get_category("iso_vl"), config.get_category("iso_vvl"),
+            config.get_category("l_m"), config.get_category("vl_l"),
+            config.get_category("vvl_vl"), config.get_category("vvvl_vvl"),
+        ],
     }
 
     create_category_combinations(
