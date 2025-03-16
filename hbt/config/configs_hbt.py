@@ -424,7 +424,14 @@ def add_config(
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("all",)
-    cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
+    # cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
+    cfg.x.default_variables = (
+        "tau1_pt", "tau1_eta", "tau1_phi",
+        "tau2_pt", "tau2_eta", "tau2_phi",
+        "dilep_pt", "dilep_mass", "dilep_eta", "dilep_phi",
+        "hh_pt", "hh_mass", "hh_eta", "hh_phi",
+        "res_dnn_hh", "res_dnn_tt", "res_dnn_dy",
+    )
     cfg.x.default_weight_producer = "default"
 
     # process groups for conveniently looping over certain processs
