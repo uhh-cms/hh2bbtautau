@@ -110,6 +110,7 @@ def prepare_plot_config_custom_ratio(
     for i, h in enumerate(line_hists):
         line_norm = sum(h.values()) if shape_norm else 1
         plot_config[f"line_{i}"] = plot_cfg = {
+            # "method": "draw_hist_equal_bins",
             "method": "draw_hist",
             "hist": h,
             "kwargs": {
@@ -242,6 +243,9 @@ def plot_morphing_comparison(
         key.color1 = config_inst.x.colors.red
         setattr(key, "unstack", True)
 
+    for key, hist in non_morphed_hist.items():
+        setattr(key, "unstack", True)
+
     # merge morphed and non-morphed histograms into hists
     hists_to_plot = morphed_hists
     hists_to_plot.update(non_morphed_hist)
@@ -295,33 +299,46 @@ def plot_morphing_comparison(
     log_y = style_config.get("ax_cfg", {}).get("yscale", "linear") == "log"
 
     hists_and_norms = []
-    for params in plot_config.values():
+    for key, params in plot_config.items():
+        if key == "mc_stack":
+            object_ = "Stack"
+        else:
+            object_ = "Hist"
         if "hist" in params:
             h = params["hist"]
         if "kwargs" in params and "norm" in params["kwargs"]:
             norm = params["kwargs"]["norm"]
         else:
             norm = 1
-        hists_and_norms.append((h, norm))
+        hists_and_norms.append((h, norm, object_))
 
-    max_important_value = np.max([np.max(h.values() / norm) for h, norm in hists_and_norms])
+    max_important_value = np.max([
+        np.max(h.values() / norm)
+        if object_ == "Hist"
+        else np.max(h[0].values() / norm)
+        for h, norm, object_ in hists_and_norms
+    ])
 
     ax_ymin = max_important_value / 10**magnitudes if log_y else 0.0000001
     # ax_ymin = 0.0000001
     ax_ymax = get_position(ax_ymin, max_important_value, factor=1 / (1 - whitespace_fraction), logscale=log_y)
-    # ax_ymax = 0.0014  # 0.085
+    # ax_ymax = 0.085  # 0.0014  # 0.085
     style_config["ax_cfg"]["ylim"] = (ax_ymin, ax_ymax)
     style_config["rax_cfg"]["ylim"] = (0.41, 1.59)
     style_config["rax_cfg"]["ylabel"] = "Ratio"
+
+    # style_config["ax_cfg"]["xlim"] = (0.7, 1)
 
     # style_config["ax_cfg"][""] = "upper right"
     # ax.tick_params(axis="both", which="major", labelsize=16)
 
     style_config["legend_cfg"]["facecolor"] = "white"
-    style_config["legend_cfg"]["edgecolor"] = "black"
+    style_config["legend_cfg"]["edgecolor"] = "white"
     style_config["legend_cfg"]["framealpha"] = 0.8
     style_config["legend_cfg"]["frameon"] = True
     style_config["legend_cfg"]["fontsize"] = 22
+    style_config["legend_cfg"]["loc"] = "upper right"
+    style_config["legend_cfg"]["ncols"] = 2
     style_config["annotate_cfg"] = {}
     style_config["cms_label_cfg"]["fontsize"] = 28
 
@@ -476,13 +493,18 @@ def plot_bin_morphing(
     plt.style.use(mplhep.style.CMS)
     # mplhep.style.use("CMS")
 
-    x = np.linspace(-1, 6, 150)
+    # full range
+    full_range = False
+    if full_range:
+        x = np.linspace(-2, 9, 200)
+    else:
+        x = np.linspace(-1, 6, 150)
     y = parabola(x, *popt)
 
     if not averaged and not fitted:
         ax.plot(x, y, label="Parabola fit", color="black")
     else:
-        ax.plot(x, y, label="Parabola fit with uncertainty", color="black")
+        ax.plot(x, y, label="Parabola fit w/ uncertainty", color="black")
 
     # calculate the chi2 of the fit
     chi2 = np.sum((parabola(np.array(guidance_points), *popt) -
@@ -544,7 +566,7 @@ def plot_bin_morphing(
     #     # get fourth point from non-morphed histogram
     #     non_morphed_hist_name = list(non_morphed_hist.keys())[0].name
     #     if production_channel == "ggf":
-    #         non_morphed_point = float(non_morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1", "").replace("p", "."))  # noqa
+    #         non_morphed_point = float(non_morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1", "").replace("p", ".").replace("m", "-"))  # noqa
     #     elif production_channel == "vbf":
     #         raise NotImplementedError("VBF not implemented yet")
     #     popt_2, pcov_2 = curve_fit(
@@ -621,7 +643,7 @@ def plot_bin_morphing(
         if "fit" in morphed_hist_name:
             morphed_hist_name = morphed_hist_name.replace("_fit", "")
         if production_channel == "ggf":
-            morphed_point = float(morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1_morphed", "").replace("p", "."))  # noqa
+            morphed_point = float(morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1_morphed", "").replace("p", ".").replace("m", "-"))  # noqa
         elif production_channel == "vbf":
             raise NotImplementedError("VBF not implemented yet")
         morphed_points.append(morphed_point)
@@ -640,7 +662,7 @@ def plot_bin_morphing(
     if not averaged and not fitted:
         non_morphed_hist_name = list(non_morphed_hist.keys())[0].name
         if production_channel == "ggf":
-            non_morphed_point = float(non_morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1", "").replace("p", "."))  # noqa
+            non_morphed_point = float(non_morphed_hist_name.replace("hh_ggf_hbb_htt_kl", "").replace("_kt1", "").replace("p", ".").replace("m", "-"))  # noqa
         else:
             raise NotImplementedError("VBF not implemented yet")
         ax.errorbar(
@@ -662,6 +684,14 @@ def plot_bin_morphing(
     #     fontsize=12,
     #     transform=ax.transAxes,
     # )
+
+    # # set ylimits exact morphing ggf bin 9
+    # ax.set_ylim(0.008, 0.052)
+
+    # add bars at -1.7 and 8.7
+    if full_range:
+        ax.axvline(x=-1.7, color="black", linestyle="--")
+        ax.axvline(x=8.7, color="black", linestyle="--")
 
     # put the cms logo and the lumi text on the top left corner
     mplhep.cms.text(text="Private Work", fontsize=16, ax=ax)
@@ -688,7 +718,7 @@ def plot_bin_morphing(
     ax.set_xlabel(r"$\kappa_\lambda$", fontsize=16)
     # ax.set_ylabel(bin_type + " value", fontsize=16)
     ax.set_ylabel("Bin yield", fontsize=16)
-    ax.legend(fontsize=16, loc="upper center")
+    ax.legend(fontsize=16, loc="upper right")
     ax.tick_params(axis="both", which="major", labelsize=16)
     fig.tight_layout()
     return fig, axs
@@ -834,6 +864,9 @@ def plot_3d_morphing(
         for key, hist in hists.items():
             if f"hh_vbf_hbb_htt_{vbf_point['name']}" in key.name and vbf_point["type"] in key.name:
                 if vbf_point["name"] in hists_to_plot.keys():
+                    print("vbf_point['type']: ", vbf_point["type"])
+                    print("vbf_point['name']: ", vbf_point["name"])
+                    print("hists_to_plot.keys(): ", hists_to_plot.keys())
                     raise ValueError("Trying to plot multiple histograms for the same point.")
                 hists_to_plot[vbf_point["name"]] = hist
                 procs_to_plot[vbf_point["name"]] = key
@@ -886,7 +919,7 @@ def plot_3d_morphing(
             else:
                 value_to_plot = np.array([1, 0])
         elif distance_measure == "chi2":
-            raise NotImplementedError("Chi2 not implemented yet")
+            # raise NotImplementedError("Chi2 not implemented yet")
             # TODO: think about what kind of chi2 do here. Several possibilities:
             # 1. Calculate the chi2 for the morphed histograms without considering that they might
             # come from different fits, as the guidance points might be different (only meaningful
@@ -960,18 +993,19 @@ def plot_3d_morphing(
                 ]))
             bin_guidance_hists = np.array(bin_guidance_hists)
 
+            x_values = [tuple(list(guidance_point_coord.values())) for guidance_point_coord in guidance_points_coord]
             popt, pcov = curve_fit(
                 vbf_fit_curve,
-                tuple(list(guidance_points_coord.values())),
+                np.array(x_values).T,
                 bin_guidance_hists[:, 0],
                 sigma=np.sqrt(bin_guidance_hists[:, 1]),
                 p0=[0, 0, 0, 0, 0, 0],
             )
             # calculate the chi2 of the fit
-            chi2 = np.sum((vbf_fit_curve(np.array(list(guidance_points_coord.values())), *popt) -
+            chi2 = np.sum((vbf_fit_curve(np.array(x_values).T, *popt) -
                 np.array(bin_guidance_hists[:, 0]))**2 / np.array(bin_guidance_hists[:, 1]))
 
-            ndf = len(guidance_points_coord.values()) - 6
+            ndf = len(guidance_points_coord) - 6
             chi2_ndf = chi2 / ndf
 
             # calculate the probability of the chi2
@@ -1066,6 +1100,7 @@ def plot_3d_morphing(
     #     s=plot_kv,
     #     c=plot_values,
     #     cmap="viridis",
+    #     # norm=mpl.colors.LogNorm(),  # if you want to use a log scale for the colorbar
     #     label=plot_labels,
     # )
 
@@ -1087,18 +1122,65 @@ def plot_3d_morphing(
 
     cbar = fig.colorbar(im, ax=ax)
     cbar.ax.set_title(r"$\kappa_V$", fontdict={"fontsize": 16})
+    cbar.ax.tick_params(labelsize=16)
     # ax.legend(fontsize=16, loc="best")
 
     # add text with the errors and the kv value
     for i, value_ in enumerate(values_to_plot.values()):
-        ax.text(
-            points[i]["kl"],
-            points[i]["k2v"],
-            f"{value_[0]:.2f} +- {value_[1]:.2f}, \n " + r"$\kappa_V$" + f" = {points[i]['kv']}",
-            horizontalalignment="center",
-            verticalalignment="bottom",
-            fontsize=10,
-        )
+        # if points[i]["kl"] == 1. and points[i]["k2v"] == 1. and points[i]["kv"] == 1.:
+        #     ax.text(
+        #         points[i]["kl"],
+        #         points[i]["k2v"],
+        #         f"{value_[0]:.2f} +- {value_[1]:.2f}, \n " + r"$\kappa_V$" + f" = {points[i]['kv']}",
+        #         horizontalalignment="left",
+        #         verticalalignment="center",
+        #         fontsize=16,
+        #     )
+        if points[i]["kl"] == 2. and points[i]["k2v"] == 1. and points[i]["kv"] == 1.:
+            ax.text(
+                points[i]["kl"] + 1,
+                points[i]["k2v"],
+                f"{value_[0]:.2f} +- {value_[1]:.2f}, \n " + r"$\kappa_V$" + f" = {points[i]['kv']}",
+                horizontalalignment="left",
+                verticalalignment="center",
+                fontsize=16,
+            )
+        elif points[i]["kl"] == -1.43 and points[i]["k2v"] == 0.959 and points[i]["kv"] == -0.962:
+            ax.text(
+                points[i]["kl"],
+                points[i]["k2v"],
+                f"{value_[0]:.2f} +- {value_[1]:.2f}, \n " + r"$\kappa_V$" + f" = {points[i]['kv']}",
+                horizontalalignment="right",
+                verticalalignment="center",
+                fontsize=16,
+            )
+        elif points[i]["kl"] == 1. and points[i]["k2v"] == 2. and points[i]["kv"] == 1.:
+            ax.text(
+                points[i]["kl"],
+                points[i]["k2v"],
+                f"{value_[0]:.2f} +- {value_[1]:.2f}, \n " + r"$\kappa_V$" + f" = {points[i]['kv']}",
+                horizontalalignment="left",
+                verticalalignment="center",
+                fontsize=16,
+            )
+        elif points[i]["kl"] == -0.94 and points[i]["k2v"] == 1.94 and points[i]["kv"] == -1.21:
+            ax.text(
+                points[i]["kl"],
+                points[i]["k2v"],
+                f"{value_[0]:.2f} +- {value_[1]:.2f}, \n " + r"$\kappa_V$" + f" = {points[i]['kv']}",
+                horizontalalignment="right",
+                verticalalignment="center",
+                fontsize=16,
+            )
+        else:
+            ax.text(
+                points[i]["kl"],
+                points[i]["k2v"],
+                f"{value_[0]:.2f} +- {value_[1]:.2f}, \n " + r"$\kappa_V$" + f" = {points[i]['kv']}",
+                horizontalalignment="center",
+                verticalalignment="bottom",
+                fontsize=16,
+            )
 
     # from IPython import embed; embed(header="making plot from hists")
 
@@ -1130,6 +1212,20 @@ plot_bin_5_morphing = partial(
     plot_bin_morphing,
     function_bin_search=lambda x: 5,
     bin_type="Bin 5",
+    production_channel="ggf",
+)
+
+plot_bin_9_morphing = partial(
+    plot_bin_morphing,
+    function_bin_search=lambda x: 9,
+    bin_type="Bin 9",
+    production_channel="ggf",
+)
+
+plot_bin_3_morphing = partial(
+    plot_bin_morphing,
+    function_bin_search=lambda x: 3,
+    bin_type="Bin 3",
     production_channel="ggf",
 )
 
