@@ -46,7 +46,7 @@ def add_hooks(config: od.Config) -> None:
     Add histogram hooks related to QCD estimation to a configuration.
     """
 
-    def abcd_stats(task, hists, all_channels: bool = False):
+    def abcd_stats(task, hists, all_channels: bool = True):
         """
         hist hook to plot the statistics in each of the ABCD qcd regions.
 
@@ -62,16 +62,16 @@ def add_hooks(config: od.Config) -> None:
 
         # SETUP
         # --------------------------------------------------------------------------------------
-        # choose the decay channel to plot the ABCD regions.
+        # choose the decay channel
         channel = "tautau"
 
-        # define kinematic regions. options:"incl","2j","res1b","res2b","boosted"
+        # define kinematic regions
         kin_region = "incl"
 
-        # define sign regions. options:["os","ss"] or ["os","ss_pos"] or ["os","ss_neg"]
+        # define sign regions
         sign_region = ["os", "ss"]
 
-        # define isolation regions.
+        # define isolation regions
         iso_region = ["iso", "noniso"]
         # --------------------------------------------------------------------------------------
 
@@ -108,21 +108,31 @@ def add_hooks(config: od.Config) -> None:
 
             # get histograms
             for ind, cat in enumerate(cats):
-                h_sum = h[
-                    {
-                        "category": [hist.loc(cat.id)],
-                        "shift": sum,
-                    }
-                ].sum()
+                # get histograms from all decay channels and sum them up
+                if all_channels is True:
+                    leaf_cats = set()
+                    leaf_cats_name = set()
+                    cat_inst = task.config_inst.get_category(cat.id)
+                    leaf_cats.add(cat_inst.id)
+                    leaf_cats_name.add(cat_inst.name)
+                    from IPython import embed; embed(header="abcd_stats")
+                    # h_sum = h[{"category": [hist.loc(cat.id) for cat in cat.get_leaf_categories()], "shift": sum}].sum()
+                    # h_sum = h[{"category": [hist.loc(cat_id) for cat_id in leaf_cats], "shift": sum}].sum()
+                # get histograms from single decay channel
+                elif all_channels is False:
+                    print("getting event statistics for the following category:")
+                    print(cat.name)
+                    h_sum = h[{"category": [hist.loc(cat.id)], "shift": sum}].sum()
 
                 # fill histogram
                 h_new.values()[ind][0][0] = h_sum.value
                 h_new.variances()[ind][0][0] = h_sum.variance
+
+            # save results
             results[proc] = h_new
-        print(results)
         return results
 
-    def qcd_estimation(task, hists, perbin: bool = True, method_I: bool = False):
+    def qcd_estimation(task, hists, perbin: bool = False, method_I: bool = True):
         """
         This hook calculates the qcd estimation (shape x factor) for a choosen decay channel
         and kinematic category and adds it to all other existing MC histograms.
@@ -533,6 +543,262 @@ def add_hooks(config: od.Config) -> None:
 
     # -----------------------------------------------------------------------------------------------------------
 
+    def qcd_validation(task, hists, perbin: bool = False, method_I: bool = True, all_channels: bool = False):
+        """
+        This hook calculates the qcd estimation (shape x factor) for a choosen decay channel
+        and kinematic category and adds it to all other existing MC histograms.
+
+        If *perbin* is set to True, factor values will be applied per bin, otherwise a single summed factor
+        will be applied to all bins.
+
+        The qcd estimation can be calculated by two methods, depending on which control region is choosen to extract
+        the shape estimation, and which one is choosen as the numerator for the factor calculation.
+        The methods can be switched by setting the *method_I* boolean.
+
+        In the command line call --categories {etau,mutau,tautau}_{incl,2j,...}__os__iso
+        """
+
+        # SETUP
+        # --------------------------------------------------------------------------------------
+        # choose the decay channel
+        channel = "tautau"
+
+        # define kinematic region
+        kin_region = "incl"
+
+        # define isolation regions
+        iso_region = "vvl_vl"
+        noniso_region = "vvvl_vvl"
+
+        # define categories tags
+        iso_tag = "vvloose_vloose"
+        noniso_tag = "vvvloose_vvloose"
+        os_tag = "os"
+        ss_tag = "ss"
+
+        # choose MC minimum uncertainty theshold. Uncertainties bellow min_mc_unc are disregraded
+        min_mc_unc = 0.15
+        # --------------------------------------------------------------------------------------
+
+        # define regions
+        control_regions = [
+            f"{kin_region}_ss_{iso_region}",
+            f"{kin_region}_os_{noniso_region}",
+            f"{kin_region}_ss_{noniso_region}",
+        ]
+        sig_region = f"{kin_region}_os_{iso_region}"
+
+        if all_channels is False:
+            control_regions = [f"{channel}_{c}" for c in control_regions]
+            sig_region = f"{channel}__{sig_region}"
+            print(control_regions)
+            print(sig_region)
+
+        # define regions for qcd shape estimation and for calculation of factor = numerator/denominator
+        if method_I:
+            shape_region = control_regions[1]
+            numerator = control_regions[0]
+        elif not method_I:
+            shape_region = control_regions[0]
+            numerator = control_regions[1]
+        denominator = control_regions[2]
+
+        # sanity checks
+        if len(control_regions) != 3:
+            raise ValueError("Please define exactly 3 control regions!")
+        if sig_region in control_regions:
+            raise ValueError("Signal region must not be in control regions set!")
+        if shape_region == numerator or shape_region == denominator:
+            raise ValueError("shape_region must not be the same as numerator or denominator!")
+        if numerator == denominator:
+            raise ValueError("Numerator and denominator for ratio factor cannot be the same region!")
+        if not hists:
+            return hists
+
+        # get the qcd process
+        qcd_proc = config.get_process("qcd", default=None)
+        if not qcd_proc:
+            return hists
+
+        # extract all unique category ids and verify that the axis order is exactly
+        # "category -> shift -> variable" which is needed to insert values at the end
+        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
+        category_ids = set()
+        for proc, h in hists.items():
+            # validate axes
+            assert len(h.axes) == 3
+            assert h.axes[CAT_AXIS].name == "category"
+            assert h.axes[SHIFT_AXIS].name == "shift"
+            # get the category axis
+            cat_ax = h.axes["category"]
+            for cat_index in range(cat_ax.size):
+                category_ids.add(cat_ax.value(cat_index))
+
+        # create qcd groups
+        qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
+        for cat_id in category_ids:
+            cat_inst = config.get_category(cat_id)
+            if cat_inst.has_tag({os_tag, iso_tag}, mode=all):
+                qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
+            elif cat_inst.has_tag({os_tag, noniso_tag}, mode=all):
+                qcd_groups[cat_inst.x.qcd_group].os_noniso = cat_inst
+            elif cat_inst.has_tag({ss_tag, iso_tag}, mode=all):
+                qcd_groups[cat_inst.x.qcd_group].ss_iso = cat_inst
+            elif cat_inst.has_tag({ss_tag, noniso_tag}, mode=all):
+                qcd_groups[cat_inst.x.qcd_group].ss_noniso = cat_inst
+
+        # get complete qcd groups
+        complete_groups = [name for name, cats in qcd_groups.items() if len(cats) == 4]
+        print("QCD complete groups")
+        print(complete_groups)
+
+        # nothing to do if there are no complete groups
+        if not complete_groups:
+            return hists
+
+        # sum up mc and data histograms, stop early when empty
+        mc_hists = [h for p, h in hists.items() if p.is_mc and not p.has_tag("signal")]
+        data_hists = [h for p, h in hists.items() if p.is_data]
+        if not mc_hists or not data_hists:
+            return hists
+        mc_hist = sum(mc_hists[1:], mc_hists[0].copy())
+        data_hist = sum(data_hists[1:], data_hists[0].copy())
+
+        # start by copying the mc hist and reset it, then fill it at specific category slices
+        hists[qcd_proc] = qcd_hist = mc_hist.copy().reset()
+
+        # initializing dictionary for later use
+        dict_hists = {}
+
+        for group_name in complete_groups:
+            group = qcd_groups[group_name]
+
+            # helper
+            get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
+
+            for region in ["os_iso", "os_noniso", "ss_iso", "ss_noniso"]:
+                # get the corresponding histograms and convert them to number objects,
+                # each one storing an array of values with uncertainties
+                # shapes: (SHIFT, VAR)
+                hist_mc = hist_to_num(get_hist(mc_hist, region), region + "_mc")
+                hist_data = hist_to_num(get_hist(data_hist, region), region + "_data")
+                hist_qcd = hist_data - hist_mc
+
+                # save hists
+                dict_hists[region + "_mc"] = (hist_mc)
+                dict_hists[region + "_data"] = (hist_data)
+                dict_hists[region + "_qcd"] = (hist_qcd)
+
+            # data will always have a single shift whereas mc might have multiple,
+            # broadcast numbers in-place manually if necessary
+            if (n_shifts := mc_hist.axes["shift"].size) > 1:
+                def broadcast_data_num(num: sn.Number) -> None:
+                    num._nominal = np.repeat(num.nominal, n_shifts, axis=0)
+                    for name, (unc_up, unc_down) in num._uncertainties.items():
+                        num._uncertainties[name] = (
+                            np.repeat(unc_up, n_shifts, axis=0),
+                            np.repeat(unc_down, n_shifts, axis=0),
+                        )
+
+                for region in control_regions:
+                    broadcast_data_num(dict_hists[region + "_data"])
+
+            num_region = dict_hists[numerator + "_qcd"]
+            den_region = dict_hists[denominator + "_qcd"]
+            shape_estimation = dict_hists[shape_region + "_qcd"]
+            signal_region = getattr(group, sig_region)
+
+            # sum over bins
+            # shapes: (SHIFT,)
+            int_num = integrate_num(num_region, axis=1)
+            int_den = integrate_num(den_region, axis=1)
+
+            # complain about negative integrals
+            int_num_neg = int_num <= 0
+            int_den_neg = int_den <= 0
+            if int_num_neg.any():
+                shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_num_neg)[0]))
+                shifts = list(map(config.get_shift, shift_ids))
+                logger.warning(
+                    f"negative QCD integral in ss_iso region for group {group_name} and shifts: "
+                    f"{', '.join(map(str, shifts))}",
+                )
+            if int_den_neg.any():
+                shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_den_neg)[0]))
+                shifts = list(map(config.get_shift, shift_ids))
+                logger.warning(
+                    f"negative QCD integral in ss_noniso region for group {group_name} and shifts: "
+                    f"{', '.join(map(str, shifts))}",
+                )
+
+            # ------------------------------------------------------
+            # ABCD method
+            # shape: (SHIFT, VAR)
+            factor_int = (int_num / int_den)[0, None]
+            factor = (num_region / den_region)[:, None]
+            if perbin:
+                qcd_estimation = shape_estimation * factor
+            elif not perbin:
+                qcd_estimation = shape_estimation * factor_int
+
+            if group_name == "tautau__incl":
+                print("----------------------------------------------")
+                print("group name ", group_name)
+                print("int factor", factor_int)
+                print("----------------------------------------------")
+                print("num region", num_region)
+                print("den region", den_region)
+                print("factor", factor)
+            # ------------------------------------------------------
+
+            # combine uncertainties and store values in bare arrays
+            qcd_estimation_values = qcd_estimation()
+            qcd_estimation_variances = qcd_estimation(sn.UP, sn.ALL, unc=True)**2
+
+            # define uncertainties from control regions
+            data_unc_list = [f"{region}_data" for region in control_regions]
+            mc_unc_list = [f"{region}_mc" for region in control_regions]
+            unc_data = qcd_estimation(sn.UP, data_unc_list, unc=True)
+            unc_mc = qcd_estimation(sn.UP, mc_unc_list, unc=True)
+            # calculate relative uncertainties
+            unc_data_rel = abs(unc_data / qcd_estimation_values)
+            unc_mc_rel = abs(unc_mc / qcd_estimation_values)
+
+            # only keep the MC uncertainty if it is larger than the data uncertainty and larger than min_mc_unc
+            keep_variance_mask = (
+                np.isfinite(unc_mc_rel) &
+                (unc_mc_rel > unc_data_rel) &
+                (unc_mc_rel > min_mc_unc)
+            )
+            qcd_estimation_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
+            qcd_estimation_variances[~keep_variance_mask] = 0
+
+            # retro-actively set values to zero for shifts that had negative integrals
+            neg_int_mask = int_num_neg | int_den_neg
+            qcd_estimation_values[neg_int_mask] = 1e-5
+            qcd_estimation_variances[neg_int_mask] = 0
+
+            # residual zero filling
+            zero_mask = qcd_estimation_values <= 0
+            qcd_estimation_values[zero_mask] = 1e-5
+            qcd_estimation_variances[zero_mask] = 0
+
+            # insert qcd estimation into signal region histograms
+            cat_axis = qcd_hist.axes["category"]
+            for cat_index in range(cat_axis.size):
+                if cat_axis.value(cat_index) == signal_region.id:
+                    qcd_hist.view().value[cat_index, ...] = qcd_estimation_values
+                    qcd_hist.view().variance[cat_index, ...] = qcd_estimation_variances
+                    break
+            else:
+                raise RuntimeError(
+                    f"could not find index of bin on 'category' axis of qcd histogram {qcd_hist} "
+                    f"for category {signal_region}",
+                )
+        return hists
+
+    # -----------------------------------------------------------------------------------------------------------
+
     def factor_incl(task, hists, method_I: bool = True):
         """
         This hook calculates the per-bin and summed over factors in the ABCD method for a choosen kinematic category
@@ -919,8 +1185,6 @@ def add_hooks(config: od.Config) -> None:
         print("----------------------------")
         return hists
 
-    # -----------------------------------------------------------------------------------------------------------
-
     def closure_test(task, hists):
         if not hists:
             return hists
@@ -1088,432 +1352,14 @@ def add_hooks(config: od.Config) -> None:
 
         return hists
 
-    def qcd_validation(task, hists):
-        """
-        This hook calculates qcd estimation (shape x factor) for a choosen category.
-        In the command line call --categories {etau,mutau,tautau}_{incl,2j,...}__os__iso
-        """
-
-        # SETUP
-        # --------------------------------------------------------------------------------------
-        control_regions = ["ss_iso", "os_noniso", "ss_noniso"]
-        sig_region = "os_iso"
-        # choose region to extract qcd shape estimation
-        shape_region = control_regions[1]
-        # choose numerator and denominator for ratio factor calculation
-        numerator = control_regions[0]
-        denominator = control_regions[2]
-        # choose MC minimum uncertainty theshold. Uncertainties bellow min_mc_unc are disregraded
-        min_mc_unc = 0.15
-        # --------------------------------------------------------------------------------------
-
-        if len(control_regions) != 3:
-            raise ValueError("Please define exactly 3 control regions!")
-        if sig_region in control_regions:
-            raise ValueError("Signal region must not be in control regions set!")
-        if shape_region == numerator or shape_region == denominator:
-            raise ValueError("shape_region must not be the same as numerator or denominator!")
-        if numerator == denominator:
-            raise ValueError("Numerator and denominator for ratio factor cannot be the same region!")
-        if not hists:
-            return hists
-
-        # get the qcd process
-        qcd_proc = config.get_process("qcd", default=None)
-        if not qcd_proc:
-            return hists
-
-        # extract all unique category ids and verify that the axis order is exactly
-        # "category -> shift -> variable" which is needed to insert values at the end
-        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
-        category_ids = set()
-        for proc, h in hists.items():
-            # validate axes
-            assert len(h.axes) == 3
-            assert h.axes[CAT_AXIS].name == "category"
-            assert h.axes[SHIFT_AXIS].name == "shift"
-            # get the category axis
-            cat_ax = h.axes["category"]
-            for cat_index in range(cat_ax.size):
-                category_ids.add(cat_ax.value(cat_index))
-
-        # create qcd groups
-        qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
-        for cat_id in category_ids:
-            cat_inst = config.get_category(cat_id)
-            if cat_inst.has_tag({"os", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
-            elif cat_inst.has_tag({"os", "noniso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].os_noniso = cat_inst
-            elif cat_inst.has_tag({"ss", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_iso = cat_inst
-            elif cat_inst.has_tag({"ss_pos", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_pos_iso = cat_inst
-            elif cat_inst.has_tag({"ss_neg", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_neg_iso = cat_inst
-            elif cat_inst.has_tag({"ss", "noniso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_noniso = cat_inst
-            elif cat_inst.has_tag({"ss_pos", "noniso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_pos_noniso = cat_inst
-            elif cat_inst.has_tag({"ss_neg", "noniso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_neg_noniso = cat_inst
-
-        # get complete qcd groups
-        complete_groups = [name for name, cats in qcd_groups.items() if len(cats) == 4]
-
-        # nothing to do if there are no complete groups
-        if not complete_groups:
-            return hists
-
-        # sum up mc and data histograms, stop early when empty
-        mc_hists = [h for p, h in hists.items() if p.is_mc and not p.has_tag("signal")]
-        data_hists = [h for p, h in hists.items() if p.is_data]
-        if not mc_hists or not data_hists:
-            return hists
-        mc_hist = sum(mc_hists[1:], mc_hists[0].copy())
-        data_hist = sum(data_hists[1:], data_hists[0].copy())
-
-        # start by copying the mc hist and reset it, then fill it at specific category slices
-        hists[qcd_proc] = qcd_hist = mc_hist.copy().reset()
-
-        # initializing dictionary for later use
-        dict_hists = {}
-
-        for group_name in complete_groups:
-            group = qcd_groups[group_name]
-
-            # helper
-            get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
-
-            for region in control_regions:
-                # get the corresponding histograms and convert them to number objects,
-                # each one storing an array of values with uncertainties
-                # shapes: (SHIFT, VAR)
-                hist_mc = hist_to_num(get_hist(mc_hist, region), region + "_mc")
-                hist_data = hist_to_num(get_hist(data_hist, region), region + "_data")
-                hist_qcd = hist_data - hist_mc
-
-                # save hists
-                dict_hists[region + "_mc"] = (hist_mc)
-                dict_hists[region + "_data"] = (hist_data)
-                dict_hists[region + "_qcd"] = (hist_qcd)
-
-            # data will always have a single shift whereas mc might have multiple,
-            # broadcast numbers in-place manually if necessary
-            if (n_shifts := mc_hist.axes["shift"].size) > 1:
-                def broadcast_data_num(num: sn.Number) -> None:
-                    num._nominal = np.repeat(num.nominal, n_shifts, axis=0)
-                    for name, (unc_up, unc_down) in num._uncertainties.items():
-                        num._uncertainties[name] = (
-                            np.repeat(unc_up, n_shifts, axis=0),
-                            np.repeat(unc_down, n_shifts, axis=0),
-                        )
-
-                for region in control_regions:
-                    broadcast_data_num(dict_hists[region + "_data"])
-
-            num_region = dict_hists[numerator + "_qcd"]
-            den_region = dict_hists[denominator + "_qcd"]
-            shape_estimation = dict_hists[shape_region + "_qcd"]
-            signal_region = getattr(group, sig_region)
-
-            # sum over bins
-            # shapes: (SHIFT,)
-            int_num = integrate_num(num_region, axis=1)
-            int_den = integrate_num(den_region, axis=1)
-
-            # complain about negative integrals
-            int_num_neg = int_num <= 0
-            int_den_neg = int_den <= 0
-            if int_num_neg.any():
-                shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_num_neg)[0]))
-                shifts = list(map(config.get_shift, shift_ids))
-                logger.warning(
-                    f"negative QCD integral in ss_iso region for group {group_name} and shifts: "
-                    f"{', '.join(map(str, shifts))}",
-                )
-            if int_den_neg.any():
-                shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_den_neg)[0]))
-                shifts = list(map(config.get_shift, shift_ids))
-                logger.warning(
-                    f"negative QCD integral in ss_noniso region for group {group_name} and shifts: "
-                    f"{', '.join(map(str, shifts))}",
-                )
-
-            # ABCD method
-            # shape: (SHIFT, VAR)
-            qcd_estimation = shape_estimation * ((int_num / int_den)[:, None])
-
-            # combine uncertainties and store values in bare arrays
-            qcd_estimation_values = qcd_estimation()
-            qcd_estimation_variances = qcd_estimation(sn.UP, sn.ALL, unc=True)**2
-
-            # define uncertainties from control regions
-            data_unc_list = [f"{region}_data" for region in control_regions]
-            mc_unc_list = [f"{region}_mc" for region in control_regions]
-            unc_data = qcd_estimation(sn.UP, data_unc_list, unc=True)
-            unc_mc = qcd_estimation(sn.UP, mc_unc_list, unc=True)
-            # calculate relative uncertainties
-            unc_data_rel = abs(unc_data / qcd_estimation_values)
-            unc_mc_rel = abs(unc_mc / qcd_estimation_values)
-
-            # only keep the MC uncertainty if it is larger than the data uncertainty and larger than min_mc_unc
-            keep_variance_mask = (
-                np.isfinite(unc_mc_rel) &
-                (unc_mc_rel > unc_data_rel) &
-                (unc_mc_rel > min_mc_unc)
-            )
-            qcd_estimation_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
-            qcd_estimation_variances[~keep_variance_mask] = 0
-
-            # retro-actively set values to zero for shifts that had negative integrals
-            neg_int_mask = int_num_neg | int_den_neg
-            qcd_estimation_values[neg_int_mask] = 1e-5
-            qcd_estimation_variances[neg_int_mask] = 0
-
-            # residual zero filling
-            zero_mask = qcd_estimation_values <= 0
-            qcd_estimation_values[zero_mask] = 1e-5
-            qcd_estimation_variances[zero_mask] = 0
-
-            # insert qcd estimation into signal region histograms
-            cat_axis = qcd_hist.axes["category"]
-            for cat_index in range(cat_axis.size):
-                if cat_axis.value(cat_index) == signal_region.id:
-                    qcd_hist.view().value[cat_index, ...] = qcd_estimation_values
-                    qcd_hist.view().variance[cat_index, ...] = qcd_estimation_variances
-                    break
-            else:
-                raise RuntimeError(
-                    f"could not find index of bin on 'category' axis of qcd histogram {qcd_hist} "
-                    f"for category {signal_region}",
-                )
-
-        return hists
-
-    def qcd_shape_SS(task, hists, perbin: bool = True, method_I: bool = True, positive: bool = True):
-        """
-        This hook calculates the summed over ratio factor for a choosen kinematic category considering
-        all decay channels simultaneously (e.g. etau + mutau + tautau)
-
-        It does the calculation independently for same sign regions, either both positively charged lepton pair or
-        both negatively charged.
-
-        In the command line call --categories {incl,2j,...}__os__iso
-        """
-
-        # SETUP
-        # --------------------------------------------------------------------------------------
-        control_regions_pos = ["ss_pos_iso", "os_noniso", "ss_pos_noniso"]
-        control_regions_neg = ["ss_neg_iso", "os_noniso", "ss_neg_noniso"]
-
-        decay_channels = ["etau", "mutau", "tautau"]
-        kinematic_region = ["incl"]
-        sig_region = "os_iso"
-        # choose shape estimation and numerator for factor calculation
-
-        if method_I:
-            shape_region = "os_noniso"
-            if positive:
-                numerator = "ss_pos_iso"
-                denominator = "ss_pos_noniso"
-            elif not positive:
-                numerator = "ss_neg_iso"
-                denominator = "ss_neg_noniso"
-        elif not method_I:
-            numerator = "os_noniso"
-            if positive:
-                shape_region = "ss_pos_iso"
-                denominator = "ss_pos_noniso"
-            elif not positive:
-                shape_region = "ss_neg_iso"
-                denominator = "ss_neg_noniso"
-
-        # --------------------------------------------------------------------------------------
-
-        if len(control_regions_pos) != 3:
-            raise ValueError("Please define exactly 3 control regions!")
-        if sig_region in control_regions_pos:
-            raise ValueError("Signal region must not be in control regions set!")
-        if len(kinematic_region) != 1:
-            raise ValueError("Only one kinematic region allowed!")
-        if numerator == denominator:
-            raise ValueError("Numerator and denominator for ratio factor cannot be the same region!")
-        if not hists:
-            return hists
-
-        # get dummy processes
-        factor_bin = config.get_process("qcd", default=None)
-        if not factor_bin:
-            return hists
-        factor_int = config.get_process("dy", default=None)
-        if not factor_int:
-            return hists
-
-        # extract all unique category ids and verify that the axis order is exactly
-        # "category -> shift -> variable" which is needed to insert values at the end
-        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
-        category_ids = set()
-        for proc, h in hists.items():
-            # validate axes
-            assert len(h.axes) == 3
-            assert h.axes[CAT_AXIS].name == "category"
-            assert h.axes[SHIFT_AXIS].name == "shift"
-            # get the category axis
-            cat_ax = h.axes["category"]
-            for cat_index in range(cat_ax.size):
-                category_ids.add(cat_ax.value(cat_index))
-
-        # create qcd groups
-        qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
-        for cat_id in category_ids:
-            cat_inst = config.get_category(cat_id)
-            if cat_inst.has_tag({"os", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
-            elif cat_inst.has_tag({"os", "noniso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].os_noniso = cat_inst
-            elif cat_inst.has_tag({"ss_pos", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_pos_iso = cat_inst
-            elif cat_inst.has_tag({"ss_pos", "noniso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_pos_noniso = cat_inst
-            elif cat_inst.has_tag({"ss_neg", "iso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_neg_iso = cat_inst
-            elif cat_inst.has_tag({"ss_neg", "noniso"}, mode=all):
-                qcd_groups[cat_inst.x.qcd_group].ss_neg_noniso = cat_inst
-        # get complete qcd groups
-        complete_groups = [name for name, cats in qcd_groups.items() if len(cats) == 4]
-
-        # nothing to do if there are no complete groups
-        if not complete_groups:
-            return hists
-
-        # sum up mc and data histograms, stop early when empty
-        mc_hists = [h for p, h in hists.items() if p.is_mc and not p.has_tag("signal")]
-        data_hists = [h for p, h in hists.items() if p.is_data]
-        if not mc_hists or not data_hists:
-            return hists
-        mc_hist = sum(mc_hists[1:], mc_hists[0].copy())
-        data_hist = sum(data_hists[1:], data_hists[0].copy())
-
-        # start by copying the mc hist and reset it, then fill it at specific category slices
-        hists = {}
-        hists[factor_bin] = factor_hist = mc_hist.copy().reset()
-        hists[factor_int] = factor_hist_int = mc_hist.copy().reset()
-
-        # initializing dictionaries for later use
-        channels = {}
-        dict_hists = {}
-
-        for group_name in complete_groups:
-            for k in kinematic_region:
-                # loop should only run once, in the chosen kinematic region
-                if k in group_name:
-                    group = qcd_groups[group_name]
-                    channels[group_name] = {}
-
-                    # helper
-                    get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
-
-                    for region in (control_regions_pos if positive else control_regions_neg):
-                        # get hists per region and convert them to number objects
-                        # each number object stores an array of values with uncertainties
-                        # shapes: (SHIFT, VAR)
-                        hist_mc = hist_to_num(get_hist(mc_hist, region), region + "_mc")
-                        hist_data = hist_to_num(get_hist(data_hist, region), region + "_data")
-
-                        channels[group_name][region + "_mc"] = hist_mc
-                        channels[group_name][region + "_data"] = hist_data
-
-        for group_name in complete_groups:
-            for k in kinematic_region:
-                # loop should only run once. use dummy group_name
-                if group_name == f"{decay_channels[0]}__{k}":
-                    group = qcd_groups[group_name]
-
-                    # sum all channels into single hists
-                    for region in (control_regions_pos if positive else control_regions_neg):
-                        hist_mc = sn.Number()
-                        hist_data = sn.Number()
-                        for c in decay_channels:
-                            hist_mc += channels[f"{c}__{k}"][f"{region}_mc"]
-                            hist_data += channels[f"{c}__{k}"][f"{region}_data"]
-
-                        hist_qcd = hist_data - hist_mc
-
-                        # save hists
-                        dict_hists[region + "_mc"] = hist_mc
-                        dict_hists[region + "_data"] = hist_data
-                        dict_hists[region + "_qcd"] = hist_qcd
-
-                    # define numerator/denominator for factor calculation
-                    num_region = dict_hists[numerator + "_qcd"]
-                    den_region = dict_hists[denominator + "_qcd"]
-                    # define shape estimation
-                    shape_estimation = dict_hists[shape_region + "_qcd"]
-                    # define signal region
-                    signal_region = getattr(group, sig_region)
-
-                    # calculate the pt-independent fake factor
-                    int_num = integrate_num(num_region, axis=1)
-                    int_dem = integrate_num(den_region, axis=1)
-                    factor_int = (int_num / int_dem)[0, None]
-                    factor_int_values = np.squeeze(np.nan_to_num(factor_int()), axis=0)
-                    factor_int_variances = factor_int(sn.UP, sn.ALL, unc=True)**2
-
-                    # calculate the pt-dependent fake factor
-                    factor = (num_region / den_region)[:, None]
-                    factor_values = np.squeeze(np.nan_to_num(factor()), axis=0)
-                    # factor_variances = factor(sn.UP, sn.ALL, unc=True)**2
-
-                    # -----------------------------------------------
-                    # ABCD method
-                    # shape: (SHIFT, VAR)
-                    if perbin:
-                        qcd_estimation = shape_estimation * factor
-                    elif not perbin:
-                        qcd_estimation = shape_estimation * factor_int
-                    # -----------------------------------------------
-
-                    # define values and variances
-                    qcd_estimation_values = np.squeeze(np.nan_to_num(qcd_estimation()), axis=0)
-                    qcd_estimation_variances = qcd_estimation(sn.UP, sn.ALL, unc=True)**2
-
-                    # change shape of factor_int for plotting
-                    factor_int_values = factor_values.copy()
-                    factor_int_values.fill(factor_int()[0])
-
-                    # insert values into the qcd histogram
-                    cat_axis = factor_hist.axes["category"]
-                    for cat_index in range(cat_axis.size):
-                        if cat_axis.value(cat_index) == signal_region.id:
-                            factor_hist.view().value[cat_index, ...] = qcd_estimation_values
-                            factor_hist.view().variance[cat_index, ...] = qcd_estimation_variances
-                            factor_hist_int.view().value[cat_index, ...] = factor_int_values
-                            factor_hist_int.view().variance[cat_index, ...] = factor_int_variances
-                            break
-                    else:
-                        raise RuntimeError(
-                            f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
-                            f"for category {signal_region}",
-                        )
-        print("----------------------------")
-        print("Shape region: ", shape_region)
-        print("Numerator: ", numerator)
-        print("Factor: ", factor_int)
-        print(factor_int_variances)
-        print("----------------------------")
-        return hists
-
     # add all hooks
     config.x.hist_hooks.abcd_stats = abcd_stats
     config.x.hist_hooks.qcd = qcd_estimation
     config.x.hist_hooks.qcd_shape = qcd_shape
 
     # in testing
-    config.x.hist_hooks.qcd_shape_SS = qcd_shape_SS
-    config.x.hist_hooks.factor_incl = factor_incl
-    config.x.hist_hooks.qcd_shape_incl = qcd_shape_incl
+    config.x.hist_hooks.qcd_validation = qcd_validation
 
     # for later
-    config.x.hist_hooks.closure = closure_test
-    config.x.hist_hooks.qcd_validation = qcd_validation
+    config.x.hist_hooks.factor_incl = factor_incl
+    config.x.hist_hooks.qcd_shape_incl = qcd_shape_incl
