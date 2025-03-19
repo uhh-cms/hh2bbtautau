@@ -32,7 +32,7 @@ ak = maybe_import("awkward")
     },
     produces={
         # new columns
-        "Jet.hhbtag",
+        "Jet.hhbtag", hhbtag,
     },
     # shifts are declared dynamically below in jet_selection_init
 )
