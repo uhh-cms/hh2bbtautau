@@ -114,7 +114,7 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
 
     # upcast to int64 to avoid overflow
     return (
-        ak.values_astype(arr.run, np.int64) * 10**(max_digits_luminosityBlock + max_digits_event) +
-        ak.values_astype(arr.luminosityBlock, np.int64) * 10**max_digits_event +
-        ak.values_astype(arr.event, np.int64)
+        ak.values_astype(arr.run, np.uint64) * 10**(max_digits_luminosityBlock + max_digits_event) +
+        ak.values_astype(arr.luminosityBlock, np.uint64) * 10**max_digits_event +
+        ak.values_astype(arr.event, np.uint64)
     )

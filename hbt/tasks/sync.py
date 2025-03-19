@@ -33,7 +33,7 @@ class CheckExternalLFNOverlap(
     lfn = luigi.Parameter(
         description="local path to an external LFN to check for overlap with the dataset",
         # fetched via nanogen's FetchLFN
-        default="/pnfs/desy.de/cms/tier2/store/user/bwieders/nanogen_store/FetchLFN/store/mc/Run3Summer22NanoAODv12/GluGlutoHHto2B2Tau_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/992697da-4a10-4435-b63a-413f6d33517e.root",  # noqa
+        default="/pnfs/desy.de/cms/tier2/store/user/bwieders/nanogen_store/FetchLFN/store/sync/skim_2024_v2/Run3_2022/GluGlutoHHto2B2Tau_kl_1p00_kt_1p00_c2_0p00/nano_0.root",  # noqa
     )
 
     # no versioning required
@@ -74,6 +74,7 @@ class CheckExternalLFNOverlap(
 
         for i, lfn_target in lfns_task.iter_nano_files(self, lfn_indices=list(range(n_files))):
             with self.publish_step(f"loading ids of file {i}"):
+
                 file_arr = self.load_nano_index(lfn_target)
                 file_hashes = hash_events(file_arr)
             # find unique hashes in the reference and the file
@@ -84,7 +85,6 @@ class CheckExternalLFNOverlap(
                 assume_unique=True,
                 kind="sort",
             )
-
             num_overlapping = np.sum(overlapping_mask)
             if num_overlapping:
                 # calculate the relative overlaps
@@ -356,15 +356,14 @@ class CreateSyncFiles(
                     for field in events.fields
                     if field.startswith("sync_res_dnn")},
             })
-
             df_hhb = ak.to_dataframe({
                 **index_variables,
                 **{
-                    f"hhbtag_{i + 1}_score": select(events.Jet.hhbtag, i)
+                    f"hhbtag_score{i + 1}": select(events.Jet.hhbtag, i)
                     for i in range(3)
                 },
                 **{
-                    f"hhbtag_{i + 1}_{field.replace('sync_hhbtag', '')}": select(events[field], i)
+                    f"hhbtag{i + 1}_{field.replace('sync_hhbtag', '')}": select(events[field], i)
                     for field in events.fields if field.startswith("sync_hhbtag")
                     for i in range(3)
                 },
