@@ -8,6 +8,7 @@ from columnflow.columnar_util import (
     Route, attach_coffea_behavior,
 )
 import copy
+import traceback
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
@@ -110,9 +111,10 @@ if not isinstance(torch, MockModule):
             if isinstance(X, ak.Array):
                 # first, get flat numpy view to avoid copy operations
                 try:
-                    return_tensor = ak.to_torch(X)
+                    return_tensor = ak.to_torch(X).to(device=self.device)
                 except Exception as e:
                     # default back to NestedTensor
+                    print(f"Exception raised in {self.__class__.__name__}: {print(traceback.format_exc())}")
                     return_tensor = super()._transform_input(X)
             elif isinstance(X, (torch.Tensor, NestedTensor)):
                 return_tensor = X
@@ -133,7 +135,7 @@ if not isinstance(torch, MockModule):
                 "Tau.{eta,phi,pt,mass,charge}",
                 "Electron.{eta,phi,pt,mass,charge}",
                 "Muon.{eta,phi,pt,mass,charge}",
-                "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+                "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav.*,btagPNet.*}",
                 "FatJet.{eta,phi,pt,mass}",
             }
             self.produces = {
@@ -185,7 +187,7 @@ if not isinstance(torch, MockModule):
                 events = set_ak_column(events, f"{target_field}.px", px)
                 events = set_ak_column(events, f"{target_field}.py", py)
 
-                routes: set[str] = set(("pz", "energy",))
+                routes: set[str] = set(("pz", "energy", "mass"))
                 if additional_targets is not None:
                     routes.update(additional_targets)
                 for field in routes:
@@ -202,5 +204,33 @@ if not isinstance(torch, MockModule):
             events = save_rotated_momentum(events, events.HHBJet, "bjets", additional_targets=jet_columns)
 
             # fatjet variables
-            events = save_rotated_momentum(events, events.FatJet, "fatjet", additional_targets=None)
+            events = save_rotated_momentum(events, events.FatJet, "fatjets", additional_targets=None)
             return events
+        
+    class PreProssesAndCast(torch.nn.Module):
+        def __init__(self, *args, device=None, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.device = device
+            self.preprocess = PreProcessFloatValues()
+            self.cast = AkToTensor(device=self.device)
+
+        def forward(self, events: ak.Array) -> torch.Tensor:
+            x = self.preprocess(events)
+            return self.cast(x)
+        
+        def _get_property(self, attr="uses"):
+            attr_set = set()
+            for t in [self.preprocess, self.cast]:
+                if hasattr(t, attr):
+                    attr_set.update(getattr(t, attr))
+            return attr_set
+
+        @property
+        def uses(self):
+            return self._get_property("uses")
+
+        @property
+        def produces(self):
+            return self._get_property("produces")
+
+
