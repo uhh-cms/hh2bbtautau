@@ -1,6 +1,8 @@
 from __future__ import annotations
 import law.decorator
 from collections import Collection
+from functools import partial
+
 from columnflow.tasks.union import UniteColumns, UniteColumnsWrapper
 from columnflow.util import dev_sandbox, DotDict, maybe_import
 from columnflow.columnar_util import Route
@@ -147,6 +149,11 @@ class HBTPytorchTask(
             AkToTensor, PreProcessFloatValues, PreProssesAndCast,
         )
         from hbt.ml.torch_models import FeedForwardNet
+
+        from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
+        from ignite.metrics import Accuracy, Loss, ROC_AUC
+        from ignite.handlers import ModelCheckpoint
+        from ignite.contrib.handlers import TensorboardLogger, global_step_from_engine
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         
@@ -332,68 +339,81 @@ class HBTPytorchTask(
             map_and_collate_cls=FlatMapAndCollate,
             collate_fn=lambda x: x,
         )
-
-        def train_loop(dataloader, model, loss_fn, optimizer, update_interval=100):
-            # Set the model to training mode - important for batch normalization and dropout layers
-            # Unnecessary in this situation but added for best practices
-            model.train()
-            source_node_names = sorted(dataloader.batcher.source_nodes.keys())
-            process_bar: tqdm.std.tqdm = tqdm.tqdm(enumerate(dataloader.data_loader, start=1))
-            for ibatch, (X, y) in process_bar:
-                # Compute prediction and loss
-                optimizer.zero_grad()
-                pred = model(X)
-                target = y["categorical_target"].to(torch.float32)
-                from IPython import embed
-                embed(header=f"training loop in batch {ibatch}")
-                loss = loss_fn(pred.squeeze(1), target)
-                # Backpropagation
-                loss.backward()
-                optimizer.step()
-
-                if int(ibatch) % int(update_interval) == 0:
-                    loss = loss.item()
-                    update = f"loss: {loss:>7f} "
-                    node_stats = list()
-                    for node in source_node_names:
-                        n_yielded = dataloader.batcher.source_nodes[node].state_dict()["_num_yielded"]
-                        total = len(dataloader.data_map[node])
-                        node_stats.append(f"{node}: {n_yielded:>5d} / {total:>5d}")
-                    update += "[ {} ]".format(" | ".join(node_stats))
-                    process_bar.set_description(update)
-        
-        def test_loop(dataloader, model, loss_fn):
-            # Set the model to evaluation mode - important for batch normalization and dropout layers
-            # Unnecessary in this situation but added for best practices
-            model.eval()
-            size = len(dataloader)
-            # num_batches = dataloader.num_batches
-            test_loss, correct = 0, 0
-
-            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
-            # also serves to reduce unnecessary gradient computations and memory usage for tensors with requires_grad=True
-            with torch.no_grad():
-                num_batches = 0
-                process_bar = tqdm.tqdm(dataloader.data_loader, desc="Validation")
-                for X, y in process_bar:
-                    pred = model(X)
-                    target = y["categorical_target"].to(torch.float32)
-                    test_loss += loss_fn(pred.squeeze(1), target).item()
-                    correct += (F.softmax(pred).argmax(1) == target).type(torch.float).sum().item()
-                    num_batches += 1
-
-            test_loss /= num_batches
-            correct /= size
-            print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
         
         logger.info("Constructing loss and optimizer")
-        loss_fn = torch.nn.CrossEntropyLoss(reduction="mean")
+        loss_fn = torch.nn.BCELoss()
         from torch.optim import Adam
-        optimizer = Adam(model.parameters(), lr=1e-1, weight_decay=1e-5)
+        optimizer = Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
 
         def lr_decay(epoch):
             return 0.9**epoch if 1e-1*0.9**epoch > 1e-9 else 1e-1
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_decay)
+
+        trainer = create_supervised_trainer(model, optimizer, loss_fn, device)
+
+        val_metrics = {
+            # "accuracy": Accuracy(),
+            "loss": Loss(loss_fn),
+            "roc_auc": ROC_AUC(),
+        }
+        from hbt.ml.torch_utils.functions import ignite_train_step, ignite_validation_step
+
+        trainer = Engine(partial(ignite_train_step, model=model, loss_fn=loss_fn, optimizer=optimizer))
+        train_evaluator = Engine(partial(ignite_validation_step, model=model))
+        val_evaluator = Engine(partial(ignite_validation_step, model=model))
+
+        # Attach metrics to the evaluators
+        for name, metric in val_metrics.items():
+            metric.attach(train_evaluator, name)
+
+        for name, metric in val_metrics.items():
+            metric.attach(val_evaluator, name)
+
+        # How many batches to wait before logging training status
+        log_interval = 20
+        @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
+        def log_training_loss(engine):
+            print(f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.2f}")
+
+        @trainer.on(Events.EPOCH_COMPLETED)
+        def log_training_results(trainer):
+            training_composite_loader.data_loader.reset()
+            train_evaluator.run(training_composite_loader.data_loader)
+            training_composite_loader.data_loader.reset()
+            metrics = train_evaluator.state.metrics
+            infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
+            print(f"Training Results - Epoch[{trainer.state.epoch}] {infos}")
+
+
+        @trainer.on(Events.EPOCH_COMPLETED)
+        def log_validation_results(trainer):
+            validation_composite_loader.data_loader.reset()
+            val_evaluator.run(validation_composite_loader.data_loader)
+            validation_composite_loader.data_loader.reset()
+            metrics = val_evaluator.state.metrics
+            infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
+            print(f"Validation Results - Epoch[{trainer.state.epoch}] {infos}")
+
+        # Define a Tensorboard logger
+        tb_logger = TensorboardLogger(log_dir="tb_logger")
+
+        # Attach handler to plot trainer's loss every 100 iterations
+        tb_logger.attach_output_handler(
+            trainer,
+            event_name=Events.ITERATION_COMPLETED(every=log_interval),
+            tag="training",
+            output_transform=lambda loss: {"batch_loss": loss},
+        )
+
+        # Attach handler for plotting both evaluators' metrics after every epoch completes
+        for tag, evaluator in [("training", train_evaluator), ("validation", val_evaluator)]:
+            tb_logger.attach_output_handler(
+                evaluator,
+                event_name=Events.EPOCH_COMPLETED,
+                tag=tag,
+                metric_names="all",
+                global_step_transform=global_step_from_engine(trainer),
+            )
 
         from IPython import embed
         embed(header="initialized model")
