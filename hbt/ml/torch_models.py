@@ -40,6 +40,7 @@ if not isinstance(torch, MockModule):
                 nn.Linear(1024, 512),
                 nn.ReLU(),
                 nn.Linear(512, 1),
+                nn.Sigmoid(),
             )
 
         def forward(self, x):
