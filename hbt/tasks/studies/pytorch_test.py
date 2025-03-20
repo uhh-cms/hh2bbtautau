@@ -12,6 +12,7 @@ from columnflow.types import Callable
 from hbt.tasks.base import HBTTask
 # from hbt.ml.pytorch_util import ListDataset, MapAndCollate
 import law
+import luigi
 
 logger = law.logger.get_logger(__name__)
 
@@ -75,6 +76,12 @@ class HBTPytorchTask(
         MergeSelectionStats=MergeSelectionStats,
     )
 
+    batch_size = luigi.IntParameter(
+        default=1024,
+        significant=False,
+        description="Batch size to use in training. Default: 1024",
+    )
+
     def create_branch_map(self):
         # dummy branch map
         return [0]
@@ -127,16 +134,23 @@ class HBTPytorchTask(
     @law.decorator.safe_output
     @law.decorator.localize(input=True, output=True)
     def run(self):
-        from hbt.tasks.studies.torch_util import (
-            CompositeDataLoader, ParquetDataset, FlatParquetDataset,
-            NestedDictMapAndCollate,
+        from hbt.ml.torch_utils.dataloaders import (
+            CompositeDataLoader, 
         )
+        from hbt.ml.torch_utils.datasets import ParquetDataset, FlatParquetDataset
         from torch.utils.data import default_collate
+        import torch.nn.functional as F
+        from hbt.ml.torch_utils.map_and_collate import NestedDictMapAndCollate
+
         import torchdata.nodes as tn
-        from hbt.ml.torch_transforms import AkToTensor
+        from hbt.ml.torch_utils.transforms import (
+            AkToTensor, PreProcessFloatValues, PreProssesAndCast,
+        )
         from hbt.ml.torch_models import FeedForwardNet
+
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         
-        print("hello!")
+        print(f"Running pytorch on {device}")
 
         inputs = self.input()
         configs = self.configs
@@ -148,7 +162,10 @@ class HBTPytorchTask(
             open_options: dict | None = None,
             columns: Collection[str | Route] | None = None,
             targets: Collection[str | int | Route] | str | Route | int | None = None,
-            transformations: torch.nn.Module | None = None,
+            batch_transformations: torch.nn.Module | None = None,
+            global_transformations: torch.nn.Module | None = None,
+            categorical_target_transformation: torch.nn.Module | None = None,
+            data_type_transform: torch.nn.Module | None = None,
         ):
             meta = ak.metadata_from_parquet(target_paths)
             total_row_groups = meta["num_row_groups"]
@@ -164,13 +181,20 @@ class HBTPytorchTask(
 
             final_options = open_options or dict()
 
+            dataset_kwargs = {
+                "columns": columns,
+                "target": targets,
+                "batch_transform": batch_transformations,
+                "global_transform": global_transformations,
+                "categorical_target_transform": categorical_target_transformation,
+                "data_type_transform": data_type_transform,
+            }
+
             logger.info(f"Constructing training dataset for {dataset} with row_groups {training_row_groups}")
             training = FlatParquetDataset(
                 target_paths,
                 open_options=final_options.update({"row_groups": training_row_groups}),
-                columns=columns,
-                target=targets,
-                transform=transformations,
+                **dataset_kwargs,
             )
 
             validation = None
@@ -182,9 +206,7 @@ class HBTPytorchTask(
                 validation = FlatParquetDataset(
                     target_paths,
                     open_options=final_options.update({"row_groups": validation_row_groups}),
-                    columns=columns,
-                    target=targets,
-                    transform=transformations,
+                    **dataset_kwargs,
                 )
             return training, validation
 
@@ -238,6 +260,7 @@ class HBTPytorchTask(
         #### test case
         
         model = FeedForwardNet()
+        model = model.to(device)
         columns = model.inputs
         # construct datamap
         training_data_map = dict()
@@ -252,8 +275,13 @@ class HBTPytorchTask(
             ]
             training, validation = split_training_validation(
                 target_paths=target_paths, open_options=open_options,
-                columns=columns, transformations=AkToTensor(),
-                targets=int(1) if dataset.startswith("hh") else int(0)
+                columns=columns,
+                # transformations=AkToTensor(device=device),
+                
+                targets=int(1) if dataset.startswith("hh") else int(0),
+                global_transformations=PreProcessFloatValues(),
+                # categorical_target_transformation=AkToTensor(device=device),
+                data_type_transform=AkToTensor(device=device),
             )
             training_data_map[dataset] = training
             validation_data_map[dataset] = validation
@@ -286,12 +314,23 @@ class HBTPytorchTask(
         training_composite_loader = CompositeDataLoader(
             data_map=training_data_map, weight_dict=weight_dict,
             map_and_collate_cls=NestedDictMapAndCollate,
-            batch_size=1024,
+            batch_size=self.batch_size,
         )
+
+        # create merged validation dataset
+        from torch.utils.data import SequentialSampler
+        from hbt.ml.torch_utils.map_and_collate import FlatMapAndCollate
+        validation_data = FlatParquetDataset([x for x in validation_data_map.values()])
         validation_composite_loader = CompositeDataLoader(
-            data_map=validation_data_map, weight_dict=weight_dict,
-            map_and_collate_cls=NestedDictMapAndCollate,
-            batch_size=1024,
+            validation_data,
+            batch_sampler_cls=tn.Batcher,
+            shuffle=False,
+            batch_size=self.batch_size,
+            batcher_options={
+                "source": tn.SamplerWrapper(SequentialSampler(validation_data))
+            },
+            map_and_collate_cls=FlatMapAndCollate,
+            collate_fn=lambda x: x,
         )
 
         def train_loop(dataloader, model, loss_fn, optimizer, update_interval=100):
@@ -302,13 +341,15 @@ class HBTPytorchTask(
             process_bar: tqdm.std.tqdm = tqdm.tqdm(enumerate(dataloader.data_loader, start=1))
             for ibatch, (X, y) in process_bar:
                 # Compute prediction and loss
+                optimizer.zero_grad()
                 pred = model(X)
                 target = y["categorical_target"].to(torch.float32)
+                from IPython import embed
+                embed(header=f"training loop in batch {ibatch}")
                 loss = loss_fn(pred.squeeze(1), target)
                 # Backpropagation
                 loss.backward()
                 optimizer.step()
-                optimizer.zero_grad()
 
                 if int(ibatch) % int(update_interval) == 0:
                     loss = loss.item()
@@ -338,7 +379,7 @@ class HBTPytorchTask(
                     pred = model(X)
                     target = y["categorical_target"].to(torch.float32)
                     test_loss += loss_fn(pred.squeeze(1), target).item()
-                    correct += (pred.argmax(1) == target).type(torch.float).sum().item()
+                    correct += (F.softmax(pred).argmax(1) == target).type(torch.float).sum().item()
                     num_batches += 1
 
             test_loss /= num_batches
@@ -346,9 +387,13 @@ class HBTPytorchTask(
             print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
         
         logger.info("Constructing loss and optimizer")
-        loss_fn = torch.nn.CrossEntropyLoss()
+        loss_fn = torch.nn.CrossEntropyLoss(reduction="mean")
         from torch.optim import Adam
-        optimizer = Adam(model.parameters(), lr=1e-3)
+        optimizer = Adam(model.parameters(), lr=1e-1, weight_decay=1e-5)
+
+        def lr_decay(epoch):
+            return 0.9**epoch if 1e-1*0.9**epoch > 1e-9 else 1e-1
+        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_decay)
 
         from IPython import embed
         embed(header="initialized model")
