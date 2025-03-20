@@ -80,8 +80,8 @@ if not isinstance(torchdata, MockModule):
     
         def __init__(
                 self,
-                data_map: Mapping[str, Sized],
-                weight_dict: Mapping[str, float | Mapping[str, float]],
+                data_map: Mapping[str, Sized] | None = None,
+                weight_dict: Mapping[str, float | Mapping[str, float]] | None = None,
                 shuffle: bool=True,
                 batch_size: int = 256,
                 num_workers: int = 0,
@@ -126,13 +126,13 @@ if not isinstance(torchdata, MockModule):
             self.batch_sampler_cls: Callable = self.batch_sampler_cls or BatchedMultiNodeWeightedSampler
 
             self.map_cls: Callable = self.map_and_collate_cls or NestedMapAndCollate
-
-            node_dict = {
-                key: tn.SamplerWrapper(self.index_sampler_cls(dataset))
-                for key, dataset in self.data_map.items()
-            }
-            self.batcher_options["source_nodes"] = node_dict
-            self.batcher_options["weights"] = self.weight_dict
+            if issubclass(self.batch_sampler_cls, BatchedMultiNodeWeightedSampler):
+                node_dict = {
+                    key: tn.SamplerWrapper(self.index_sampler_cls(dataset))
+                    for key, dataset in self.data_map.items()
+                }
+                self.batcher_options["source_nodes"] = node_dict
+                self.batcher_options["weights"] = self.weight_dict
 
         def _create_composite_node(self) -> tuple[tn.ParallelMapper, Any]:
 
@@ -153,7 +153,12 @@ if not isinstance(torchdata, MockModule):
             return (parallel_node, batcher)
         
         def __len__(self):
-            return sum(len(x) for x in self.data_map.values())
+            output = 0
+            if isinstance(self.data_map, Mapping):
+                output = sum(len(x) for x in self.data_map.values())
+            else:
+                output = len(self.data_map)
+            return output
         
         @property
         def num_batches(self):
