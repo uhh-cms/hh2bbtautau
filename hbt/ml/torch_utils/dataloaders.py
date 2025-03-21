@@ -91,6 +91,7 @@ if not isinstance(torchdata, MockModule):
                 batcher_options: dict[str, Any] | None = None,
                 index_sampler_cls: Callable | None = None,
                 map_and_collate_cls: Callable | None = None,
+                pin_memory: bool = False,
                 device=None,
         ):
             
@@ -105,6 +106,7 @@ if not isinstance(torchdata, MockModule):
             self.batch_sampler_cls = batch_sampler_cls
             self.index_sampler_cls = index_sampler_cls
             self.map_and_collate_cls = map_and_collate_cls
+            self.pin_memory = pin_memory
             self.device = device
 
             # property for maximum number of batches
@@ -132,6 +134,10 @@ if not isinstance(torchdata, MockModule):
                     for key, dataset in self.data_map.items()
                 }
                 self.batcher_options["source_nodes"] = node_dict
+                if self.pin_memory:
+                    self.batcher_options["source_nodes"] = {
+                        key: tn.PinMemory(data) for key, data in node_dict.items()
+                    }
                 self.batcher_options["weights"] = self.weight_dict
 
         def _create_composite_node(self) -> tuple[tn.ParallelMapper, Any]:
