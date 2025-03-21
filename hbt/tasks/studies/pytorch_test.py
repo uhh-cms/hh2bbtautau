@@ -84,6 +84,12 @@ class HBTPytorchTask(
         description="Batch size to use in training. Default: 1024",
     )
 
+    max_epochs = luigi.IntParameter(
+        default=300,
+        significant=False,
+        description="Maximum training epochs to use. Default: 300",
+    )
+
     def create_branch_map(self):
         # dummy branch map
         return [0]
@@ -286,9 +292,10 @@ class HBTPytorchTask(
                 # transformations=AkToTensor(device=device),
                 
                 targets=int(1) if dataset.startswith("hh") else int(0),
+                batch_transformations=AkToTensor(device=device),
                 global_transformations=PreProcessFloatValues(),
                 # categorical_target_transformation=AkToTensor(device=device),
-                data_type_transform=AkToTensor(device=device),
+                # data_type_transform=AkToTensor(device=device),
             )
             training_data_map[dataset] = training
             validation_data_map[dataset] = validation
@@ -319,7 +326,8 @@ class HBTPytorchTask(
         }
 
         training_composite_loader = CompositeDataLoader(
-            data_map=training_data_map, weight_dict=weight_dict,
+            data_map=training_data_map,
+            weight_dict=weight_dict,
             map_and_collate_cls=NestedDictMapAndCollate,
             batch_size=self.batch_size,
         )
@@ -348,11 +356,7 @@ class HBTPytorchTask(
         def lr_decay(epoch):
             return 0.9**epoch if 1e-1*0.9**epoch > 1e-9 else 1e-1
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_decay)
-
-        trainer = create_supervised_trainer(model, optimizer, loss_fn, device)
-
         val_metrics = {
-            # "accuracy": Accuracy(),
             "loss": Loss(loss_fn),
             "roc_auc": ROC_AUC(),
         }
@@ -369,10 +373,14 @@ class HBTPytorchTask(
         for name, metric in val_metrics.items():
             metric.attach(val_evaluator, name)
 
+        from torch.utils.tensorboard import SummaryWriter
+        writer = SummaryWriter("tb_logger")
+        run_name = "test_run123"
         # How many batches to wait before logging training status
         log_interval = 20
         @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
         def log_training_loss(engine):
+            writer.add_scalars(f"{run_name}_per_batch_training", {"loss": engine.state.output}, engine.state.iteration)
             print(f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.2f}")
 
         @trainer.on(Events.EPOCH_COMPLETED)
@@ -382,8 +390,19 @@ class HBTPytorchTask(
             training_composite_loader.data_loader.reset()
             metrics = train_evaluator.state.metrics
             infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
+            for name, value in metrics.items():
+                writer.add_scalars(f"{run_name}_{name}", {f"training": value }, trainer.state.epoch)
             print(f"Training Results - Epoch[{trainer.state.epoch}] {infos}")
 
+        from ignite.handlers import EarlyStopping
+
+        def score_function(engine):
+            val_loss = engine.state.metrics['loss']
+            return -val_loss
+
+        handler = EarlyStopping(patience=10, score_function=score_function, trainer=trainer)
+        # Note: the handler is attached to an *Evaluator* (runs one epoch on validation dataset).
+        val_evaluator.add_event_handler(Events.COMPLETED, handler)
 
         @trainer.on(Events.EPOCH_COMPLETED)
         def log_validation_results(trainer):
@@ -391,30 +410,14 @@ class HBTPytorchTask(
             val_evaluator.run(validation_composite_loader.data_loader)
             validation_composite_loader.data_loader.reset()
             metrics = val_evaluator.state.metrics
+            for name, value in metrics.items():
+                writer.add_scalars(f"{run_name}_{name}", {f"validation": value }, trainer.state.epoch)
             infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
             print(f"Validation Results - Epoch[{trainer.state.epoch}] {infos}")
 
-        # Define a Tensorboard logger
-        tb_logger = TensorboardLogger(log_dir="tb_logger")
-
-        # Attach handler to plot trainer's loss every 100 iterations
-        tb_logger.attach_output_handler(
-            trainer,
-            event_name=Events.ITERATION_COMPLETED(every=log_interval),
-            tag="training",
-            output_transform=lambda loss: {"batch_loss": loss},
-        )
-
-        # Attach handler for plotting both evaluators' metrics after every epoch completes
-        for tag, evaluator in [("training", train_evaluator), ("validation", val_evaluator)]:
-            tb_logger.attach_output_handler(
-                evaluator,
-                event_name=Events.EPOCH_COMPLETED,
-                tag=tag,
-                metric_names="all",
-                global_step_transform=global_step_from_engine(trainer),
-            )
-
+        
+        trainer.run(training_composite_loader.data_loader, max_epochs=self.max_epochs)
+        writer.close()
         from IPython import embed
         embed(header="initialized model")
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
