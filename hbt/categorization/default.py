@@ -160,13 +160,14 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     # TODO: run3 wp are not released, falling back to run2
     wp = self.config_inst.x.btag_working_points["particleNetMD"]["lp"]
     tagged = events.FatJet.particleNet_XbbVsQCD > wp
+    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
     mask = (
         (ak.num(events.FatJet, axis=1) == 1) &
         (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
         (ak.sum(tagged, axis=1) >= 1) &
         ~self[cat_res1b](events, **kwargs)[1] &
         ~self[cat_res2b](events, **kwargs)[1] &
-        self[di_tau_mass_window](events, **kwargs)[1] &
+        tau_mass_mask &
         ak.any(events.FatJet.msoftdrop >= 30, axis=1) &
         ak.any(events.FatJet.msoftdrop <= 450, axis=1)
     )
