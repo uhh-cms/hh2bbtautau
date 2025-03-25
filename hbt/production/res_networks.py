@@ -277,29 +277,29 @@ def _res_dnn_evaluation(
     if self.config_inst.x.sync:
         # store input columns for sync
         cont_inputs_names = [
-            "sync_res_dnn_met_px", "sync_res_dnn_met_py", "sync_res_dnn_met_cov00",
-            "sync_res_dnn_met_cov01", "sync_res_dnn_met_cov11", "sync_res_dnn_vis_tau1_px",
-            "sync_res_dnn_vis_tau1_py", "sync_res_dnn_vis_tau1_pz", "sync_res_dnn_vis_tau1_e",
-            "sync_res_dnn_vis_tau2_px", "sync_res_dnn_vis_tau2_py", "sync_res_dnn_vis_tau2_pz",
-            "sync_res_dnn_vis_tau2_e", "sync_res_dnn_bjet1_px", "sync_res_dnn_bjet1_py",
-            "sync_res_dnn_bjet1_pz", "sync_res_dnn_bjet1_e", "sync_res_dnn_bjet1_btag_df",
-            "sync_res_dnn_bjet1_cvsb", "sync_res_dnn_bjet1_cvsl", "sync_res_dnn_bjet1_hhbtag",
-            "sync_res_dnn_bjet2_px", "sync_res_dnn_bjet2_py", "sync_res_dnn_bjet2_pz",
-            "sync_res_dnn_bjet2_e", "sync_res_dnn_bjet2_btag_df", "sync_res_dnn_bjet2_cvsb",
-            "sync_res_dnn_bjet2_cvsl", "sync_res_dnn_bjet2_hhbtag", "sync_res_dnn_fatjet_px",
-            "sync_res_dnn_fatjet_py", "sync_res_dnn_fatjet_pz", "sync_res_dnn_fatjet_e",
-            "sync_res_dnn_htt_e", "sync_res_dnn_htt_px", "sync_res_dnn_htt_py",
-            "sync_res_dnn_htt_pz", "sync_res_dnn_hbb_e", "sync_res_dnn_hbb_px",
-            "sync_res_dnn_hbb_py", "sync_res_dnn_hbb_pz", "sync_res_dnn_htthbb_e",
-            "sync_res_dnn_htthbb_px", "sync_res_dnn_htthbb_py", "sync_res_dnn_htthbb_pz",
-            "sync_res_dnn_httfatjet_e", "sync_res_dnn_httfatjet_px", "sync_res_dnn_httfatjet_py",
-            "sync_res_dnn_httfatjet_pz",
+            "met_px", "met_py", "met_cov00",
+            "met_cov01", "met_cov11", "vis_tau1_px",
+            "vis_tau1_py", "vis_tau1_pz", "vis_tau1_e",
+            "vis_tau2_px", "vis_tau2_py", "vis_tau2_pz",
+            "vis_tau2_e", "bjet1_px", "bjet1_py",
+            "bjet1_pz", "bjet1_e", "bjet1_btag_df",
+            "bjet1_cvsb", "bjet1_cvsl", "bjet1_hhbtag",
+            "bjet2_px", "bjet2_py", "bjet2_pz",
+            "bjet2_e", "bjet2_btag_df", "bjet2_cvsb",
+            "bjet2_cvsl", "bjet2_hhbtag", "fatjet_px",
+            "fatjet_py", "fatjet_pz", "fatjet_e",
+            "htt_e", "htt_px", "htt_py",
+            "htt_pz", "hbb_e", "hbb_px",
+            "hbb_py", "hbb_pz", "htthbb_e",
+            "htthbb_px", "htthbb_py", "htthbb_pz",
+            "httfatjet_e", "httfatjet_px", "httfatjet_py",
+            "httfatjet_pz",
         ]
 
         cat_inputs_names = [
-            "sync_res_dnn_pair_type", "sync_res_dnn_dm1",
-            "sync_res_dnn_dm2", "sync_res_dnn_vis_tau1_charge", "sync_res_dnn_vis_tau2_charge",
-            "sync_res_dnn_has_jet_pair", "sync_res_dnn_has_fatjet",
+            "pair_type", "dm1",
+            "dm2", "vis_tau1_charge", "vis_tau2_charge",
+            "has_jet_pair", "has_fatjet",
         ]
         for column, values in zip(
             cont_inputs_names + cat_inputs_names,
@@ -307,7 +307,7 @@ def _res_dnn_evaluation(
         ):
             values_placeholder = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
             values_placeholder[event_mask] = ak.flatten(values)
-            events = set_ak_column_f32(events, column, values_placeholder)
+            events = set_ak_column_f32(events, "sync_res_dnn_" + column, values_placeholder)
     return events
 
 
@@ -452,7 +452,7 @@ def res_dnn_init(self: Producer, **kwargs) -> None:
     # update produced columns
     self.produces |= set(self.output_columns)
     if self.config_inst.x.sync:
-        self.produces |= set(["sync_*"])
+        self.produces.add("sync_*")
 
 
 #
