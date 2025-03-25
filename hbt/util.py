@@ -103,7 +103,7 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
     max_digits_hash = max_digits_event + max_digits_luminosityBlock + max_digits_run
     assert max_digits_hash <= 20, "sum of digits exceeds int64"
 
-    # upcast to int64 to avoid overflow
+    # upcast to uint64 to avoid overflow
     return (
         ak.values_astype(arr.run, np.uint64) * 10**(max_digits_luminosityBlock + max_digits_event) +
         ak.values_astype(arr.luminosityBlock, np.uint64) * 10**max_digits_event +
