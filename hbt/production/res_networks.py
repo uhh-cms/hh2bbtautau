@@ -276,7 +276,7 @@ def _res_dnn_evaluation(
 
     if self.config_inst.x.sync:
         # store input columns for sync
-cont_inputs_names = [
+        cont_inputs_names = [
             "met_px", "met_py", "met_cov00", "met_cov01", "met_cov11",
             "vis_tau1_px", "vis_tau1_py", "vis_tau1_pz", "vis_tau1_e",
             "vis_tau2_px", "vis_tau2_py", "vis_tau2_pz", "vis_tau2_e",
