@@ -132,18 +132,15 @@ def hhbtag(
     if self.config_inst.x.sync:
         # for sync save input variables as additional columns in the sync collection
         input_feature_names = [
-            "sync_hhbtag_jet_shape", "sync_hhbtag_jets_pt", "sync_hhbtag_jets_eta",
-            "sync_hhbtag_jets_ratio_mass_to_pt", "sync_hhbtag_jets_ratio_energy_to_pt",
-            "sync_hhbtag_delta_eta_jets_to_htt", "sync_hhbtag_pnet_btag_score",
-            "sync_hhbtag_delta_phi_jets_to_htt", "sync_hhbtag_campaign",
-            "sync_hhbtag_channel_id", "sync_hhbtag_htt_pt",
-            "sync_hhbtag_htt_eta", "sync_hhbtag_delta_phi_htt_to_met",
-            "sync_hhbtag_ratio_pt_met_to_htt", "sync_hhbtag_all_lepton_pt",
+            "jet_shape", "jets_pt", "jets_eta",
+            "jets_ratio_mass_to_pt", "jets_ratio_energy_to_pt",
+            "delta_eta_jets_to_htt", "pnet_btag_score",
+            "delta_phi_jets_to_htt", "campaign",
+            "channel_id", "htt_pt",
+            "htt_eta", "delta_phi_htt_to_met",
+            "ratio_pt_met_to_htt", "all_lepton_pt",
         ]
-        store_sync_columns = dict(zip(
-            input_feature_names,
-            input_features,
-        ))
+        store_sync_columns = dict(zip(input_feature_names, input_features))
 
         # store inputs
         for column, values in store_sync_columns.items():
@@ -156,7 +153,7 @@ def hhbtag(
             np.asarray(
                 ak.flatten(value_placeholder),
             )[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(values))
-            events = set_ak_column(events, column, value_placeholder)
+            events = set_ak_column(events, "sync_hhbtag_" + column, value_placeholder)
 
     return events
 

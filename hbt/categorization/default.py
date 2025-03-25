@@ -110,7 +110,8 @@ def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[
 
 @categorizer(uses={"Tau.{mass,pt,eta,phi}"})
 def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    di_tau_mass = events.Tau[:, :2].sum(axis=1).mass
+    leptons = [events.Electron * 1, events.Muon * 1, events.Tau * 1]
+    di_tau_mass = ak.concatenate(leptons, axis=1)[:, :2].sum(axis=1).mass
     mask = (
         (di_tau_mass >= 15) &
         (di_tau_mass <= 130)
@@ -124,10 +125,12 @@ def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[a
 def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
     tagged = events.Jet.btagPNetB > wp
+    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
+    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
     mask = (
         (ak.sum(tagged, axis=1) == 1) &
-        self[di_tau_mass_window](events, **kwargs)[1] &
-        self[di_bjet_mass_window](events, **kwargs)[1]
+        tau_mass_mask &
+        bjet_mass_mask
     )
     return events, mask
 
@@ -139,10 +142,12 @@ def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
     # at least two medium pnet b-tags
     wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
     tagged = events.Jet.btagPNetB > wp
+    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
+    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
     mask = (
-        (ak.sum(tagged, axis=1) >= 2) &
-        self[di_tau_mass_window](events, **kwargs)[1] &
-        self[di_bjet_mass_window](events, **kwargs)[1]
+        (ak.sum(tagged, axis=1) == 2) &
+        tau_mass_mask &
+        bjet_mass_mask
     )
     return events, mask
 
@@ -153,7 +158,7 @@ def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
 def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # exclude res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
     # TODO: run3 wp are not released, falling back to run2
-    wp = self.config_inst.x.btag_working_points["particleNet-MD"]["LP"]
+    wp = self.config_inst.x.btag_working_points["particleNetMD"]["lp"]
     tagged = events.FatJet.particleNet_XbbVsQCD > wp
     mask = (
         (ak.num(events.FatJet, axis=1) == 1) &
