@@ -22,7 +22,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
-from columnflow.production.cms.top_pt_weight import gen_parton_top
+from columnflow.production.cms.top_pt_weight import gen_parton_top as cf_gen_parton_top
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import full_like
 from columnflow.util import maybe_import
@@ -54,6 +54,8 @@ def get_met_filters(self: Selector) -> Iterable[str]:
 
 
 hbt_met_filters = met_filters.derive("hbt_met_filters", cls_dict={"get_met_filters": get_met_filters})
+
+gen_parton_top = cf_gen_parton_top.derive("gen_parton_top", cls_dict={"require_dataset_tag": None})
 
 
 # helper to identify bad events that should be considered missing altogether

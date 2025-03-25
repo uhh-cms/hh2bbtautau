@@ -9,7 +9,7 @@ from columnflow.production.normalization import stitched_normalization_weights
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
-from columnflow.production.cms.top_pt_weight import top_pt_weight
+from columnflow.production.cms.top_pt_weight import top_pt_weight as cf_top_pt_weight
 from columnflow.util import maybe_import
 
 from hbt.production.weights import (
@@ -20,6 +20,9 @@ from hbt.production.tau import tau_weights, trigger_weights
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
 
 ak = maybe_import("awkward")
+
+
+top_pt_weight = cf_top_pt_weight.derive("top_pt_weight", cls_dict={"require_dataset_tag": "None"})
 
 
 @producer(

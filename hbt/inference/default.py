@@ -22,7 +22,7 @@ class default(HBTInferenceModelBase):
     Default statistical model for the HH -> bbtautau analysis.
     """
 
-    add_qcd = True
+    add_qcd = False
     fake_data = True
 
     def init_proc_map(self) -> None:
@@ -81,7 +81,8 @@ class default(HBTInferenceModelBase):
                     config_data={
                         config_inst.name: self.category_config_spec(
                             category=f"{ch}__{cat}__os__iso",
-                            variable="res_dnn_hh_fine",
+                            # variable="res_dnn_hh_fine",
+                            variable="jet1_pt",
                             data_datasets=["data_*"],
                         )
                         for config_inst in self.config_insts

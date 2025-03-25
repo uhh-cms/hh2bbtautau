@@ -416,9 +416,10 @@ def add_config(
     # task defaults and groups
     ################################################################################################
 
-    # default objects, such as calibrator, selector, producer, ml model, inference model, etc
+    # default objects
     cfg.x.default_calibrator = "default"
     cfg.x.default_selector = "default"
+    cfg.x.default_reducer = "cf_default"
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
@@ -567,9 +568,10 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
+        "all": [],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
     }
-    cfg.x.default_selector_steps = "default"
+    cfg.x.default_selector_steps = "all"
 
     # plotting overwrites
     from hbt.config.styles import setup_plot_styles
@@ -963,18 +965,18 @@ def add_config(
 
     # top pt reweighting
     # https://twiki.cern.ch/twiki/bin/view/CMS/TopPtReweighting?rev=31
-    # from columnflow.production.cms.top_pt_weight import TopPtWeightConfig
-    # cfg.x.top_pt_weight = TopPtWeightConfig(
-    #     params={
-    #         "a": 0.0615,
-    #         "a_up": 0.0615 * 1.5,
-    #         "a_down": 0.0615 * 0.5,
-    #         "b": -0.0005,
-    #         "b_up": -0.0005 * 1.5,
-    #         "b_down": -0.0005 * 0.5,
-    #     },
-    #     pt_max=500.0,
-    # )
+    from columnflow.production.cms.top_pt_weight import TopPtWeightConfig
+    cfg.x.top_pt_weight = TopPtWeightConfig(
+        params={
+            "a": 0.0615,
+            "a_up": 0.0615 * 1.5,
+            "a_down": 0.0615 * 0.5,
+            "b": -0.0005,
+            "b_up": -0.0005 * 1.5,
+            "b_down": -0.0005 * 0.5,
+        },
+        pt_max=500.0,
+    )
 
     ################################################################################################
     # shifts
@@ -1289,21 +1291,20 @@ def add_config(
         "cf.ReduceEvents": {
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,
+            # event info
+            "deterministic_seed",
             # object info
-            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
-            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
-            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
-            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
+            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
             "FatJet.*",
             "SubJet{1,2}.*",
-            "Electron.*",
-            "Muon.*",
-            "Tau.*",
+            "Electron.*", *skip_column("Electron.{track_cov,gsf}*"),
+            "Muon.*", skip_column("Muon.track_cov*"),
+            "Tau.*", skip_column("Tau.track_cov*"),
             f"{cfg.x.met_name}.{{pt,phi,significance,covXX,covXY,covYY}}",
             "PV.npvs",
-            "FatJet.*",
-            # additional event info
-            "deterministic_seed", "Jet.deterministic_seed",
             # keep all columns added during selection, but skip cutflow feature
             ColumnCollection.ALL_FROM_SELECTOR,
             skip_column("cutflow.*"),

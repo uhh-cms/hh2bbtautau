@@ -317,7 +317,7 @@ def _res_dnn_evaluation_setup(
     getattr(bundle.files, self.cls_name).load(model_dir, formatter="tar")
 
     # load the model
-    with self.task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
+    with task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
         saved_model = tf.saved_model.load(model_dir.child("model_fold0").abspath)
         self.res_model = saved_model.signatures["serving_default"]
 
