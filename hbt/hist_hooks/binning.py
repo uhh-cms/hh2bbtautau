@@ -60,7 +60,7 @@ def get_task_infos(task: law.Task, config) -> dict[str, Any]:
         # TODO: this might fail for multi-config tasks
         return {
             "category_name": task.branch_data.category,
-            "variable_name": task.branch_data.variable[0],
+            "variable_name": task.branch_data.variable,
         }
 
     raise Exception(f"cannot determine task infos of unhandled task {task!r}")
@@ -248,7 +248,6 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             # define new axes, from old histogram and rebinned variable with new axis
             variable = h.axes[-1].name
             axes = list(h.axes[:-1]) + [hist.axis.Variable(edges, name=variable, label=f"{variable}_flat_s")]
-
             new_hist = hist.Hist(*axes, storage=hist.storage.Weight())
 
             # slice the old histogram storage view with new edges

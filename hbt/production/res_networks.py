@@ -274,6 +274,31 @@ def _res_dnn_evaluation(
         values[event_mask] = scores[:, i]
         events = set_ak_column_f32(events, column, values)
 
+    if self.config_inst.x.sync:
+        # store input columns for sync
+        cont_inputs_names = [
+            "met_px", "met_py", "met_cov00", "met_cov01", "met_cov11",
+            "vis_tau1_px", "vis_tau1_py", "vis_tau1_pz", "vis_tau1_e",
+            "vis_tau2_px", "vis_tau2_py", "vis_tau2_pz", "vis_tau2_e",
+            "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e", "bjet1_btag_df", "bjet1_cvsb", "bjet1_cvsl", "bjet1_hhbtag",
+            "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e", "bjet2_btag_df", "bjet2_cvsb", "bjet2_cvsl", "bjet2_hhbtag",
+            "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e",
+            "htt_e", "htt_px", "htt_py", "htt_pz",
+            "hbb_e", "hbb_px", "hbb_py", "hbb_pz",
+            "htthbb_e", "htthbb_px", "htthbb_py", "htthbb_pz",
+            "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz",
+        ]
+
+        cat_inputs_names = [
+            "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
+        ]
+        for column, values in zip(
+            cont_inputs_names + cat_inputs_names,
+            continous_inputs + categorical_inputs,
+        ):
+            values_placeholder = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
+            values_placeholder[event_mask] = ak.flatten(values)
+            events = set_ak_column_f32(events, "sync_res_dnn_" + column, values_placeholder)
     return events
 
 
@@ -417,6 +442,8 @@ def res_dnn_init(self: Producer, **kwargs) -> None:
 
     # update produced columns
     self.produces |= set(self.output_columns)
+    if self.config_inst.x.sync:
+        self.produces.add("sync_*")
 
 
 #
