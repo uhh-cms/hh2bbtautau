@@ -10,6 +10,8 @@ import importlib
 
 import order as od
 
+from columnflow.util import DotDict
+
 from hbt.config.configs_hbt import add_config
 
 
@@ -40,12 +42,34 @@ analysis_hbt.x.cmssw_sandboxes = [
     # "$CF_BASE/sandboxes/cmssw_default.sh",
 ]
 
+################################################################################################
+# analysis-wide groups and defaults
+################################################################################################
+
 # config groups for conveniently looping over certain configs
 # (used in wrapper_factory)
 analysis_hbt.x.config_groups = {}
 
 # named function hooks that can modify store_parts of task outputs if needed
 analysis_hbt.x.store_parts_modifiers = {}
+
+################################################################################################
+# hist hooks
+################################################################################################
+
+analysis_hbt.x.hist_hooks = DotDict()
+
+# simple blinding
+from hbt.hist_hooks.blinding import add_hooks as add_blinding_hooks
+add_blinding_hooks(analysis_hbt)
+
+# qcd estimation
+from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
+add_qcd_hooks(analysis_hbt)
+
+# binning
+from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
+add_binning_hooks(analysis_hbt)
 
 
 #

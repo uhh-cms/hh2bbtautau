@@ -12,7 +12,7 @@ import law
 import order
 
 from columnflow.production import Producer
-from columnflow.util import maybe_import, InsertableDict
+from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
 
 from hbt.util import IF_DATASET_IS_DY, IF_DATASET_IS_W_LNU
@@ -57,7 +57,7 @@ class stitched_process_ids(Producer):
         # must be overwritten by inheriting classes
         ...
 
-    def init_func(self, *args, **kwargs):
+    def init_func(self, **kwargs) -> None:
         # if there is a include_condition set, apply it to both used and produced columns
         cond = lambda args: {self.include_condition(*args)} if self.include_condition else {*args}
         self.uses |= cond(self.stitching_columns or [])
@@ -147,12 +147,7 @@ class stiched_process_ids_nj_pt(stitched_process_ids):
         # must be overwritten by inheriting classes
         ...
 
-    def setup_func(
-        self,
-        reqs: dict,
-        inputs: dict,
-        reader_targets: InsertableDict,
-    ) -> None:
+    def setup_func(self, task: law.Task, **kwargs) -> None:
         # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
         stitching_ranges: dict[NJetsRange, list[PtRange]] = {}
         for proc in self.leaf_processes:

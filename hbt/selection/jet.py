@@ -4,15 +4,19 @@
 Jet selection methods.
 """
 
+from __future__ import annotations
+
 from operator import or_
 from functools import reduce
+
+import law
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import (
     EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view,
     full_like, get_ak_routes, remove_ak_column,
 )
-from columnflow.util import maybe_import, InsertableDict
+from columnflow.util import maybe_import
 
 from hbt.util import IF_RUN_2
 from hbt.production.hhbtag import hhbtag
@@ -335,7 +339,7 @@ def jet_selection(
 
 
 @jet_selection.init
-def jet_selection_init(self: Selector) -> None:
+def jet_selection_init(self: Selector, **kwargs) -> None:
     # register shifts
     self.shifts |= {
         shift_inst.name
@@ -345,7 +349,7 @@ def jet_selection_init(self: Selector) -> None:
 
 
 @jet_selection.setup
-def jet_selection_setup(self: Selector, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+def jet_selection_setup(self: Selector, task: law.Task, **kwargs) -> None:
     # store ids of tau-tau cross triggers
     self.trigger_ids_ttjc = [
         trigger.id for trigger in self.config_inst.x.triggers

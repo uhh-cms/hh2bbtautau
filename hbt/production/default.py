@@ -10,7 +10,7 @@ from columnflow.production.normalization import stitched_normalization_weights
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
-from columnflow.production.cms.top_pt_weight import top_pt_weight
+from columnflow.production.cms.top_pt_weight import top_pt_weight as cf_top_pt_weight
 from columnflow.util import maybe_import
 from columnflow.columnar_util import default_coffea_collections
 
@@ -22,6 +22,9 @@ from hbt.production.tau import tau_weights, trigger_weights
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
 
 ak = maybe_import("awkward")
+
+
+top_pt_weight = cf_top_pt_weight.derive("top_pt_weight", cls_dict={"require_dataset_tag": "None"})
 
 
 @producer(
@@ -94,11 +97,10 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 
 @default.init
-def default_init(self: Producer) -> None:
+def default_init(self: Producer, **kwargs) -> None:
     if self.produce_weights:
         weight_producers = {tau_weights, electron_weights, muon_weights, trigger_weights}
-
-        if (dataset_inst := getattr(self, "dataset_inst", None)) and dataset_inst.has_tag("ttbar"):
+        if self.dataset_inst.has_tag("ttbar"):
             weight_producers.add(top_pt_weight)
 
         self.uses |= weight_producers

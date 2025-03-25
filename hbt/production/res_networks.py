@@ -16,7 +16,8 @@ from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import (
     set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections,
 )
-from columnflow.util import maybe_import, dev_sandbox, InsertableDict, DotDict
+from columnflow.util import maybe_import, dev_sandbox, DotDict
+from columnflow.types import Any
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -311,25 +312,25 @@ def _res_dnn_evaluation(
 
 
 @_res_dnn_evaluation.init
-def _res_dnn_evaluation_init(self: Producer) -> None:
+def _res_dnn_evaluation_init(self: Producer, **kwargs) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
 
 
 @_res_dnn_evaluation.requires
-def _res_dnn_evaluation_requires(self: Producer, reqs: dict) -> None:
+def _res_dnn_evaluation_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     if "external_files" in reqs:
         return
 
     from columnflow.tasks.external import BundleExternalFiles
-    reqs["external_files"] = BundleExternalFiles.req(self.task)
+    reqs["external_files"] = BundleExternalFiles.req(task)
 
 
 @_res_dnn_evaluation.setup
 def _res_dnn_evaluation_setup(
     self: Producer,
-    reqs: dict,
-    inputs: dict,
-    reader_targets: InsertableDict,
+    task: law.Task,
+    reqs: dict[str, DotDict[str, Any]],
+    **kwargs,
 ) -> None:
     import os
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -350,7 +351,7 @@ def _res_dnn_evaluation_setup(
     getattr(bundle.files, self.cls_name).load(model_dir, formatter="tar")
 
     # load the model
-    with self.task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
+    with task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
         saved_model = tf.saved_model.load(model_dir.child("model_fold0").abspath)
         self.res_model = saved_model.signatures["serving_default"]
 
@@ -408,8 +409,8 @@ res_pdnn = _res_dnn_evaluation.derive("res_pdnn", cls_dict={
 
 
 @res_pdnn.init
-def res_pdnn_init(self: Producer) -> None:
-    super(res_pdnn, self).init_func()
+def res_pdnn_init(self: Producer, **kwargs) -> None:
+    super(res_pdnn, self).init_func(**kwargs)
 
     # check spin value and mass values
     if self.spin not in {0, 2}:
@@ -439,8 +440,8 @@ res_dnn = _res_dnn_evaluation.derive("res_dnn", cls_dict={
 
 
 @res_dnn.init
-def res_dnn_init(self: Producer) -> None:
-    super(res_dnn, self).init_func()
+def res_dnn_init(self: Producer, **kwargs) -> None:
+    super(res_dnn, self).init_func(**kwargs)
 
     # output column names (in this order)
     self.output_columns = [

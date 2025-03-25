@@ -18,8 +18,7 @@ from scinum import Number
 
 from columnflow.util import DotDict, dev_sandbox
 from columnflow.config_util import (
-    get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
-    verify_config_processes,
+    get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources, verify_config_processes,
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 
@@ -417,9 +416,10 @@ def add_config(
     # task defaults and groups
     ################################################################################################
 
-    # default objects, such as calibrator, selector, producer, ml model, inference model, etc
+    # default objects
     cfg.x.default_calibrator = "default"
     cfg.x.default_selector = "default"
+    cfg.x.default_reducer = "cf_default"
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
@@ -568,9 +568,10 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
+        "all": [],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
     }
-    cfg.x.default_selector_steps = "default"
+    cfg.x.default_selector_steps = "all"
 
     # plotting overwrites
     from hbt.config.styles import setup_plot_styles
@@ -685,7 +686,7 @@ def add_config(
             "jet_type": jet_type,
             "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
             "levels_for_type1_met": ["L1FastJet"],
-            "uncertainty_sources": [
+            "uncertainty_sources": list(filter(bool, [
                 # "AbsoluteStat",
                 # "AbsoluteScale",
                 # "AbsoluteSample",
@@ -738,7 +739,7 @@ def add_config(
                 "CorrelationGroupbJES",
                 "CorrelationGroupFlavor",
                 "CorrelationGroupUncorrelated",
-            ],
+            ])),
         },
     })
 
@@ -1306,21 +1307,20 @@ def add_config(
         "cf.ReduceEvents": {
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,
+            # event info
+            "deterministic_seed",
             # object info
-            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
-            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
-            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
-            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
+            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
             "FatJet.*",
             "SubJet{1,2}.*",
-            "Electron.*",
-            "Muon.*",
-            "Tau.*",
+            "Electron.*", *skip_column("Electron.{track_cov,gsf}*"),
+            "Muon.*", skip_column("Muon.track_cov*"),
+            "Tau.*", skip_column("Tau.track_cov*"),
             f"{cfg.x.met_name}.{{pt,phi,significance,covXX,covXY,covYY}}",
             "PV.npvs",
-            "FatJet.*",
-            # additional event info
-            "deterministic_seed", "Jet.deterministic_seed",
             # keep all columns added during selection, but skip cutflow feature
             ColumnCollection.ALL_FROM_SELECTOR,
             skip_column("cutflow.*"),
@@ -1441,23 +1441,6 @@ def add_config(
         add_triggers_2023(cfg)
     else:
         raise False
-
-    ################################################################################################
-    # hist hooks
-    ################################################################################################
-
-    cfg.x.hist_hooks = DotDict()
-
-    # simple blinding
-    cfg.x.hist_hooks.blind = lambda task, hists: {p: h for p, h in hists.items() if not p.is_data}
-
-    # qcd estimation
-    from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
-    add_qcd_hooks(cfg)
-
-    # binning
-    from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
-    add_binning_hooks(cfg)
 
     ################################################################################################
     # LFN settings
