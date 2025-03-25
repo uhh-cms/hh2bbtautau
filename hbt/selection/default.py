@@ -193,7 +193,7 @@ def default(
     else:
         events = self[process_ids](events, **kwargs)
 
-    # create HHBJet collection for categorization
+    # create jet collections for categorization
     events["HHBJet"] = events.Jet[results.objects.Jet.HHBJet]
     events["FatJet"] = events.FatJet[results.objects.FatJet.FatJet]
 
