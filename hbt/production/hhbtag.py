@@ -10,7 +10,7 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, DotDict
-from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column
+from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column, full_like, flat_np_view
 from columnflow.types import Any
 
 from hbt.util import IF_RUN_2
@@ -124,8 +124,8 @@ def hhbtag(
     jet_mask = ak.fill_none(jet_mask, False, axis=-1)
 
     # insert scores into an array with same shape as input jets (without jet_mask and event_mask)
-    all_scores = ak.fill_none(ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
-    np.asarray(ak.flatten(all_scores))[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(scores))
+    all_scores = ak.fill_none(full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
+    flat_np_view(all_scores, axis=1)[ak.flatten(jet_mask & event_mask, axis=1)] = flat_np_view(scores)
 
     events = set_ak_column(events, "hhbtag_score", all_scores)
 
@@ -163,17 +163,12 @@ def hhbtag(
 
 @hhbtag.init
 def hhbtag_init(self: Producer, **kwargs) -> None:
-    self.output_columns = [
-        f"hhbtag_{name}"
-        for name in ["score"]
-    ]
-
     # add (puppi)met dynamically
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
     # produce input columns
     if self.config_inst.x.sync:
-        self.produces |= set(["sync_*"])
+        self.produces.add("sync_*")
 
 
 @hhbtag.requires
