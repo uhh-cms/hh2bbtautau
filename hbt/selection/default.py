@@ -193,6 +193,10 @@ def default(
     else:
         events = self[process_ids](events, **kwargs)
 
+    # create jet collections for categorization
+    events["HHBJet"] = events.Jet[results.objects.Jet.HHBJet]
+    events["FatJet"] = events.FatJet[results.objects.FatJet.FatJet]
+
     # some cutflow features
     events = self[cutflow_features](events, results.objects, **kwargs)
 

@@ -13,8 +13,7 @@ import law
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import (
-    EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view,
-    full_like,
+    EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view, full_like,
 )
 from columnflow.util import maybe_import
 
@@ -36,7 +35,7 @@ ak = maybe_import("awkward")
     },
     produces={
         # new columns
-        "Jet.hhbtag",
+        "Jet.hhbtag", hhbtag,
     },
     # shifts are declared dynamically below in jet_selection_init
 )
@@ -91,8 +90,8 @@ def jet_selection(
     #
 
     # get the hhbtag values per jet per event
-    hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
-
+    events = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
+    hhbtag_scores = events.hhbtag_score
     # create a mask where only the two highest scoring hhbjets are selected
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
     hhbjet_mask = mask_from_indices(score_indices[:, :2], hhbtag_scores)
