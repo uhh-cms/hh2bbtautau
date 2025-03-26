@@ -36,6 +36,7 @@ class TFEvaluator:
         name: str
         path: str
         pipe: Connection | None = None
+        signature_key: str = ""
 
     def __init__(self) -> None:
         super().__init__()
@@ -63,7 +64,7 @@ class TFEvaluator:
     def running(self) -> bool:
         return self._p is not None
 
-    def add_model(self, name: str, path: str | pathlib.Path) -> None:
+    def add_model(self, name: str, path: str | pathlib.Path, signature_key: str = "") -> None:
         if self.running:
             raise ValueError("cannot add models while running")
         if name in self._models:
@@ -75,7 +76,7 @@ class TFEvaluator:
         path = os.path.abspath(os.path.abspath(path))
 
         # add it
-        self._models[name] = TFEvaluator.Model(name=name, path=path)
+        self._models[name] = TFEvaluator.Model(name=name, path=path, signature_key=signature_key)
 
     def start(self) -> None:
         if self.running:
@@ -152,6 +153,7 @@ def _tf_evaluate(
         name: str
         path: str
         pipe: Connection
+        signature_key: str = ""
         model: Any = None
 
         @classmethod
@@ -163,11 +165,20 @@ def _tf_evaluate(
                 raise FileNotFoundError(f"model file '{config['path']}' does not exist")
             if not isinstance(config["pipe"], Connection):
                 raise TypeError(f"'pipe' {config['pipe']} not of type '{Connection}'")
-            return cls(name=config["name"], path=config["path"], pipe=config["pipe"])
+            return cls(
+                name=config["name"],
+                path=config["path"],
+                pipe=config["pipe"],
+                signature_key=config.get("signature_key", ""),
+            )
 
         def load(self) -> None:
-            _print(f"loading model '{self.name}' from {self.path} ...")
-            self.model = tf.saved_model.load(self.path)
+            sig_msg = f" (signature '{self.signature_key}')" if self.signature_key else ""
+            _print(f"loading model '{self.name}'{sig_msg} from {self.path} ...")
+
+            model = tf.saved_model.load(self.path)
+            self.model = model if not self.signature_key else model.signatures[self.signature_key]
+
             _print("done")
 
         def evaluate(self, *args, **kwargs) -> np.ndarray:

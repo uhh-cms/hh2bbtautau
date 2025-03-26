@@ -169,6 +169,13 @@ def hhbtag_setup(
     repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
     arc.load(repo_dir, formatter="tar")
 
+    # setup the evaluator
+    model_dir = repo_dir.child("hh-btag-master/models")
+    model_path = f"HHbtag_{self.hhbtag_version}_par"
+    self.evaluator = TFEvaluator()
+    self.evaluator.add_model("hhbtag_even", model_dir.child(f"{model_path}_0").path)
+    self.evaluator.add_model("hhbtag_odd", model_dir.child(f"{model_path}_1").path)
+
     # get the version of the external file
     self.hhbtag_version = self.config_inst.x.external_files["hh_btag_repo"][1]
 
@@ -215,12 +222,7 @@ def hhbtag_setup(
             f"{self.config_inst.x.met_name}",
         )
 
-    # start the TF evaluator
-    model_dir = repo_dir.child("hh-btag-master/models")
-    model_path = f"HHbtag_{self.hhbtag_version}_par"
-    self.evaluator = TFEvaluator()
-    self.evaluator.add_model("hhbtag_even", model_dir.child(f"{model_path}_0").path)
-    self.evaluator.add_model("hhbtag_odd", model_dir.child(f"{model_path}_1").path)
+    # start the evaluator
     self.evaluator.start()
 
 
