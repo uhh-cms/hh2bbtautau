@@ -381,6 +381,15 @@ def _res_dnn_evaluation_setup(
     self.evaluator.start()
 
 
+@_res_dnn_evaluation.teardown
+def _res_dnn_evaluation_teardown(self: Producer) -> None:
+    """
+    Stops the TF evaluator.
+    """
+    if (evaluator := getattr(self, "evaluator", None)) is not None:
+        evaluator.stop()
+
+
 #
 # parameterized network
 # trained with Radion (spin 0) and Graviton (spin 2) samples up to mX = 3000 GeV in all run 2 eras
