@@ -99,11 +99,11 @@ def hhbtag(
     even_mask = ak.to_numpy((events[event_mask].event % 2) == 0)
     if ak.sum(even_mask):
         input_features_even = split(even_mask)
-        scores_even = self.hhbtag_model_even(input_features_even).numpy()
+        scores_even = self.evaluator("hhbtag_even", input_features_even)
         scores[even_mask] = scores_even
     if ak.sum(~even_mask):
         input_features_odd = split(~even_mask)
-        scores_odd = self.hhbtag_model_odd(input_features_odd).numpy()
+        scores_odd = self.evaluator("hhbtag_odd", input_features_odd)
         scores[~even_mask] = scores_odd
 
     # remove the scores of padded jets
@@ -190,11 +190,7 @@ def hhbtag_setup(
     """
     Sets up the two HHBtag TF models.
     """
-    import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    import tensorflow as tf
-    tf.config.threading.set_inter_op_parallelism_threads(1)
-    tf.config.threading.set_intra_op_parallelism_threads(1)
+    from hbt.ml.tf_evaluator import TFEvaluator
 
     # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
     bundle = reqs["external_files"]
@@ -204,16 +200,15 @@ def hhbtag_setup(
     repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
     arc.load(repo_dir, formatter="tar")
 
-    # get the version of the external file
-    self.hhbtag_version = self.config_inst.x.external_files["hh_btag_repo"][1]
-
-    # define the model path
+    # setup the evaluator
     model_dir = repo_dir.child("hh-btag-master/models")
     model_path = f"HHbtag_{self.hhbtag_version}_par"
-    # save both models (even and odd event numbers)
-    with task.publish_step("loading hhbtag models ..."):
-        self.hhbtag_model_even = tf.saved_model.load(model_dir.child(f"{model_path}_0").path)
-        self.hhbtag_model_odd = tf.saved_model.load(model_dir.child(f"{model_path}_1").path)
+    self.evaluator = TFEvaluator()
+    self.evaluator.add_model("hhbtag_even", model_dir.child(f"{model_path}_0").path)
+    self.evaluator.add_model("hhbtag_odd", model_dir.child(f"{model_path}_1").path)
+
+    # get the version of the external file
+    self.hhbtag_version = self.config_inst.x.external_files["hh_btag_repo"][1]
 
     # prepare mappings for the HHBtag model
     # (see links above for mapping information)
@@ -257,3 +252,15 @@ def hhbtag_setup(
             f"hhbtag model {self.hhbtag_version} uses {hhbtag_met_name}, but config requests "
             f"{self.config_inst.x.met_name}",
         )
+
+    # start the evaluator
+    self.evaluator.start()
+
+
+@hhbtag.teardown
+def hhbtag_teardown(self: Producer) -> None:
+    """
+    Stops the TF evaluator.
+    """
+    if (evaluator := getattr(self, "evaluator", None)) is not None:
+        evaluator.stop()
