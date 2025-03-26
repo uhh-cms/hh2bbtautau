@@ -22,7 +22,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
-from columnflow.production.cms.top_pt_weight import gen_parton_top
+from columnflow.production.cms.top_pt_weight import gen_parton_top as cf_gen_parton_top
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import full_like
 from columnflow.util import maybe_import
@@ -46,9 +46,6 @@ logger = law.logger.get_logger(__name__)
 
 # updated met_filters selector to define dataset dependent filters
 def get_met_filters(self: Selector) -> Iterable[str]:
-    if getattr(self, "dataset_inst", None) is None:
-        return {}
-
     met_filters = set(self.config_inst.x.met_filters[self.dataset_inst.data_source])
     if self.dataset_inst.has_tag("broken_ecalBadCalibFilter"):
         met_filters -= {"Flag.ecalBadCalibFilter"}
@@ -57,6 +54,8 @@ def get_met_filters(self: Selector) -> Iterable[str]:
 
 
 hbt_met_filters = met_filters.derive("hbt_met_filters", cls_dict={"get_met_filters": get_met_filters})
+
+gen_parton_top = cf_gen_parton_top.derive("gen_parton_top", cls_dict={"require_dataset_tag": None})
 
 
 # helper to identify bad events that should be considered missing altogether
@@ -194,6 +193,10 @@ def default(
     else:
         events = self[process_ids](events, **kwargs)
 
+    # create jet collections for categorization
+    events["HHBJet"] = events.Jet[results.objects.Jet.HHBJet]
+    events["FatJet"] = events.FatJet[results.objects.FatJet.FatJet]
+
     # some cutflow features
     events = self[cutflow_features](events, results.objects, **kwargs)
 
@@ -230,10 +233,7 @@ def default(
 
 
 @default.init
-def default_init(self: Selector) -> None:
-    if getattr(self, "dataset_inst", None) is None:
-        return
-
+def default_init(self: Selector, **kwargs) -> None:
     # build and store derived process id producers
     for tag in ("dy", "w_lnu"):
         prod_name = f"process_ids_{tag}"
@@ -271,8 +271,8 @@ empty = default.derive("empty", cls_dict={})
 
 
 @empty.init
-def empty_init(self: Selector) -> None:
-    super(empty, self).init_func()
+def empty_init(self: Selector, **kwargs) -> None:
+    super(empty, self).init_func(**kwargs)
 
     # remove unused dependencies
     unused = {
@@ -390,6 +390,7 @@ def setup_and_increment_stats(
     self: Selector,
     *,
     events: ak.Array,
+    task: law.Task,
     results: SelectionResult,
     stats: defaultdict,
     no_sel: np.ndarray | ak.Array | type(Ellipsis),
@@ -404,6 +405,7 @@ def setup_and_increment_stats(
 
     :param self: The selector instance.
     :param events: The events array.
+    :param task: The law task.
     :param results: The current selection results.
     :param stats: The stats dictionary.
     :param event_sel: The general event selection mask.
@@ -417,7 +419,7 @@ def setup_and_increment_stats(
     event_sel_variations = {n: s for n, s in event_sel_variations.items() if s is not None}
 
     # when a shift was requested, skip all other systematic variations
-    skip_shifts = self.global_shift_inst != "nominal"
+    skip_shifts = task.global_shift_inst != "nominal"
 
     # start creating a weight, group and group combination map
     weight_map = {

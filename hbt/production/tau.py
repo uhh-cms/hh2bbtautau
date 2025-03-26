@@ -6,13 +6,16 @@ Tau scale factor production.
 
 import functools
 
-from columnflow.production import Producer, producer
-from columnflow.util import maybe_import, InsertableDict
-from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
+import law
 
+from columnflow.production import Producer, producer
+from columnflow.util import maybe_import, load_correction_set, DotDict
+from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
+from columnflow.types import Any
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
+
 
 # helper
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
@@ -23,7 +26,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         # custom columns created upstream, probably by a selector
         "single_triggered", "cross_triggered",
         # nano columns
-        "Tau.{pt,eta,genPartFlav,decayMode}",
+        "Tau.{mass,pt,eta,phi,decayMode,genPartFlav}",
     },
     produces={
         "tau_weight",
@@ -195,24 +198,24 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 
 @tau_weights.requires
-def tau_weights_requires(self: Producer, reqs: dict) -> None:
+def tau_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     if "external_files" in reqs:
         return
 
     from columnflow.tasks.external import BundleExternalFiles
-    reqs["external_files"] = BundleExternalFiles.req(self.task)
+    reqs["external_files"] = BundleExternalFiles.req(task)
 
 
 @tau_weights.setup
-def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
-    bundle = reqs["external_files"]
-
+def tau_weights_setup(
+    self: Producer,
+    task: law.Task,
+    reqs: dict[str, DotDict[str, Any]],
+    **kwargs,
+) -> None:
     # create the trigger and id correctors
-    import correctionlib
-    correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
-    correction_set = correctionlib.CorrectionSet.from_string(
-        self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
-    )
+    tau_file = self.get_tau_file(reqs["external_files"].files)
+    correction_set = load_correction_set(tau_file)
     tagger_name = self.get_tau_tagger()
     self.id_vs_jet_corrector = correction_set[f"{tagger_name}VSjet"]
     self.id_vs_e_corrector = correction_set[f"{tagger_name}VSe"]
@@ -366,35 +369,25 @@ def tau_trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 
 @tau_trigger_weights.requires
-def tau_trigger_weights_requires(self: Producer, reqs: dict) -> None:
+def tau_trigger_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     if "external_files" in reqs:
         return
 
     from columnflow.tasks.external import BundleExternalFiles
-    reqs["external_files"] = BundleExternalFiles.req(self.task)
+    reqs["external_files"] = BundleExternalFiles.req(task)
 
 
 @tau_trigger_weights.setup
-def tau_trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
-    bundle = reqs["external_files"]
-
+def tau_trigger_weights_setup(
+    self: Producer,
+    task: law.Task,
+    reqs: dict[str, DotDict[str, Any]],
+    **kwargs,
+) -> None:
     # create the trigger and id correctors
-    import correctionlib
-    correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
-
-    # load the correction set
-    tau_file = self.get_tau_file(bundle.files)
-    if tau_file.ext() == "json":
-        correction_set = correctionlib.CorrectionSet.from_file(
-            self.get_tau_file(bundle.files).abspath,
-        )
-    else:
-        correction_set = correctionlib.CorrectionSet.from_string(
-            self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
-        )
-
-    corrector_string = self.get_tau_corrector()
-    self.tau_trig_corrector = correction_set[corrector_string]
+    tau_file = self.get_tau_file(reqs["external_files"].files)
+    corrector_name = self.get_tau_corrector()
+    self.tau_trig_corrector = load_correction_set(tau_file)[corrector_name]
 
     # check versions
     assert self.tau_trig_corrector.version in [0, 1]

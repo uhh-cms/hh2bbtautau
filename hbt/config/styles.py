@@ -19,8 +19,7 @@ def setup_plot_styles(config: od.Config) -> None:
     """
     # general settings
     config.x.default_general_settings = {
-        "cms_label": "wip",
-        "whitespace_fraction": 0.31,
+        "cms_label": "wip", "whitespace_fraction": 0.31,
     }
 
     # default component configs
@@ -28,8 +27,8 @@ def setup_plot_styles(config: od.Config) -> None:
         "height_ratios": [3, 0.9],
     }
     legend = {
-        "borderpad": 0, "borderaxespad": 1.2, "columnspacing": 1.8, "labelspacing": 0.28,
-        "fontsize": 16, "cf_line_breaks": True, "cf_short_labels": False,
+        "borderpad": 0, "borderaxespad": 1.2, "columnspacing": 1.8, "labelspacing": 0.28, "fontsize": 16,
+        "cf_line_breaks": True, "cf_short_labels": False,
     }
     ratio = {
         "yloc": "center",
@@ -43,8 +42,7 @@ def setup_plot_styles(config: od.Config) -> None:
     # - shortened process labels
     # - changed annotation (channel) position to fit right under legend
     wide_legend = legend | {
-        "ncols": 3, "loc": "upper left", "cf_entries_per_column": legend_entries_per_column,
-        "cf_short_labels": True,
+        "ncols": 3, "loc": "upper left", "cf_entries_per_column": legend_entries_per_column, "cf_short_labels": True,
     }
     annotate_wide = annotate | {
         "xy": (0.035, 0.765),

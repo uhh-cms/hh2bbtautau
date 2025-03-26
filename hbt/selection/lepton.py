@@ -778,7 +778,6 @@ def lepton_selection(
             # store the matched trigger id
             ids = ak.where(is_ee, np.float32(trigger.id), np.float32(np.nan))
             matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
-            # from IPython import embed; embed(header="ee channel, matched_trigger_ids")
 
         # mumu channel
         if trigger.has_tag("single_mu") and (
@@ -1017,6 +1016,6 @@ def lepton_selection(
 
 
 @lepton_selection.init
-def lepton_selection_init(self: Selector) -> None:
+def lepton_selection_init(self: Selector, **kwargs) -> None:
     # add column to load the raw tau tagger score
     self.uses.add(f"Tau.raw{self.config_inst.x.tau_tagger}VSjet")

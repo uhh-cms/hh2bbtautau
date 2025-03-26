@@ -98,31 +98,78 @@ def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
     return events, ak.num(events.Jet.pt, axis=1) >= 2
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
+def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    di_bjet_mass = events.HHBJet.sum(axis=1).mass
+    mask = (
+        (di_bjet_mass >= 40) &
+        (di_bjet_mass <= 270)
+    )
+    return events, mask
+
+
+@categorizer(uses={"Tau.{mass,pt,eta,phi}"})
+def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    leptons = [events.Electron * 1, events.Muon * 1, events.Tau * 1]
+    di_tau_mass = ak.concatenate(leptons, axis=1)[:, :2].sum(axis=1).mass
+    mask = (
+        (di_tau_mass >= 15) &
+        (di_tau_mass <= 130)
+    )
+    return events, mask
+
+
+@categorizer(uses={
+    di_bjet_mass_window, di_tau_mass_window, "Jet.{btagPNetB,mass,hhbtag,pt,eta,phi}",
+})
 def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # exactly pnet b-tags
     wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
     tagged = events.Jet.btagPNetB > wp
-    return events, ak.sum(tagged, axis=1) == 1
+    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
+    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
+    mask = (
+        (ak.sum(tagged, axis=1) == 1) &
+        tau_mass_mask &
+        bjet_mass_mask
+    )
+    return events, mask
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={
+    di_bjet_mass_window, di_tau_mass_window, "Jet.{btagPNetB,mass,hhbtag,pt,eta,phi}",
+})
 def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # at least two medium pnet b-tags
     wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
     tagged = events.Jet.btagPNetB > wp
-    return events, ak.sum(tagged, axis=1) >= 2
+    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
+    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
+    mask = (
+        (ak.sum(tagged, axis=1) == 2) &
+        tau_mass_mask &
+        bjet_mass_mask
+    )
+    return events, mask
 
 
-@categorizer(uses={cat_res1b, cat_res2b, "FatJet.{pt,phi}"})
+@categorizer(uses={
+    cat_res1b, cat_res2b, di_tau_mass_window, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD,mass,eta}",
+})
 def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # not res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
-    # note: this is just a draft
+    # exclude res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
+    # TODO: run3 wp are not released, falling back to run2
+    wp = self.config_inst.x.btag_working_points["particleNetMD"]["lp"]
+    tagged = events.FatJet.particleNet_XbbVsQCD > wp
+    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
     mask = (
         (ak.num(events.FatJet, axis=1) == 1) &
         (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
+        (ak.sum(tagged, axis=1) >= 1) &
         ~self[cat_res1b](events, **kwargs)[1] &
-        ~self[cat_res2b](events, **kwargs)[1]
+        ~self[cat_res2b](events, **kwargs)[1] &
+        tau_mass_mask &
+        ak.any(events.FatJet.msoftdrop >= 30, axis=1) &
+        ak.any(events.FatJet.msoftdrop <= 450, axis=1)
     )
     return events, mask
 

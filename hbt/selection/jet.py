@@ -4,15 +4,18 @@
 Jet selection methods.
 """
 
+from __future__ import annotations
+
 from operator import or_
 from functools import reduce
 
+import law
+
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import (
-    EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view,
-    full_like,
+    EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view, full_like,
 )
-from columnflow.util import maybe_import, InsertableDict
+from columnflow.util import maybe_import
 
 from hbt.util import IF_RUN_2
 from hbt.production.hhbtag import hhbtag
@@ -31,7 +34,7 @@ ak = maybe_import("awkward")
         "SubJet.{pt,eta,phi,mass,btagDeepB}",
     },
     produces={
-        # new columns
+        hhbtag,
         "Jet.hhbtag", "matched_trigger_ids",
     },
     # shifts are declared dynamically below in jet_selection_init
@@ -87,8 +90,8 @@ def jet_selection(
     #
 
     # get the hhbtag values per jet per event
-    hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
-
+    events = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
+    hhbtag_scores = events.hhbtag_score
     # create a mask where only the two highest scoring hhbjets are selected
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
     hhbjet_mask = mask_from_indices(score_indices[:, :2], hhbtag_scores)
@@ -474,7 +477,7 @@ def jet_selection(
 
 
 @jet_selection.init
-def jet_selection_init(self: Selector) -> None:
+def jet_selection_init(self: Selector, **kwargs) -> None:
     # register shifts
     self.shifts |= {
         shift_inst.name
@@ -484,7 +487,7 @@ def jet_selection_init(self: Selector) -> None:
 
 
 @jet_selection.setup
-def jet_selection_setup(self: Selector, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+def jet_selection_setup(self: Selector, task: law.Task, **kwargs) -> None:
     # store ids of tau-tau cross triggers
     self.trigger_ids_ttjc = [
         trigger.id for trigger in self.config_inst.x.triggers

@@ -16,7 +16,8 @@ from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import (
     set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections,
 )
-from columnflow.util import maybe_import, dev_sandbox, InsertableDict, DotDict
+from columnflow.util import maybe_import, dev_sandbox, DotDict
+from columnflow.types import Any
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -273,29 +274,54 @@ def _res_dnn_evaluation(
         values[event_mask] = scores[:, i]
         events = set_ak_column_f32(events, column, values)
 
+    if self.config_inst.x.sync:
+        # store input columns for sync
+        cont_inputs_names = [
+            "met_px", "met_py", "met_cov00", "met_cov01", "met_cov11",
+            "vis_tau1_px", "vis_tau1_py", "vis_tau1_pz", "vis_tau1_e",
+            "vis_tau2_px", "vis_tau2_py", "vis_tau2_pz", "vis_tau2_e",
+            "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e", "bjet1_btag_df", "bjet1_cvsb", "bjet1_cvsl", "bjet1_hhbtag",
+            "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e", "bjet2_btag_df", "bjet2_cvsb", "bjet2_cvsl", "bjet2_hhbtag",
+            "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e",
+            "htt_e", "htt_px", "htt_py", "htt_pz",
+            "hbb_e", "hbb_px", "hbb_py", "hbb_pz",
+            "htthbb_e", "htthbb_px", "htthbb_py", "htthbb_pz",
+            "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz",
+        ]
+
+        cat_inputs_names = [
+            "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
+        ]
+        for column, values in zip(
+            cont_inputs_names + cat_inputs_names,
+            continous_inputs + categorical_inputs,
+        ):
+            values_placeholder = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
+            values_placeholder[event_mask] = ak.flatten(values)
+            events = set_ak_column_f32(events, "sync_res_dnn_" + column, values_placeholder)
     return events
 
 
 @_res_dnn_evaluation.init
-def _res_dnn_evaluation_init(self: Producer) -> None:
+def _res_dnn_evaluation_init(self: Producer, **kwargs) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
 
 
 @_res_dnn_evaluation.requires
-def _res_dnn_evaluation_requires(self: Producer, reqs: dict) -> None:
+def _res_dnn_evaluation_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     if "external_files" in reqs:
         return
 
     from columnflow.tasks.external import BundleExternalFiles
-    reqs["external_files"] = BundleExternalFiles.req(self.task)
+    reqs["external_files"] = BundleExternalFiles.req(task)
 
 
 @_res_dnn_evaluation.setup
 def _res_dnn_evaluation_setup(
     self: Producer,
-    reqs: dict,
-    inputs: dict,
-    reader_targets: InsertableDict,
+    task: law.Task,
+    reqs: dict[str, DotDict[str, Any]],
+    **kwargs,
 ) -> None:
     import os
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -316,7 +342,7 @@ def _res_dnn_evaluation_setup(
     getattr(bundle.files, self.cls_name).load(model_dir, formatter="tar")
 
     # load the model
-    with self.task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
+    with task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
         saved_model = tf.saved_model.load(model_dir.child("model_fold0").abspath)
         self.res_model = saved_model.signatures["serving_default"]
 
@@ -374,8 +400,8 @@ res_pdnn = _res_dnn_evaluation.derive("res_pdnn", cls_dict={
 
 
 @res_pdnn.init
-def res_pdnn_init(self: Producer) -> None:
-    super(res_pdnn, self).init_func()
+def res_pdnn_init(self: Producer, **kwargs) -> None:
+    super(res_pdnn, self).init_func(**kwargs)
 
     # check spin value and mass values
     if self.spin not in {0, 2}:
@@ -405,8 +431,8 @@ res_dnn = _res_dnn_evaluation.derive("res_dnn", cls_dict={
 
 
 @res_dnn.init
-def res_dnn_init(self: Producer) -> None:
-    super(res_dnn, self).init_func()
+def res_dnn_init(self: Producer, **kwargs) -> None:
+    super(res_dnn, self).init_func(**kwargs)
 
     # output column names (in this order)
     self.output_columns = [
@@ -416,6 +442,8 @@ def res_dnn_init(self: Producer) -> None:
 
     # update produced columns
     self.produces |= set(self.output_columns)
+    if self.config_inst.x.sync:
+        self.produces.add("sync_*")
 
 
 #
