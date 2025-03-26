@@ -23,6 +23,7 @@ from columnflow.plotting.plot_util import (
     blind_sensitive_bins,
     # join_labels,
     check_nominal_shift,
+    equal_distance_bin_width,
 )
 
 from columnflow.types import Callable
@@ -218,11 +219,20 @@ def plot_morphing_comparison(
     **kwargs,
 ) -> plt.Figure:
 
+    from hbt.hist_hooks.morphing import general_read_coupling_values
     # separate only morphed and corresponding unmorphed histograms
     morphed_hists = OrderedDict()
+    morphed_hists_couplings = OrderedDict()
     for key, hist in hists.items():
         if "morphed" in key.name:
             morphed_hists[key] = hist
+            process_str = key.name.replace("_morphed", "").replace("_exact", "").replace("_average", "").replace("_fit", "")  # noqa
+            if process_str.startswith("hh_ggf_hbb_htt_kl"):
+                parameters_oi = ["kl", "kt", "c2"]
+            elif process_str.startswith("hh_vbf_hbb_htt_kv"):
+                parameters_oi = ["kl", "kv", "k2v"]
+            # only ok for one morphed process, else gets overwritten
+            morphed_hists_couplings = general_read_coupling_values(process_str, parameters_oi)
 
     if not morphed_hists:
         raise ValueError("No morphed histograms found in input hists.")
@@ -276,6 +286,10 @@ def plot_morphing_comparison(
     }
     hists |= remove_residual_axis(unstacked_hists, "shift", select_value=0)
 
+    # replace hist with version that has the same binning space between bins
+    if "equal_bin_width" in kwargs:
+        hists, kwargs["equal_distant_ticks_label"] = equal_distance_bin_width(hists, variable_inst)
+
     plot_config = prepare_plot_config_custom_ratio(
         hists,
         shape_norm=shape_norm,
@@ -285,7 +299,13 @@ def plot_morphing_comparison(
     )
 
     default_style_config = prepare_style_config(
-        config_inst, category_inst, variable_inst, density, shape_norm, yscale,
+        config_inst,
+        category_inst,
+        variable_inst,
+        density,
+        shape_norm,
+        yscale,
+        xtick_rotation=kwargs.get("rotate_xticks", None),
     )
 
     style_config = law.util.merge_dicts(default_style_config, style_config, deep=True)
@@ -324,6 +344,9 @@ def plot_morphing_comparison(
     ax_ymax = get_position(ax_ymin, max_important_value, factor=1 / (1 - whitespace_fraction), logscale=log_y)
     # ax_ymax = 0.085  # 0.0014  # 0.085
     style_config["ax_cfg"]["ylim"] = (ax_ymin, ax_ymax)
+    if "equal_bin_width" in kwargs:
+        style_config["ax_cfg"]["xminorticks"] = []
+
     style_config["rax_cfg"]["ylim"] = (0.41, 1.59)
     style_config["rax_cfg"]["ylabel"] = "Ratio"
 
@@ -334,12 +357,20 @@ def plot_morphing_comparison(
 
     style_config["legend_cfg"]["facecolor"] = "white"
     style_config["legend_cfg"]["edgecolor"] = "white"
-    style_config["legend_cfg"]["framealpha"] = 0.8
+    style_config["legend_cfg"]["framealpha"] = 1  # 0.8
     style_config["legend_cfg"]["frameon"] = True
     style_config["legend_cfg"]["fontsize"] = 22
     style_config["legend_cfg"]["loc"] = "upper right"
     style_config["legend_cfg"]["ncols"] = 2
-    style_config["annotate_cfg"] = {}
+
+    def add_simulated_label(ax, handles, labels, ncols, **kwargs):
+        for i in range(len(labels)):
+            if "morphed" not in labels[i] and labels[i] != "":
+                labels[i] = "simulated " + labels[i]
+
+    style_config["legend_cfg"]["cf_update_handles_labels"] = add_simulated_label
+
+    style_config["annotate_cfg"] = {"text": rf"$\kappa_\lambda = {morphed_hists_couplings['kl']}$"}
     style_config["cms_label_cfg"]["fontsize"] = 28
 
     # from IPython import embed; embed(header="making plot from hists")
@@ -503,8 +534,12 @@ def plot_bin_morphing(
 
     if not averaged and not fitted:
         ax.plot(x, y, label="Parabola fit", color="black")
+        # print("Parabola fit")
     else:
-        ax.plot(x, y, label="Parabola fit w/ uncertainty", color="black")
+        ax.plot(x, y, label="Parabola fit w/ uncertainty", color="green")
+        # exact kl 5 [ 0.00304867, -0.01534738,  0.03213422]
+        # y2 = parabola(x, *[0.00304867, -0.01534738,  0.03213422])
+        # ax.plot(x, y2, label="3-point parabola fit", color="black")
 
     # calculate the chi2 of the fit
     chi2 = np.sum((parabola(np.array(guidance_points), *popt) -
@@ -517,16 +552,18 @@ def plot_bin_morphing(
     p_value = 1 - chi2_dist.cdf(chi2, ndf)
 
     # commented out
-    # # put the chi2 and p-value in the plot
-    # ax.text(
-    #     0.01,
-    #     1.01,
-    #     f"chi^2 / ndf = {chi2_ndf:.2f} \n p-value = {p_value:.2f}",
-    #     horizontalalignment="left",
-    #     verticalalignment="bottom",
-    #     fontsize=12,
-    #     transform=ax.transAxes,
-    # )
+    # put the chi2 and p-value in the plot
+    ax.text(
+        0.01,
+        1.01,
+        f"chi^2 / ndf = {chi2_ndf:.2f} \n p-value = {p_value:.2f}",
+        horizontalalignment="left",
+        verticalalignment="bottom",
+        fontsize=12,
+        transform=ax.transAxes,
+    )
+    print("chi2 / ndf = ", chi2_ndf)
+    print("p-value = ", p_value)
 
     if averaged or fitted:
         # fit parabola unweighted
@@ -538,7 +575,8 @@ def plot_bin_morphing(
         )
 
         y_unweighted = parabola(x, *popt_unweighted)
-        ax.plot(x, y_unweighted, label="Parabola fit w/o uncertainty", color="orange")
+        ax.plot(x, y_unweighted, label="Parabola fit w/o uncertainty", color="orange")  # Parabola fit w/o uncertainty
+        # 4-point parabola fit
 
         # calculate the chi2 of the fit
         chi2_unweighted = np.sum((parabola(np.array(guidance_points), *popt_unweighted) -
@@ -549,16 +587,19 @@ def plot_bin_morphing(
         p_value_unweighted = 1 - chi2_dist.cdf(chi2_unweighted, ndf)
 
         # commented out
-        # # put the chi2 and p-value in the plot
-        # ax.text(
-        #     0.01,
-        #     0.99,
-        #     f"Without uncertainties: chi^2 / ndf = {chi2_ndf_unweighted:.2f} \n p-value = {p_value_unweighted:.2f}",
-        #     horizontalalignment="left",
-        #     verticalalignment="top",
-        #     fontsize=12,
-        #     transform=ax.transAxes,
-        # )
+        # put the chi2 and p-value in the plot
+        ax.text(
+            0.01,
+            0.99,
+            f"Without uncertainties: chi^2 / ndf = {chi2_ndf_unweighted:.2f} \n p-value = {p_value_unweighted:.2f}",
+            horizontalalignment="left",
+            verticalalignment="top",
+            fontsize=12,
+            transform=ax.transAxes,
+        )
+        print("Without uncertainties")
+        print("chi2 / ndf = ", chi2_ndf_unweighted)
+        print("p-value = ", p_value_unweighted)
 
     # if not averaged and not fitted:
 
@@ -690,8 +731,11 @@ def plot_bin_morphing(
 
     # add bars at -1.7 and 8.7
     if full_range:
-        ax.axvline(x=-1.7, color="black", linestyle="--")
-        ax.axvline(x=8.7, color="black", linestyle="--")
+        ax.axvline(x=-1.7, color="black", linestyle="--", label=r"Run 2 bb$\tau\tau$ limits")
+        ax.axvline(x=8.7, color="black", linestyle="--", ymax=0.75)
+
+    # ax.set_xlim(-1, 6)
+    # ax.set_ylim(0.008, 0.035)
 
     # put the cms logo and the lumi text on the top left corner
     mplhep.cms.text(text="Private Work", fontsize=16, ax=ax)
@@ -718,7 +762,7 @@ def plot_bin_morphing(
     ax.set_xlabel(r"$\kappa_\lambda$", fontsize=16)
     # ax.set_ylabel(bin_type + " value", fontsize=16)
     ax.set_ylabel("Bin yield", fontsize=16)
-    ax.legend(fontsize=16, loc="upper right")
+    ax.legend(fontsize=16, loc="upper right", frameon=False, facecolor="white", edgecolor="white", framealpha=0.8)
     ax.tick_params(axis="both", which="major", labelsize=16)
     fig.tight_layout()
     return fig, axs
@@ -1226,6 +1270,13 @@ plot_bin_3_morphing = partial(
     plot_bin_morphing,
     function_bin_search=lambda x: 3,
     bin_type="Bin 3",
+    production_channel="ggf",
+)
+
+plot_bin_7_morphing = partial(
+    plot_bin_morphing,
+    function_bin_search=lambda x: 7,
+    bin_type="Bin 7",
     production_channel="ggf",
 )
 

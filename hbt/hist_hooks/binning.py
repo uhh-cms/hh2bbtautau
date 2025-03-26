@@ -57,10 +57,16 @@ def get_task_infos(task) -> dict[str, Any]:
 
     # plotting task
     if "category" in task.branch_data:
-        return {
-            "category_name": task.branch_data.category,
-            "variable_name": task.branch_data.variable[0],
-        }
+        if isinstance(task.branch_data.category, str):
+            return {
+                "category_name": task.branch_data.category,
+                "variable_name": task.branch_data.variable,
+            }
+        else:
+            return {
+                "category_name": task.branch_data.category,
+                "variable_name": task.branch_data.variable[0],
+            }
 
     raise Exception(f"cannot determine task infos of unhandled task: {task!r}")
 

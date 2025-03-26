@@ -60,6 +60,10 @@ def setup_plot_styles(config: od.Config) -> None:
         "xy": (0.035, 0.750),
     }
 
+    big_legend = legend | {
+        "ncols": 1, "fontsize": 20,
+    }
+
     # construct named style configs
     config.x.custom_style_config_groups = {
         "default": (default_cfg := {
@@ -68,6 +72,10 @@ def setup_plot_styles(config: od.Config) -> None:
             "legend_cfg": legend,
             "annotate_cfg": annotate,
         }),
+        "big_legend": {
+            **default_cfg,
+            "legend_cfg": big_legend,
+        },
         "wide_legend": (wide_legend_cfg := {
             **default_cfg,
             "legend_cfg": wide_legend,
@@ -116,6 +124,14 @@ def stylize_processes(config: od.Config) -> None:
 
     for kl in ["0", "1", "2p45", "5"]:
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
+            # if kl == "0":
+            #     p.color1 = cfg.x.colors.bright_blue
+            # elif kl == "1":
+            #     p.color1 = cfg.x.colors.dark_blue
+            # elif kl == "2p45":
+            #     p.color1 = cfg.x.colors.dark_orange
+            # elif kl == "5":
+            #     p.color1 = cfg.x.colors.grey
             p.color1 = cfg.x.colors.dark_blue
             kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"})
             p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
@@ -252,6 +268,7 @@ def group_kappas(**kappas: dict[str, str]) -> dict[int | float, list[str]]:
 def create_kappa_label(*, sep: str = ",", **kappas: dict[str, str]) -> str:
     parts = []
     for v, _kappas in group_kappas(**kappas).items():
-        k_str = "=".join(rf"\kappa_{{{k}}}"for k in _kappas)
-        parts.append(f"{k_str}={v}")
+        k_strs = [rf"\kappa_{{{k}}}="for k in _kappas]
+        k_str_filled = sep.join([f"{k_str}{v}" for k_str in k_strs])
+        parts.append(k_str_filled)
     return "$" + sep.join(parts) + "$"

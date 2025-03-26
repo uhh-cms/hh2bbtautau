@@ -22,6 +22,35 @@ hist = maybe_import("hist")
 logger = law.logger.get_logger(__name__)
 
 
+# define helper functions
+def general_read_coupling_values(couplings, poi=["kl", "kt", "c2"]):
+    coupling_list = couplings.split("_")
+    coupling_dict = {}
+    for coupling in coupling_list:
+        for param in poi:
+            if coupling.startswith(param):
+                if param == "k2v":
+                    coupling_dict[param] = coupling[3:].replace("p", ".").replace("m", "-")
+                else:
+                    coupling_dict[param] = coupling[2:].replace("p", ".").replace("m", "-")
+    # if "c2" in poi:
+    #     if "c2" not in coupling_dict.keys():
+    #         coupling_dict["c2"] = "0"
+    if "kl" in poi:
+        if "kl" not in coupling_dict.keys():
+            raise ValueError("kl not found in couplings")
+    if "kt" in poi:
+        if "kt" not in coupling_dict.keys():
+            raise ValueError("kt not found in couplings")
+    if "kv" in poi:
+        if "kv" not in coupling_dict.keys():
+            raise ValueError("kv not found in couplings")
+    if "k2v" in poi:
+        if "k2v" not in coupling_dict.keys():
+            raise ValueError("k2v not found in couplings")
+    return coupling_dict
+
+
 def add_hooks(config: od.Config) -> None:
     """
     Add histogram hooks to a configuration.
@@ -69,37 +98,6 @@ def add_hooks(config: od.Config) -> None:
             if production_channel == "vbf":
                 if len(guidance_points) < 7:
                     raise ValueError(f"{morphing_type} morphing requires at least seven guidance points")
-
-        # define helper functions
-        def general_read_coupling_values(couplings, poi=["kl", "kt", "c2"]):
-            coupling_list = couplings.split("_")
-            coupling_dict = {}
-            for coupling in coupling_list:
-                for param in poi:
-                    if coupling.startswith(param):
-                        if param == "k2v":
-                            coupling_dict[param] = coupling[3:].replace("p", ".").replace("m", "-")
-                        else:
-                            coupling_dict[param] = coupling[2:].replace("p", ".").replace("m", "-")
-            # if "c2" in poi:
-            #     if "c2" not in coupling_dict.keys():
-            #         coupling_dict["c2"] = "0"
-            if "kl" in poi:
-                if "kl" not in coupling_dict.keys():
-                    raise ValueError("kl not found in couplings")
-            if "kt" in poi:
-                if "kt" not in coupling_dict.keys():
-                    raise ValueError("kt not found in couplings")
-            if "kv" in poi:
-                if "kv" not in coupling_dict.keys():
-                    raise ValueError("kv not found in couplings")
-            if "k2v" in poi:
-                if "k2v" not in coupling_dict.keys():
-                    raise ValueError("k2v not found in couplings")
-            if "kl" in poi:
-                if "kl" not in coupling_dict.keys():
-                    raise ValueError("kl not found in couplings")
-            return coupling_dict
 
         def get_coeffs(guidance_point_dict, parameters_oi):
             """
@@ -180,9 +178,9 @@ def add_hooks(config: od.Config) -> None:
             new_proc = od.Process(
                 f"hh_{production_channel}_hbb_htt_{target_point}_{morphing_type}_morphed",
                 id=21130,
-                label=r"morphed $HH_{ggf} \rightarrow bb\tau\tau$ "
-                "\n"
-                r"($\kappa_{\lambda}=$" + target_params_oi["kl"] + r", $\kappa_{t}=$" + target_params_oi["kt"] + ")",
+                label=r"morphed $HH_{ggf} \rightarrow bb\tau\tau$ ",
+                # "\n"
+                # r"($\kappa_{\lambda}=$" + target_params_oi["kl"] + r", $\kappa_{t}=$" + target_params_oi["kt"] + ")",
             )
         elif production_channel == "vbf":
             # create the new process for the morphed histogram, TODO: make customized id?
