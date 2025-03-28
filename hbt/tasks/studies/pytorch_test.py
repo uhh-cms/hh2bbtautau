@@ -177,7 +177,7 @@ class HBTPytorchTask(
         from hbt.ml.torch_utils.dataloaders import (
             CompositeDataLoader, 
         )
-        from hbt.ml.torch_utils.datasets import ParquetDataset, FlatParquetDataset
+        from hbt.ml.torch_utils.datasets import ParquetDataset, FlatParquetDataset, FlatRowgroupParquetDataset
         from torch.utils.data import default_collate
         import torch.nn.functional as F
         from hbt.ml.torch_utils.map_and_collate import NestedDictMapAndCollate
@@ -187,6 +187,7 @@ class HBTPytorchTask(
             AkToTensor, PreProcessFloatValues, PreProssesAndCast,
         )
         from hbt.ml.torch_models import FeedForwardNet
+        from hbt.ml.torch_utils.datasets.utils import split_pq_dataset_per_path
 
         from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
         from ignite.metrics import Accuracy, Loss, ROC_AUC
@@ -213,55 +214,24 @@ class HBTPytorchTask(
             data_type_transform: torch.nn.Module | None = None,
             preshuffle: bool = True,
         ):
-            meta = ak.metadata_from_parquet(target_paths)
+            training_ds = list()
+            validation_ds = list()
+            for path in target_paths:
+                training, validation = split_pq_dataset_per_path(
+                    target_path=path,
+                    ratio=ratio, open_options=open_options,
+                    columns=columns, targets=targets,
+                    batch_transformations=batch_transformations,
+                    global_transformations=global_transformations,
+                    categorical_target_transformation=categorical_target_transformation,
+                    data_type_transform=data_type_transform,
+                    preshuffle=preshuffle,
+                    dataset_cls=FlatRowgroupParquetDataset,
+                )
+                training_ds.append(training)
+                validation_ds.append(validation)
+            return training_ds, validation_ds
             
-            total_row_groups = meta["num_row_groups"]
-            rowgroup_indices_func = torch.randperm if preshuffle else np.arange
-            rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
-            max_training_group = int( total_row_groups*ratio)
-            training_row_groups = None
-            if max_training_group == 0:
-                logger.warning(
-                    "Could not split into training and validation data"
-                    f" number of row groups for '{target_paths}' is  {total_row_groups}"
-                )
-            else:
-                training_row_groups = rowgroup_indices[:max_training_group]
-
-            final_options = open_options or dict()
-            final_options.update({"row_groups": training_row_groups})
-
-            dataset_kwargs = {
-                "columns": columns,
-                "target": targets,
-                "batch_transform": batch_transformations,
-                "global_transform": global_transformations,
-                "categorical_target_transform": categorical_target_transformation,
-                "data_type_transform": data_type_transform,
-            }
-
-            logger.info(f"Constructing training dataset for {dataset} with row_groups {training_row_groups}")
-            from IPython import embed
-            embed(header="extracted meta data")
-            training = FlatParquetDataset(
-                target_paths,
-                open_options=final_options,
-                **dataset_kwargs,
-            )
-
-            validation = None
-            if training_row_groups is None:
-                validation = training
-            else:
-                validation_row_groups = rowgroup_indices[max_training_group:]
-                final_options.update({"row_groups": validation_row_groups})
-                logger.info(f"Constructing validation dataset for {dataset} with row_groups {validation_row_groups}")
-                validation = FlatParquetDataset(
-                    target_paths,
-                    open_options=final_options,
-                    **dataset_kwargs,
-                )
-            return training, validation
 
         ### read via dask dataframe ######################################################
         # signal_dfs = dd.read_parquet(
@@ -344,6 +314,9 @@ class HBTPytorchTask(
                 # categorical_target_transformation=AkToTensor(device=device),
                 # data_type_transform=AkToTensor(device=device),
             )
+            # read this in a gready way
+            # training_data_map[dataset] = FlatParquetDataset(training)
+            # validation_data_map[dataset] = FlatParquetDataset(validation)
             training_data_map[dataset] = training
             validation_data_map[dataset] = validation
 
@@ -377,6 +350,8 @@ class HBTPytorchTask(
             d: val/ttbar_prob_sum for d, val in ttbar_probs.items()
         }
 
+        from IPython import embed
+        embed(header="about to create composite data loader")
         training_composite_loader = CompositeDataLoader(
             data_map=training_data_map,
             weight_dict=weight_dict,
