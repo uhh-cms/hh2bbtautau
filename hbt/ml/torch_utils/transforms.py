@@ -15,9 +15,10 @@ torchdata = maybe_import("torchdata")
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
+
 if not isinstance(torch, MockModule):
     from torch.nested._internal.nested_tensor import NestedTensor
-    from IPython import embed
+    
     class AkToNestedTensor(torch.nn.Module):
         
         def __init__(self, requires_grad=False, device=None, *args, **kwargs):
