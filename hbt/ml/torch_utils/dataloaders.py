@@ -134,10 +134,10 @@ if not isinstance(torchdata, MockModule):
                     for key, dataset in self.data_map.items()
                 }
                 self.batcher_options["source_nodes"] = node_dict
-                if self.pin_memory:
-                    self.batcher_options["source_nodes"] = {
-                        key: tn.PinMemory(data) for key, data in node_dict.items()
-                    }
+                # if self.pin_memory:
+                #     self.batcher_options["source_nodes"] = {
+                #         key: tn.PinMemory(data) for key, data in node_dict.items()
+                #     }
                 self.batcher_options["weights"] = self.weight_dict
 
         def _create_composite_node(self) -> tuple[tn.ParallelMapper, Any]:
@@ -155,6 +155,8 @@ if not isinstance(torchdata, MockModule):
                 method=self.parallelize_method,  # Set this to "thread" for multi-threading
                 in_order=True,
             )
+            if self.pin_memory:
+                parallel_node = tn.PinMemory(parallel_node)
 
             return (parallel_node, batcher)
         
