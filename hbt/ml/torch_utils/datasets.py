@@ -476,3 +476,59 @@ if not isinstance(torchdata, MockModule):
             if self.batch_transform:
                 return_data = self.batch_transform(return_data)
             return tuple(return_data) if isinstance(return_data, list) else return_data
+        
+    class FlatRowgroupParquetDataset(FlatParquetDataset):
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._current_rowgroups: set[int] = set()
+            self._allowed_rowgroups: set[int] = set()
+            if not self.meta_data:
+                raise ValueError("No metadata found, cannot determine rowgroups")
+            
+            # try to find information about rowgroups
+            # the set of row groups could be in the open_options so check
+            if "row_groups" in self.open_options.keys():
+                self._allowed_rowgroups = set(self.open_options["row_groups"])
+            else:
+                # otherwise, build from metadata
+                self._allowed_rowgroups = set(range(self.meta_data["num_row_groups"]))
+
+        @property
+        def current_rowgroups(self) -> set[int]:
+            return self._current_rowgroups
+        
+        @current_rowgroups.setter
+        def current_rowgroup(self, value: int | Iterable[int]) -> None:
+            value_set = set(value)
+            if not value_set == self.current_rowgroup:
+                if not self._allowed_rowgroups.issuperset(value_set):
+                    raise ValueError(f"Rowgroup '{value_set}' contains unallowed rowgrpus, whole set: {self._allowed_rowgroups}")
+                self._current_rowgroup = value_set
+                self._data = None
+                self.open_options["row_groups"] = value_set
+
+        def _concat_data(self, data1, data2) -> Any:
+            if all(isinstance(x, dict) for x in [data1, data2]):
+                keys1 = set(data1.keys())
+                keys2 = set(data2.keys())
+                if keys1 != keys2:
+                    raise ValueError(f"cannot concatenate data of dict type with mismatching keys: {keys1=}, {keys2=}")
+                return {key: self._concat_data(data1[key], data2[key]) for key in keys1}
+            elif all(isinstance(x, ak.Array) for x in [data1, data2]):
+                return ak.concatenate([data1, data2], axis=0)
+            elif all(isinstance(x, torch.Tensor) for x in [data1, data2]):
+                return torch.cat([data1, data2], axis=0)
+            else:
+                raise ValueError(f"Cannot concatenate data of type {type(data1)} and {type(data2)}")
+
+        def __getitem__(self, i: dict[int, list[int]]) -> Any | tuple:
+            return_data = None
+            for rowgroup, indices in i.items():
+                self._current_rowgroup = rowgroup
+                chunk = super().__getitem__(indices)
+                if not return_data:
+                    return_data = chunk
+                else:
+                    return_data = (self._concat_data(a, b) for a, b in zip(return_data, chunk))
+            return return_data
