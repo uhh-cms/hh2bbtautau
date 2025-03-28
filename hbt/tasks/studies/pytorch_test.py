@@ -64,6 +64,8 @@ def main():
 class HBTPytorchTask(
     HBTTask,
     UniteColumnsWrapper,
+    law.LocalWorkflow,
+    RemoteWorkflow,
 ):
     """
     Base task for trigger related studies.
@@ -90,6 +92,11 @@ class HBTPytorchTask(
         description="Maximum training epochs to use. Default: 300",
     )
 
+    version = law.Parameter(
+        description="Version of the task",
+        significant=True,
+    )
+
     def create_branch_map(self):
         # dummy branch map
         return [0]
@@ -99,7 +106,7 @@ class HBTPytorchTask(
 
         # require the full merge forest
         reqs["unite_columns"] = self.reqs.UniteColumnsWrapper.req(self)
-        from IPython import embed; embed(header="workflow_requires")
+        # from IPython import embed; embed(header="workflow_requires")
         return reqs
 
     def requires(self):
@@ -125,7 +132,32 @@ class HBTPytorchTask(
         return reqs
     
     def output(self):
-        return {"model": self.target("dummy.txt")}
+        return {
+            "model": self.target("torch_model.pt"),
+            "tensorboard": self.local_target("tb_logger", dir=True, optional=True),   
+        }
+    
+    @property
+    def _parameter_repr(self) -> str:
+        additional_params = []
+        param_repr = f"bs_{self.batch_size}__max_epochs_{self.max_epochs}"
+        if additional_params:
+            param_repr += "__{}".format(law.util.create_hash([str(p) for p in additional_params]))
+        return param_repr
+
+    def store_parts(self) -> law.util.InsertableDict:
+        """
+        :return: Dictionary with parts that will be translated into an output directory path.
+        """
+        parts = super().store_parts()
+        dataset_repr = law.util.create_hash([str(d) for d in sorted(self.datasets)])
+        config_repr = law.util.create_hash([str(c) for c in sorted(self.configs)])
+
+        parts.insert_after("task_family", "configs", f"configs_{len(self.configs)}__{config_repr}")
+
+        parts.insert_after("task_family", "datasets", f"datasets_{len(self.datasets)}__{dataset_repr}")
+        parts.insert_after("datasets", "parameters", self._parameter_repr)
+        return parts
     
     def complete(self):
         from law.util import flatten
@@ -163,7 +195,7 @@ class HBTPytorchTask(
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         
-        print(f"Running pytorch on {device}")
+        logger.info(f"Running pytorch on {device}")
 
         inputs = self.input()
         configs = self.configs
@@ -179,9 +211,13 @@ class HBTPytorchTask(
             global_transformations: torch.nn.Module | None = None,
             categorical_target_transformation: torch.nn.Module | None = None,
             data_type_transform: torch.nn.Module | None = None,
+            preshuffle: bool = True,
         ):
             meta = ak.metadata_from_parquet(target_paths)
+            
             total_row_groups = meta["num_row_groups"]
+            rowgroup_indices_func = torch.randperm if preshuffle else np.arange
+            rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
             max_training_group = int( total_row_groups*ratio)
             training_row_groups = None
             if max_training_group == 0:
@@ -190,9 +226,10 @@ class HBTPytorchTask(
                     f" number of row groups for '{target_paths}' is  {total_row_groups}"
                 )
             else:
-                training_row_groups = np.arange(max_training_group)
+                training_row_groups = rowgroup_indices[:max_training_group]
 
             final_options = open_options or dict()
+            final_options.update({"row_groups": training_row_groups})
 
             dataset_kwargs = {
                 "columns": columns,
@@ -204,9 +241,11 @@ class HBTPytorchTask(
             }
 
             logger.info(f"Constructing training dataset for {dataset} with row_groups {training_row_groups}")
+            from IPython import embed
+            embed(header="extracted meta data")
             training = FlatParquetDataset(
                 target_paths,
-                open_options=final_options.update({"row_groups": training_row_groups}),
+                open_options=final_options,
                 **dataset_kwargs,
             )
 
@@ -214,11 +253,12 @@ class HBTPytorchTask(
             if training_row_groups is None:
                 validation = training
             else:
-                validation_row_groups = np.arange(max_training_group, total_row_groups)
+                validation_row_groups = rowgroup_indices[max_training_group:]
+                final_options.update({"row_groups": validation_row_groups})
                 logger.info(f"Constructing validation dataset for {dataset} with row_groups {validation_row_groups}")
                 validation = FlatParquetDataset(
                     target_paths,
-                    open_options=final_options.update({"row_groups": validation_row_groups}),
+                    open_options=final_options,
                     **dataset_kwargs,
                 )
             return training, validation
@@ -279,13 +319,20 @@ class HBTPytorchTask(
         training_data_map = dict()
         validation_data_map = dict()
         for dataset in self.datasets:
-            targets = [inputs.events[dataset][c].collection for c in configs]
-            target_paths = [
-                t.path
-                for collections in targets
-                for targets in collections.targets.values()
-                for t in targets.values()
-            ]
+            # following code is used for SiblingFileCollections
+
+            # targets = [inputs.events[dataset][c]["collection"] for c in configs]
+            # target_paths = [
+            #     t.abspath
+            #     for collections in targets
+            #     for targets in collections.targets.values()
+            #     for t in targets.values()
+            # ]
+
+            # following code is used for LocalFileTargets
+            targets = [inputs.events[dataset][c]["events"] for c in configs]
+            target_paths = [t.abspath for t in targets]
+
             training, validation = split_training_validation(
                 target_paths=target_paths, open_options=open_options,
                 columns=columns,
@@ -309,7 +356,12 @@ class HBTPytorchTask(
             for config in self.configs:
                 config_inst = self.analysis_inst.get_config(config)
                 lumi = config_inst.x.luminosity.nominal
-                target = sel_stat[dataset][config].collection[0]["stats"]
+
+                # following code is used for SiblingFileCollections
+                # target = sel_stat[dataset][config].collection[0]["stats"]
+
+                # following code is used for LocalFileTargets
+                target = sel_stat[dataset][config]["stats"]
                 stats = target.load(formatter="json")
                 xs = stats.get(keyword, 0)
                 expected_events.append(xs * lumi)
@@ -374,14 +426,16 @@ class HBTPytorchTask(
             metric.attach(val_evaluator, name)
 
         from torch.utils.tensorboard import SummaryWriter
-        writer = SummaryWriter("tb_logger")
-        run_name = "test_run123"
+        logger_path = self.output()["tensorboard"].abspath
+        logger.info(f"Creating tensorboard logger at {logger_path}")
+        writer = SummaryWriter(logger_path)
+        run_name = f"{self._parameter_repr}_{self.version}"
         # How many batches to wait before logging training status
         log_interval = 20
         @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
         def log_training_loss(engine):
             writer.add_scalars(f"{run_name}_per_batch_training", {"loss": engine.state.output}, engine.state.iteration)
-            print(f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.2f}")
+            logger.info(f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.2f}")
 
         @trainer.on(Events.EPOCH_COMPLETED)
         def log_training_results(trainer):
@@ -392,7 +446,7 @@ class HBTPytorchTask(
             infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
             for name, value in metrics.items():
                 writer.add_scalars(f"{run_name}_{name}", {f"training": value }, trainer.state.epoch)
-            print(f"Training Results - Epoch[{trainer.state.epoch}] {infos}")
+            logger.info(f"Training Results - Epoch[{trainer.state.epoch}] {infos}")
 
         from ignite.handlers import EarlyStopping
 
@@ -413,13 +467,14 @@ class HBTPytorchTask(
             for name, value in metrics.items():
                 writer.add_scalars(f"{run_name}_{name}", {f"validation": value }, trainer.state.epoch)
             infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
-            print(f"Validation Results - Epoch[{trainer.state.epoch}] {infos}")
+            logger.info(f"Validation Results - Epoch[{trainer.state.epoch}] {infos}")
 
         
         trainer.run(training_composite_loader.data_loader, max_epochs=self.max_epochs)
         writer.close()
-        from IPython import embed
-        embed(header="initialized model")
+        logger.info(f"Saving model to {self.output()['model'].abspath}")
+        torch.save(model.state_dict(), self.output()["model"].abspath)
+
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
         # https://discuss.pytorch.org/t/proper-way-of-using-weightedrandomsampler/73147
         # https://pytorch.org/data/0.10/stateful_dataloader_tutorial.html
