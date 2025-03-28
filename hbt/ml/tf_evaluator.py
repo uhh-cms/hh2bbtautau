@@ -157,7 +157,7 @@ def _tf_evaluate(
         model: Any = None
 
         @classmethod
-        def new(cls, config: dict, /) -> Model:
+        def new(cls, config: dict[str, Any], /) -> Model:
             for attr in ("name", "path", "pipe"):
                 if attr not in config:
                     raise ValueError(f"missing field '{attr}' in model config")

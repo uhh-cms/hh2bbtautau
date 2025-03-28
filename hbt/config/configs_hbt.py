@@ -425,7 +425,7 @@ def add_config(
     cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("all",)
     cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
-    cfg.x.default_weight_producer = "default"
+    cfg.x.default_hist_producer = "default"
 
     # process groups for conveniently looping over certain processs
     # (used in wrapper_factory and during plotting)

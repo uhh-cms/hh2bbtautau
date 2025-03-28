@@ -221,7 +221,7 @@ def _res_dnn_evaluation(
     # build continous inputs
     # (order exactly as documented in link above)
     continous_inputs = [
-        t[..., None] for t in [
+        np.asarray(t[..., None], dtype=np.float32) for t in [
             f.met_px, f.met_py, f.met_cov00, f.met_cov01, f.met_cov11,
             f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
             f.vis_tau2_px, f.vis_tau2_py, f.vis_tau2_pz, f.vis_tau2_e,
@@ -240,7 +240,7 @@ def _res_dnn_evaluation(
     # build categorical inputs
     # (order exactly as documented in link above)
     categorical_inputs = [
-        t[..., None] for t in [
+        np.asarray(t[..., None], dtype=np.int32) for t in [
             pair_type,
             dm1, dm2,
             vis_tau1.charge, vis_tau2.charge,
@@ -253,9 +253,11 @@ def _res_dnn_evaluation(
     # evaluate the model
     scores = self.evaluator(
         "res",
-        cont_input=np.concatenate(continous_inputs, axis=1),
-        cat_input=np.concatenate(categorical_inputs, axis=1),
-    )["hbt_ensemble"].numpy()
+        inputs=[
+            np.concatenate(continous_inputs, axis=1),
+            np.concatenate(categorical_inputs, axis=1),
+        ],
+    )
 
     # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
     # so issue a warning and set them to a default value
@@ -336,7 +338,7 @@ def _res_dnn_evaluation_setup(
 
     # setup the evaluator
     self.evaluator = TFEvaluator()
-    self.evaluator.add_model("res", model_dir.child("model_fold0").abspath, serving_key="serving_default")
+    self.evaluator.add_model("res", model_dir.child("model_fold0").abspath, signature_key="serving_default")
 
     # categorical values handled by the network
     # (names and values from training code that was aligned to KLUB notation)
@@ -382,7 +384,7 @@ def _res_dnn_evaluation_setup(
 
 
 @_res_dnn_evaluation.teardown
-def _res_dnn_evaluation_teardown(self: Producer) -> None:
+def _res_dnn_evaluation_teardown(self: Producer, **kwargs) -> None:
     """
     Stops the TF evaluator.
     """
