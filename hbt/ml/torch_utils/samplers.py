@@ -102,3 +102,41 @@ if not isinstance(torchdata, MockModule):
                 for data_idx in size_sampler:
                     yield (rowgroups, data_idx)
 
+    class ListRowgroupSampler(Sampler):
+
+        def __init__(
+            self,
+            inputs: Container[ParquetDataset] | Container[RowgroupSampler],
+            rowgroup_list: Container[int] | None = None,
+            rowgroup_sizes: Container[int] | None = None,
+            shuffle_rowgroups: bool = False,
+            shuffle_indices: bool = False,
+            simultaneous_rowgroups: int = 1,
+            replacement: bool = False,
+            num_samples: int | None = None,
+            generator=None,
+        ):
+
+            self.samplers: list[RowgroupSampler] = list()
+            forward_pass_args = {
+                "rowgroup_list": rowgroup_list,
+                "rowgroup_sizes": rowgroup_sizes,
+                "shuffle_rowgroups": shuffle_rowgroups,
+                "shuffle_indices": shuffle_indices,
+                "simultaneous_rowgroups": simultaneous_rowgroups,
+                "replacement": replacement,
+                "num_samples": num_samples,
+                "generator": generator,
+            }
+            if all(isinstance(x, ParquetDataset) for x in inputs):
+                self.samplers = [RowgroupSampler(x, **forward_pass_args) for x in inputs]
+            elif all(isinstance(x, RowgroupSampler) for x in inputs):
+                self.samplers = list(inputs)
+        
+        def __len__(self):
+            return sum(len(x) for x in self.samplers)
+        
+        def __iter__(self):
+            for dataset_idx, sampler in enumerate(self.samplers):
+                for output in sampler:
+                    yield (dataset_idx, output)
