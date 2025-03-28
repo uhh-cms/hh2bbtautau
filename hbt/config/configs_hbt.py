@@ -586,6 +586,10 @@ def add_config(
     # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun3?rev=25
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     # difference pre-post VFP: https://cds.cern.ch/record/2854610/files/DP2023_006.pdf
+    # Lumis for Run3 within the Twiki are outdated as stated here:
+    # https://cms-talk.web.cern.ch/t/luminosity-in-run2023c/116859/2
+    # Run3 Lumis can be calculated with brilcalc tool https://twiki.cern.ch/twiki/bin/view/CMS/BrilcalcQuickStart?rev=15
+    # CClub computed this already: https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/issues/49
     if year == 2016 and campaign.has_tag("preVFP"):
         cfg.x.luminosity = Number(19_500, {
             "lumi_13TeV_2016": 0.01j,
@@ -609,19 +613,19 @@ def add_config(
             "lumi_13TeV_correlated": 0.02j,
         })
     elif year == 2022 and campaign.has_tag("preEE"):
-        cfg.x.luminosity = Number(7_980.4, {
+        cfg.x.luminosity = Number(7_980.4541, {
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
-        cfg.x.luminosity = Number(26_671.7, {
+        cfg.x.luminosity = Number(23_588.8567, {
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2023 and campaign.has_tag("preBPix"):
-        cfg.x.luminosity = Number(17_794, {
+        cfg.x.luminosity = Number(18_062.6591, {
             "lumi_13p6TeV_correlated": 0.013j,
         })
     elif year == 2023 and campaign.has_tag("postBPix"):
-        cfg.x.luminosity = Number(9_451, {
+        cfg.x.luminosity = Number(9_693.1301, {
             "lumi_13p6TeV_correlated": 0.013j,
         })
     else:
