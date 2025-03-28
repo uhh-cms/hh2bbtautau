@@ -4,7 +4,7 @@ __all__ = [
     "ListDataset", "ParquetDataset", "FlatParquetDataset",
 ]
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Collection
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import T, Any, Callable, Sequence
 from columnflow.columnar_util import (
@@ -153,9 +153,12 @@ if not isinstance(torchdata, MockModule):
             for x in datasets:
                 x.data_type_transform = None
 
-            int_target_data = ak.concatenate([x._create_class_target(len(x.data)) for x in datasets], axis=0)
-            self._data = set_ak_column(self._data, "categorical_target", int_target_data)
-            self.target_columns.add(Route("categorical_target"))
+            if all(len(x.int_targets) > 0 for x in datasets):
+                int_target_data = ak.concatenate([x._create_class_target(len(x.data)) for x in datasets], axis=0)
+                self._data = set_ak_column(self._data, "categorical_target", int_target_data)
+                self.target_columns.add(Route("categorical_target"))
+            elif any(len(x.int_targets) > 0 for x in datasets):
+                raise ValueError("Cannot merge datasets: some but not all datasets define integer classes!")
             
             
         def _extract_data_columns(self) -> set[Route]:
@@ -316,7 +319,11 @@ if not isinstance(torchdata, MockModule):
         def data(self) -> ak.Array:
             if self._data is None:
                 self.open_options["columns"] = [x.string_column for x in self.all_columns]
-                self._data = ak.from_parquet(self.path, **self.open_options)
+                try:
+                    self._data = ak.from_parquet(self.path, **self.open_options)
+                except Exception as e:
+                    from IPython import embed
+                    embed(header=f"failed to load data from {self.path=}")
                 if self.global_transform:
                     self._data = self.global_transform(self._data)
             return self._data
@@ -499,7 +506,7 @@ if not isinstance(torchdata, MockModule):
             return self._current_rowgroups
         
         @current_rowgroups.setter
-        def current_rowgroup(self, value: int | Iterable[int]) -> None:
+        def current_rowgroups(self, value: int | Iterable[int]) -> None:
             value_set = set(value)
             if not value_set == self.current_rowgroup:
                 if not self._allowed_rowgroups.issuperset(value_set):
@@ -522,10 +529,10 @@ if not isinstance(torchdata, MockModule):
             else:
                 raise ValueError(f"Cannot concatenate data of type {type(data1)} and {type(data2)}")
 
-        def __getitem__(self, i: dict[int, list[int]]) -> Any | tuple:
+        def __getitem__(self, i: tuple[Collection[int], Collection[int]] | tuple[Collection[int], int]) -> Any | tuple:
             return_data = None
-            for rowgroup, indices in i.items():
-                self._current_rowgroup = rowgroup
+            for rowgroup, indices in i:
+                self.current_rowgroups = rowgroup
                 chunk = super().__getitem__(indices)
                 if not return_data:
                     return_data = chunk
