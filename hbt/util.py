@@ -79,6 +79,22 @@ def IF_DATASET_IS_W_LNU(
     return self.get() if func.dataset_inst.has_tag("w_lnu") else None
 
 
+@deferred_column
+def MET_COLUMN(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    met_name = func.config_inst.x("met_name", None)
+    if not met_name:
+        raise Exception("'met_name' has not been configured")
+    return f"{met_name}.{self.get()}"
+
+
+@deferred_column
+def RAW_MET_COLUMN(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    raw_met_name = func.config_inst.x("raw_met_name", None)
+    if not raw_met_name:
+        raise Exception("'raw_met_name' has not been configured")
+    return f"{raw_met_name}.{self.get()}"
+
+
 def hash_events(arr: np.ndarray) -> np.ndarray:
     """
     Helper function to create a hash value from the event, run and luminosityBlock columns.
@@ -101,7 +117,7 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
     assert_value(arr, "event", max_digits_event)
 
     max_digits_hash = max_digits_event + max_digits_luminosityBlock + max_digits_run
-    assert max_digits_hash <= 20, "sum of digits exceeds int64"
+    assert max_digits_hash <= 20, "sum of digits exceeds uint64"
 
     # upcast to uint64 to avoid overflow
     return (

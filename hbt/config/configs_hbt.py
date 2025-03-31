@@ -419,7 +419,7 @@ def add_config(
     # default objects
     cfg.x.default_calibrator = "default"
     cfg.x.default_selector = "default"
-    cfg.x.default_reducer = "cf_default"
+    cfg.x.default_reducer = "default"
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
@@ -1215,10 +1215,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-377439e8"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-120c4271"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-377439e8"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-120c4271"
     else:
         assert False
 
@@ -1336,6 +1336,7 @@ def add_config(
             "*",
         },
     })
+
     ################################################################################################
     # weights
     ################################################################################################
