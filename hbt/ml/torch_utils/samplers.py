@@ -100,7 +100,7 @@ if not isinstance(torchdata, MockModule):
 
                 size_sampler = self.index_sampler_cls(range(sum(sizes)))
                 for data_idx in size_sampler:
-                    yield (rowgroups, data_idx)
+                    yield (tuple(rowgroups.tolist()), data_idx)
 
     class ListRowgroupSampler(Sampler):
 
@@ -139,4 +139,4 @@ if not isinstance(torchdata, MockModule):
         def __iter__(self):
             for dataset_idx, sampler in enumerate(self.samplers):
                 for output in sampler:
-                    yield (dataset_idx, output)
+                    yield (dataset_idx, *output)
