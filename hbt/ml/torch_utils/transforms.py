@@ -164,14 +164,14 @@ if not isinstance(torch, MockModule):
             # has_fatjet = ak.num(events.FatJet) >= 1
 
             # first extract Leptons
-            leptons = attach_behavior(
+            leptons: ak.Array = attach_behavior(
                 ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
                 type_name="Tau",
             )
             # make sure to actually have two leptons
             has_lepton_pair = ak.num(leptons, axis=1) >= 2
-            events = events[has_lepton_pair]
-            leptons = leptons[has_lepton_pair]
+            events = ak.mask(events, has_lepton_pair)
+            leptons = ak.mask(leptons, has_lepton_pair)
             lep1, lep2 = leptons[:, 0], leptons[:, 1]
 
             # calculate phi of lepton system
