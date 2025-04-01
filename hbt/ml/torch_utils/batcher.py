@@ -11,6 +11,7 @@ from columnflow.columnar_util import (
     get_ak_routes, Route, remove_ak_column, EMPTY_FLOAT, EMPTY_INT,
     flat_np_view,
 )
+from hbt.ml.torch_utils.utils import reorganize_idx
 import copy
 import law
 
@@ -241,8 +242,9 @@ if not isinstance(torchdata, MockModule):
                 from IPython import embed
                 embed(header="DANGERZONE: batch is not full")
                 raise StopIteration()
-
             
+            batch = reorganize_idx(batch)
+
             # # check again that the datasets have something left to give
             # for source_name in self.source_nodes:
             #     # skip check if dataset is already marked as exhausted
