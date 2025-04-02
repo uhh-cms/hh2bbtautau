@@ -350,31 +350,52 @@ class HBTPytorchTask(
             d: val/ttbar_prob_sum for d, val in ttbar_probs.items()
         }
 
-        from IPython import embed
-        embed(header="about to create composite data loader")
+        from hbt.ml.torch_utils.batcher import BatchedMultiNodeWeightedSampler
+        from hbt.ml.torch_utils.samplers import ListRowgroupSampler
+        batcher = BatchedMultiNodeWeightedSampler(
+            batch_size=20,
+            source_nodes= {
+                key: tn.SamplerWrapper(ListRowgroupSampler(datasets)) 
+                for key, datasets in training_data_map.items()
+            },
+            weights=weight_dict
+        )
+        from hbt.ml.torch_utils.map_and_collate import NestedListRowgroupMapAndCollate
+        
+        # training_composite_loader = CompositeDataLoader(
+        #     data_map=training_data_map,
+        #     weight_dict=weight_dict,
+        #     map_and_collate_cls=NestedDictMapAndCollate,
+        #     batch_size=self.batch_size,
+        # )
         training_composite_loader = CompositeDataLoader(
             data_map=training_data_map,
             weight_dict=weight_dict,
-            map_and_collate_cls=NestedDictMapAndCollate,
+            map_and_collate_cls=NestedListRowgroupMapAndCollate,
             batch_size=self.batch_size,
+            index_sampler_cls=ListRowgroupSampler,
         )
 
         # create merged validation dataset
         from torch.utils.data import SequentialSampler
-        from hbt.ml.torch_utils.map_and_collate import FlatMapAndCollate
-        validation_data = FlatParquetDataset([x for x in validation_data_map.values()])
+        from hbt.ml.torch_utils.map_and_collate import FlatListRowgroupMapAndCollate
+        validation_data = list()
+        for x in validation_data_map.values():
+            validation_data.extend(x)
         validation_composite_loader = CompositeDataLoader(
             validation_data,
             batch_sampler_cls=tn.Batcher,
             shuffle=False,
             batch_size=self.batch_size,
             batcher_options={
-                "source": tn.SamplerWrapper(SequentialSampler(validation_data))
+                "source": tn.SamplerWrapper(ListRowgroupSampler(validation_data))
             },
-            map_and_collate_cls=FlatMapAndCollate,
-            collate_fn=lambda x: x,
+            map_and_collate_cls=FlatListRowgroupMapAndCollate,
+            # collate_fn=lambda x: x,
         )
         
+        from IPython import embed
+        embed(header="about to create composite data loader")
         logger.info("Constructing loss and optimizer")
         loss_fn = torch.nn.BCELoss()
         from torch.optim import Adam
