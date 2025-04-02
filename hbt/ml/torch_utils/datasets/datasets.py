@@ -319,11 +319,8 @@ if not isinstance(torchdata, MockModule):
         def data(self) -> ak.Array:
             if self._data is None:
                 self.open_options["columns"] = [x.string_column for x in self.all_columns]
-                try:
-                    self._data = ak.from_parquet(self.path, **self.open_options)
-                except Exception as e:
-                    from IPython import embed
-                    embed(header=f"failed to load data from {self.path=}")
+                self._data = ak.from_parquet(self.path, **self.open_options)
+
                 if self.global_transform:
                     self._data = self.global_transform(self._data)
             return self._data
@@ -359,6 +356,7 @@ if not isinstance(torchdata, MockModule):
                 data = self.input_data
             else:
                 data = input_data
+            
             return data[i]
 
         def _create_class_target(self, length: int, input_int_targets: int | None = None) -> ak.Array:
@@ -508,10 +506,10 @@ if not isinstance(torchdata, MockModule):
         @current_rowgroups.setter
         def current_rowgroups(self, value: int | Iterable[int]) -> None:
             value_set = set(value)
-            if not value_set == self.current_rowgroup:
+            if not value_set == self.current_rowgroups:
                 if not self._allowed_rowgroups.issuperset(value_set):
                     raise ValueError(f"Rowgroup '{value_set}' contains unallowed rowgrpus, whole set: {self._allowed_rowgroups}")
-                self._current_rowgroup = value_set
+                self._current_rowgroups = value_set
                 self._data = None
                 self.open_options["row_groups"] = value_set
 
