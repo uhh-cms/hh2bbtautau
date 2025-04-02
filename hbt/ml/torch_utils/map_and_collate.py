@@ -17,6 +17,8 @@ NestedMapAndCollate = MockModule("NestedMapAndCollate")  # type: ignore
 NestedDictMapAndCollate = MockModule("NestedDictMapAndCollate")  # type: ignore
 
 if not isinstance(torch, MockModule):
+    from hbt.ml.torch_utils.datasets import FlatRowgroupParquetDataset
+    from hbt.ml.torch_utils.utils import reorganize_idx
 
 
     class MapAndCollate:
@@ -46,7 +48,7 @@ if not isinstance(torch, MockModule):
             batch = self.dataset[idx]
             return self.collate_fn(batch)
 
-        
+
     class NestedMapAndCollate(MapAndCollate):
         def __init__(self,
             dataset: dict[str, Collection[T],],
@@ -98,15 +100,14 @@ if not isinstance(torch, MockModule):
 
 
     class NestedDictMapAndCollate(NestedMapAndCollate):
-        def _default_collate(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
-            batch: list[T] = []
-
-            # helper function to concatenate different types of objects
-            def _concat_dicts(
+        def _concat_dicts(
+                self,
                 input_arrays: Sequence[dict[str, T]],
                 *args,
                 **kwargs,
             ) -> dict[str, T]:
+                # helper function to concatenate different types of objects
+
                 return_dict = dict()
                 first_dict = input_arrays[0]
                 for key in first_dict.keys():
@@ -123,9 +124,47 @@ if not isinstance(torch, MockModule):
 
                 return return_dict
 
+        def _default_collate(self, idx: dict[str, Sequence[int]]) -> Sequence[T]:
+            batch: list[T] = []
+
+            # helper function to concatenate different types of objects
+            
+
 
             for key, indices in idx.items():
                 current_batch = self.dataset[key][indices]
-                batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=_concat_dicts)
+                batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
+            
+            return batch
+
+    class NestedListRowgroupMapAndCollate(NestedDictMapAndCollate):
+        dataset: dict[str, Sequence[FlatRowgroupParquetDataset]]
+        def _default_collate(self, idx: dict[str, dict[tuple[int, int], Sequence[int]]]) -> Sequence[T]:
+            batch: list[T] = []
+
+            for key, indices in idx.items():
+                # the indices are dictionaries with multiple entries, so loop
+                for (dataset_idx, rowgroup), entry_idx in indices.items():
+                    dataset = self.dataset[key][dataset_idx]
+                    current_batch = dataset[((rowgroup, entry_idx),)]
+                    batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
+            
+            return batch
+
+
+    class FlatListRowgroupMapAndCollate(NestedDictMapAndCollate):
+        """A simple transform that takes a batch of indices, maps with dataset, and then applies
+        collate.
+        TODO: make this a standard utility in torchdata.nodes
+        """
+        def _default_collate(self, idx: dict[str, dict[tuple[int, int], Sequence[int]]]) -> Sequence[T]:
+            batch: list[T] = []
+
+            # the indices are dictionaries with multiple entries, so loop
+            idx = reorganize_idx(idx)
+            for (dataset_idx, rowgroup), entry_idx in idx.items():
+                dataset = self.dataset[dataset_idx]
+                current_batch = dataset[((rowgroup, entry_idx),)]
+                batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
             
             return batch
