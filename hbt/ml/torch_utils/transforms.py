@@ -111,12 +111,8 @@ if not isinstance(torch, MockModule):
             return_tensor = None
             if isinstance(X, ak.Array):
                 # first, get flat numpy view to avoid copy operations
-                try:
-                    return_tensor = ak.to_torch(X).to(device=self.device)
-                except Exception as e:
-                    # default back to NestedTensor
-                    print(f"Exception raised in {self.__class__.__name__}: {print(traceback.format_exc())}")
-                    return_tensor = super()._transform_input(X)
+                return_tensor = ak.to_torch(X).to(device=self.device)
+
             elif isinstance(X, (torch.Tensor, NestedTensor)):
                 return_tensor = X
             elif isinstance(X, (list, tuple)):
