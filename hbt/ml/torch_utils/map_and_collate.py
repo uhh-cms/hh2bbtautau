@@ -10,6 +10,7 @@ from columnflow.types import T, Callable, Sequence
 
 torch = maybe_import("torch")
 ak = maybe_import("awkward")
+np = maybe_import("numpy")
 
 MapAndCollate = MockModule("MapAndCollate")  # type: ignore
 FlatMapAndCollate = MockModule("FlatMapAndCollate")  # type: ignore
@@ -141,8 +142,18 @@ if not isinstance(torch, MockModule):
         dataset: dict[str, Sequence[FlatRowgroupParquetDataset]]
         def _default_collate(self, idx: dict[str, dict[tuple[int, int], Sequence[int]]]) -> Sequence[T]:
             batch: list[T] = []
+            keys = np.array(list(idx.keys()))
+            
 
-            for key, indices in idx.items():
+            worker_info = torch.utils.data.get_worker_info()
+            if worker_info and worker_info.num_workers > 1 and not worker_info.id is None:
+                key_idx = np.indeces(keys.shape)
+                mask = ((key_idx + 1) % (worker_info.id + 1)) == 0
+                keys = keys[key_idx[mask]]
+                print(f"Worker {worker_info.id}: {keys=}")
+
+            for key in keys:
+                indices = idx[key]
                 # the indices are dictionaries with multiple entries, so loop
                 for (dataset_idx, rowgroup), entry_idx in indices.items():
                     dataset = self.dataset[key][dataset_idx]
@@ -163,8 +174,12 @@ if not isinstance(torch, MockModule):
             # the indices are dictionaries with multiple entries, so loop
             idx = reorganize_idx(idx)
             for (dataset_idx, rowgroup), entry_idx in idx.items():
-                dataset = self.dataset[dataset_idx]
-                current_batch = dataset[((rowgroup, entry_idx),)]
-                batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
+                try:
+                    dataset = self.dataset[dataset_idx]
+                    current_batch = dataset[((rowgroup, entry_idx),)]
+                    batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
+                except Exception as e:
+                    from IPython import embed
+                    embed(header=f"Detected problem in {self.__class__.__name__}")
             
             return batch
