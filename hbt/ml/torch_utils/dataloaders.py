@@ -147,12 +147,17 @@ if not isinstance(torchdata, MockModule):
             )
 
             mapping = self.map_cls(self.data_map, collate_fn=self.collate_fn)
-            
+            mp_context = None
+            if (self.device and self.device.type == "cuda") and self.num_workers > 1:
+                # mp_context = torch.multiprocessing.get_context("spawn")
+                mp_context = "spawn"
+
             parallel_node = tn.ParallelMapper(
                 batcher,
                 map_fn=mapping,
                 num_workers=self.num_workers,
                 method=self.parallelize_method,  # Set this to "thread" for multi-threading
+                multiprocessing_context=mp_context,
                 in_order=True,
             )
             if self.pin_memory:
