@@ -471,7 +471,7 @@ if not isinstance(torchdata, MockModule):
                     return_data.append({key: self._get_data(i, data) for key, data in self.target_data.items()})
                 if len(self.int_targets) > 0:
                     first_key = list(return_data[0].keys())[0]
-
+                    
                     return_data.append({
                         self.class_target_name: self._create_class_target(
                             len(return_data[0][first_key]), input_int_targets=self.class_target
@@ -511,6 +511,8 @@ if not isinstance(torchdata, MockModule):
                     raise ValueError(f"Rowgroup '{value_set}' contains unallowed rowgrpus, whole set: {self._allowed_rowgroups}")
                 self._current_rowgroups = value_set
                 self._data = None
+                self._input_data = None
+                self._target_data = None
                 self.open_options["row_groups"] = value_set
 
         def _concat_data(self, data1, data2) -> Any:
