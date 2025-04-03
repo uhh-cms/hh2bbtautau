@@ -92,14 +92,25 @@ class HBTPytorchTask(
         description="Maximum training epochs to use. Default: 300",
     )
 
+    load_parallel_cores = luigi.IntParameter(
+        default=0,
+        significant=False,
+        description="Number of sub processes to load for data loading. Default: 0 (only run in main thread)",
+    )
+
+    models = law.CSVParameter(
+        description="comma-separated names of ml models to train;",
+        significant=True,
+        brace_expand=True,
+    )
+
     version = law.Parameter(
         description="Version of the task",
         significant=True,
     )
 
     def create_branch_map(self):
-        # dummy branch map
-        return [0]
+        return dict(enumerate(self.models))
 
     def workflow_requires(self):
         reqs = super().workflow_requires()
@@ -113,7 +124,12 @@ class HBTPytorchTask(
         reqs = DotDict()
         reqs["events"] = DotDict.wrap({
             d: DotDict.wrap({
-                config:  self.reqs.UniteColumns.req(self, dataset=d, config=config, _exclude=["datasets", "configs"])
+                config:  self.reqs.UniteColumns.req(
+                    self,
+                    dataset=d,
+                    config=config,
+                    branch=-1,
+                    _exclude=["datasets", "configs", "branch", "branches"])
                 for config in self.configs
             })
             for d in self.datasets
@@ -122,7 +138,7 @@ class HBTPytorchTask(
 
         reqs["selection_stats"] = DotDict.wrap({
             d: DotDict.wrap({
-                config: self.reqs.MergeSelectionStats.req(self, dataset=d, config=config, _exclude=["datasets", "configs"])
+                config: self.reqs.MergeSelectionStats.req_different_branching(self, dataset=d, config=config, _exclude=["datasets", "configs"])
                 for config in self.configs
             })
             for d in self.datasets
@@ -133,8 +149,8 @@ class HBTPytorchTask(
     
     def output(self):
         return {
-            "model": self.target("torch_model.pt"),
-            "tensorboard": self.local_target("tb_logger", dir=True, optional=True),   
+            "model": self.target(f"torch_model_{self.branch_data}.pt"),
+            "tensorboard": self.local_target(f"tb_logger_{self.branch_data}", dir=True, optional=True),   
         }
     
     @property
@@ -156,6 +172,7 @@ class HBTPytorchTask(
         parts.insert_after("task_family", "configs", f"configs_{len(self.configs)}__{config_repr}")
 
         parts.insert_after("task_family", "datasets", f"datasets_{len(self.datasets)}__{dataset_repr}")
+        # parts.insert_after("task_family", "model", f"model_{self.branch_data}")
         parts.insert_after("datasets", "parameters", self._parameter_repr)
         return parts
     
@@ -182,12 +199,10 @@ class HBTPytorchTask(
         import torch.nn.functional as F
         from hbt.ml.torch_utils.map_and_collate import NestedDictMapAndCollate
 
-        import torchdata.nodes as tn
         from hbt.ml.torch_utils.transforms import (
             AkToTensor, PreProcessFloatValues, PreProssesAndCast,
         )
         from hbt.ml.torch_models import FeedForwardNet
-        from hbt.ml.torch_utils.datasets.utils import split_pq_dataset_per_path
 
         from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
         from ignite.metrics import Accuracy, Loss, ROC_AUC
@@ -195,43 +210,11 @@ class HBTPytorchTask(
         from ignite.contrib.handlers import TensorboardLogger, global_step_from_engine
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        
+
         logger.info(f"Running pytorch on {device}")
-
-        inputs = self.input()
-        configs = self.configs
+        # if device.type == "cuda":                
+        #     torch.multiprocessing.set_start_method('spawn')
         open_options = {}
-
-        def split_training_validation(
-            target_paths,
-            ratio=0.7,
-            open_options: dict | None = None,
-            columns: Collection[str | Route] | None = None,
-            targets: Collection[str | int | Route] | str | Route | int | None = None,
-            batch_transformations: torch.nn.Module | None = None,
-            global_transformations: torch.nn.Module | None = None,
-            categorical_target_transformation: torch.nn.Module | None = None,
-            data_type_transform: torch.nn.Module | None = None,
-            preshuffle: bool = True,
-        ):
-            training_ds = list()
-            validation_ds = list()
-            for path in target_paths:
-                training, validation = split_pq_dataset_per_path(
-                    target_path=path,
-                    ratio=ratio, open_options=open_options,
-                    columns=columns, targets=targets,
-                    batch_transformations=batch_transformations,
-                    global_transformations=global_transformations,
-                    categorical_target_transformation=categorical_target_transformation,
-                    data_type_transform=data_type_transform,
-                    preshuffle=preshuffle,
-                    dataset_cls=FlatRowgroupParquetDataset,
-                )
-                training_ds.append(training)
-                validation_ds.append(validation)
-            return training_ds, validation_ds
-            
 
         ### read via dask dataframe ######################################################
         # signal_dfs = dd.read_parquet(
@@ -281,125 +264,23 @@ class HBTPytorchTask(
         # - eager loading of all data (problem?)
 
         #### test case
-        
-        model = FeedForwardNet()
+        from hbt.ml.torch_models import model_clss
+        model_cls = model_clss.get(self.branch_data, None)
+        if not model_cls:
+            raise ValueError(f"Unable to load model {self.branch_data}, available list: {model_clss}")
+        model = model_cls()
         model = model.to(device)
-        columns = model.inputs
-        # construct datamap
-        training_data_map = dict()
-        validation_data_map = dict()
-        for dataset in self.datasets:
-            # following code is used for SiblingFileCollections
 
-            # targets = [inputs.events[dataset][c]["collection"] for c in configs]
-            # target_paths = [
-            #     t.abspath
-            #     for collections in targets
-            #     for targets in collections.targets.values()
-            #     for t in targets.values()
-            # ]
+        model.init_dataset_handler(task=self)
 
-            # following code is used for LocalFileTargets
-            targets = [inputs.events[dataset][c]["events"] for c in configs]
-            target_paths = [t.abspath for t in targets]
+        training_composite_loader, validation_composite_loader = model.init_datasets()        
 
-            training, validation = split_training_validation(
-                target_paths=target_paths, open_options=open_options,
-                columns=columns,
-                # transformations=AkToTensor(device=device),
-                
-                targets=int(1) if dataset.startswith("hh") else int(0),
-                batch_transformations=AkToTensor(device=device),
-                global_transformations=PreProcessFloatValues(),
-                # categorical_target_transformation=AkToTensor(device=device),
-                # data_type_transform=AkToTensor(device=device),
-            )
-            # read this in a gready way
-            # training_data_map[dataset] = FlatParquetDataset(training)
-            # validation_data_map[dataset] = FlatParquetDataset(validation)
-            training_data_map[dataset] = training
-            validation_data_map[dataset] = validation
-
-        
-        # extract ttbar sub phase space
-        tt_datasets = [d for d in self.datasets if d.startswith("tt_")]
-        def extract_probability(dataset: str, keyword: str = "sum_mc_weight_selected"):
-            expected_events = list()
-            sel_stat = self.input().selection_stats
-            for config in self.configs:
-                config_inst = self.analysis_inst.get_config(config)
-                lumi = config_inst.x.luminosity.nominal
-
-                # following code is used for SiblingFileCollections
-                # target = sel_stat[dataset][config].collection[0]["stats"]
-
-                # following code is used for LocalFileTargets
-                target = sel_stat[dataset][config]["stats"]
-                stats = target.load(formatter="json")
-                xs = stats.get(keyword, 0)
-                expected_events.append(xs * lumi)
-            return sum(expected_events)
-        weight_dict: dict[str, float | dict[str, float]] = {
-            d: 1. for d in self.datasets if not d in tt_datasets
-        }
-        ttbar_probs = {
-            d: extract_probability(d) for d in tt_datasets
-        }
-        ttbar_prob_sum = sum(ttbar_probs.values())
-        weight_dict["ttbar"] = {
-            d: val/ttbar_prob_sum for d, val in ttbar_probs.items()
-        }
-
-        from hbt.ml.torch_utils.batcher import BatchedMultiNodeWeightedSampler
-        from hbt.ml.torch_utils.samplers import ListRowgroupSampler
-        batcher = BatchedMultiNodeWeightedSampler(
-            batch_size=20,
-            source_nodes= {
-                key: tn.SamplerWrapper(ListRowgroupSampler(datasets)) 
-                for key, datasets in training_data_map.items()
-            },
-            weights=weight_dict
-        )
-        from hbt.ml.torch_utils.map_and_collate import NestedListRowgroupMapAndCollate
-        
-        # training_composite_loader = CompositeDataLoader(
-        #     data_map=training_data_map,
-        #     weight_dict=weight_dict,
-        #     map_and_collate_cls=NestedDictMapAndCollate,
-        #     batch_size=self.batch_size,
-        # )
-        training_composite_loader = CompositeDataLoader(
-            data_map=training_data_map,
-            weight_dict=weight_dict,
-            map_and_collate_cls=NestedListRowgroupMapAndCollate,
-            batch_size=self.batch_size,
-            index_sampler_cls=ListRowgroupSampler,
-        )
-
-        # create merged validation dataset
-        from torch.utils.data import SequentialSampler
-        from hbt.ml.torch_utils.map_and_collate import FlatListRowgroupMapAndCollate
-        validation_data = list()
-        for x in validation_data_map.values():
-            validation_data.extend(x)
-        validation_composite_loader = CompositeDataLoader(
-            validation_data,
-            batch_sampler_cls=tn.Batcher,
-            shuffle=False,
-            batch_size=self.batch_size,
-            batcher_options={
-                "source": tn.SamplerWrapper(ListRowgroupSampler(validation_data))
-            },
-            map_and_collate_cls=FlatListRowgroupMapAndCollate,
-            # collate_fn=lambda x: x,
-        )
-        
-        from IPython import embed
-        embed(header="about to create composite data loader")
         logger.info("Constructing loss and optimizer")
-        loss_fn = torch.nn.BCELoss()
-        from torch.optim import Adam
-        optimizer = Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
+        loss_fn = getattr(model, "loss_fn", None)
+        if not loss_fn:
+            raise ValueError(f"Unable to load attribute 'loss_fn' from model '{self.branch_data}")
+        
+        optimizer = model.init_optimizer()
 
         def lr_decay(epoch):
             return 0.9**epoch if 1e-1*0.9**epoch > 1e-9 else 1e-1
@@ -433,11 +314,14 @@ class HBTPytorchTask(
             writer.add_scalars(f"{run_name}_per_batch_training", {"loss": engine.state.output}, engine.state.iteration)
             logger.info(f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.2f}")
 
+        @trainer.on(Events.EPOCH_STARTED)
+        def reset_dataloaders(trainer):
+            training_composite_loader.data_loader.reset()
+
         @trainer.on(Events.EPOCH_COMPLETED)
         def log_training_results(trainer):
             training_composite_loader.data_loader.reset()
             train_evaluator.run(training_composite_loader.data_loader)
-            training_composite_loader.data_loader.reset()
             metrics = train_evaluator.state.metrics
             infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
             for name, value in metrics.items():
@@ -458,7 +342,7 @@ class HBTPytorchTask(
         def log_validation_results(trainer):
             validation_composite_loader.data_loader.reset()
             val_evaluator.run(validation_composite_loader.data_loader)
-            validation_composite_loader.data_loader.reset()
+            # validation_composite_loader.data_loader.reset()
             metrics = val_evaluator.state.metrics
             for name, value in metrics.items():
                 writer.add_scalars(f"{run_name}_{name}", {f"validation": value }, trainer.state.epoch)
