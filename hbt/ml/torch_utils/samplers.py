@@ -4,7 +4,7 @@ __all__ = [
     "NodesDataLoader", "CompositeDataLoader",
 ]
 
-from functools import partialmethod
+from functools import partial
 
 from collections.abc import Mapping, Container
 from columnflow.util import MockModule, maybe_import
@@ -51,11 +51,11 @@ if not isinstance(torchdata, MockModule):
                 "generator": generator,
             }
             self.rowgroup_sampler_cls = (
-                partialmethod(RandomSampler, **random_sampler_args)
+                partial(self.sampler_factory, cls=RandomSampler, **random_sampler_args)
                 if self.shuffle_rowgroups else SequentialSampler
             )
             self.index_sampler_cls = (
-                partialmethod(RandomSampler, **random_sampler_args)
+                partial(self.sampler_factory, cls=RandomSampler, **random_sampler_args)
                 if self.shuffle_indices else SequentialSampler
             )
 
@@ -68,6 +68,15 @@ if not isinstance(torchdata, MockModule):
             # for smart indexing
             self.rowgroup_list = torch.tensor(self.rowgroup_list)
             self.rowgroup_sizes = torch.tensor(self.rowgroup_sizes)
+
+        def sampler_factory(self,
+            data: Any,
+            cls: Callable = RandomSampler,
+            replacement: bool = False,
+            num_samples: int | None = None,
+            generator=None,
+        ):
+            return cls(data, replacement=replacement, num_samples=num_samples, generator=generator)
 
         def _extract_rowgroup_information(self):
             if self.metadata is None and self.dataset is None:
@@ -99,6 +108,9 @@ if not isinstance(torchdata, MockModule):
                 sizes = self.rowgroup_sizes[rg_idx]
 
                 size_sampler = self.index_sampler_cls(range(sum(sizes)))
+                # from IPython import embed
+                # embed(header=f"indices for rowgroup_sampler {rg_idx}")
+                
                 for data_idx in size_sampler:
                     yield (tuple(rowgroups.tolist()), data_idx)
 
