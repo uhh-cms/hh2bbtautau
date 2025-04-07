@@ -156,11 +156,18 @@ class BaseParquetFileHandler(object):
             expected_events.append(xs * lumi)
         return sum(expected_events)
     
-    def sampler_factory(self, datasets, shuffle_rowgroups=False, shuffle_indices=False):
+    def sampler_factory(
+        self,
+        datasets,
+        shuffle_rowgroups=False,
+        shuffle_indices=False,
+        simultaneous_rowgroups=-1,
+    ):
         return ListRowgroupSampler(
             inputs=datasets,
             shuffle_rowgroups=shuffle_rowgroups,
             shuffle_indices=shuffle_indices,
+            simultaneous_rowgroups=simultaneous_rowgroups,
         )
 
     def init_datasets(self) -> tuple[CompositeDataLoader, CompositeDataLoader]:
