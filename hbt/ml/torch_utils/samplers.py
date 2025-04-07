@@ -68,6 +68,8 @@ if not isinstance(torchdata, MockModule):
             # for smart indexing
             self.rowgroup_list = torch.tensor(self.rowgroup_list)
             self.rowgroup_sizes = torch.tensor(self.rowgroup_sizes)
+            if self.simultaneous_rowgroups == -1:
+                self.simultaneous_rowgroups = len(self.rowgroup_list)
 
         def sampler_factory(self,
             data: Any,

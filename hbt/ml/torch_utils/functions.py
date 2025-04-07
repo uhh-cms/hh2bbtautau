@@ -69,7 +69,6 @@ if not isinstance(torch, MockModule):
 
     def ignite_train_step(engine, batch, model, loss_fn, optimizer):
         # Set the model to training mode - important for batch normalization and dropout layers
-        # Unnecessary in this situation but added for best practices
         model.train()
         # Compute prediction and loss
         X, y = batch[0], batch[1]
@@ -87,7 +86,6 @@ if not isinstance(torch, MockModule):
 
     def ignite_validation_step(engine, batch, model):
         # Set the model to evaluation mode - important for batch normalization and dropout layers
-        # Unnecessary in this situation but added for best practices
         model.eval()
 
         # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
