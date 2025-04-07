@@ -61,8 +61,8 @@ if not isinstance(torch, MockModule):
 
             self.loss_fn = nn.BCELoss()
 
-        def init_optimizer(self, learing_rate=1e-3, weight_decay=1e-5):
-            return Adam(self.parameters(), lr=learing_rate, weight_decay=weight_decay)
+        def init_optimizer(self, learning_rate=1e-3, weight_decay=1e-5):
+            return Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
         
         def _build_categorical_target(self, dataset: str):
             return int(1) if dataset.startswith("hh") else int(0)
