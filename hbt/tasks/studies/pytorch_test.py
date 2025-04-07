@@ -109,6 +109,28 @@ class HBTPytorchTask(
         significant=True,
     )
 
+    learning_rate = luigi.FloatParameter(
+        default=1e-3,
+        significant=False,
+        description="Learning rate to use in training. Default: 1e-3",
+    )
+
+    weight_decay = luigi.FloatParameter(
+        default=1e-5,
+        significant=False,
+        description="Weight decay to use in training. Default: 1e-5",
+    )
+    early_stopping_patience = luigi.IntParameter(
+        default=10,
+        significant=False,
+        description="Patience for early stopping. Default: 10",
+    )
+    early_stopping_min_epochs = luigi.IntParameter(
+        default=1,
+        significant=False,
+        description="Minimum epochs before early stopping kicks in. Default: 1",
+    )
+
     def create_branch_map(self):
         return dict(enumerate(self.models))
 
@@ -150,15 +172,22 @@ class HBTPytorchTask(
     def output(self):
         return {
             "model": self.target(f"torch_model_{self.branch_data}.pt"),
+            "parameter_summary": self.target(f"parameter_summary_{self.branch_data}.json"),
             "tensorboard": self.local_target(f"tb_logger_{self.branch_data}", dir=True, optional=True),   
         }
     
     @property
     def _parameter_repr(self) -> str:
-        additional_params = []
+        additional_params = [
+            "learning_rate",
+            "weight_decay",
+            "early_stopping_patience",
+            "early_stopping_min_epochs",
+        ]
         param_repr = f"bs_{self.batch_size}__max_epochs_{self.max_epochs}"
         if additional_params:
-            param_repr += "__{}".format(law.util.create_hash([str(p) for p in additional_params]))
+            param_parts = [f"{p}_{getattr(self, p)}" for p in sorted(additional_params)]
+            param_repr += "__{}".format(law.util.create_hash(param_parts))
         return param_repr
 
     def store_parts(self) -> law.util.InsertableDict:
@@ -273,14 +302,19 @@ class HBTPytorchTask(
 
         model.init_dataset_handler(task=self)
 
-        training_composite_loader, validation_composite_loader = model.init_datasets()        
+        training_composite_loader, validation_composite_loader = model.init_datasets()
+        from IPython import embed
+        embed(header=f"initialized dataloaderes")
 
         logger.info("Constructing loss and optimizer")
         loss_fn = getattr(model, "loss_fn", None)
         if not loss_fn:
             raise ValueError(f"Unable to load attribute 'loss_fn' from model '{self.branch_data}")
         
-        optimizer = model.init_optimizer()
+        optimizer = model.init_optimizer(
+            learning_rate=self.learning_rate,
+            weight_decay=self.weight_decay
+        )
 
         def lr_decay(epoch):
             return 0.9**epoch if 1e-1*0.9**epoch > 1e-9 else 1e-1
@@ -328,13 +362,19 @@ class HBTPytorchTask(
                 writer.add_scalars(f"{run_name}_{name}", {f"training": value }, trainer.state.epoch)
             logger.info(f"Training Results - Epoch[{trainer.state.epoch}] {infos}")
 
-        from ignite.handlers import EarlyStopping
+        from hbt.ml.torch_utils.utils import CustomEarlyStopping as EarlyStopping
 
         def score_function(engine):
             val_loss = engine.state.metrics['loss']
             return -val_loss
 
-        handler = EarlyStopping(patience=10, score_function=score_function, trainer=trainer)
+        handler = EarlyStopping(
+            patience=self.early_stopping_patience,
+            min_epochs=self.early_stopping_min_epochs,
+            model = model,
+            score_function=score_function,
+            trainer=trainer,
+        )
         # Note: the handler is attached to an *Evaluator* (runs one epoch on validation dataset).
         val_evaluator.add_event_handler(Events.COMPLETED, handler)
 
@@ -354,6 +394,19 @@ class HBTPytorchTask(
         writer.close()
         logger.info(f"Saving model to {self.output()['model'].abspath}")
         torch.save(model.state_dict(), self.output()["model"].abspath)
+
+        # save model parameter summary
+        params = {
+            "model": self.branch_data,
+            "learning_rate": self.learning_rate,
+            "weight_decay": self.weight_decay,
+            "batch_size": self.batch_size,
+            "max_epochs": self.max_epochs,
+            "early_stopping_patience": self.early_stopping_patience,
+            "early_stopping_min_epochs": self.early_stopping_min_epochs,
+            "best_epoch": getattr(trainer, "best_epoch", trainer.state.epoch),
+        }
+        self.output()["parameter_summary"].dump(params, indent=4, formatter="json")
 
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
         # https://discuss.pytorch.org/t/proper-way-of-using-weightedrandomsampler/73147
