@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __all__ = [
     "ListDataset", "ParquetDataset", "FlatParquetDataset",
+    "FlatArrowRowGroupParquetDataset", "FlatRowgroupParquetDataset",
 ]
 
 from collections.abc import Iterable, Mapping, Collection
@@ -12,11 +13,14 @@ from columnflow.columnar_util import (
     flat_np_view, set_ak_column,
 )
 import law
+logger = law.logger.get_logger(__name__)
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
+pa = maybe_import("pyarrow")
+pq = maybe_import("pyarrow.parquet")
 
 ListDataset = MockModule("ListDataset")  # type: ignore
 ParquetDataset = MockModule("ParquetDataset")  # type: ignore
@@ -176,7 +180,7 @@ if not isinstance(torchdata, MockModule):
         def _parse_columns(self) -> None:
             if self.columns:
                 self.columns = set(Route(x) for x in self.columns)
-            elif isinstance(self.data, ak.Array):
+            elif isinstance(self._data, ak.Array):
                 self.all_columns = set(x for x in get_ak_routes(self.data))
             
             # check if transformations define columns to use and
@@ -505,15 +509,20 @@ if not isinstance(torchdata, MockModule):
         
         @current_rowgroups.setter
         def current_rowgroups(self, value: int | Iterable[int]) -> None:
-            value_set = set(value)
+            value_set: set[int] = set()
+            if isinstance(value, int):
+                value_set = set(value)
+            elif isinstance(value, Iterable):
+                value_set = set(*value)
             if not value_set == self.current_rowgroups:
                 if not self._allowed_rowgroups.issuperset(value_set):
-                    raise ValueError(f"Rowgroup '{value_set}' contains unallowed rowgrpus, whole set: {self._allowed_rowgroups}")
+                    raise ValueError(f"Rowgroup '{value_set}' contains unallowed rowgroups, whole set: {self._allowed_rowgroups}")
                 self._current_rowgroups = value_set
                 self._data = None
                 self._input_data = None
                 self._target_data = None
-                self.open_options["row_groups"] = value_set
+                self.open_options["row_groups"] = self.current_rowgroups
+
 
         def _concat_data(self, data1, data2) -> Any:
             if all(isinstance(x, dict) for x in [data1, data2]):
@@ -529,13 +538,97 @@ if not isinstance(torchdata, MockModule):
             else:
                 raise ValueError(f"Cannot concatenate data of type {type(data1)} and {type(data2)}")
 
-        def __getitem__(self, i: tuple[Collection[int], Collection[int]] | tuple[Collection[int], int]) -> Any | tuple:
+        def __getitem__(
+            self,
+            i: tuple[Collection[int], Collection[int]] | tuple[Collection[int], int] | Mapping[Collection[int], Collection[int]] | Mapping[Collection[int], int]
+        ) -> Any | tuple:
             return_data = None
-            for rowgroup, indices in i:
+            index_iter = iter(i)
+            if isinstance(i, Mapping):
+                index_iter = iter(i.items())
+            for rowgroup, indices in index_iter:
                 self.current_rowgroups = rowgroup
+
                 chunk = super().__getitem__(indices)
                 if not return_data:
                     return_data = chunk
                 else:
                     return_data = (self._concat_data(a, b) for a, b in zip(return_data, chunk))
             return return_data
+        
+    class FlatArrowRowGroupParquetDataset(FlatRowgroupParquetDataset):
+        def __init__(self, *args, filters: pa._compute.Expression | list[str] | None = None, **kwargs):
+            self.parquet_columns = None
+            self.filter = filters
+            self.rowgroup_fragments = []
+            super().__init__(*args, **kwargs)
+
+            first = self.path
+            if isinstance(self.path, (list, tuple, set)):
+                first = next(iter(self.path))
+
+            # extract column structure from first parquet file
+            self.parquet_columns = self._load_paquet_columns(pq.ParquetFile(first))
+            
+            for fragment in pq.ParquetDataset(self.path).fragments:
+                self.rowgroup_fragments.extend(fragment.split_by_row_group())
+            self.rowgroup_fragments = np.array(self.rowgroup_fragments)
+            if self.filter:
+                self._update_meta_data()
+
+        def _load_paquet_columns(self, metadata: pq.ParquetFile) -> list[str]:
+            # from awkward source code
+            list_indicator = "list.item"
+            for column_metadata in metadata.schema:
+                if (
+                    column_metadata.max_repetition_level > 0
+                    and ".list.element" in column_metadata.path
+                ):
+                    list_indicator = "list.element"
+                    break
+            subform = ak._connect.pyarrow.form_handle_arrow(
+                metadata.schema_arrow, pass_empty_field=True
+            )
+            if self.all_columns is not None:
+                subform = subform.select_columns([str(x) for x in self.all_columns])
+
+            # Handle empty field at root
+            if metadata.schema_arrow.names == [""]:
+                column_prefix = ("",)
+            else:
+                column_prefix = ()
+            return subform.columns(
+                list_indicator=list_indicator, column_prefix=column_prefix
+            )
+
+        def _update_meta_data(self) -> None:
+            # update the metadata with the new rowgroups
+            if self.meta_data:
+                self.meta_data["col_counts"] = [
+                    rowgroup.count_rows(filter=self.filter)
+                    for rowgroup in self.rowgroup_fragments
+                ]
+                self.meta_data["num_row_groups"] = len(self.rowgroup_fragments)
+            else:
+                raise ValueError("No metadata found, cannot update row groups")
+
+        @property
+        def data(self) -> ak.Array:
+            if self._data is None:
+                self.open_options["read_dictionary"] = self.parquet_columns
+                self.open_options["filters"] = self.filter
+                if "row_groups" in self.open_options:
+                    del self.open_options["row_groups"]
+                rg_idx = Ellipsis
+                if self.current_rowgroups:
+                    rg_idx = list(self.current_rowgroups)
+                logger.info(f"Loading rowgroups {rg_idx} from {self.path}")
+                self._data = ak.concatenate([
+                    ak.from_arrow(pq.read_table(x.open(), **self.open_options))
+                    for x in self.rowgroup_fragments[rg_idx]],
+                    axis=0
+                )
+
+                if self.global_transform:
+                    self._data = self.global_transform(self._data)
+            return self._data
