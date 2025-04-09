@@ -21,7 +21,12 @@ def reorganize_list_idx(entries):
         for e in entries:
             # only the last entry is the idx, all other entries
             # in the list/tuple will be used as keys
-            sub_dict[tuple(e[:-1])].append(e[-1])
+            data = e[-1]
+            key = tuple(e[:-1])
+            if isinstance(data, (list, tuple)):
+                sub_dict[key].extend(data)
+            else:
+                sub_dict[key].append(e[-1])
         return sub_dict
 
 def reorganize_dict_idx(batch):
