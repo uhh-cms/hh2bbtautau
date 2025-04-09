@@ -25,12 +25,12 @@ if not isinstance(torch, MockModule):
     from torch.optim import Adam
     import torchdata.nodes as tn
 
-    from hbt.ml.torch_utils.datasets import FlatRowgroupParquetDataset
+    from hbt.ml.torch_utils.datasets import FlatRowgroupParquetDataset, FlatArrowRowGroupParquetDataset
     from hbt.ml.torch_utils.transforms import AkToTensor, PreProcessFloatValues
     from hbt.ml.torch_utils.samplers import ListRowgroupSampler
     from hbt.ml.torch_utils.map_and_collate import NestedListRowgroupMapAndCollate
     from hbt.ml.torch_utils.dataloaders import CompositeDataLoader
-    from hbt.ml.torch_utils.datasets.handlers import BaseParquetFileHandler
+    from hbt.ml.torch_utils.datasets.handlers import FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler
 
     class FeedForwardNet(nn.Module):
         def __init__(self):
@@ -72,14 +72,13 @@ if not isinstance(torch, MockModule):
                 "ttbar": [d for d in task.datasets if d.startswith("tt_")]
             }
             device = next(self.parameters()).device
-            self.dataset_handler = BaseParquetFileHandler(
+            self.dataset_handler = FlatListRowgroupParquetFileHandler(
                 task=task,
                 columns=self.inputs,
                 batch_transformations=AkToTensor(device=device),
                 global_transformations=PreProcessFloatValues(),
                 build_categorical_target_fn=self._build_categorical_target,
                 group_datasets=group_datasets,
-                dataset_cls=FlatRowgroupParquetDataset,
                 device=device,
             )
 
@@ -122,6 +121,24 @@ if not isinstance(torch, MockModule):
                 nn.Sigmoid(),
             )
 
+    class FeedForwardArrow(FeedForwardNet):
+        def init_dataset_handler(self, task: law.Task):
+            group_datasets = {
+                "ttbar": [d for d in task.datasets if d.startswith("tt_")]
+            }
+            device = next(self.parameters()).device
+            self.dataset_handler = FlatArrowParquetFileHandler(
+                task=task,
+                columns=self.inputs,
+                batch_transformations=AkToTensor(device=device),
+                global_transformations=PreProcessFloatValues(),
+                build_categorical_target_fn=self._build_categorical_target,
+                group_datasets=group_datasets,
+                device=device,
+            )
+
     model_clss["feedforward"] = FeedForwardNet
+    model_clss["feedforward_arrow"] = FeedForwardArrow
+
     model_clss["feedforward_dropout"] = DropoutFeedForwardNet
 
