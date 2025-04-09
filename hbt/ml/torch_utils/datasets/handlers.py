@@ -1,5 +1,7 @@
 from __future__ import annotations
 from functools import partial
+from copy import deepcopy
+
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.columnar_util import Route
 from columnflow.types import Any, Callable
@@ -7,9 +9,14 @@ from collections.abc import Container, Collection
 from hbt.ml.torch_utils.dataloaders import CompositeDataLoader
 from hbt.ml.torch_utils.datasets import (
     ParquetDataset, FlatRowgroupParquetDataset, FlatParquetDataset,
+    FlatArrowRowGroupParquetDataset,
 )
-from hbt.ml.torch_utils.map_and_collate import NestedListRowgroupMapAndCollate
-from hbt.ml.torch_utils.samplers import ListRowgroupSampler
+from hbt.ml.torch_utils.map_and_collate import (
+    NestedListRowgroupMapAndCollate, FlatListRowgroupMapAndCollate,
+    NestedDictMapAndCollate,
+)
+
+from hbt.ml.torch_utils.samplers import ListRowgroupSampler, RowgroupSampler
 
 
 torch = maybe_import("torch")
@@ -23,12 +30,18 @@ logger = law.logger.get_logger(__name__)
 
 
 class BaseParquetFileHandler(object):
+    dataset_cls: Callable
+    training_map_and_collate_cls: Callable
+    validation_map_and_collate_cls: Callable
+    training_sampler_cls: Callable
+    validation_sampler_cls: Callable
 
     def __init__(
         self,
         task: law.Task,
         open_options: dict[str, Any] | None = None,
         columns: Collection[str | Route] | None = None,
+        datasets: Collection[str] | None = None,
         batch_transformations: torch.nn.Module | None = None,
         global_transformations: torch.nn.Module | None = None,
         categorical_target_transformation: torch.nn.Module | None = None,
@@ -36,14 +49,13 @@ class BaseParquetFileHandler(object):
         preshuffle: bool = True,
         build_categorical_target_fn: Callable | None = None,
         group_datasets: dict[str, list[str]] | None = None,
-        dataset_cls: Callable | None = None,
         device: str | None = None,
     ):
         self.open_options = open_options or dict()
         self.task = task
         self.inputs = task.input()
         self.configs = task.configs
-        self.datasets = task.datasets
+        self.datasets = datasets or task.datasets
         self.load_parallel_cores = task.load_parallel_cores
         self.batch_size = task.batch_size
         self.columns = columns
@@ -56,7 +68,7 @@ class BaseParquetFileHandler(object):
         self.build_categorical_target_fn = build_categorical_target_fn or self._default_build_categorical_target_fn
 
         self.group_datasets = group_datasets or dict()
-        self.dataset_cls = dataset_cls or FlatParquetDataset
+        self.dataset_cls = FlatParquetDataset
         self.device = device
 
     def _default_build_categorical_target_fn(self, dataset: str) -> int:
@@ -159,11 +171,12 @@ class BaseParquetFileHandler(object):
     def sampler_factory(
         self,
         datasets,
+        cls: Callable = ListRowgroupSampler,
         shuffle_rowgroups=False,
         shuffle_indices=False,
-        simultaneous_rowgroups=-1,
+        simultaneous_rowgroups=1,
     ):
-        return ListRowgroupSampler(
+        return cls(
             inputs=datasets,
             shuffle_rowgroups=shuffle_rowgroups,
             shuffle_indices=shuffle_indices,
@@ -217,9 +230,9 @@ class BaseParquetFileHandler(object):
             subspace_probs = {
                 d: self._extract_probability(d) for d in subspace
             }
-            ttbar_prob_sum = sum(subspace_probs.values())
+            prob_sum = sum(subspace_probs.values())
             weight_dict[key] = {
-                d: val/ttbar_prob_sum for d, val in subspace_probs.items()
+                d: val/prob_sum for d, val in subspace_probs.items()
             }
         
         # training_composite_loader = CompositeDataLoader(
@@ -228,12 +241,17 @@ class BaseParquetFileHandler(object):
         #     map_and_collate_cls=NestedDictMapAndCollate,
         #     batch_size=self.batch_size,
         # )
-        sampler_fn = partial(self.sampler_factory, shuffle_rowgroups=True, shuffle_indices=True)
+        sampler_fn = partial(
+            self.sampler_factory,
+            cls=self.training_sampler_cls,
+            shuffle_rowgroups=True,
+            shuffle_indices=True
+        )
 
         training_composite_loader = CompositeDataLoader(
             data_map=training_data_map,
             weight_dict=weight_dict,
-            map_and_collate_cls=NestedListRowgroupMapAndCollate,
+            map_and_collate_cls=self.training_map_and_collate_cls,
             batch_size=self.batch_size,
             index_sampler_cls=sampler_fn,
             num_workers=self.load_parallel_cores,
@@ -242,20 +260,91 @@ class BaseParquetFileHandler(object):
 
         # create merged validation dataset
         from torch.utils.data import SequentialSampler
-        from hbt.ml.torch_utils.map_and_collate import FlatListRowgroupMapAndCollate
         validation_data: list[ParquetDataset] = list()
         for x in validation_data_map.values():
-            validation_data.extend(x)
+            if not isinstance(x, (list, tuple, set)):
+                validation_data.append(x)
+            else:
+                validation_data.extend(x)
         validation_composite_loader = CompositeDataLoader(
             validation_data,
             batch_sampler_cls=tn.Batcher,
             shuffle=False,
             batch_size=self.batch_size,
             batcher_options={
-                "source": tn.SamplerWrapper(self.sampler_factory(validation_data))
+                "source": tn.SamplerWrapper(self.sampler_factory(validation_data, cls=self.validation_sampler_cls)),
             },
-            map_and_collate_cls=FlatListRowgroupMapAndCollate,
+            map_and_collate_cls=self.validation_map_and_collate_cls,
             device=self.device,
             # collate_fn=lambda x: x,
         )
         return (training_composite_loader, validation_composite_loader)
+
+class FlatListRowgroupParquetFileHandler(BaseParquetFileHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dataset_cls = FlatRowgroupParquetDataset
+        self.training_map_and_collate_cls = NestedListRowgroupMapAndCollate
+        self.validation_map_and_collate_cls = FlatListRowgroupMapAndCollate
+        training_sampler_cls = ListRowgroupSampler
+        validation_sampler_cls = ListRowgroupSampler
+
+class FlatArrowParquetFileHandler(BaseParquetFileHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dataset_cls = FlatArrowRowGroupParquetDataset
+        self.training_map_and_collate_cls = NestedDictMapAndCollate
+        self.validation_map_and_collate_cls = FlatListRowgroupMapAndCollate
+        self.training_sampler_cls = RowgroupSampler
+        self.validation_sampler_cls = ListRowgroupSampler
+    
+    def split_training_validation(
+        self,
+        target_paths,
+        ratio=0.7,
+        targets: Collection[str | int | Route] | str | Route | int | None = None,
+    ):
+
+        dataset_kwargs = {
+            "columns": self.columns,
+            "target": targets,
+            "batch_transform": self.batch_transformations,
+            "global_transform": self.global_transformations,
+            "categorical_target_transform": self.categorical_target_transformation,
+            "data_type_transform": self.data_type_transform,
+        }
+        final_options = self.open_options or dict()
+
+        training = self.dataset_cls(
+            target_paths,
+            open_options=final_options,
+            **dataset_kwargs,
+        )
+
+        total_row_groups = training.meta_data["num_row_groups"]
+        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
+        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
+        max_training_group = int( total_row_groups*ratio)
+        training_row_groups = None
+        if max_training_group == 0:
+            logger.warning(
+                "Could not split into training and validation data"
+                f" number of row groups for training is  {total_row_groups}"
+            )
+        else:
+            training_row_groups = rowgroup_indices[:max_training_group]
+
+        training._allowed_rowgroups = set(training_row_groups)
+        logger.info(f"Constructing training dataset with row_groups {training_row_groups}")
+
+
+        validation = None
+        if training_row_groups is None:
+            validation = training
+        else:
+            validation_row_groups = rowgroup_indices[max_training_group:]
+            final_options.update({"row_groups": validation_row_groups})
+            logger.info(f"Constructing validation dataset with row_groups {validation_row_groups}")
+            validation = deepcopy(training)
+            validation._allowed_rowgroups = set(validation_row_groups)
+        return training, validation
