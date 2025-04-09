@@ -25,7 +25,7 @@ if not isinstance(torchdata, MockModule):
 
     class RowgroupSampler(Sampler):
         def __init__(self,
-            dataset: ParquetDataset | None = None,
+            inputs: ParquetDataset | None = None,
             metadata: dict[str, Any] | None = None,
             rowgroup_list: Container[int] | None = None,
             rowgroup_sizes: Container[int] | None = None,
@@ -36,7 +36,7 @@ if not isinstance(torchdata, MockModule):
             num_samples: int | None = None,
             generator=None,
         ):
-            self.dataset = dataset
+            self.dataset = inputs
             self.metadata = metadata
             self.rowgroup_list = rowgroup_list
             self.rowgroup_sizes = rowgroup_sizes
