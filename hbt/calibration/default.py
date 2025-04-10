@@ -21,7 +21,7 @@ from columnflow.production.cms.seeds import (
 )
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_2, IF_RUN_3_2022
+from hbt.util import IF_RUN_2, IF_RUN_3
 
 ak = maybe_import("awkward")
 
@@ -78,7 +78,7 @@ def default(self: Calibrator, events: ak.Array, task: law.Task, **kwargs) -> ak.
         if self.has_dep(self.electron_scale_cls):
             events = self[self.electron_scale_cls](events, **kwargs)
 
-    if self.config_inst.campaign.x.run == 2:
+    if self.has_dep(self.met_phi_cls):
         events = self[self.met_phi_cls](events, **kwargs)
 
     if self.dataset_inst.is_mc:
@@ -167,10 +167,10 @@ def default_init(self: Calibrator, **kwargs) -> None:
         self.tec_cls,
         self.tec_nominal_cls,
         IF_RUN_2(self.met_phi_cls),
-        IF_RUN_3_2022(self.electron_scale_cls),
-        IF_RUN_3_2022(self.electron_scale_nominal_cls),
-        IF_RUN_3_2022(self.electron_res_cls),
-        IF_RUN_3_2022(self.electron_res_nominal_cls),
+        IF_RUN_3(self.electron_scale_cls),
+        IF_RUN_3(self.electron_scale_nominal_cls),
+        IF_RUN_3(self.electron_res_cls),
+        IF_RUN_3(self.electron_res_nominal_cls),
     }
     self.uses |= derived_calibrators
     self.produces |= derived_calibrators

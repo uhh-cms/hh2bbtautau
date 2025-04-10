@@ -511,11 +511,14 @@ def increment_stats(
                     add(f"sum_{weight_name}_selected_{var_name}", var_sel, events[weight_name])
                     add(f"sum_mc_weight_{weight_name}_selected_{var_name}", var_sel, events.mc_weight * events[weight_name])  # noqa: E501
 
-        # add sum_mc_weight_per_process directly to stats, needed for normalization weight
+        # add num_events_per_process and sum_mc_weight_per_process directly to stats, needed for normalization weight
+        if "num_events_per_process" not in stats:
+            stats["num_events_per_process"] = defaultdict(float)
         if "sum_mc_weight_per_process" not in stats:
             stats["sum_mc_weight_per_process"] = defaultdict(float)
         for proc_id in np.unique(events.process_id):
             proc_weights = events.mc_weight[events.process_id == proc_id]
+            stats["num_events_per_process"][str(proc_id)] += float(len(proc_weights))
             stats["sum_mc_weight_per_process"][str(proc_id)] += float(ak.sum(proc_weights))
 
     # fill stats and histograms

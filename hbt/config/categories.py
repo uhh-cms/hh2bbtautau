@@ -72,7 +72,7 @@ def add_categories(config: od.Config) -> None:
             "label": ", ".join([
                 cat.label or cat.name
                 for cat in categories.values()
-                if cat.name != "os"  # os is the default
+                if cat.name != "os" and cat.name != "iso"  # os and iso are the defaults
             ]) or None,
         }
 

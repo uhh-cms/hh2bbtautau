@@ -9,7 +9,6 @@ import functools
 import law
 
 from columnflow.tasks.framework.base import ConfigTask
-from columnflow.util import dev_sandbox
 
 from hbt.tasks.base import HBTTask
 from hbt.tasks.parameters import table_format_param
@@ -17,12 +16,12 @@ from hbt.tasks.parameters import table_format_param
 
 class ListDatasetStats(HBTTask, ConfigTask, law.tasks.RunOnceTask):
 
+    single_config = True
+
     table_format = table_format_param
 
     # no version required
     version = None
-
-    sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
 
     def run(self):
         import tabulate

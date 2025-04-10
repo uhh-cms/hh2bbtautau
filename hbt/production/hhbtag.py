@@ -13,7 +13,7 @@ from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column, full_like, flat_np_view
 from columnflow.types import Any
 
-from hbt.util import IF_RUN_2
+from hbt.util import IF_RUN_2, MET_COLUMN
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -25,7 +25,7 @@ logger = law.logger.get_logger(__name__)
     uses={
         "event", "channel_id",
         "Jet.{pt,eta,phi,mass,jetId,btagDeepFlavB}", IF_RUN_2("Jet.puId"),
-        # dynamic MET columns added in init
+        MET_COLUMN("{pt,phi}"),
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
 )
@@ -150,19 +150,16 @@ def hhbtag(
             )
             values = ak.concatenate([values, scores_ext], axis=1)
             # fill placeholder
-            np.asarray(
-                ak.flatten(value_placeholder),
-            )[ak.flatten(jet_mask & event_mask, axis=1)] = np.asarray(ak.flatten(values))
-            events = set_ak_column(events, "sync_hhbtag_" + column, value_placeholder)
+            np.asarray(ak.flatten(value_placeholder))[ak.flatten(jet_mask & event_mask, axis=1)] = (
+                np.asarray(ak.flatten(values))
+            )
+            events = set_ak_column(events, f"sync_hhbtag_{column}", value_placeholder)
 
     return events
 
 
 @hhbtag.init
 def hhbtag_init(self: Producer, **kwargs) -> None:
-    # add (puppi)met dynamically
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
-
     # produce input columns
     if self.config_inst.x.sync:
         self.produces.add("sync_*")
@@ -192,26 +189,16 @@ def hhbtag_setup(
     """
     from hbt.ml.tf_evaluator import TFEvaluator
 
-    # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
+    # unpack the external files bundle and setup the evaluator
     bundle = reqs["external_files"]
-    arc = bundle.files.hh_btag_repo
-
-    # unpack repo
-    repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
-    arc.load(repo_dir, formatter="tar")
-
-    # get the version of the external file
-    self.hhbtag_version = self.config_inst.x.external_files["hh_btag_repo"][1]
-
-    # setup the evaluator
-    model_dir = repo_dir.child("hh-btag-master/models")
-    model_path = f"HHbtag_{self.hhbtag_version}_par"
     self.evaluator = TFEvaluator()
-    self.evaluator.add_model("hhbtag_even", model_dir.child(f"{model_path}_0").path)
-    self.evaluator.add_model("hhbtag_odd", model_dir.child(f"{model_path}_1").path)
+    self.evaluator.add_model("hhbtag_even", bundle.files.hh_btag_repo.even.abspath)
+    self.evaluator.add_model("hhbtag_odd", bundle.files.hh_btag_repo.odd.abspath)
 
-    # prepare mappings for the HHBtag model
-    # (see links above for mapping information)
+    # get the model version (coincides with the external file version)
+    self.hhbtag_version = self.config_inst.x.external_files.hh_btag_repo.version
+
+    # prepare mappings for the HHBtag model (see links above for mapping information)
     channel_map = {
         self.config_inst.channels.n.etau.id: 1 if self.hhbtag_version == "v3" else 0,
         self.config_inst.channels.n.mutau.id: 0 if self.hhbtag_version == "v3" else 1,
@@ -222,7 +209,7 @@ def hhbtag_setup(
         self.config_inst.channels.n.mumu.id: 3 if self.hhbtag_version == "v3" else 1,
         self.config_inst.channels.n.emu.id: 5 if self.hhbtag_version == "v3" else 0,
     }
-    # convert to
+    # convert
     self.hhbtag_channel_map = np.array([
         channel_map.get(cid, np.nan)
         for cid in range(max(channel_map.keys()) + 1)
