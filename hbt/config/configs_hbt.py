@@ -778,9 +778,29 @@ def add_config(
 
     # pec config
     from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
+    if run == 2:
+        eec_set, eer_set = "Scale", "Smearing"
+    elif run == 3:
+        year_tag = {
+            22: f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}EE",
+            23: f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}BPix",
+        }[year2]
+        eec_set, eer_set = f"EGMScale_Compound_Ele_{year_tag}", f"EGMSmearAndSyst_ElePTsplit_{year_tag}"
 
-    cfg.x.eec = EGammaCorrectionConfig(correction_set="Scale")
-    cfg.x.eer = EGammaCorrectionConfig(correction_set="Smearing")
+    cfg.x.eec = EGammaCorrectionConfig(
+        correction_set=eec_set,
+        compound=True if run == 3 else False,
+        corrector_strings={
+            "type": "scale" if run == 3 else "total_correction",
+            "unc_type": "escale" if run == 3 else "total_uncertainty",
+        })
+    cfg.x.eer = EGammaCorrectionConfig(
+        correction_set=eer_set,
+        compound=False,
+        corrector_strings={
+            "type": "smear" if run == 3 else "rho",
+            "unc_type": "esmear" if run == 3 else "err_rho",
+        })
 
     # tau ID working points
     if campaign.x.version < 10:
@@ -1271,7 +1291,7 @@ def add_config(
         add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on Run2 UL samples
         add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v2"))  # noqa
-
+        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
     elif run == 3:
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
@@ -1279,12 +1299,8 @@ def add_config(
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
         add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v3"))  # noqa
-
-        # TODO: electron (and photon) energy corrections and smearing are only available for 2022
-        #       include them when available
-        if year == 2022:
-            # electron energy correction and smearing
-            add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
+        # electron energy correction and smearing
+        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
 
         # tau energy correction and scale factors
         # TODO: remove tag pog mirror once integrated centrally
