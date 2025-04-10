@@ -310,7 +310,6 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             background_hists=background_sum,
             n_bins=n_bins,
         )
-        print(flat_s_edges.tolist())
 
         # 3. apply to hists
         for config_inst, proc_hists in hists.items():

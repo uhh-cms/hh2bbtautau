@@ -1324,6 +1324,7 @@ def add_config(
 
     # columns to keep after certain steps
     cfg.x.keep_columns = DotDict.wrap({
+        # !! note that this set is used by the cf_default reducer
         "cf.ReduceEvents": {
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,
@@ -1341,7 +1342,7 @@ def add_config(
             "Tau.*", skip_column("Tau.track_cov*"),
             f"{cfg.x.met_name}.{{pt,phi,significance,covXX,covXY,covYY}}",
             "PV.npvs",
-            # keep all columns added during selection, but skip cutflow feature
+            # keep all columns added during selection and reduction, but skip cutflow features
             ColumnCollection.ALL_FROM_SELECTOR,
             skip_column("cutflow.*"),
         },
