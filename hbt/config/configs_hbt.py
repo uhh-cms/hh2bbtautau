@@ -816,9 +816,11 @@ def add_config(
     from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
     if run == 2:
         # SFs
-        e_postfix = ""
-        if year == 2016:
-            e_postfix = {"APV": "preVFP", "": "postVFP"}[campaign.x.postfix]
+        e_postfix = {
+            2016: {"APV": "preVFP", "": "postVFP"}[campaign.x.postfix],
+            2017: "",
+            2018: "",
+        }[year]
         cfg.x.electron_sf_names = ElectronSFConfig(
             correction="UL-Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
@@ -838,30 +840,28 @@ def add_config(
         )
     elif run == 3:
         # SFs
-        if year == 2022:
-            cmpgn = "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG"
-        elif year == 2023:
-            cmpgn = "2023PromptC" if campaign.has_tag("preBPix") else "2023PromptD"
-        else:
-            assert False
+        e_postfix = {
+            2022: {"": "Re-recoBCD", "EE": "Re-recoE+PromptFG"}[campaign.x.postfix],
+            2023: {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix],
+        }[year]
         cfg.x.electron_sf_names = ElectronSFConfig(
             correction="Electron-ID-SF",
-            campaign=cmpgn,
+            campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
         # eec and eer
-        egm_tag = {
-            2022: f"{'pre' if campaign.has_tag('preEE') else 'post'}EE",
-            2023: f"{'pre' if campaign.has_tag('preBPix') else 'post'}BPix",
+        e_tag = {
+            2022: {"": "preEE", "EE": "postEE"}[campaign.x.postfix],
+            2023: {"": "preBPix", "BPix": "postBPix"}[campaign.x.postfix],
         }[year]
         cfg.x.eec = EGammaCorrectionConfig(
-            correction_set=f"EGMScale_Compound_Ele_{year}{egm_tag}",
+            correction_set=f"EGMScale_Compound_Ele_{year}{e_tag}",
             value_type="scale",
             uncertainty_type="escale",
             compound=True,
         )
         cfg.x.eer = EGammaCorrectionConfig(
-            correction_set=f"EGMSmearAndSyst_ElePTsplit_{year}{egm_tag}",
+            correction_set=f"EGMSmearAndSyst_ElePTsplit_{year}{e_tag}",
             value_type="smear",
             uncertainty_type="esmear",
         )
