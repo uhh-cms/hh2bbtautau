@@ -233,15 +233,14 @@ def tau_weights_setup(
         "Tau.{pt,decayMode}", "matched_trigger_ids",
     },
     produces={
-        f"tau_trigger_{corrtype_}_weight" for corrtype_ in ["sf", "eff_data", "eff_mc"]
+        "tau_trigger_{sf,eff_data,eff_mc}_weight{,_tautaujet}",
+        "tau_trigger_{sf,eff_data,eff_mc}_weight_dm_{0,1,10,11}_{etau,mutau,tautau,tautaujet}_{up,down}"     
     } | {
         f"tau_trigger_{corrtype_}_weight_dm_{dm}_{ch}_{direction}"
         for direction in ["up", "down"]
         for ch in ["etau", "mutau", "tautau", "tautaujet"]  # TODO: add tautauvbf when existing
         for dm in [0, 1, 10, 11]
         for corrtype_ in ["sf", "eff_data", "eff_mc"]
-    } | {
-        f"tau_trigger_{corrtype_}_weight_tautaujet" for corrtype_ in ["sf", "eff_data", "eff_mc"]
     },
     # only run on mc
     mc_only=True,

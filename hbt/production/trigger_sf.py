@@ -205,33 +205,9 @@ def create_OR_trigger_weights(
         tau_trigger_sf_and_effs_cclub,
     },
     produces={
-        "etau_trigger_weights", "mutau_trigger_weights",
-    } | {
-        f"mutau_trigger_weights_mu_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"mutau_trigger_weights_e_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"etau_trigger_weights_e_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"etau_trigger_weights_mu_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"mutau_trigger_weights_tau_dm{dm}_{direction}"
-        for direction in ["up", "down"]
-        for dm in [0, 1, 10, 11]
-    } | {
-        f"etau_trigger_weights_tau_dm{dm}_{direction}"
-        for direction in ["up", "down"]
-        for dm in [0, 1, 10, 11]
-    } | {
-        f"etau_trigger_weights_jet_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"mutau_trigger_weights_jet_{direction}"
-        for direction in ["up", "down"]
+        "{e,mu}tau_trigger_weights",
+        "{e,mu}tau_trigger_weights_{e,mu,jet}_{up,down}",
+        "{e,mu}tau_trigger_weights_tau_dm{0,1,10,11}_{up,down}",
     },
 )
 def etau_mutau_trigger_weights(

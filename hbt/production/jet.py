@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import functools
 
+import law
+
 from columnflow.production import Producer, producer
-from columnflow.util import maybe_import, InsertableDict
+from columnflow.util import maybe_import, load_correction_set
 from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
 
 
@@ -25,11 +27,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "channel_id", "HHBJet.{pt,eta}",
     },
     produces={
-        f"ditaujet_trigger_jet_weight_{corrtype_}" for corrtype_ in ["eff_data", "eff_mc"]
-    } | {
-        f"ditaujet_trigger_jet_weight_{corrtype_}_{direction}"
-        for direction in ["up", "down"]
-        for corrtype_ in ["eff_data", "eff_mc"]
+        "ditaujet_trigger_jet_weight_eff_{data,mc}{,_up,_down}",
     },
     # only run on mc
     mc_only=True,
@@ -100,35 +98,27 @@ def jet_trigger_weights(
 
 
 @jet_trigger_weights.requires
-def jet_trigger_weights_requires(self: Producer, reqs: dict) -> None:
+def jet_trigger_weights_requires(self: Producer, task: law.Task, reqs: dict) -> None:
     if "external_files" in reqs:
         return
 
     from columnflow.tasks.external import BundleExternalFiles
-    reqs["external_files"] = BundleExternalFiles.req(self.task)
+    reqs["external_files"] = BundleExternalFiles.req(task)
 
 
 @jet_trigger_weights.setup
-def jet_trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+def jet_trigger_weights_setup(
+    self: Producer,
+    task: law.Task,
+    reqs: dict,
+    inputs: dict,
+    reader_targets: law.util.InsertableDict,
+) -> None:
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors
-    import correctionlib
-    correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
-
-    # load the correction set
-    jet_file = self.get_jet_file(bundle.files)
-    if jet_file.ext() == "json":
-        correction_set = correctionlib.CorrectionSet.from_file(
-            self.get_jet_file(bundle.files).abspath,
-        )
-    else:
-        correction_set = correctionlib.CorrectionSet.from_string(
-            self.get_jet_file(bundle.files).load(formatter="gzip").decode("utf-8"),
-        )
-
-    corrector_string = self.get_jet_corrector()
-    self.jet_trig_corrector = correction_set[corrector_string]
+    correction_set = load_correction_set(self.get_jet_file(bundle.files))
+    self.jet_trig_corrector = correction_set[self.get_jet_corrector()]
 
     # check versions
     assert self.jet_trig_corrector.version in [0, 1]
