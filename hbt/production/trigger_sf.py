@@ -31,7 +31,7 @@ single_trigger_electron_data_effs = electron_trigger_weights.derive(
     "single_trigger_electron_data_effs",
     cls_dict={
         "get_electron_file": (lambda self, external_files: external_files.electron_trigger_sf),
-        "get_electron_config": (lambda self: self.config_inst.x.single_trigger_electron_data_effs_names),
+        "get_electron_config": (lambda self: self.config_inst.x.single_trigger_electron_data_effs_cfg),
         "weight_name": "single_trigger_electron_data_effs",
     },
 )
@@ -40,7 +40,7 @@ single_trigger_electron_mc_effs = electron_trigger_weights.derive(
     "single_trigger_electron_mc_effs",
     cls_dict={
         "get_electron_file": (lambda self, external_files: external_files.electron_trigger_sf),
-        "get_electron_config": (lambda self: self.config_inst.x.single_trigger_electron_mc_effs_names),
+        "get_electron_config": (lambda self: self.config_inst.x.single_trigger_electron_mc_effs_cfg),
         "weight_name": "single_trigger_electron_mc_effs",
     },
 )
@@ -49,7 +49,7 @@ cross_trigger_electron_data_effs = electron_trigger_weights.derive(
     "cross_trigger_electron_data_effs",
     cls_dict={
         "get_electron_file": (lambda self, external_files: external_files.cross_trigger_electron_sf),
-        "get_electron_config": (lambda self: self.config_inst.x.cross_trigger_electron_data_effs_names),
+        "get_electron_config": (lambda self: self.config_inst.x.cross_trigger_electron_data_effs_cfg),
         "weight_name": "cross_trigger_electron_data_effs",
     },
 )
@@ -58,7 +58,7 @@ cross_trigger_electron_mc_effs = electron_trigger_weights.derive(
     "cross_trigger_electron_mc_effs",
     cls_dict={
         "get_electron_file": (lambda self, external_files: external_files.cross_trigger_electron_sf),
-        "get_electron_config": (lambda self: self.config_inst.x.cross_trigger_electron_mc_effs_names),
+        "get_electron_config": (lambda self: self.config_inst.x.cross_trigger_electron_mc_effs_cfg),
         "weight_name": "cross_trigger_electron_mc_effs",
     },
 )
@@ -68,7 +68,7 @@ single_trigger_muon_data_effs = muon_weights.derive(
     "single_trigger_muon_data_effs",
     cls_dict={
         "get_muon_file": (lambda self, external_files: external_files.muon_trigger_sf),
-        "get_muon_config": (lambda self: self.config_inst.x.single_trigger_muon_data_effs_names),
+        "get_muon_config": (lambda self: self.config_inst.x.single_trigger_muon_data_effs_cfg),
         "weight_name": "single_trigger_muon_data_effs",
     },
 )
@@ -77,7 +77,7 @@ single_trigger_muon_mc_effs = muon_weights.derive(
     "single_trigger_muon_mc_effs",
     cls_dict={
         "get_muon_file": (lambda self, external_files: external_files.muon_trigger_sf),
-        "get_muon_config": (lambda self: self.config_inst.x.single_trigger_muon_mc_effs_names),
+        "get_muon_config": (lambda self: self.config_inst.x.single_trigger_muon_mc_effs_cfg),
         "weight_name": "single_trigger_muon_mc_effs",
     },
 )
@@ -86,7 +86,7 @@ cross_trigger_muon_data_effs = muon_weights.derive(
     "cross_trigger_muon_data_effs",
     cls_dict={
         "get_muon_file": (lambda self, external_files: external_files.cross_trigger_muon_sf),
-        "get_muon_config": (lambda self: self.config_inst.x.cross_trigger_muon_data_effs_names),
+        "get_muon_config": (lambda self: self.config_inst.x.cross_trigger_muon_data_effs_cfg),
         "weight_name": "cross_trigger_muon_data_effs",
     },
 )
@@ -95,7 +95,7 @@ cross_trigger_muon_mc_effs = muon_weights.derive(
     "cross_trigger_muon_mc_effs",
     cls_dict={
         "get_muon_file": (lambda self, external_files: external_files.cross_trigger_muon_sf),
-        "get_muon_config": (lambda self: self.config_inst.x.cross_trigger_muon_mc_effs_names),
+        "get_muon_config": (lambda self: self.config_inst.x.cross_trigger_muon_mc_effs_cfg),
         "weight_name": "cross_trigger_muon_mc_effs",
     },
 )
@@ -105,7 +105,7 @@ tau_trigger_sf_and_effs_cclub = tau_trigger_weights.derive(
     "tau_trigger_sf_and_effs_cclub",
     cls_dict={
         "get_tau_file": (lambda self, external_files: external_files.tau_trigger_sf),
-        "get_tau_corrector": (lambda self: self.config_inst.x.cclub_tau_corrector),
+        "get_tau_corrector": (lambda self: self.config_inst.x.tau_trigger_corrector_cclub),
     },
 )
 

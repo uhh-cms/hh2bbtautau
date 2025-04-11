@@ -812,7 +812,7 @@ def add_config(
 
     # tau trigger correctors
     cfg.x.tau_trigger_corrector = "tau_trigger"
-    cfg.x.cclub_tau_corrector = "tauTriggerSF"
+    cfg.x.tau_trigger_corrector_cclub = "tauTriggerSF"
 
     ################################################################################################
     # electron settings
@@ -861,22 +861,22 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele30_TightID",
         )
-        cfg.x.single_trigger_electron_data_effs_names = ElectronSFConfig(
+        cfg.x.single_trigger_electron_data_effs_cfg = ElectronSFConfig(
             correction="Electron-HLT-DataEff",
             campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele30_TightID",
         )
-        cfg.x.single_trigger_electron_mc_effs_names = ElectronSFConfig(
+        cfg.x.single_trigger_electron_mc_effs_cfg = ElectronSFConfig(
             correction="Electron-HLT-McEff",
             campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele30_TightID",
         )
-        cfg.x.cross_trigger_electron_data_effs_names = ElectronSFConfig(
+        cfg.x.cross_trigger_electron_data_effs_cfg = ElectronSFConfig(
             correction="Electron-HLT-DataEff",
             campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele24_TightID",
         )
-        cfg.x.cross_trigger_electron_mc_effs_names = ElectronSFConfig(
+        cfg.x.cross_trigger_electron_mc_effs_cfg = ElectronSFConfig(
             correction="Electron-HLT-McEff",
             campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele24_TightID",
@@ -916,16 +916,16 @@ def add_config(
         cfg.x.muon_trigger_sf_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
         )
-        cfg.x.single_trigger_muon_data_effs_names = MuonSFConfig(
+        cfg.x.single_trigger_muon_data_effs_cfg = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
         )
-        cfg.x.single_trigger_muon_mc_effs_names = MuonSFConfig(
+        cfg.x.single_trigger_muon_mc_effs_cfg = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
         )
-        cfg.x.cross_trigger_muon_data_effs_names = MuonSFConfig(
+        cfg.x.cross_trigger_muon_data_effs_cfg = MuonSFConfig(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
         )
-        cfg.x.cross_trigger_muon_mc_effs_names = MuonSFConfig(
+        cfg.x.cross_trigger_muon_mc_effs_cfg = MuonSFConfig(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
         )
 
@@ -1320,15 +1320,15 @@ def add_config(
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
         json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-a080a5f3"
         trigger_json_mirror = "/data/dust/user/prouvost/cclub_gitlab/AnalysisCore/data/TriggerScaleFactors"
-        cfg.x.campaign_tag = ""
+        campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
             if campaign.has_tag(tag, mode=any):
-                if cfg.x.campaign_tag:
+                if campaign_tag:
                     raise ValueError(f"Multiple campaign tags found: {cfg.x.campaign_tag} and {tag}")
-                cfg.x.campaign_tag = tag
+                campaign_tag = tag
         cclub_eras = (
             f"{year}"
-            f"{cfg.x.campaign_tag}"
+            f"{campaign_tag}"
         )
     else:
         assert False
