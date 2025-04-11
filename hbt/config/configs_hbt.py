@@ -782,32 +782,6 @@ def add_config(
     corrector_kwargs = {"wp": "Medium", "wp_VSe": "VVLoose"} if run == 3 else {}
     cfg.x.tec = TECConfig(tagger=cfg.x.tau_tagger, corrector_kwargs=corrector_kwargs)
 
-    # pec config
-    from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
-    if run == 2:
-        eec_set, eer_set = "Scale", "Smearing"
-    elif run == 3:
-        year_tag = {
-            22: f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}EE",
-            23: f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}BPix",
-        }[year2]
-        eec_set, eer_set = f"EGMScale_Compound_Ele_{year_tag}", f"EGMSmearAndSyst_ElePTsplit_{year_tag}"
-
-    cfg.x.eec = EGammaCorrectionConfig(
-        correction_set=eec_set,
-        compound=True if run == 3 else False,
-        corrector_strings={
-            "type": "scale" if run == 3 else "total_correction",
-            "unc_type": "escale" if run == 3 else "total_uncertainty",
-        })
-    cfg.x.eer = EGammaCorrectionConfig(
-        correction_set=eer_set,
-        compound=False,
-        corrector_strings={
-            "type": "smear" if run == 3 else "rho",
-            "unc_type": "esmear" if run == 3 else "err_rho",
-        })
-    
     # tau ID working points
     if campaign.x.version < 10:
         cfg.x.tau_id_working_points = DotDict.wrap({
@@ -850,18 +824,16 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
+        # eec and eer
+        eec_set, eer_set = "Scale", "Smearing"
     elif run == 3:
         # eec and eer
-        if year == 2022:
-            eec_set = "Scale"
-            eer_set = "Smearing"
-        elif year == 2023:
-            eec_set = {"": "2023PromptC_ScaleJSON", "BPix": "2023PromptD_ScaleJSON"}[campaign.x.postfix]
-            eer_set = {"": "2023PromptC_SmearingJSON", "BPix": "2023PromptD_SmearingJSON"}[campaign.x.postfix]
-        else:
-            assert False
-        cfg.x.eec = EGammaCorrectionConfig(correction_set=eec_set)
-        cfg.x.eer = EGammaCorrectionConfig(correction_set=eer_set)
+        year_tag = {
+            22: f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}EE",
+            23: f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}BPix",
+        }[year2]
+        eec_set, eer_set = f"EGMScale_Compound_Ele_{year_tag}", f"EGMSmearAndSyst_ElePTsplit_{year_tag}"
+
         # SFs
         if year == 2022:
             cmpgn = "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG"
@@ -876,6 +848,19 @@ def add_config(
         )
     else:
         assert False
+
+    cfg.x.eec = EGammaCorrectionConfig(
+        correction_set=eec_set,
+        compound=True if run == 3 else False,
+        value_type="scale" if run == 3 else "total_correction",
+        uncertainty_type="escale" if run == 3 else "total_uncertainty",
+    )
+    cfg.x.eer = EGammaCorrectionConfig(
+        correction_set=eer_set,
+        compound=False,
+        value_type="smear" if run == 3 else "rho",
+        uncertainty_type="esmear" if run == 3 else "err_rho",
+    )
 
     ################################################################################################
     # muon settings
