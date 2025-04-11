@@ -816,11 +816,9 @@ def add_config(
     from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
     if run == 2:
         # SFs
-        e_postfix = {
-            2016: {"APV": "preVFP", "": "postVFP"}[campaign.x.postfix],
-            2017: "",
-            2018: "",
-        }[year]
+        e_postfix = ""
+        if year == 2016:
+            e_postfix = {"APV": "preVFP", "": "postVFP"}[campaign.x.postfix]
         cfg.x.electron_sf_names = ElectronSFConfig(
             correction="UL-Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
@@ -840,20 +838,24 @@ def add_config(
         )
     elif run == 3:
         # SFs
-        e_postfix = {
-            2022: {"": "Re-recoBCD", "EE": "Re-recoE+PromptFG"}[campaign.x.postfix],
-            2023: {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix],
-        }[year]
+        if year == 2022:
+            e_postfix = {"": "Re-recoBCD", "EE": "Re-recoE+PromptFG"}[campaign.x.postfix]
+        elif year == 2023:
+            e_postfix = {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix]
+        else:
+            assert False
         cfg.x.electron_sf_names = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
         # eec and eer
-        e_tag = {
-            2022: {"": "preEE", "EE": "postEE"}[campaign.x.postfix],
-            2023: {"": "preBPix", "BPix": "postBPix"}[campaign.x.postfix],
-        }[year]
+        if year == 2022:
+            e_tag = {"": "preEE", "EE": "postEE"}[campaign.x.postfix]
+        elif year == 2023:
+            e_tag = {"": "preBPix", "BPix": "postBPix"}[campaign.x.postfix]
+        else:
+            assert False
         cfg.x.eec = EGammaCorrectionConfig(
             correction_set=f"EGMScale_Compound_Ele_{year}{e_tag}",
             value_type="scale",
