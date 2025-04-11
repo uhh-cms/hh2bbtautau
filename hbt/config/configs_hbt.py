@@ -825,15 +825,18 @@ def add_config(
             working_point="wp80iso",
         )
         # eec and eer
-        eec_set, eer_set = "Scale", "Smearing"
+        cfg.x.eec = EGammaCorrectionConfig(
+            correction_set="Scale",
+            value_type="total_correction",
+            uncertainty_type="total_uncertainty",
+        )
+        cfg.x.eer = EGammaCorrectionConfig(
+            correction_set="Smearing",
+            compound=False,
+            value_type="rho",
+            uncertainty_type="err_rho",
+        )
     elif run == 3:
-        # eec and eer
-        year_tag = {
-            22: f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}EE",
-            23: f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}BPix",
-        }[year2]
-        eec_set, eer_set = f"EGMScale_Compound_Ele_{year_tag}", f"EGMSmearAndSyst_ElePTsplit_{year_tag}"
-
         # SFs
         if year == 2022:
             cmpgn = "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG"
@@ -846,21 +849,24 @@ def add_config(
             campaign=cmpgn,
             working_point="wp80iso",
         )
+        # eec and eer
+        egm_tag = {
+            2022: f"{'pre' if campaign.has_tag('preEE') else 'post'}EE",
+            2023: f"{'pre' if campaign.has_tag('preBPix') else 'post'}BPix",
+        }[year]
+        cfg.x.eec = EGammaCorrectionConfig(
+            correction_set=f"EGMScale_Compound_Ele_{year}{egm_tag}",
+            value_type="scale",
+            uncertainty_type="escale",
+            compound=True,
+        )
+        cfg.x.eer = EGammaCorrectionConfig(
+            correction_set=f"EGMSmearAndSyst_ElePTsplit_{year}{egm_tag}",
+            value_type="smear",
+            uncertainty_type="esmear",
+        )
     else:
         assert False
-
-    cfg.x.eec = EGammaCorrectionConfig(
-        correction_set=eec_set,
-        compound=True if run == 3 else False,
-        value_type="scale" if run == 3 else "total_correction",
-        uncertainty_type="escale" if run == 3 else "total_uncertainty",
-    )
-    cfg.x.eer = EGammaCorrectionConfig(
-        correction_set=eer_set,
-        compound=False,
-        value_type="smear" if run == 3 else "rho",
-        uncertainty_type="esmear" if run == 3 else "err_rho",
-    )
 
     ################################################################################################
     # muon settings
@@ -1335,8 +1341,6 @@ def add_config(
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # electron energy correction and smearing
-        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
-        # electron energy correction and smearing
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
         add_external("hh_btag_repo", Ext(
@@ -1438,7 +1442,7 @@ def add_config(
         ],
         "tec": [
             shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag(("tec"))
+            if shift_inst.has_tag("tec")
         ],
         "eec": [
             shift_inst.name for shift_inst in cfg.shifts
@@ -1446,11 +1450,11 @@ def add_config(
         ],
         "ees": [
             shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag(("ees"))
+            if shift_inst.has_tag("ees")
         ],
         "eer": [
             shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag(("eer"))
+            if shift_inst.has_tag("eer")
         ],
         "btag_sf": [
             shift_inst.name for shift_inst in get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names))
