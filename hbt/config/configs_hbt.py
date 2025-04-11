@@ -858,27 +858,27 @@ def add_config(
         )
         cfg.x.electron_trigger_sf_names = ElectronSFConfig(
             correction="Electron-HLT-SF",
-            campaign=cmpgn,
+            campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele30_TightID",
         )
         cfg.x.single_trigger_electron_data_effs_names = ElectronSFConfig(
             correction="Electron-HLT-DataEff",
-            campaign=cmpgn,
+            campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele30_TightID",
         )
         cfg.x.single_trigger_electron_mc_effs_names = ElectronSFConfig(
             correction="Electron-HLT-McEff",
-            campaign=cmpgn,
+            campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele30_TightID",
         )
         cfg.x.cross_trigger_electron_data_effs_names = ElectronSFConfig(
             correction="Electron-HLT-DataEff",
-            campaign=cmpgn,
+            campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele24_TightID",
         )
         cfg.x.cross_trigger_electron_mc_effs_names = ElectronSFConfig(
             correction="Electron-HLT-McEff",
-            campaign=cmpgn,
+            campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele24_TightID",
         )
         # eec and eer
@@ -1393,7 +1393,7 @@ def add_config(
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # muon trigger scale factors
-        add_external("muon_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/temporary_MuHlt_abseta_pt.json", "v1"))  # noqa
+        add_external("muon_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/temporary_MuHlt_abseta_pt.json", "v1"))  # noqa: E501
         add_external("cross_trigger_muon_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossMuTauHlt.json", "v1"))
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
@@ -1424,11 +1424,11 @@ def add_config(
         add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v2.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v2.json.gz", "v1"))  # noqa: E501
         # tau trigger scale factors
-        add_external("tau_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json", "v1"))  # noqa
+        add_external("tau_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json", "v1"))  # noqa: E501
 
-        jet_tag = "preEE" if campaign.has_tag('preEE') else "postEE" if campaign.has_tag('postEE') else "preBPix" if campaign.has_tag('preBPix') else "postBPix" # noqa
+        jet_tag = "preEE" if campaign.has_tag("preEE") else "postEE" if campaign.has_tag("postEE") else "preBPix" if campaign.has_tag("preBPix") else "postBPix"  # noqa: E501
         # jet trigger scale factors
-        add_external("jet_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/ditaujet_jetleg_SFs_{jet_tag}.json", "v1"))  # noqa
+        add_external("jet_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/ditaujet_jetleg_SFs_{jet_tag}.json", "v1"))  # noqa: E501
 
     else:
         assert False
