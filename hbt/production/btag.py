@@ -16,9 +16,10 @@ from columnflow.util import maybe_import, safe_div
 from columnflow.columnar_util import set_ak_column
 from columnflow.types import Any
 
-
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
+hist = maybe_import("hist")
+
 
 # helper
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
@@ -106,31 +107,27 @@ def _normalized_btag_weights_setup(
     inputs: dict[str, Any],
     **kwargs,
 ) -> None:
-    # load the selection stats
-    selection_stats = task.cached_value(
-        key="selection_stats",
-        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
+    # load the selection hists
+    hists = task.cached_value(
+        key="selection_hists",
+        func=lambda: inputs["selection_stats"]["hists"].load(formatter="pickle"),
     )
 
     # get the unique process ids in that dataset
-    key = f"sum_btag_weight_{self.tagger_name}_selected_nob_{self.tagger_name}_per_process_and_njet"
-    self.unique_process_ids = list(map(int, selection_stats[key].keys()))
+    key = f"sum_btag_weight_{self.tagger_name}_selected_nob_{self.tagger_name}"
+    self.unique_process_ids = list(hists[key].axes["process"])
 
     # get the maximum numbers of jets
-    max_n_jets = max(map(int, sum((list(d.keys()) for d in selection_stats[key].values()), [])))
+    max_n_jets = max(list(hists[key].axes["n_jets"]))
 
     # helper to get sums of mc weights per pid and njet, with an optional weight name
-    def sum_per_pid(pid, weight_name="", /):
+    def get_sum(pid, n_jets, weight_name="", /) -> float:
         if weight_name:
             weight_name += "_"
-        key = f"sum_mc_weight_{weight_name}selected_nob_{self.tagger_name}_per_process"
-        return selection_stats[key].get(str(pid), 0.0)
-
-    def sum_per_pid_njet(pid, n_jets, weight_name="", /):
-        if weight_name:
-            weight_name += "_"
-        key = f"sum_mc_weight_{weight_name}selected_nob_{self.tagger_name}_per_process_and_njet"
-        return selection_stats[key].get(str(pid), {}).get(str(n_jets), 0.0)
+        if n_jets != sum:
+            n_jets = hist.loc(n_jets)
+        key = f"sum_mc_weight_{weight_name}selected_nob_{self.tagger_name}"
+        return hists[key][{"process": hist.loc(pid), "n_jets": n_jets}].value
 
     # ratio per weight and pid
     # extract the ratio per weight, pid and also the jet multiplicity, using the latter as in index
@@ -142,13 +139,13 @@ def _normalized_btag_weights_setup(
             continue
         # normal ratio
         self.ratio_per_pid[weight_name] = {
-            pid: safe_div(sum_per_pid(pid), sum_per_pid(pid, weight_name))
+            pid: safe_div(get_sum(pid, sum), get_sum(pid, sum, weight_name))
             for pid in self.unique_process_ids
         }
         # per jet multiplicity ratio
         self.ratio_per_pid_njet[weight_name] = {
             pid: np.array([
-                safe_div(sum_per_pid_njet(pid, n_jets), sum_per_pid_njet(pid, n_jets, weight_name))
+                safe_div(get_sum(pid, n_jets), get_sum(pid, n_jets, weight_name))
                 for n_jets in range(max_n_jets + 1)
             ])
             for pid in self.unique_process_ids

@@ -291,12 +291,12 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
             # filter categories not existing in histogram
             cat_ids_locations = [
-                hist.loc(c.id) for c in leaf_cats
-                if c.id in signal_hist[config_inst].axes["category"]
+                hist.loc(c.name) for c in leaf_cats
+                if c.name in signal_hist[config_inst].axes["category"]
             ]
 
             # sum over different leaf categories and select the nominal shift
-            select = lambda h: h[{"category": cat_ids_locations}][{"category": sum, "shift": hist.loc(0)}]
+            select = lambda h: h[{"category": cat_ids_locations}][{"category": sum, "shift": hist.loc("nominal")}]
             signal_hist[config_inst] = select(signal_hist[config_inst])
             for process_inst, h in background_hists[config_inst].items():
                 background_hists[config_inst][process_inst] = select(h)
@@ -323,13 +323,12 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         return hists
 
     # some usual binning constraints
-    def constrain_tt_dy(counts: dict[str, BinCount]) -> bool:
-        # have at least one tt, one dy, and four total background events
-        # as well as positive yields
+    def constrain_tt_dy(counts: dict[str, BinCount], n_tt: int = 1, n_dy: int = 1, n_sum: int = 4) -> bool:
+        # have at least one tt, one dy, and four total background events as well as positive yields
         return (
-            counts["tt"].num >= 1 and
-            counts["dy"].num >= 1 and
-            counts["tt"].num + counts["dy"].num >= 4 and
+            counts["tt"].num >= n_tt and
+            counts["dy"].num >= n_dy and
+            (counts["tt"].num + counts["dy"].num) >= n_sum and
             counts["tt"].val > 0 and
             counts["dy"].val > 0
         )
@@ -346,4 +345,10 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
         n_bins=10,
         constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
+    )
+    analysis_inst.x.hist_hooks.flats_kl1_n10_guarded5 = functools.partial(
+        flat_s,
+        signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
+        n_bins=10,
+        constraint=BinningConstraint(["tt", "dy"], functools.partial(constrain_tt_dy, n_tt=5, n_dy=5, n_sum=10)),
     )

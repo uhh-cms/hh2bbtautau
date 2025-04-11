@@ -19,6 +19,7 @@ from columnflow.columnar_util import set_ak_column
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
+hist = maybe_import("hist")
 
 
 # helper
@@ -78,28 +79,25 @@ def normalized_pu_weight_requires(self: Producer, task: law.Task, reqs: dict, **
 @normalized_pu_weight.setup
 def normalized_pu_weight_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
     # load the selection stats
-    selection_stats = task.cached_value(
-        key="selection_stats",
-        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
+    hists = task.cached_value(
+        key="selection_hists",
+        func=lambda: inputs["selection_stats"]["hists"].load(formatter="pickle"),
     )
 
     # get the unique process ids in that dataset
-    key = "sum_mc_weight_pu_weight_per_process"
-    self.unique_process_ids = list(map(int, selection_stats[key].keys()))
+    self.unique_process_ids = list(hists["sum_mc_weight_pu_weight"].axes["process"])
 
     # helper to get numerators and denominators
-    def numerator_per_pid(pid):
-        key = "sum_mc_weight_per_process"
-        return selection_stats[key].get(str(pid), 0.0)
-
-    def denominator_per_pid(weight_name, pid):
-        key = f"sum_mc_weight_{weight_name}_per_process"
-        return selection_stats[key].get(str(pid), 0.0)
+    def get_sum(pid, weight_name="", /):
+        if weight_name:
+            weight_name = "_" + weight_name
+        key = f"sum_mc_weight{weight_name}"
+        return hists[key][{"process": hist.loc(pid)}].sum().value
 
     # extract the ratio per weight and pid
     self.ratio_per_pid = {
         weight_name: {
-            pid: safe_div(numerator_per_pid(pid), denominator_per_pid(weight_name, pid))
+            pid: safe_div(get_sum(pid), get_sum(pid, weight_name))
             for pid in self.unique_process_ids
         }
         for weight_name in (str(route) for route in self[pu_weight].produced_columns)
@@ -152,14 +150,14 @@ def normalized_pdf_weight_requires(self: Producer, task: law.Task, reqs: dict, *
 @normalized_pdf_weight.setup
 def normalized_pdf_weight_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
     # load the selection stats
-    selection_stats = task.cached_value(
-        key="selection_stats",
-        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
+    hists = task.cached_value(
+        key="selection_hists",
+        func=lambda: inputs["selection_stats"]["hists"].load(formatter="pickle"),
     )
 
     # save average weights
     self.average_pdf_weights = {
-        weight_name: safe_div(selection_stats[f"sum_{weight_name}"], selection_stats["num_events"])
+        weight_name: safe_div(hists[f"sum_{weight_name}"].sum().value, hists["num_events"].sum())
         for weight_name in self.pdf_weight_names
     }
 
@@ -214,13 +212,13 @@ def normalized_murmuf_weight_requires(self: Producer, task: law.Task, reqs: dict
 @normalized_murmuf_weight.setup
 def normalized_murmuf_weight_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
     # load the selection stats
-    selection_stats = task.cached_value(
-        key="selection_stats",
-        func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
+    hists = task.cached_value(
+        key="selection_hists",
+        func=lambda: inputs["selection_stats"]["hists"].load(formatter="pickle"),
     )
 
     # save average weights
     self.average_mu_weights = {
-        weight_name: safe_div(selection_stats[f"sum_{weight_name}"], selection_stats["num_events"])
+        weight_name: safe_div(hists[f"sum_{weight_name}"].sum().value, hists["num_events"].sum())
         for weight_name in self.mu_weight_names
     }

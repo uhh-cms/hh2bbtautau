@@ -12,14 +12,15 @@ from functools import reduce
 import law
 
 from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.production.cms.jet import jet_id, fatjet_id
 from columnflow.columnar_util import (
     EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view, full_like,
 )
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_2
 from hbt.production.hhbtag import hhbtag
 from hbt.selection.lepton import trigger_object_matching
+from hbt.util import IF_RUN_2
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -27,7 +28,7 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
-        hhbtag,
+        jet_id, fatjet_id, hhbtag,
         "fired_trigger_ids", "TrigObj.{pt,eta,phi}",
         "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
         "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
@@ -37,7 +38,6 @@ ak = maybe_import("awkward")
         hhbtag,
         "Jet.hhbtag", "matched_trigger_ids",
     },
-    # shifts are declared dynamically below in jet_selection_init
 )
 def jet_selection(
     self: Selector,
@@ -60,6 +60,10 @@ def jet_selection(
 
     # local jet index
     li = ak.local_index(events.Jet)
+
+    # recompute jet ids
+    events = self[jet_id](events, **kwargs)
+    events = self[fatjet_id](events, **kwargs)
 
     #
     # default jet selection

@@ -66,8 +66,6 @@ def _res_dnn_evaluation(
     correct order can be found in the tautauNN repo:
     https://github.com/uhh-cms/tautauNN/blob/f1ca194/evaluation/interface.py#L67
     """
-    import tensorflow as tf
-
     # ensure coffea behavior
     events = self[attach_coffea_behavior](
         events,
@@ -223,7 +221,7 @@ def _res_dnn_evaluation(
     # build continous inputs
     # (order exactly as documented in link above)
     continous_inputs = [
-        t[..., None] for t in [
+        np.asarray(t[..., None], dtype=np.float32) for t in [
             f.met_px, f.met_py, f.met_cov00, f.met_cov01, f.met_cov11,
             f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
             f.vis_tau2_px, f.vis_tau2_py, f.vis_tau2_pz, f.vis_tau2_e,
@@ -242,7 +240,7 @@ def _res_dnn_evaluation(
     # build categorical inputs
     # (order exactly as documented in link above)
     categorical_inputs = [
-        t[..., None] for t in [
+        np.asarray(t[..., None], dtype=np.int32) for t in [
             pair_type,
             dm1, dm2,
             vis_tau1.charge, vis_tau2.charge,
@@ -253,10 +251,13 @@ def _res_dnn_evaluation(
     ]
 
     # evaluate the model
-    scores = self.res_model(
-        cont_input=tf.concat(continous_inputs, axis=1),
-        cat_input=tf.concat(categorical_inputs, axis=1),
-    )["hbt_ensemble"].numpy()
+    scores = self.evaluator(
+        "res",
+        inputs=[
+            np.concatenate(continous_inputs, axis=1),
+            np.concatenate(categorical_inputs, axis=1),
+        ],
+    )
 
     # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
     # so issue a warning and set them to a default value
@@ -323,17 +324,11 @@ def _res_dnn_evaluation_setup(
     reqs: dict[str, DotDict[str, Any]],
     **kwargs,
 ) -> None:
-    import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    import tensorflow as tf
+    from hbt.ml.tf_evaluator import TFEvaluator
 
     # some checks
     if not isinstance(self.parametrized, bool):
         raise AttributeError("'parametrized' must be set in the producer configuration")
-
-    # constrain tf to use only one core
-    tf.config.threading.set_inter_op_parallelism_threads(1)
-    tf.config.threading.set_intra_op_parallelism_threads(1)
 
     # unpack the model archive
     bundle = reqs["external_files"]
@@ -341,10 +336,9 @@ def _res_dnn_evaluation_setup(
     model_dir = bundle.files_dir.child(self.cls_name, type="d")
     getattr(bundle.files, self.cls_name).load(model_dir, formatter="tar")
 
-    # load the model
-    with task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
-        saved_model = tf.saved_model.load(model_dir.child("model_fold0").abspath)
-        self.res_model = saved_model.signatures["serving_default"]
+    # setup the evaluator
+    self.evaluator = TFEvaluator()
+    self.evaluator.add_model("res", model_dir.child("model_fold0").abspath, signature_key="serving_default")
 
     # categorical values handled by the network
     # (names and values from training code that was aligned to KLUB notation)
@@ -384,6 +378,18 @@ def _res_dnn_evaluation_setup(
         (2023, ""): 3,
         (2023, "BPix"): 3,
     }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
+
+    # start the evaluator
+    self.evaluator.start()
+
+
+@_res_dnn_evaluation.teardown
+def _res_dnn_evaluation_teardown(self: Producer, **kwargs) -> None:
+    """
+    Stops the TF evaluator.
+    """
+    if (evaluator := getattr(self, "evaluator", None)) is not None:
+        evaluator.stop()
 
 
 #
