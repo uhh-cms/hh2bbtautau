@@ -816,37 +816,54 @@ def add_config(
     from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
     if run == 2:
         # SFs
-        e_postfix = ""
-        if year == 2016:
-            e_postfix = {"APV": "preVFP", "": "postVFP"}[campaign.x.postfix]
+        e_postfix = {
+            2016: {"APV": "preVFP", "": "postVFP"}[campaign.x.postfix],
+            2017: "",
+            2018: "",
+        }[year]
         cfg.x.electron_sf_names = ElectronSFConfig(
             correction="UL-Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
-    elif run == 3:
         # eec and eer
-        if year == 2022:
-            eec_set = "Scale"
-            eer_set = "Smearing"
-        elif year == 2023:
-            eec_set = {"": "2023PromptC_ScaleJSON", "BPix": "2023PromptD_ScaleJSON"}[campaign.x.postfix]
-            eer_set = {"": "2023PromptC_SmearingJSON", "BPix": "2023PromptD_SmearingJSON"}[campaign.x.postfix]
-        else:
-            assert False
-        cfg.x.eec = EGammaCorrectionConfig(correction_set=eec_set)
-        cfg.x.eer = EGammaCorrectionConfig(correction_set=eer_set)
+        cfg.x.eec = EGammaCorrectionConfig(
+            correction_set="Scale",
+            value_type="total_correction",
+            uncertainty_type="total_uncertainty",
+        )
+        cfg.x.eer = EGammaCorrectionConfig(
+            correction_set="Smearing",
+            compound=False,
+            value_type="rho",
+            uncertainty_type="err_rho",
+        )
+    elif run == 3:
         # SFs
-        if year == 2022:
-            cmpgn = "2022Re-recoBCD" if campaign.has_tag("preEE") else "2022Re-recoE+PromptFG"
-        elif year == 2023:
-            cmpgn = "2023PromptC" if campaign.has_tag("preBPix") else "2023PromptD"
-        else:
-            assert False
+        e_postfix = {
+            2022: {"": "Re-recoBCD", "EE": "Re-recoE+PromptFG"}[campaign.x.postfix],
+            2023: {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix],
+        }[year]
         cfg.x.electron_sf_names = ElectronSFConfig(
             correction="Electron-ID-SF",
-            campaign=cmpgn,
+            campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
+        )
+        # eec and eer
+        e_tag = {
+            2022: {"": "preEE", "EE": "postEE"}[campaign.x.postfix],
+            2023: {"": "preBPix", "BPix": "postBPix"}[campaign.x.postfix],
+        }[year]
+        cfg.x.eec = EGammaCorrectionConfig(
+            correction_set=f"EGMScale_Compound_Ele_{year}{e_tag}",
+            value_type="scale",
+            uncertainty_type="escale",
+            compound=True,
+        )
+        cfg.x.eer = EGammaCorrectionConfig(
+            correction_set=f"EGMSmearAndSyst_ElePTsplit_{year}{e_tag}",
+            value_type="smear",
+            uncertainty_type="esmear",
         )
     else:
         assert False
@@ -1310,12 +1327,12 @@ def add_config(
         # met phi correction
         add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on Run2 UL samples
+        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
         add_external("hh_btag_repo", Ext(
             "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/hh-btag-master-d7a71eb3.tar.gz",
             subpaths=DotDict(even="hh-btag-master/models/HHbtag_v2_par_0", odd="hh-btag-master/models/HHbtag_v2_par_1"),
             version="v2",
         ))
-
     elif run == 3:
         # updated jet id
         add_external("jet_id", (f"{json_mirror}/POG/JME/{json_pog_era}/jetid.json.gz", "v1"))
@@ -1324,7 +1341,7 @@ def add_config(
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # electron energy correction and smearing
-        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
+        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
         add_external("hh_btag_repo", Ext(
             "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/hh-btag-master-d7a71eb3.tar.gz",
@@ -1425,7 +1442,7 @@ def add_config(
         ],
         "tec": [
             shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag(("tec"))
+            if shift_inst.has_tag("tec")
         ],
         "eec": [
             shift_inst.name for shift_inst in cfg.shifts
@@ -1433,11 +1450,11 @@ def add_config(
         ],
         "ees": [
             shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag(("ees"))
+            if shift_inst.has_tag("ees")
         ],
         "eer": [
             shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag(("eer"))
+            if shift_inst.has_tag("eer")
         ],
         "btag_sf": [
             shift_inst.name for shift_inst in get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names))
