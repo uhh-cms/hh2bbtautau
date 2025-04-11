@@ -64,6 +64,22 @@ def IF_DATASET_HAS_LHE_WEIGHTS(
 
 
 @deferred_column
+def IF_DATASET_HAS_TOP(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    return self.get() if func.dataset_inst.has_tag("has_top") else None
+
+
+@deferred_column
+def IF_DATASET_IS_TT(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    return self.get() if func.dataset_inst.has_tag("ttbar") else None
+
+
+@deferred_column
 def IF_DATASET_IS_DY(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,

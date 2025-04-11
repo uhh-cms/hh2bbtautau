@@ -3,6 +3,6 @@
 
 # provisioning imports
 import hbt.tasks.base
-# import hbt.tasks.stats
-# import hbt.tasks.studies
-# import hbt.tasks.sync
+import hbt.tasks.stats
+import hbt.tasks.studies
+import hbt.tasks.sync

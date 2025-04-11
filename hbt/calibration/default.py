@@ -17,11 +17,10 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.supercluster_eta import electron_sceta
 from columnflow.production.cms.seeds import (
     deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
-    deterministic_photon_seeds,
 )
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_2, IF_RUN_3_2022
+from hbt.util import IF_RUN_2, IF_RUN_3
 
 ak = maybe_import("awkward")
 
@@ -39,12 +38,11 @@ custom_deterministic_event_seeds = deterministic_event_seeds.derive(
 
 @calibrator(
     uses={
-        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
-        deterministic_photon_seeds, deterministic_electron_seeds, electron_sceta,
+        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
+        electron_sceta,
     },
     produces={
-        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
-        deterministic_photon_seeds, deterministic_electron_seeds, electron_sceta,
+        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
     },
 )
 def default(self: Calibrator, events: ak.Array, task: law.Task, **kwargs) -> ak.Array:
@@ -78,7 +76,7 @@ def default(self: Calibrator, events: ak.Array, task: law.Task, **kwargs) -> ak.
         if self.has_dep(self.electron_scale_cls):
             events = self[self.electron_scale_cls](events, **kwargs)
 
-    if self.config_inst.campaign.x.run == 2:
+    if self.has_dep(self.met_phi_cls):
         events = self[self.met_phi_cls](events, **kwargs)
 
     if self.dataset_inst.is_mc:
@@ -167,10 +165,10 @@ def default_init(self: Calibrator, **kwargs) -> None:
         self.tec_cls,
         self.tec_nominal_cls,
         IF_RUN_2(self.met_phi_cls),
-        IF_RUN_3_2022(self.electron_scale_cls),
-        IF_RUN_3_2022(self.electron_scale_nominal_cls),
-        IF_RUN_3_2022(self.electron_res_cls),
-        IF_RUN_3_2022(self.electron_res_nominal_cls),
+        IF_RUN_3(self.electron_scale_cls),
+        IF_RUN_3(self.electron_scale_nominal_cls),
+        IF_RUN_3(self.electron_res_cls),
+        IF_RUN_3(self.electron_res_nominal_cls),
     }
     self.uses |= derived_calibrators
     self.produces |= derived_calibrators
