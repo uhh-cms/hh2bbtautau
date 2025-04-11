@@ -1009,6 +1009,35 @@ def add_config(
         pt_max=500.0,
     )
 
+    # dy specific methods
+    if run == 3:
+        from columnflow.production.cms.dy import DrellYanConfig
+        dy_era = f"{year}"
+        if year == 2022:
+            dy_era += "preEE" if campaign.has_tag("preEE") else "postEE"
+        elif year == 2023:
+            dy_era += "preBPix" if campaign.has_tag("preBPix") else "postBPix"
+        else:
+            assert False
+
+        # dy reweighting
+        # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
+        cfg.x.dy_weight_config = DrellYanConfig(
+            era=dy_era,
+            order="NLO",
+            correction="DY_pTll_reweighting",
+            unc_correction="DY_pTll_reweighting_N_uncertainty",
+        )
+
+        # dy boson recoil correction
+        # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
+        cfg.x.dy_recoil_config = DrellYanConfig(
+            era=dy_era,
+            order="NLO",
+            correction="Recoil_correction_Rescaling",
+            unc_correction="Recoil_correction_Uncertainty",
+        )
+
     ################################################################################################
     # shifts
     ################################################################################################
@@ -1226,10 +1255,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-120c4271"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-a080a5f3"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-120c4271"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-a080a5f3"
     else:
         assert False
 
@@ -1312,6 +1341,9 @@ def add_config(
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
             tau_pog_dir = str(year)  # yes, it's inconsistent w.r.t. 2022
         add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_dir}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+        # dy weight and recoil corrections
+        add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v2.json.gz", "v1"))  # noqa: E501
+        add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v2.json.gz", "v1"))  # noqa: E501
     else:
         assert False
 
@@ -1378,8 +1410,10 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        if dataset.has_tag("has_top"):
+        if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        if dataset.has_tag("dy"):
+            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [

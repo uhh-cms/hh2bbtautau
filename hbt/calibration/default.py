@@ -17,7 +17,6 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.supercluster_eta import electron_sceta
 from columnflow.production.cms.seeds import (
     deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
-    deterministic_photon_seeds,
 )
 from columnflow.util import maybe_import
 
@@ -39,12 +38,11 @@ custom_deterministic_event_seeds = deterministic_event_seeds.derive(
 
 @calibrator(
     uses={
-        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
-        deterministic_photon_seeds, deterministic_electron_seeds, electron_sceta,
+        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
+        electron_sceta,
     },
     produces={
-        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds,
-        deterministic_photon_seeds, deterministic_electron_seeds, electron_sceta,
+        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
     },
 )
 def default(self: Calibrator, events: ak.Array, task: law.Task, **kwargs) -> ak.Array:

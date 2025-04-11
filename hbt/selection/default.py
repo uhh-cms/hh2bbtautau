@@ -15,14 +15,13 @@ import order as od
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.cms.json_filter import json_filter
-from columnflow.selection.cms.met_filters import met_filters
+from columnflow.selection.cms.met_filters import met_filters as cf_met_filters
 from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
-from columnflow.production.cms.top_pt_weight import gen_parton_top as cf_gen_parton_top
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import Route, set_ak_column, full_like
 from columnflow.hist_util import create_hist_from_variables, fill_hist
@@ -55,9 +54,7 @@ def get_met_filters(self: Selector) -> Iterable[str]:
     return list(met_filters)
 
 
-hbt_met_filters = met_filters.derive("hbt_met_filters", cls_dict={"get_met_filters": get_met_filters})
-
-gen_parton_top = cf_gen_parton_top.derive("gen_parton_top", cls_dict={"require_dataset_tag": None})
+met_filters = cf_met_filters.derive("met_filters", cls_dict={"get_met_filters": get_met_filters})
 
 
 # helper to identify bad events that should be considered missing altogether
@@ -85,7 +82,7 @@ def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
 
 @selector(
     uses={
-        json_filter, hbt_met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
+        json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
         mc_weight, pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
         attach_coffea_behavior, patch_ecalBadCalibFilter, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
@@ -123,7 +120,7 @@ def default(
         results += SelectionResult(steps={"json": full_like(events.event, True, dtype=bool)})
 
     # met filter selection
-    events, met_filter_results = self[hbt_met_filters](events, **kwargs)
+    events, met_filter_results = self[met_filters](events, **kwargs)
     # patch for the broken "Flag_ecalBadCalibFilter" MET filter in prompt data (tag set in config)
     if self.dataset_inst.has_tag("broken_ecalBadCalibFilter"):
         # fold decision into met filter results
@@ -267,10 +264,6 @@ def default_init(self: Selector, **kwargs) -> None:
             # save it as an attribute
             setattr(self, prod_name, prod)
 
-    if self.dataset_inst.has_tag("ttbar"):
-        self.uses.add(gen_parton_top)
-        self.produces.add(gen_parton_top)
-
 
 @default.setup
 def default_setup(self: Selector, task: law.Task, **kwargs) -> None:
@@ -306,7 +299,7 @@ def empty_init(self: Selector, **kwargs) -> None:
     # remove unused dependencies
     unused = {
         json_filter,
-        hbt_met_filters,
+        met_filters,
         cutflow_features,
         patch_ecalBadCalibFilter,
         jet_selection,
