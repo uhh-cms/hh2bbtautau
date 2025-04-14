@@ -1426,9 +1426,8 @@ def add_config(
         # tau trigger scale factors
         add_external("tau_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json", "v1"))  # noqa: E501
 
-        jet_tag = "preEE" if campaign.has_tag("preEE") else "postEE" if campaign.has_tag("postEE") else "preBPix" if campaign.has_tag("preBPix") else "postBPix"  # noqa: E501
         # jet trigger scale factors
-        add_external("jet_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/ditaujet_jetleg_SFs_{jet_tag}.json", "v1"))  # noqa: E501
+        add_external("jet_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/ditaujet_jetleg_SFs_{campaign_tag}.json", "v1"))  # noqa: E501
 
     else:
         assert False

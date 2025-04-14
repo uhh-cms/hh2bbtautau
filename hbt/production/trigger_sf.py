@@ -147,7 +147,7 @@ def calculate_correlated_ditrigger_efficiency(
     return trigger_efficiency
 
 
-def create_OR_trigger_weights(
+def create_trigger_weights(
     events: ak.Array,
     first_trigger_eff_data: ak.Array,
     first_trigger_eff_mc: ak.Array,
@@ -185,8 +185,8 @@ def create_OR_trigger_weights(
     # calculate SFs
     trigger_sf = trigger_efficiency_data / trigger_efficiency_mc
 
-    # nan happens for all events not in etau, due to efficiency == 0
-    # add a failsafe here in case of efficiency 0 for an etau/mutau event
+    # nan happens for all events not in the specific channel, due to efficiency == 0
+    # add a failsafe here in case of efficiency 0 for an event actually in the channel
     nan_mask = np.isnan(trigger_sf)
     if np.any(nan_mask & (events.channel_id == channel_id) & (single_triggered | cross_triggered)):
         raise ValueError(f"Found nan in {channel} trigger weights")
@@ -291,7 +291,7 @@ def etau_mutau_trigger_weights(
                 single_triggered = (events.channel_id == channel_id) & events.single_triggered
                 cross_triggered = (events.channel_id == channel_id) & events.cross_triggered
 
-                events = create_OR_trigger_weights(
+                events = create_trigger_weights(
                     events,
                     single_trigger_lepton_data_efficiencies,
                     single_trigger_lepton_mc_efficiencies,
@@ -355,7 +355,7 @@ def etau_mutau_trigger_weights(
                         cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_weight
                         cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_weight
 
-                    events = create_OR_trigger_weights(
+                    events = create_trigger_weights(
                         events,
                         single_trigger_lepton_data_efficiencies,
                         single_trigger_lepton_mc_efficiencies,
@@ -406,7 +406,7 @@ def etau_mutau_trigger_weights(
                             }
 
                     for dm, dm_variated_effs in dm_variations_dict.items():
-                        events = create_OR_trigger_weights(
+                        events = create_trigger_weights(
                             events,
                             single_trigger_lepton_data_efficiencies,
                             single_trigger_lepton_mc_efficiencies,
@@ -513,7 +513,7 @@ def tautau_trigger_weights(
             jet_data_efficiencies = events.ditaujet_trigger_jet_weight_eff_data
             jet_mc_efficiencies = events.ditaujet_trigger_jet_weight_eff_mc
 
-            events = create_OR_trigger_weights(
+            events = create_trigger_weights(
                 events,
                 ditau_data_efficiencies,
                 ditau_mc_efficiencies,
@@ -539,7 +539,7 @@ def tautau_trigger_weights(
             jet_data_efficiencies = Route(f"ditaujet_trigger_jet_weight_eff_data{postfix}").apply(events)
             jet_mc_efficiencies = Route(f"ditaujet_trigger_jet_weight_eff_mc{postfix}").apply(events)
 
-            events = create_OR_trigger_weights(
+            events = create_trigger_weights(
                 events,
                 ditau_data_efficiencies,
                 ditau_mc_efficiencies,
@@ -569,7 +569,7 @@ def tautau_trigger_weights(
                     "ditaujet_mc": Route(f"tau_trigger_eff_mc_weight_dm_{dm}_tautaujet{postfix}").apply(events),
                 }
 
-                events = create_OR_trigger_weights(
+                events = create_trigger_weights(
                     events,
                     dm_variations_dict["ditau_data"],
                     dm_variations_dict["ditau_mc"],

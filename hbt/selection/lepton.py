@@ -845,18 +845,33 @@ def lepton_selection(
                 # for muons, loop over triggers, find single triggers and make sure none of them
                 # fired in order to avoid double counting
                 emu_muon_mask = False
-                mu_trig_fired = full_like(events.event, False, dtype=bool)
-                for _trigger, _trigger_fired, _ in trigger_results.x.trigger_data:
+                mu_trig_matched = full_like(events.event, False, dtype=bool)
+                for _trigger, _trigger_fired, _leg_masks in trigger_results.x.trigger_data:
                     if not _trigger.has_tag("single_mu"):
                         continue
-                    # evaluate the muon selection once (it is the same for all single triggers)
-                    if emu_muon_mask is False:
-                        # the correct muon mask is the control muon mask with min pt 20
-                        _, emu_muon_mask, _ = self[muon_selection](events, _trigger, **sel_kwargs)
-                    # store the trigger decision
-                    mu_trig_fired = mu_trig_fired | _trigger_fired
-                # muons obey the trigger rules if no single trigger fired
-                trig_muon_mask = emu_muon_mask & ~mu_trig_fired
+
+                    # CCLUB method, for synchronization: remove event if the muon trigger fired
+                    # # evaluate the muon selection once (it is the same for all single triggers)
+                    # if emu_muon_mask is False:
+                    #     # the correct muon mask is the control muon mask with min pt 20
+                    #     _, emu_muon_mask, _ = self[muon_selection](events, _trigger, **sel_kwargs)
+                    # # store the trigger decision
+                    # mu_trig_matched = mu_trig_matched | _trigger_fired
+
+                    # Columnflow variant: remove event only if the muon trigger fired AND matched
+                    # the correct muon mask if not matched is the control muon mask with min pt 20
+                    trig_emu_muon_mask, emu_muon_mask, _ = self[muon_selection](events, _trigger, **sel_kwargs)
+                    # fold trigger matching into the selection
+                    trig_emu_muon_mask = trig_emu_muon_mask & self[muon_trigger_matching](events, _trigger, _trigger_fired, _leg_masks, **sel_kwargs)  # noqa: E501
+
+                    # store for which events a muon fired and matched the trigger
+                    mu_trig_matched = mu_trig_matched | (
+                        _trigger_fired &
+                        ak.sum(trig_emu_muon_mask, axis=1) >= 1
+                    )
+
+                # muons obey the trigger rules if no single trigger fired and matched
+                trig_muon_mask = emu_muon_mask & ~mu_trig_matched
 
             else:
                 emu_muon_mask = muon_mask
@@ -907,14 +922,6 @@ def lepton_selection(
 
                 # the correct electron mask for the selection is the control electron mask
                 emu_electron_mask = emu_electron_control_mask
-                # TODO: verify that this is the way we want to select events in the emu channel, e.g.
-                # we do not remove events where the electron trigger fired and a match was found
-                # but the emu_electron_mask_for_matching was not fulfilled.
-                # this would be ak.where(e_match_mask , emu_electron_mask_for_matching, emu_electron_control_mask)
-
-                # OUTDATED! based on the idea that we only select triggered electrons if they match
-                # # for events in which no single e trigger fired, consider the matching as successful
-                # e_match_mask = e_match_mask | ~e_trig_fired
 
                 # electron do not have any specific trigger rules for the selection
                 trig_electron_mask = emu_electron_mask

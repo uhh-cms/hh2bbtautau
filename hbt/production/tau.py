@@ -234,7 +234,7 @@ def tau_weights_setup(
     },
     produces={
         "tau_trigger_{sf,eff_data,eff_mc}_weight{,_tautaujet}",
-        "tau_trigger_{sf,eff_data,eff_mc}_weight_dm_{0,1,10,11}_{etau,mutau,tautau,tautaujet}_{up,down}"     
+        "tau_trigger_{sf,eff_data,eff_mc}_weight_dm_{0,1,10,11}_{etau,mutau,tautau,tautaujet}_{up,down}",
     } | {
         f"tau_trigger_{corrtype_}_weight_dm_{dm}_{ch}_{direction}"
         for direction in ["up", "down"]
