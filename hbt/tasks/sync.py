@@ -33,7 +33,7 @@ class CheckExternalLFNOverlap(
     lfn = luigi.Parameter(
         description="local path to an external LFN to check for overlap with the dataset",
         # fetched via nanogen's FetchLFN
-        default="/pnfs/desy.de/cms/tier2/store/user/bwieders/nanogen_store/FetchLFN/store/mc/Run3Summer22NanoAODv12/GluGlutoHHto2B2Tau_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/992697da-4a10-4435-b63a-413f6d33517e.root",  # noqa
+        default="/pnfs/desy.de/cms/tier2/store/user/bwieders/nanogen_store/FetchLFN/store/sync/skim_2024_v2/Run3_2022/GluGlutoHHto2B2Tau_kl_1p00_kt_1p00_c2_0p00/nano_0.root",  # noqa
     )
 
     # no versioning required
@@ -53,7 +53,7 @@ class CheckExternalLFNOverlap(
     def output(self):
         return {
             "overlap": self.target("lfn_overlap.json"),
-            "unique_identifiers": self.target("unique_identifiers.parquet"),
+            "index_variables": self.target("index_variables.parquet"),
         }
 
     def run(self):
@@ -74,6 +74,7 @@ class CheckExternalLFNOverlap(
 
         for i, lfn_target in lfns_task.iter_nano_files(self, lfn_indices=list(range(n_files))):
             with self.publish_step(f"loading ids of file {i}"):
+
                 file_arr = self.load_nano_index(lfn_target)
                 file_hashes = hash_events(file_arr)
             # find unique hashes in the reference and the file
@@ -84,7 +85,6 @@ class CheckExternalLFNOverlap(
                 assume_unique=True,
                 kind="sort",
             )
-
             num_overlapping = np.sum(overlapping_mask)
             if num_overlapping:
                 # calculate the relative overlaps
@@ -105,7 +105,7 @@ class CheckExternalLFNOverlap(
             formatter="json",
         )
 
-        output["unique_identifiers"].dump(
+        output["index_variables"].dump(
             ak.Array(overlapping_identifier),
             formatter="awkward",
         )
@@ -183,7 +183,11 @@ class CreateSyncFiles(
 
     @workflow_condition.output
     def output(self):
-        return self.target(f"sync_{self.dataset_inst.name}_{self.branch}.csv")
+        return {
+            "normal": self.target(f"sync_{self.dataset_inst.name}_{self.branch}.csv"),
+            "hhbtag": self.target(f"sync_{self.dataset_inst.name}_{self.branch}_hhbtag.csv"),
+            "resonant": self.target(f"sync_{self.dataset_inst.name}_{self.branch}_resonant.csv"),
+        }
 
     @law.decorator.log
     @law.decorator.localize
@@ -249,6 +253,33 @@ class CreateSyncFiles(
             array = np.where(empty_mask, str(empty[np.uint64][0]), array)
             return array
 
+        def get_category_id(category_id: ak.Array, config_inst, category_replacement_map, axis=-1) -> ak.Array:
+            # Helper function to map leaf category ids ids specified in *category_replacement_map*.
+            def get_mapping(config_inst, demanded_categories):
+                # get all leaf ids for the required categories
+                all_categories = config_inst.get_category(-1).categories
+                categories = {category.name: category.id for category in all_categories}
+                mapping = {}
+                for cat_name in demanded_categories:
+                    leaves = config_inst.get_category(categories[cat_name]).get_leaf_categories()
+                    mapping[cat_name] = [category.id for category in leaves]
+                return mapping
+
+            root_category_map = get_mapping(config_inst, category_replacement_map.keys())
+            flat_category_view = np.asarray(ak.flatten(category_id, axis=axis))
+            output_array = np.zeros(shape=(len(category_id)), dtype=np.int32)
+            ak_layout = ak.num(category_id)
+
+            # replace ids with category ids by replacement
+            for cat_name, replacement_value in category_replacement_map.items():
+                # events can have multiple categories,
+                ids = root_category_map[cat_name]
+                mask = ak.any(
+                    ak.unflatten(np.isin(flat_category_view, ids), ak_layout), axis=axis,
+                )
+                output_array[mask] = replacement_value
+            return output_array
+
         # event chunk loop
         # optional filter to get only the events that overlap with given external LFN
         if self.filter_file:
@@ -264,7 +295,6 @@ class CreateSyncFiles(
             # optional check for overlapping inputs
             if self.check_overlapping_inputs:
                 self.raise_if_overlapping([events] + list(columns))
-
             # add additional columns
             events = update_ak_array(events, *columns)
             # apply mask if optional filter is given
@@ -288,19 +318,64 @@ class CreateSyncFiles(
                     """,
                 )
 
+            #
+            # create new columns, do mapping
+            #
+
+            # map category ids to given values
+            category_id = get_category_id(
+                category_id=events.category_ids,
+                config_inst=self.config_inst,
+                category_replacement_map={
+                    "res1b": 0,
+                    "res2b": 1,
+                    "boosted": 2},
+                axis=-1,
+            )
+
             # insert leptons
             events = select_leptons(events, {"rawDeepTau2018v2p5VSjet": empty[np.float32][1]})
-            # project into dataframe
             met_name = self.config_inst.x.met_name
-            df = ak.to_dataframe({
-                # index variables
+
+            index_variables = {
                 "event": events.event,
                 "run": events.run,
                 "lumi": events.luminosityBlock,
+            }
+
+            #
+            # combine all columns in a pandas df and save it
+            #
+            df_res = ak.to_dataframe({
+                **index_variables,
+                "dnn_dy": events.res_dnn_dy,
+                "dnn_hh": events.res_dnn_hh,
+                "dnn_tt": events.res_dnn_tt,
+                **{
+                    field.replace("sync_", ""): events[field]
+                    for field in events.fields
+                    if field.startswith("sync_res_dnn")},
+            })
+            df_hhb = ak.to_dataframe({
+                **index_variables,
+                **{
+                    f"hhbtag_score{i + 1}": select(events.Jet.hhbtag, i)
+                    for i in range(3)
+                },
+                **{
+                    f"hhbtag{i + 1}_{field.replace('sync_hhbtag', '')}": select(events[field], i)
+                    for field in events.fields if field.startswith("sync_hhbtag")
+                    for i in range(3)
+                },
+            })
+
+            df = ak.to_dataframe({
+                **index_variables,
                 # high-level events variables
                 "channel_id": events.channel_id,
                 "os": events.leptons_os * 1,
                 "iso": events.tau2_isolated * 1,
+                "category_id": category_id,
                 "deterministic_seed": uint64_to_str(events.deterministic_seed),
                 # jets
                 **reduce(or_, (
@@ -352,10 +427,29 @@ class CreateSyncFiles(
                     }
                     for i in range(2)
                 )),
+                "dnn_dy": events.res_dnn_dy,
+                "dnn_hh": events.res_dnn_hh,
+                "dnn_tt": events.res_dnn_tt,
             })
             # save as csv in output, append if necessary
-            output.dump(
+            output["normal"].dump(
                 df,
+                formatter="pandas",
+                index=False,
+                header=pos.index == 0,
+                mode="w" if pos.index == 0 else "a",
+            )
+
+            output["resonant"].dump(
+                df_res,
+                formatter="pandas",
+                index=False,
+                header=pos.index == 0,
+                mode="w" if pos.index == 0 else "a",
+            )
+
+            output["hhbtag"].dump(
+                df_hhb,
                 formatter="pandas",
                 index=False,
                 header=pos.index == 0,
