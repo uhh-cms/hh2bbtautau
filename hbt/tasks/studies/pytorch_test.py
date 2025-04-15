@@ -130,7 +130,19 @@ class HBTPytorchTask(
         significant=False,
         description="Minimum epochs before early stopping kicks in. Default: 1",
     )
+    early_stopping_min_diff = luigi.FloatParameter(
+        default=0,
+        significant=False,
+        description="Minimum difference for validation loss between epochs for early stopping. Default: 0",
+    )
 
+    use_tensorboard_logger = luigi.BoolParameter(
+        default=True,
+        significant=False,
+        description="Track training process with tensorboard. Default: True",
+    )
+
+    additional_params: list[str] = list()
     def create_branch_map(self):
         return dict(enumerate(self.models))
 
@@ -144,6 +156,14 @@ class HBTPytorchTask(
 
     def requires(self):
         reqs = DotDict()
+        self.resolved_configs = set()
+        self.resolved_datasets = set()
+        self.resolved_shifts = set()
+        for config, shift, dataset in self.wrapper_parameters:
+            self.resolved_configs.add(config)
+            self.resolved_datasets.add(dataset)
+            self.resolved_shifts.add(shift)
+
         reqs["events"] = DotDict.wrap({
             d: DotDict.wrap({
                 config:  self.reqs.UniteColumns.req(
@@ -152,18 +172,18 @@ class HBTPytorchTask(
                     config=config,
                     branch=-1,
                     _exclude=["datasets", "configs", "branch", "branches"])
-                for config in self.configs
+                for config in self.resolved_configs
             })
-            for d in self.datasets
+            for d in self.resolved_datasets
         })
         # also require selection stats
 
         reqs["selection_stats"] = DotDict.wrap({
             d: DotDict.wrap({
                 config: self.reqs.MergeSelectionStats.req_different_branching(self, dataset=d, config=config, _exclude=["datasets", "configs"])
-                for config in self.configs
+                for config in self.resolved_configs
             })
-            for d in self.datasets
+            for d in self.resolved_datasets
         })
 
         # from IPython import embed; embed(header="requires")
@@ -178,15 +198,16 @@ class HBTPytorchTask(
     
     @property
     def _parameter_repr(self) -> str:
-        additional_params = [
+        self.additional_params = [
             "learning_rate",
             "weight_decay",
             "early_stopping_patience",
             "early_stopping_min_epochs",
+            "early_stopping_min_diff",
         ]
         param_repr = f"bs_{self.batch_size}__max_epochs_{self.max_epochs}"
-        if additional_params:
-            param_parts = [f"{p}_{getattr(self, p)}" for p in sorted(additional_params)]
+        if self.additional_params:
+            param_parts = [f"{p}_{getattr(self, p)}" for p in sorted(self.additional_params)]
             param_repr += "__{}".format(law.util.create_hash(param_parts))
         return param_repr
 
@@ -232,11 +253,6 @@ class HBTPytorchTask(
             AkToTensor, PreProcessFloatValues, PreProssesAndCast,
         )
         from hbt.ml.torch_models import FeedForwardNet
-
-        from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
-        from ignite.metrics import Accuracy, Loss, ROC_AUC
-        from ignite.handlers import ModelCheckpoint
-        from ignite.contrib.handlers import TensorboardLogger, global_step_from_engine
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -293,119 +309,41 @@ class HBTPytorchTask(
         # - eager loading of all data (problem?)
 
         #### test case
+
         from hbt.ml.torch_models import model_clss
         model_cls = model_clss.get(self.branch_data, None)
         if not model_cls:
             raise ValueError(f"Unable to load model {self.branch_data}, available list: {model_clss}")
-        model = model_cls()
+        logger_path = self.output()["tensorboard"].abspath
+        logger.info(f"Creating tensorboard logger at {logger_path}")
+        model = model_cls(tensorboard_path=logger_path, logger=logger, task=self)
         model = model.to(device)
+
+        model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
 
         model.init_dataset_handler(task=self)
 
-        training_composite_loader, validation_composite_loader = model.init_datasets()
-        from IPython import embed
-        embed(header=f"initialized dataloaderes")
-
-        logger.info("Constructing loss and optimizer")
-        loss_fn = getattr(model, "loss_fn", None)
-        if not loss_fn:
-            raise ValueError(f"Unable to load attribute 'loss_fn' from model '{self.branch_data}")
-        
-        optimizer = model.init_optimizer(
-            learning_rate=self.learning_rate,
-            weight_decay=self.weight_decay
-        )
-
-        def lr_decay(epoch):
-            return 0.9**epoch if 1e-1*0.9**epoch > 1e-9 else 1e-1
-        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_decay)
-        val_metrics = {
-            "loss": Loss(loss_fn),
-            "roc_auc": ROC_AUC(),
-        }
-        from hbt.ml.torch_utils.functions import ignite_train_step, ignite_validation_step
-
-        trainer = Engine(partial(ignite_train_step, model=model, loss_fn=loss_fn, optimizer=optimizer))
-        train_evaluator = Engine(partial(ignite_validation_step, model=model))
-        val_evaluator = Engine(partial(ignite_validation_step, model=model))
-
-        # Attach metrics to the evaluators
-        for name, metric in val_metrics.items():
-            metric.attach(train_evaluator, name)
-
-        for name, metric in val_metrics.items():
-            metric.attach(val_evaluator, name)
-
         from torch.utils.tensorboard import SummaryWriter
-        logger_path = self.output()["tensorboard"].abspath
-        logger.info(f"Creating tensorboard logger at {logger_path}")
-        writer = SummaryWriter(logger_path)
+        
         run_name = f"{self._parameter_repr}_{self.version}"
         # How many batches to wait before logging training status
-        log_interval = 20
-        @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
-        def log_training_loss(engine):
-            writer.add_scalars(f"{run_name}_per_batch_training", {"loss": engine.state.output}, engine.state.iteration)
-            logger.info(f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.2f}")
+        # from IPython import embed
 
-        @trainer.on(Events.EPOCH_STARTED)
-        def reset_dataloaders(trainer):
-            training_composite_loader.data_loader.reset()
-
-        @trainer.on(Events.EPOCH_COMPLETED)
-        def log_training_results(trainer):
-            training_composite_loader.data_loader.reset()
-            train_evaluator.run(training_composite_loader.data_loader)
-            metrics = train_evaluator.state.metrics
-            infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
-            for name, value in metrics.items():
-                writer.add_scalars(f"{run_name}_{name}", {f"training": value }, trainer.state.epoch)
-            logger.info(f"Training Results - Epoch[{trainer.state.epoch}] {infos}")
-
-        from hbt.ml.torch_utils.utils import CustomEarlyStopping as EarlyStopping
-
-        def score_function(engine):
-            val_loss = engine.state.metrics['loss']
-            return -val_loss
-
-        handler = EarlyStopping(
-            patience=self.early_stopping_patience,
-            min_epochs=self.early_stopping_min_epochs,
-            model = model,
-            score_function=score_function,
-            trainer=trainer,
-        )
-        # Note: the handler is attached to an *Evaluator* (runs one epoch on validation dataset).
-        val_evaluator.add_event_handler(Events.COMPLETED, handler)
-
-        @trainer.on(Events.EPOCH_COMPLETED)
-        def log_validation_results(trainer):
-            validation_composite_loader.data_loader.reset()
-            val_evaluator.run(validation_composite_loader.data_loader)
-            # validation_composite_loader.data_loader.reset()
-            metrics = val_evaluator.state.metrics
-            for name, value in metrics.items():
-                writer.add_scalars(f"{run_name}_{name}", {f"validation": value }, trainer.state.epoch)
-            infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
-            logger.info(f"Validation Results - Epoch[{trainer.state.epoch}] {infos}")
-
-        
-        trainer.run(training_composite_loader.data_loader, max_epochs=self.max_epochs)
-        writer.close()
+        # embed(header=f"about to start training of {self.branch_data}")
+        model.start_training(run_name=run_name, max_epochs=self.max_epochs)
         logger.info(f"Saving model to {self.output()['model'].abspath}")
         torch.save(model.state_dict(), self.output()["model"].abspath)
 
         # save model parameter summary
         params = {
             "model": self.branch_data,
-            "learning_rate": self.learning_rate,
-            "weight_decay": self.weight_decay,
             "batch_size": self.batch_size,
             "max_epochs": self.max_epochs,
-            "early_stopping_patience": self.early_stopping_patience,
-            "early_stopping_min_epochs": self.early_stopping_min_epochs,
-            "best_epoch": getattr(trainer, "best_epoch", trainer.state.epoch),
+            "best_epoch": getattr(model.trainer, "best_epoch", model.trainer.state.epoch),
         }
+        params.update({
+            k: getattr(self, k) for k in self.additional_params
+        })
         self.output()["parameter_summary"].dump(params, indent=4, formatter="json")
 
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
