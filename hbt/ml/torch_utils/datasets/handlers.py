@@ -1,6 +1,7 @@
 from __future__ import annotations
 from functools import partial
 from copy import deepcopy
+import abc
 
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.columnar_util import Route
@@ -38,6 +39,7 @@ class BaseParquetFileHandler(object):
 
     def __init__(
         self,
+        *args,
         task: law.Task,
         open_options: dict[str, Any] | None = None,
         columns: Collection[str | Route] | None = None,
@@ -50,6 +52,7 @@ class BaseParquetFileHandler(object):
         build_categorical_target_fn: Callable | None = None,
         group_datasets: dict[str, list[str]] | None = None,
         device: str | None = None,
+        **kwargs,
     ):
         self.open_options = open_options or dict()
         self.task = task
@@ -286,8 +289,8 @@ class FlatListRowgroupParquetFileHandler(BaseParquetFileHandler):
         self.dataset_cls = FlatRowgroupParquetDataset
         self.training_map_and_collate_cls = NestedListRowgroupMapAndCollate
         self.validation_map_and_collate_cls = FlatListRowgroupMapAndCollate
-        training_sampler_cls = ListRowgroupSampler
-        validation_sampler_cls = ListRowgroupSampler
+        self.training_sampler_cls = ListRowgroupSampler
+        self.validation_sampler_cls = ListRowgroupSampler
 
 class FlatArrowParquetFileHandler(BaseParquetFileHandler):
     def __init__(self, *args, **kwargs):
@@ -348,3 +351,24 @@ class FlatArrowParquetFileHandler(BaseParquetFileHandler):
             validation = deepcopy(training)
             validation._allowed_rowgroups = set(validation_row_groups)
         return training, validation
+
+class DatasetHandlerMixin:
+    parameters: dict[str, torch.Tensor]
+    dataset_handler: BaseParquetFileHandler
+    training_loader: CompositeDataLoader
+    validation_loader: CompositeDataLoader
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @abc.abstractmethod
+    def _build_categorical_target(self, dataset: str) -> Any:
+        pass
+    
+    @abc.abstractmethod
+    def init_dataset_handler(self, task: law.Task):
+        pass
+
+    def init_datasets(self):
+        self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
+    
