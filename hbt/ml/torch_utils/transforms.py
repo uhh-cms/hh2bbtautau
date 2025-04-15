@@ -109,7 +109,7 @@ if not isinstance(torch, MockModule):
     class AkToTensor(AkToNestedTensor):
         def _transform_input(self, X):
             return_tensor = None
-            if isinstance(X, ak.Array):
+            if isinstance(X, (ak.Array, np.ndarray)):
                 # first, get flat numpy view to avoid copy operations
                 return_tensor = ak.to_torch(X).to(device=self.device)
 
