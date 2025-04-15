@@ -12,6 +12,7 @@ import traceback
 
 torch = maybe_import("torch")
 tqdm = maybe_import("tqdm")
+np = maybe_import("numpy")
 
 if not isinstance(torch, MockModule):
     def train_loop(dataloader, model, loss_fn, optimizer, update_interval=100):
@@ -95,3 +96,9 @@ if not isinstance(torch, MockModule):
             pred = model(X)
             target = y["categorical_target"].to(torch.float32).reshape(-1, 1)
             return pred, target
+        
+    def get_one_hot(targets, nb_classes):
+        # at this point the targets are still ak arrays, so cast to numpy
+        targets = targets.to_numpy()
+        res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
+        return np.astype(res.reshape(list(targets.shape)+[nb_classes]), np.int32)
