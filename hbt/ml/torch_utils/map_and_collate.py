@@ -171,6 +171,9 @@ if not isinstance(torch, MockModule):
 
     class NestedListRowgroupMapAndCollate(FlatListRowgroupMapAndCollate):
         dataset: dict[str, Sequence[FlatRowgroupParquetDataset]]
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.all_datasets = self.dataset
         def _default_collate(self, idx: dict[str, dict[tuple[int, int], Sequence[int]]]) -> Sequence[T]:
             batch: list[T] = []
             keys = np.array(list(idx.keys()))
@@ -185,11 +188,9 @@ if not isinstance(torch, MockModule):
 
             for key in keys:
                 indices = idx[key]
-                # the indices are dictionaries with multiple entries, so loop
-                for (dataset_idx, rowgroup), entry_idx in indices.items():
-                    dataset = self.dataset[key][dataset_idx]
-                    current_batch = super()._default_collate(((rowgroup, entry_idx),))
-                    batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
+                self.dataset = self.all_datasets[key]
+                current_batch = super()._default_collate(indices)
+                batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
             
             return batch
 
