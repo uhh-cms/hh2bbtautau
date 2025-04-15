@@ -1208,7 +1208,7 @@ def add_config(
 
     # start at id=50
     cfg.x.tau_unc_names = [
-        "jet_dm0", "jet_dm1", "jet_dm10",
+        "jet_dm0", "jet_dm1", "jet_dm10", "jet_dm11",
         "e_barrel", "e_endcap",
         "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
     ]

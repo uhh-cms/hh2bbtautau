@@ -149,15 +149,19 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         sf_tau_dm0 = sf_nom.copy()
         sf_tau_dm1 = sf_nom.copy()
         sf_tau_dm10 = sf_nom.copy()
+        sf_tau_dm11 = sf_nom.copy()
         tau_dm0_mask = tau_mask & (dm == 0)
         tau_dm1_mask = tau_mask & (dm == 1)
-        tau_dm10_mask = tau_mask & ((dm == 10) | (dm == 11))  # why both in one?
+        tau_dm10_mask = tau_mask & (dm == 10)
+        tau_dm11_mask = tau_mask & (dm == 11)
         sf_tau_dm0[tau_dm0_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm0_mask, direction))
         sf_tau_dm1[tau_dm1_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm1_mask, direction))
         sf_tau_dm10[tau_dm10_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm10_mask, direction))
+        sf_tau_dm11[tau_dm11_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm11_mask, direction))
         events = set_ak_column_f32(events, f"tau_weight_jet_dm0_{direction}", reduce_mul(sf_tau_dm0))
         events = set_ak_column_f32(events, f"tau_weight_jet_dm1_{direction}", reduce_mul(sf_tau_dm1))
         events = set_ak_column_f32(events, f"tau_weight_jet_dm10_{direction}", reduce_mul(sf_tau_dm10))
+        events = set_ak_column_f32(events, f"tau_weight_jet_dm11_{direction}", reduce_mul(sf_tau_dm11))
 
         # electron fakes -> split into 2 eta regions
         for region, region_mask in [
