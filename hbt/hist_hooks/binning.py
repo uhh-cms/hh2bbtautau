@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
+from collections import defaultdict
 
 import law
 import order as od
@@ -15,7 +16,6 @@ import order as od
 from columnflow.util import maybe_import
 from columnflow.types import Any, Callable
 
-np = maybe_import("numpy")
 hist = maybe_import("hist")
 
 
@@ -47,65 +47,51 @@ class BinningConstraint:
 
 
 # helper to extract the name of the requested category and variable
-def get_task_infos(task) -> dict[str, Any]:
+def get_task_infos(task: law.Task, config) -> dict[str, Any]:
     # datacard task
-    if "config_category" in task.branch_data:
+    if (config_data := task.branch_data.get("config_data")):
         return {
-            "category_name": task.branch_data.config_category,
-            "variable_name": task.branch_data.config_variable,
+            "category_name": config_data[config.name].category,
+            "variable_name": config_data[config.name].variable,
         }
 
     # plotting task
     if "category" in task.branch_data:
+        # TODO: this might fail for multi-config tasks
         return {
             "category_name": task.branch_data.category,
-            "variable_name": task.branch_data.variable[0],
+            "variable_name": task.branch_data.variable,
         }
 
-    raise Exception(f"cannot determine task infos of unhandled task: {task!r}")
+    raise Exception(f"cannot determine task infos of unhandled task {task!r}")
 
 
-def add_hooks(config: od.Config) -> None:
+def add_hooks(analysis_inst: od.Analysis) -> None:
     """
-    Add histogram hooks to a configuration.
+    Add histogram hooks to a analysis.
     """
     def flat_s(
-        task,
-        hists: dict[od.Process, hist.Histogram],
+        task: law.Task,
+        hists: dict[od.Config, dict[od.Process, hist.Hist]],
         signal_process_name: str = "",
         n_bins: int = 10,
         constraint: BinningConstraint | None = None,
-    ) -> dict[od.Process, hist.Histogram]:
-        """Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
-
-        :param task: task instance that contains the process informations
-        :param hists: A dictionary of histograms using Process instances as keys
-
-        :raises RuntimeError: If the wanted number of bins is reached and the initial
-        bin edge is not minimal.
-        :raises Exception: If the number of actual bins ended up larger than requested.
-        :return: A dictionary of histograms using Process instances as keys
+    ) -> dict[od.Config, dict[od.Process, hist.Hist]]:
         """
+        Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
+        """
+        import numpy as np
 
         # edge finding helper
         def find_edges(
             signal_hist: hist.Hist,
-            background_hists: dict[od.Process, hist.Hist],
-            variable: str,
+            background_hists: list[tuple[od.Process, hist.Hist]],
             n_bins: int = 10,
         ) -> tuple[np.ndarray, np.ndarray]:
             """
             Determine new bin edges that result in a flat signal distribution.
             The edges are determined by the signal distribution, while the background distribution
             is used to ensure that the background yield in each bin is sufficient.
-
-            :param signal_hist: The histogram that describes the signal distribution.
-            :param background_hists: A dictionary of histograms using the process as key
-            that describe the background distribution.
-            :param variable: The variable name that is rebinned.
-            :param n_bins: The number of bins that the signal distribution should be rebinned to.
-
-            :return: A tuple containing the new bin edges and the indices that define the new bin edges.
             """
             # prepare parameters
             low_edge, max_edge = 0, 1
@@ -121,7 +107,7 @@ def add_hooks(config: od.Config) -> None:
             # prepare signal
             # fine binned histograms bin centers are approx equivalent to dnn output
             # flip arrays to start from the right
-            dnn_score_signal = np.flip(signal_hist.axes[variable].centers, axis=-1)
+            dnn_score_signal = np.flip(signal_hist.axes[-1].centers, axis=-1)
             y = np.flip(signal_hist.counts(), axis=-1)
 
             # set negative yields to zero and warn about it
@@ -146,7 +132,7 @@ def add_hooks(config: od.Config) -> None:
                     # start with empty data for counts and variances
                     constraint_data[tag] = [np.zeros_like(y), np.zeros_like(y)]
                     # loop over histograms and check if they fit the process
-                    for proc, h in background_hists.items():
+                    for proc, h in background_hists:
                         if proc.has_tag(tag):
                             constraint_data[tag][0] += np.flip(h.counts(), axis=-1)
                             constraint_data[tag][1] += np.flip(h.variances(), axis=-1)
@@ -164,8 +150,7 @@ def add_hooks(config: od.Config) -> None:
                 if y_remaining < y_min:
                     stop_reason = "remaining signal yield insufficient"
                     break
-                # find the index "stop_idx" of the source bin that marks the start of the next
-                # merged bin
+                # find the index "stop_idx" of the source bin that marks the start of the next merged bin
                 if y_remaining >= y_per_bin:
                     threshold = y_already_binned + y_per_bin
                     # get indices of array of values above threshold
@@ -225,8 +210,7 @@ def add_hooks(config: od.Config) -> None:
             if bin_edges[-1] != low_edge:
                 if len(bin_edges) > n_bins:
                     raise RuntimeError(
-                        "number of bins reached and initial bin edge"
-                        f" is not minimal bin edge (edges: {bin_edges})",
+                        f"number of bins reached and initial bin edge is not minimal bin edge (edges: {bin_edges})",
                     )
                 bin_edges.append(low_edge)
                 indices_gathering.append(num_bins_orig)
@@ -247,18 +231,14 @@ def add_hooks(config: od.Config) -> None:
             return np.flip(np.array(bin_edges), axis=-1), indices_gathering
 
         # rebinning helper
-        def apply_edges(h: hist.Hist, edges: np.ndarray, indices: np.ndarray, variable: str) -> hist.Hist:
+        def apply_edges(
+            h: hist.Hist,
+            edges: np.ndarray,
+            indices: np.ndarray,
+        ) -> hist.Hist:
             """
-            Rebin the content axes determined by *variable* of a given hist histogram *h* to
-            given *edges* and their *indices*.
-            The rebinned histogram is returned.
-
-            :param h: hist Histogram that is to be rebinned
-            :param edges: a array of ascending bin edges
-            :param indices: a array of indices that define the new bin edges
-            :param variable: variable name that is rebinned
-
-            :return: rebinned hist histogram
+            Rebin the content axes of a given hist histogram *h* to given *edges* and their *indices*. The rebinned
+            histogram is returned.
             """
             # sort edges and indices, by default they are sorted
             ascending_order = np.argsort(edges)
@@ -266,11 +246,8 @@ def add_hooks(config: od.Config) -> None:
 
             # create new hist and add axes with coresponding edges
             # define new axes, from old histogram and rebinned variable with new axis
-            axes = (
-                [h.axes[axis] for axis in h.axes.name if axis not in variable] +
-                [hist.axis.Variable(edges, name=variable, label=f"{variable}-flat-s")]
-            )
-
+            variable = h.axes[-1].name
+            axes = list(h.axes[:-1]) + [hist.axis.Variable(edges, name=variable, label=f"{variable}_flat_s")]
             new_hist = hist.Hist(*axes, storage=hist.storage.Weight())
 
             # slice the old histogram storage view with new edges
@@ -283,90 +260,95 @@ def add_hooks(config: od.Config) -> None:
 
             return new_hist
 
+        # find signal and background histograms
+        signal_hist: dict[od.Config, hist.Hist] = {}
+        background_hists: dict[od.Config, dict[od.Process, hist.Hist]] = defaultdict(dict)
+        for config_inst, proc_hists in hists.items():
+            for process_inst, h in proc_hists.items():
+                if process_inst.has_tag("signal") and (signal_process_name in (process_inst.name, "")):
+                    if config_inst in signal_hist:
+                        logger.warning("more than one signal histogram found, use the first one")
+                    else:
+                        signal_hist[config_inst] = h
+                elif process_inst.is_mc:
+                    background_hists[config_inst][process_inst] = h
+            if config_inst not in signal_hist:
+                logger.warning(f"could not find any signal process for config {config_inst}, skip flat_s hook")
+                return hists
+
         # extract task infos
-        task_infos = get_task_infos(task)
+        task_infos = {config_inst: get_task_infos(task, config_inst) for config_inst in hists}
 
-        # find signal histogram for which you will optimize, only 1 signal process is allowed
-        signal_proc = None
-        signal_hist = None
-        background_hists = {}
-        for process, j in hists.items():
-            if process.has_tag("signal") and (signal_process_name in (process.name, "")):
-                if signal_proc:
-                    logger.warning("more than one signal process found, use the first one")
-                else:
-                    signal_proc = process
-                    signal_hist = j
-            elif process.is_mc:
-                background_hists[process] = j
+        # 1. select and sum over requested categories
+        for config_inst in hists:
+            # get the leaf categories
+            category_inst = config_inst.get_category(task_infos[config_inst]["category_name"])
+            leaf_cats = (
+                [category_inst]
+                if category_inst.is_leaf_category
+                else category_inst.get_leaf_categories()
+            )
 
-        if not signal_proc:
-            logger.warning("could not find any signal process, return hist unchanged")
-            return hists
+            # filter categories not existing in histogram
+            cat_ids_locations = [
+                hist.loc(c.name) for c in leaf_cats
+                if c.name in signal_hist[config_inst].axes["category"]
+            ]
 
-        # 1. preparation
-        # get the leaf categories (e.g. {etau,mutau}__os__iso)
-        category_inst = task.config_inst.get_category(task_infos["category_name"])
-        leaf_cats = (
-            [category_inst]
-            if category_inst.is_leaf_category
-            else category_inst.get_leaf_categories()
-        )
+            # sum over different leaf categories and select the nominal shift
+            select = lambda h: h[{"category": cat_ids_locations}][{"category": sum, "shift": hist.loc("nominal")}]
+            signal_hist[config_inst] = select(signal_hist[config_inst])
+            for process_inst, h in background_hists[config_inst].items():
+                background_hists[config_inst][process_inst] = select(h)
 
-        # filter categories not existing in histogram
-        cat_ids_locations = [hist.loc(c.id) for c in leaf_cats if c.id in signal_hist.axes["category"]]
-
-        # sum over different leaf categories
-        combined_signal_hist = signal_hist[{"category": cat_ids_locations}][{"category": sum}]
-        combined_signal_hist = combined_signal_hist[{"shift": hist.loc(0)}]
-
-        # same for background
-        for process, j in background_hists.items():
-            combined_background_hist = j[{"category": cat_ids_locations}][{"category": sum}]
-            combined_background_hist = combined_background_hist[{"shift": hist.loc(0)}]
-            background_hists[process] = combined_background_hist
-
-        # 2. determine bin edges
+        # 2. determine bin edges, considering signal and background sums over all configs
+        # note: for signal, this assumes that variable axes have the same name, but they probably always will
+        signal_sum = sum((signal_hists := list(signal_hist.values()))[1:], signal_hists[0].copy())
+        background_sum = sum((list(proc_hists.items()) for proc_hists in background_hists.values()), [])
         flat_s_edges, flat_s_indices = find_edges(
-            signal_hist=combined_signal_hist,
-            background_hists=background_hists,
-            variable=task_infos["variable_name"],
+            signal_hist=signal_sum,
+            background_hists=background_sum,
             n_bins=n_bins,
         )
 
         # 3. apply to hists
-        for process, histogram in hists.items():
-            hists[process] = apply_edges(
-                histogram,
-                flat_s_edges,
-                flat_s_indices,
-                task_infos["variable_name"],
-            )
+        for config_inst, proc_hists in hists.items():
+            for process_inst, h in proc_hists.items():
+                proc_hists[process_inst] = apply_edges(
+                    h=h,
+                    edges=flat_s_edges,
+                    indices=flat_s_indices,
+                )
 
         return hists
 
     # some usual binning constraints
-    def constrain_tt_dy(counts: dict[str, BinCount]) -> bool:
-        # have at least one tt, one dy, and four total background events
-        # as well as positive yields
+    def constrain_tt_dy(counts: dict[str, BinCount], n_tt: int = 1, n_dy: int = 1, n_sum: int = 4) -> bool:
+        # have at least one tt, one dy, and four total background events as well as positive yields
         return (
-            counts["tt"].num >= 1 and
-            counts["dy"].num >= 1 and
-            counts["tt"].num + counts["dy"].num >= 4 and
+            counts["tt"].num >= n_tt and
+            counts["dy"].num >= n_dy and
+            (counts["tt"].num + counts["dy"].num) >= n_sum and
             counts["tt"].val > 0 and
             counts["dy"].val > 0
         )
 
     # add hooks
-    config.x.hist_hooks.flats = flat_s
-    config.x.hist_hooks.flats_kl1_n10 = functools.partial(
+    analysis_inst.x.hist_hooks.flats = flat_s
+    analysis_inst.x.hist_hooks.flats_kl1_n10 = functools.partial(
         flat_s,
         signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
         n_bins=10,
     )
-    config.x.hist_hooks.flats_kl1_n10_guarded = functools.partial(
+    analysis_inst.x.hist_hooks.flats_kl1_n10_guarded = functools.partial(
         flat_s,
         signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
         n_bins=10,
         constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
+    )
+    analysis_inst.x.hist_hooks.flats_kl1_n10_guarded5 = functools.partial(
+        flat_s,
+        signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
+        n_bins=10,
+        constraint=BinningConstraint(["tt", "dy"], functools.partial(constrain_tt_dy, n_tt=5, n_dy=5, n_sum=10)),
     )

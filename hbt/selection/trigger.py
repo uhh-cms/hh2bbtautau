@@ -97,10 +97,7 @@ def trigger_selection(
 
 
 @trigger_selection.init
-def trigger_selection_init(self: Selector) -> None:
-    if getattr(self, "dataset_inst", None) is None:
-        return
-
+def trigger_selection_init(self: Selector, **kwargs) -> None:
     # full used columns
     self.uses |= {
         opt(trigger.name)

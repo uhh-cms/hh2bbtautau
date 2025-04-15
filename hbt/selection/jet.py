@@ -4,19 +4,23 @@
 Jet selection methods.
 """
 
+from __future__ import annotations
+
 from operator import or_
 from functools import reduce
 
-from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.columnar_util import (
-    EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view,
-    full_like,
-)
-from columnflow.util import maybe_import, InsertableDict
+import law
 
-from hbt.util import IF_RUN_2
+from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.production.cms.jet import jet_id, fatjet_id
+from columnflow.columnar_util import (
+    EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view, full_like,
+)
+from columnflow.util import maybe_import
+
 from hbt.production.hhbtag import hhbtag
 from hbt.selection.lepton import trigger_object_matching
+from hbt.util import IF_RUN_2
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -24,17 +28,16 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
-        hhbtag,
+        jet_id, fatjet_id, hhbtag,
         "trigger_ids", "TrigObj.{pt,eta,phi}",
         "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
         "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
         "SubJet.{pt,eta,phi,mass,btagDeepB}",
     },
     produces={
-        # new columns
+        hhbtag,
         "Jet.hhbtag",
     },
-    # shifts are declared dynamically below in jet_selection_init
 )
 def jet_selection(
     self: Selector,
@@ -57,6 +60,10 @@ def jet_selection(
 
     # local jet index
     li = ak.local_index(events.Jet)
+
+    # recompute jet ids
+    events = self[jet_id](events, **kwargs)
+    events = self[fatjet_id](events, **kwargs)
 
     #
     # default jet selection
@@ -87,8 +94,8 @@ def jet_selection(
     #
 
     # get the hhbtag values per jet per event
-    hhbtag_scores = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
-
+    events = self[hhbtag](events, default_mask, lepton_results.x.lepton_pair, **kwargs)
+    hhbtag_scores = events.hhbtag_score
     # create a mask where only the two highest scoring hhbjets are selected
     score_indices = ak.argsort(hhbtag_scores, axis=1, ascending=False)
     hhbjet_mask = mask_from_indices(score_indices[:, :2], hhbtag_scores)
@@ -329,7 +336,7 @@ def jet_selection(
 
 
 @jet_selection.init
-def jet_selection_init(self: Selector) -> None:
+def jet_selection_init(self: Selector, **kwargs) -> None:
     # register shifts
     self.shifts |= {
         shift_inst.name
@@ -339,7 +346,7 @@ def jet_selection_init(self: Selector) -> None:
 
 
 @jet_selection.setup
-def jet_selection_setup(self: Selector, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+def jet_selection_setup(self: Selector, task: law.Task, **kwargs) -> None:
     # store ids of tau-tau cross triggers
     self.trigger_ids_ttjc = [
         trigger.id for trigger in self.config_inst.x.triggers

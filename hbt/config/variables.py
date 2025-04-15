@@ -656,7 +656,8 @@ def add_variables(config: od.Config) -> None:
             name=f"res_dnn_{proc}_fine",
             expression=f"res_dnn_{proc}",
             binning=(5000, 0.0, 1.0),
-            x_title=rf"{proc.upper()} output node, res. DNN",
+            x_title=rf"{proc.upper()} output bin, res. DNN",
+            aux={"x_transformations": "equal_distance_with_indices"},
         )
 
 

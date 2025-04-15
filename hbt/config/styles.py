@@ -6,11 +6,13 @@ Style definitions.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 
 import order as od
 
 from columnflow.util import DotDict, try_int
+from columnflow.types import Callable
 
 
 def setup_plot_styles(config: od.Config) -> None:
@@ -19,8 +21,7 @@ def setup_plot_styles(config: od.Config) -> None:
     """
     # general settings
     config.x.default_general_settings = {
-        "cms_label": "wip",
-        "whitespace_fraction": 0.31,
+        "cms_label": "wip", "whitespace_fraction": 0.31,
     }
 
     # default component configs
@@ -28,8 +29,8 @@ def setup_plot_styles(config: od.Config) -> None:
         "height_ratios": [3, 0.9],
     }
     legend = {
-        "borderpad": 0, "borderaxespad": 1.2, "columnspacing": 1.8, "labelspacing": 0.28,
-        "fontsize": 16, "cf_line_breaks": True, "cf_short_labels": False,
+        "borderpad": 0, "borderaxespad": 1.2, "columnspacing": 1.8, "labelspacing": 0.28, "fontsize": 16,
+        "cf_line_breaks": True, "cf_short_labels": False,
     }
     ratio = {
         "yloc": "center",
@@ -43,8 +44,7 @@ def setup_plot_styles(config: od.Config) -> None:
     # - shortened process labels
     # - changed annotation (channel) position to fit right under legend
     wide_legend = legend | {
-        "ncols": 3, "loc": "upper left", "cf_entries_per_column": legend_entries_per_column,
-        "cf_short_labels": True,
+        "ncols": 3, "loc": "upper left", "cf_entries_per_column": legend_entries_per_column, "cf_short_labels": True,
     }
     annotate_wide = annotate | {
         "xy": (0.035, 0.765),
@@ -108,10 +108,18 @@ def stylize_processes(config: od.Config) -> None:
         dark_green="#269c00",
     )
 
+    ggf_colors = {
+        "0": cfg.x.colors.bright_orange,
+        "1": cfg.x.colors.dark_blue,
+        "2p45": cfg.x.colors.red,
+        "5": cfg.x.colors.green,
+    }
+
     for kl in ["0", "1", "2p45", "5"]:
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
-            p.color1 = cfg.x.colors.dark_blue
-            kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"})
+            # p.color1 = cfg.x.colors.dark_blue
+            p.color1 = ggf_colors.get(kl, cfg.x.colors.dark_blue)
+            kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"}, group=False)
             p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
     for kv, k2v, kl in [
@@ -189,7 +197,7 @@ def stylize_processes(config: od.Config) -> None:
 
 def legend_entries_per_column(ax, handles: list, labels: list, n_cols: int) -> list[int]:
     """
-    Control  number of entries such that backgrounds are in the first n - 1 columns, and everything
+    Controls number of entries such that backgrounds are in the first n - 1 columns, and everything
     else in the last one.
     """
     # get number of background and remaining entries
@@ -208,6 +216,25 @@ def legend_entries_per_column(ax, handles: list, labels: list, n_cols: int) -> l
         entries_per_col[i] = n_backgrounds // n_bkg_cols + (n_backgrounds % n_bkg_cols > i)
 
     return entries_per_col
+
+
+def update_handles_labels_factory(remove_mc_stat_label: bool = False) -> Callable:
+    """
+    Factory to generate a function that updates legend handles and labels given some conditions passed as arguments.
+    """
+    def remove_mc_stat_label(handles: list, labels: list) -> None:
+        for i, label in enumerate(labels):
+            if re.match(r"^MC stat\.? unc.*$", label):
+                labels.pop(i)
+                handles.pop(i)
+                break
+
+    # actual update function
+    def update_handles_labels(ax, handles: list, labels: list, ncols: int) -> None:
+        if remove_mc_stat_label:
+            remove_mc_stat_label(handles, labels)
+
+    return update_handles_labels
 
 
 def kappa_str_to_num(value: str) -> int | float:
@@ -243,9 +270,15 @@ def group_kappas(**kappas: dict[str, str]) -> dict[int | float, list[str]]:
     return {kappa_str_to_num(k): v for k, v in str_groups.items()}
 
 
-def create_kappa_label(*, sep: str = ",", **kappas: dict[str, str]) -> str:
+def create_kappa_label(*, sep: str = ",", group: bool = True, **kappas: dict[str, str]) -> str:
+    # either group or just list kappas
+    if group:
+        gen = group_kappas(**kappas).items()
+    else:
+        gen = ((kappa_str_to_num(v), [k]) for k, v in kappas.items())
+    # loop over kappas and join them
     parts = []
-    for v, _kappas in group_kappas(**kappas).items():
+    for v, _kappas in gen:
         k_str = "=".join(rf"\kappa_{{{k}}}"for k in _kappas)
         parts.append(f"{k_str}={v}")
     return "$" + sep.join(parts) + "$"

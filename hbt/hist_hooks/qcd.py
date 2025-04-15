@@ -13,6 +13,7 @@ import order as od
 import scinum as sn
 
 from columnflow.util import maybe_import, DotDict
+from columnflow.types import Any
 
 np = maybe_import("numpy")
 hist = maybe_import("hist")
@@ -41,16 +42,17 @@ def integrate_num(num: sn.Number, axis=None) -> sn.Number:
     )
 
 
-def add_hooks(config: od.Config) -> None:
+def add_hooks(analysis_inst: od.Analysis) -> None:
     """
-    Add histogram hooks to a configuration.
+    Add histogram hooks to a analysis.
     """
-    def qcd_estimation(task, hists):
-        if not hists:
-            return hists
-
+    def qcd_estimation_per_config(
+        task: law.Task,
+        config_inst: od.Config,
+        hists: dict[od.Process, Any],
+    ) -> dict[od.Process, Any]:
         # get the qcd process
-        qcd_proc = config.get_process("qcd", default=None)
+        qcd_proc = config_inst.get_process("qcd", default=None)
         if not qcd_proc:
             return hists
 
@@ -71,7 +73,7 @@ def add_hooks(config: od.Config) -> None:
         # create qcd groups
         qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
         for cat_id in category_ids:
-            cat_inst = config.get_category(cat_id)
+            cat_inst = config_inst.get_category(cat_id)
             if cat_inst.has_tag({"os", "iso"}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
             elif cat_inst.has_tag({"os", "noniso"}, mode=all):
@@ -142,14 +144,14 @@ def add_hooks(config: od.Config) -> None:
             int_ss_noniso_neg = int_ss_noniso <= 0
             if int_ss_iso_neg.any():
                 shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_ss_iso_neg)[0]))
-                shifts = list(map(config.get_shift, shift_ids))
+                shifts = list(map(config_inst.get_shift, shift_ids))
                 logger.warning(
                     f"negative QCD integral in ss_iso region for group {group_name} and shifts: "
                     f"{', '.join(map(str, shifts))}",
                 )
             if int_ss_noniso_neg.any():
                 shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_ss_noniso_neg)[0]))
-                shifts = list(map(config.get_shift, shift_ids))
+                shifts = list(map(config_inst.get_shift, shift_ids))
                 logger.warning(
                     f"negative QCD integral in ss_noniso region for group {group_name} and shifts: "
                     f"{', '.join(map(str, shifts))}",
@@ -203,5 +205,14 @@ def add_hooks(config: od.Config) -> None:
 
         return hists
 
+    def qcd_estimation(
+        task: law.Task,
+        hists: dict[od.Config, dict[od.Process, Any]],
+    ) -> dict[od.Config, dict[od.Process, Any]]:
+        return {
+            config_inst: qcd_estimation_per_config(task, config_inst, hists[config_inst])
+            for config_inst in hists.keys()
+        }
+
     # add the hook
-    config.x.hist_hooks.qcd = qcd_estimation
+    analysis_inst.x.hist_hooks.qcd = qcd_estimation
