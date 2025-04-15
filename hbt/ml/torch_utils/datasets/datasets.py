@@ -497,7 +497,7 @@ if not isinstance(torchdata, MockModule):
             
             # try to find information about rowgroups
             # the set of row groups could be in the open_options so check
-            if "row_groups" in self.open_options.keys():
+            if self.open_options.get("row_groups", None):
                 self._allowed_rowgroups = set(self.open_options["row_groups"])
             else:
                 # otherwise, build from metadata
@@ -510,7 +510,7 @@ if not isinstance(torchdata, MockModule):
         @current_rowgroups.setter
         def current_rowgroups(self, value: int | Iterable[int]) -> None:
             value_set: set[int] = set()
-            if isinstance(value, int):
+            if isinstance(value, int) or (isinstance(value, Iterable) and all(isinstance(x, int) for x in value)):
                 value_set = set(value)
             elif isinstance(value, Iterable):
                 value_set = set(*value)
@@ -623,6 +623,8 @@ if not isinstance(torchdata, MockModule):
                 if self.current_rowgroups:
                     rg_idx = list(self.current_rowgroups)
                 logger.info(f"Loading rowgroups {rg_idx} from {self.path}")
+                from IPython import embed
+                embed(header=f"debugging pq.read_table with {self.open_options=}")
                 self._data = ak.concatenate([
                     ak.from_arrow(pq.read_table(x.open(), **self.open_options))
                     for x in self.rowgroup_fragments[rg_idx]],
