@@ -729,7 +729,8 @@ def lepton_selection(
             # store the matched trigger id
             ids = ak.where(is_tautau, np.float32(trigger.id), np.float32(np.nan))
             ids = ak.singletons(ak.nan_to_none(ids))
-            # TODO: add comment why we have two objects
+            # we need to store the trigger id for the ttv and ttj triggers separately, as
+            # we are not sure yet whether the matching is correct for the jet legs of the trigger
             if trigger.has_tag({"cross_tau_tau_vbf", "cross_tau_tau_jet"}):
                 lepton_part_trigger_ids.append(ids)
             else:
@@ -864,7 +865,10 @@ def lepton_selection(
                     # the correct muon mask if not matched is the control muon mask with min pt 20
                     trig_emu_muon_mask, emu_muon_mask, _ = self[muon_selection](events, _trigger, **sel_kwargs)
                     # fold trigger matching into the selection
-                    trig_emu_muon_mask = trig_emu_muon_mask & self[muon_trigger_matching](events, _trigger, _trigger_fired, _leg_masks, **sel_kwargs)  # noqa: E501
+                    trig_emu_muon_mask = (
+                        trig_emu_muon_mask &
+                        self[muon_trigger_matching](events, _trigger, _trigger_fired, _leg_masks, **sel_kwargs)
+                    )
 
                     # store for which events a muon fired and matched the trigger
                     mu_trig_matched = mu_trig_matched | (

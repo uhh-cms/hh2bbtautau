@@ -14,12 +14,12 @@ import order as od
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
-from columnflow.columnar_util import set_ak_column, Route
+from columnflow.columnar_util import set_ak_column
 from columnflow.production.cms.muon import muon_trigger_weights as cf_muon_trigger_weights
 from columnflow.production.cms.electron import electron_trigger_weights as cf_electron_trigger_weights
 
-from hbt.production.tau import tau_trigger_weights
-from hbt.production.jet import jet_trigger_effs
+from hbt.production.tau import tau_trigger_efficiencies
+from hbt.production.jet import jet_trigger_efficiencies
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
@@ -116,7 +116,7 @@ cross_trigger_muon_mc_effs = muon_trigger_weights.derive(
 )
 
 # subclass the tau weights producer to use the cclub tau efficiencies
-tau_trigger_sf_and_effs_cclub = tau_trigger_weights.derive(
+tau_trigger_sf_and_effs_cclub = tau_trigger_efficiencies.derive(
     "tau_trigger_sf_and_effs_cclub",
     cls_dict={
         "get_tau_file": (lambda self, external_files: external_files.trigger_sf.tau),
@@ -291,6 +291,10 @@ def etau_mutau_trigger_weights(
                     cross_trigger_lepton_data_efficiencies = events.cross_trigger_electron_data_effs
                     single_trigger_lepton_mc_efficiencies = events.single_trigger_electron_mc_effs
                     cross_trigger_lepton_mc_efficiencies = events.cross_trigger_electron_mc_effs
+
+                    # tau efficiencies
+                    cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_etau
+                    cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_etau
                 else:
                     channel = self.config_inst.channels.n.mutau
                     single_trigger_lepton_data_efficiencies = events.single_trigger_muon_data_effs
@@ -298,9 +302,9 @@ def etau_mutau_trigger_weights(
                     single_trigger_lepton_mc_efficiencies = events.single_trigger_muon_mc_effs
                     cross_trigger_lepton_mc_efficiencies = events.cross_trigger_muon_mc_effs
 
-                # tau efficiencies
-                cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_weight
-                cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_weight
+                    # tau efficiencies
+                    cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_mutau
+                    cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_mutau
 
                 single_triggered = (events.channel_id == channel.id) & events.single_triggered
                 cross_triggered = (events.channel_id == channel.id) & events.cross_triggered
@@ -331,40 +335,24 @@ def etau_mutau_trigger_weights(
                 # deal with the electron and muon variation, as there is no additional dm separation
                 if uncert == "_e" or uncert == "_mu":
                     if uncert == "_e":
-                        single_trigger_lepton_data_efficiencies = Route(
-                            f"single_trigger_electron_data_effs{postfix}",
-                        ).apply(events)
-                        cross_trigger_lepton_data_efficiencies = Route(
-                            f"cross_trigger_electron_data_effs{postfix}",
-                        ).apply(events)
-                        single_trigger_lepton_mc_efficiencies = Route(
-                            f"single_trigger_electron_mc_effs{postfix}",
-                        ).apply(events)
-                        cross_trigger_lepton_mc_efficiencies = Route(
-                            f"cross_trigger_electron_mc_effs{postfix}",
-                        ).apply(events)
+                        single_trigger_lepton_data_efficiencies = events[f"single_trigger_electron_data_effs{postfix}"]
+                        cross_trigger_lepton_data_efficiencies = events[f"cross_trigger_electron_data_effs{postfix}"]
+                        single_trigger_lepton_mc_efficiencies = events[f"single_trigger_electron_mc_effs{postfix}"]
+                        cross_trigger_lepton_mc_efficiencies = events[f"cross_trigger_electron_mc_effs{postfix}"]
 
                         # tau efficiencies
-                        cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_weight
-                        cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_weight
+                        cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_etau
+                        cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_etau
 
                     else:
-                        single_trigger_lepton_data_efficiencies = Route(
-                            f"single_trigger_muon_data_effs{postfix}",
-                        ).apply(events)
-                        cross_trigger_lepton_data_efficiencies = Route(
-                            f"cross_trigger_muon_data_effs{postfix}",
-                        ).apply(events)
-                        single_trigger_lepton_mc_efficiencies = Route(
-                            f"single_trigger_muon_mc_effs{postfix}",
-                        ).apply(events)
-                        cross_trigger_lepton_mc_efficiencies = Route(
-                            f"cross_trigger_muon_mc_effs{postfix}",
-                        ).apply(events)
+                        single_trigger_lepton_data_efficiencies = events[f"single_trigger_muon_data_effs{postfix}"]
+                        cross_trigger_lepton_data_efficiencies = events[f"cross_trigger_muon_data_effs{postfix}"]
+                        single_trigger_lepton_mc_efficiencies = events[f"single_trigger_muon_mc_effs{postfix}"]
+                        cross_trigger_lepton_mc_efficiencies = events[f"cross_trigger_muon_mc_effs{postfix}"]
 
                         # tau efficiencies
-                        cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_weight
-                        cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_weight
+                        cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_mutau
+                        cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_mutau
 
                     events = create_trigger_weights(
                         events,
@@ -382,22 +370,11 @@ def etau_mutau_trigger_weights(
 
                 # deal with the tau variations
                 else:
-                    dm_variations_dict = {}
                     if uncert == "_tau_e":
                         single_trigger_lepton_data_efficiencies = events.single_trigger_electron_data_effs
                         cross_trigger_lepton_data_efficiencies = events.cross_trigger_electron_data_effs
                         single_trigger_lepton_mc_efficiencies = events.single_trigger_electron_mc_effs
                         cross_trigger_lepton_mc_efficiencies = events.cross_trigger_electron_mc_effs
-
-                        for dm in [0, 1, 10, 11]:
-                            dm_variations_dict[dm] = {
-                                "data": Route(
-                                    f"tau_trigger_eff_data_weight_dm_{dm}_{channel.name}{postfix}",
-                                ).apply(events),
-                                "mc": Route(
-                                    f"tau_trigger_eff_mc_weight_dm_{dm}_{channel.name}{postfix}",
-                                ).apply(events),
-                            }
 
                     else:
                         single_trigger_lepton_data_efficiencies = events.single_trigger_muon_data_effs
@@ -405,30 +382,21 @@ def etau_mutau_trigger_weights(
                         single_trigger_lepton_mc_efficiencies = events.single_trigger_muon_mc_effs
                         cross_trigger_lepton_mc_efficiencies = events.cross_trigger_muon_mc_effs
 
-                        for dm in [0, 1, 10, 11]:
-                            dm_variations_dict[dm] = {
-                                "data": Route(
-                                    f"tau_trigger_eff_data_weight_dm_{dm}_{channel.name}{postfix}",
-                                ).apply(events),
-                                "mc": Route(
-                                    f"tau_trigger_eff_mc_weight_dm_{dm}_{channel.name}{postfix}",
-                                ).apply(events),
-                            }
-
-                    for dm, dm_variated_effs in dm_variations_dict.items():
+                    for dm in [0, 1, 10, 11]:
                         events = create_trigger_weights(
                             events,
                             single_trigger_lepton_data_efficiencies,
                             single_trigger_lepton_mc_efficiencies,
                             cross_trigger_lepton_data_efficiencies,
                             cross_trigger_lepton_mc_efficiencies,
-                            dm_variated_effs["data"],
-                            dm_variated_effs["mc"],
+                            events[f"tau_trigger_eff_data_{channel.name}_dm_{dm}{postfix}"],
+                            events[f"tau_trigger_eff_mc_{channel.name}_dm_{dm}{postfix}"],
                             channel,
                             single_triggered,
                             cross_triggered,
                             f"_tau_dm{dm}{postfix}",
                         )
+
     for postfix in ["_up", "_down"]:
         for variation in ["e", "jet"]:
             trigger_sf = events.mutau_trigger_weights
@@ -443,7 +411,7 @@ def etau_mutau_trigger_weights(
 @producer(
     uses={
         "channel_id", "matched_trigger_ids",
-        tau_trigger_sf_and_effs_cclub, jet_trigger_effs,
+        tau_trigger_sf_and_effs_cclub, jet_trigger_efficiencies,
     },
     produces={
         "tautau_trigger_weights",
@@ -479,8 +447,9 @@ def tautau_trigger_weights(
         })
     """
 
-    # create all tau weights (might already exist from the etau/mutau trigger weights)
-    events = self[tau_trigger_sf_and_effs_cclub](events, **kwargs)
+    if "tau_trigger_eff_data_tautau" not in events.fields:
+        # create all tau weights (else already exist from the etau/mutau trigger weights)
+        events = self[tau_trigger_sf_and_effs_cclub](events, **kwargs)
 
     channel = self.config_inst.channels.n.tautau
 
@@ -503,7 +472,7 @@ def tautau_trigger_weights(
     leading_HHBJet_mask = (ak.zeros_like(events.HHBJet.pt, dtype=int) == ak.local_index(events.HHBJet.pt)[sorted_hhbjet_indices])  # noqa
     jet_mask = (ditaujet_triggered & leading_HHBJet_mask)
     # create jet trigger weights
-    events = self[jet_trigger_effs](events, jet_mask, **kwargs)
+    events = self[jet_trigger_efficiencies](events, jet_mask, **kwargs)
 
     # add phase space requirements
     # vbf_triggered = (
@@ -513,14 +482,14 @@ def tautau_trigger_weights(
 
     for postfix in ["", "_up", "_down"]:
         if postfix == "":
-            ditau_data_efficiencies = events.tau_trigger_eff_data_weight
-            ditau_mc_efficiencies = events.tau_trigger_eff_mc_weight
-            ditaujet_tau_data_efficiencies = events.tau_trigger_eff_data_weight_tautaujet
-            ditaujet_tau_mc_efficiencies = events.tau_trigger_eff_mc_weight_tautaujet
+            ditau_data_efficiencies = events.tau_trigger_eff_data_tautau
+            ditau_mc_efficiencies = events.tau_trigger_eff_mc_tautau
+            ditaujet_tau_data_efficiencies = events.tau_trigger_eff_data_tautaujet
+            ditaujet_tau_mc_efficiencies = events.tau_trigger_eff_mc_tautaujet
 
             # jet efficiencies
-            jet_data_efficiencies = events.ditaujet_trigger_jet_weight_eff_data
-            jet_mc_efficiencies = events.ditaujet_trigger_jet_weight_eff_mc
+            jet_data_efficiencies = events.jet_trigger_eff_data
+            jet_mc_efficiencies = events.jet_trigger_eff_mc
 
             # make jet efficiencies to event level quantity
             # there should be only one such efficiency for the tautaujet trigger
@@ -543,14 +512,14 @@ def tautau_trigger_weights(
         else:
             # jet variations
             # tau efficiencies
-            ditau_data_efficiencies = events.tau_trigger_eff_data_weight
-            ditau_mc_efficiencies = events.tau_trigger_eff_mc_weight
-            ditaujet_tau_data_efficiencies = events.tau_trigger_eff_data_weight_tautaujet
-            ditaujet_tau_mc_efficiencies = events.tau_trigger_eff_mc_weight_tautaujet
+            ditau_data_efficiencies = events.tau_trigger_eff_data_tautau
+            ditau_mc_efficiencies = events.tau_trigger_eff_mc_tautau
+            ditaujet_tau_data_efficiencies = events.tau_trigger_eff_data_tautaujet
+            ditaujet_tau_mc_efficiencies = events.tau_trigger_eff_mc_tautaujet
 
             # jet efficiencies
-            jet_data_efficiencies = Route(f"ditaujet_trigger_jet_weight_eff_data{postfix}").apply(events)
-            jet_mc_efficiencies = Route(f"ditaujet_trigger_jet_weight_eff_mc{postfix}").apply(events)
+            jet_data_efficiencies = events[f"jet_trigger_eff_data{postfix}"]
+            jet_mc_efficiencies = events[f"jet_trigger_eff_mc{postfix}"]
 
             # make jet efficiencies to event level quantity
             # there should be only one such efficiency for the tautaujet trigger
@@ -574,8 +543,8 @@ def tautau_trigger_weights(
             # tau variations
 
             # jet efficiencies
-            jet_data_efficiencies = events.ditaujet_trigger_jet_weight_eff_data
-            jet_mc_efficiencies = events.ditaujet_trigger_jet_weight_eff_mc
+            jet_data_efficiencies = events.jet_trigger_eff_data
+            jet_mc_efficiencies = events.jet_trigger_eff_mc
 
             # make jet efficiencies to event level quantity
             # there should be only one such efficiency for the tautaujet trigger
@@ -583,20 +552,12 @@ def tautau_trigger_weights(
             jet_mc_efficiencies = ak.prod(jet_mc_efficiencies, axis=1, mask_identity=False)
 
             for dm in [0, 1, 10, 11]:
-                # tau efficiencies
-                dm_variations_dict = {
-                    "ditau_data": Route(f"tau_trigger_eff_data_weight_dm_{dm}_tautau{postfix}").apply(events),
-                    "ditau_mc": Route(f"tau_trigger_eff_mc_weight_dm_{dm}_tautau{postfix}").apply(events),
-                    "ditaujet_data": Route(f"tau_trigger_eff_data_weight_dm_{dm}_tautaujet{postfix}").apply(events),
-                    "ditaujet_mc": Route(f"tau_trigger_eff_mc_weight_dm_{dm}_tautaujet{postfix}").apply(events),
-                }
-
                 events = create_trigger_weights(
                     events,
-                    dm_variations_dict["ditau_data"],
-                    dm_variations_dict["ditau_mc"],
-                    dm_variations_dict["ditaujet_data"],
-                    dm_variations_dict["ditaujet_mc"],
+                    events[f"tau_trigger_eff_data_tautau_dm_{dm}{postfix}"],
+                    events[f"tau_trigger_eff_mc_tautau_dm_{dm}{postfix}"],
+                    events[f"tau_trigger_eff_data_tautaujet_dm_{dm}{postfix}"],
+                    events[f"tau_trigger_eff_mc_tautaujet_dm_{dm}{postfix}"],
                     jet_data_efficiencies,
                     jet_mc_efficiencies,
                     channel=channel,
@@ -705,10 +666,10 @@ def emu_trigger_weights(
         elif postfix.startswith("_e"):
             shift = postfix.split("_")[-1]
             # electron shifts
-            trigger_sf = Route(f"emu_e_trigger_weights_{shift}").apply(events) * events.emu_mu_trigger_weights
+            trigger_sf = events[f"emu_e_trigger_weights_{shift}"] * events.emu_mu_trigger_weights
         elif postfix.startswith("_mu"):
             shift = postfix.split("_")[-1]
-            trigger_sf = events.emu_e_trigger_weights * Route(f"emu_mu_trigger_weights_{shift}").apply(events)
+            trigger_sf = events.emu_e_trigger_weights * events[f"emu_mu_trigger_weights_{shift}"]
         else:
             raise ValueError(f"Unknown postfix {postfix}")
         events = set_ak_column_f32(events, f"emu_trigger_weights{postfix}", trigger_sf)
@@ -771,13 +732,13 @@ def trigger_weights(
         events = set_ak_column_f32(
             events,
             f"mumu_trigger_weights{variation}",
-            Route(f"mumu_trigger_weights{variation.replace('_mu', '')}").apply(events),
+            events[f"mumu_trigger_weights{variation.replace('_mu', '')}"],
         )
     for variation in ["_e_up", "_e_down"]:
         events = set_ak_column_f32(
             events,
             f"ee_trigger_weights{variation}",
-            Route(f"ee_trigger_weights{variation.replace('_e', '')}").apply(events),
+            events[f"ee_trigger_weights{variation.replace('_e', '')}"],
         )
 
     # create the variations for non varying objects in ee and mumu
@@ -812,7 +773,7 @@ def trigger_weights(
                 trigger_sf = events.trigger_weight
                 for channel in channels:
                     # for all variations, the default is the nominal trigger weights
-                    variation = Route(f"{channel}_trigger_weights_{object_}{postfix}").apply(events)
+                    variation = events[f"{channel}_trigger_weights_{object_}{postfix}"]
                     # update the trigger weights with the value for the variation
                     channel_mask = (events.channel_id == self.config_inst.channels.get(channel).id)
                     trigger_sf = ak.where(channel_mask, variation, trigger_sf)

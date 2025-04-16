@@ -107,9 +107,6 @@ def jet_selection(
     # two strategies were studied a) and b) but strategy a) seems to not comply with how trigger
     # matching should be done and should therefore be ignored.
 
-    # TODO: change
-    # create a mask to select tautau events that were triggered by a tau-tau-jet cross trigger
-    # and passed the tautau matching in the lepton selection
     false_mask = full_like(events.event, False, dtype=bool)
 
     # create mask for tautau events that fired and matched tautau trigger
@@ -122,6 +119,8 @@ def jet_selection(
         ), axis=1)
     )
 
+    # create a mask to select tautau events that were triggered by a tau-tau-jet cross trigger
+    # and passed the tautau matching in the lepton selection
     ttj_mask = (
         (events.channel_id == ch_tautau.id) &
         ak.any(reduce(
