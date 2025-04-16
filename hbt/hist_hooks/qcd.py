@@ -146,9 +146,12 @@ def add_hooks(config: od.Config) -> None:
         task,
         hists,
         perbin: bool = False,
-        method_I: bool = True,
+        method_I: bool = False,
         qcd_shape: bool = False,
         is_validation: bool = True,
+        return_hists: bool = True,
+        iso_tag_name: str = "iso",
+        noniso_tag_name: str = "noniso",
     ):
         """
         This hook calculates the qcd estimation (shape x factor) for a choosen decay channel
@@ -177,8 +180,8 @@ def add_hooks(config: od.Config) -> None:
             iso_tag = "iso"
             noniso_tag = "noniso"
         elif is_validation is True:
-            iso_tag = "vvloose_vloose"
-            noniso_tag = "vvvloose_vvloose"
+            iso_tag = iso_tag_name
+            noniso_tag = noniso_tag_name
         os_tag = "os"
         ss_tag = "ss"
         # --------------------------------------------------------------------------------------
@@ -323,21 +326,6 @@ def add_hooks(config: od.Config) -> None:
                 plot_values_v2 = factor_int_values
                 plot_variances_v2 = factor_int_variances
 
-            # -----------------------------------------------
-
-            if group_name == "tautau__incl":
-                print("----------------------------")
-                print("num_region: ")
-                print(num_region)
-                print("den_region: ")
-                print(den_region)
-                print("Factor values: ")
-                print(factor_values)
-                print("Factor variances: ")
-                print(factor_variances)
-                print("Factor int: ", factor_int)
-                print("----------------------------")
-
             # insert qcd estimation into the qcd histogram
             cat_axis = factor_hist.axes["category"]
             for cat_index in range(cat_axis.size):
@@ -352,7 +340,56 @@ def add_hooks(config: od.Config) -> None:
                     f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
                     f"for category {signal_region}",
                 )
-        return hists
+        if return_hists:
+            print("-----------------------------")
+            print("Int Factor: ", factor_int)
+            print("Int Factor variances: ", factor_int_variances)
+            print("Int num: ", int_num)
+            print("Int den: ", int_den)
+            print("-----------------------------")
+            print("Int Factor values: ", plot_values)
+            print("Int Factor variances: ", plot_variances)
+            print("Int Factor values (per bin): ", plot_values_v2)
+            print("Int Factor variances (per bin): ", plot_variances_v2)
+            return hists
+        else:
+            return factor_int, factor_int_variances, int_num, int_den
+
+    def get_WP_factors(task, hists):
+
+        tags = [
+            ("vvloose_vloose", "vvvloose_vvloose"),
+            ("vloose_loose", "vvloose_vloose"),
+            ("loose_medium", "vloose_loose"),
+            ("iso", "loose_medium"),
+            ("iso", "noniso"),
+        ]
+
+        for tag in tags:
+            values = factor_shape(
+                task,
+                hists,
+                perbin=False,
+                method_I=True,
+                qcd_shape=False,
+                is_validation=True,
+                return_hists=False,
+                iso_tag_name=tag[0],
+                noniso_tag_name=tag[1],
+            )
+
+            factor_int = values[0]
+            factor_int_variances = values[1]
+            int_num = values[2]
+            int_den = values[3]
+
+            print("-----------------------------")
+            print("iso Tag: ", tag[0])
+            print("noniso Tag: ", tag[1])
+            print("Int Factor: ", factor_int)
+            print("Int Factor variances: ", factor_int_variances)
+            print("Int num: ", int_num)
+            print("Int den: ", int_den)
 
     def qcd_validation(
         task,
@@ -997,6 +1034,7 @@ def add_hooks(config: od.Config) -> None:
     config.x.hist_hooks.abcd_stats = abcd_stats
     config.x.hist_hooks.factor_shape = factor_shape
     config.x.hist_hooks.qcd = qcd_validation
+    config.x.hist_hooks.get_WP_factors = get_WP_factors
 
     # for later
     config.x.hist_hooks.factor_incl = factor_incl
