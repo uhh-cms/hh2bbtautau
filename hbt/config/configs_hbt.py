@@ -1319,7 +1319,7 @@ def add_config(
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
         json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-a080a5f3"
-        trigger_json_mirror = "/data/dust/user/prouvost/cclub_gitlab/AnalysisCore/data/TriggerScaleFactors"
+        trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
             if campaign.has_tag(tag, mode=any):
@@ -1392,14 +1392,9 @@ def add_config(
         add_external("jet_id", (f"{json_mirror}/POG/JME/{json_pog_era}/jetid.json.gz", "v1"))
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
-        # muon trigger scale factors
-        add_external("muon_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/temporary_MuHlt_abseta_pt.json", "v1"))  # noqa: E501
-        add_external("cross_trigger_muon_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossMuTauHlt.json", "v1"))
+
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
-        # electron trigger scale factors
-        add_external("electron_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/electronHlt.json", "v1"))
-        add_external("cross_trigger_electron_sf", (f"{trigger_json_mirror}/{cclub_eras}/CrossEleTauHlt.json", "v1"))
         # electron energy correction and smearing
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
@@ -1409,7 +1404,7 @@ def add_config(
             version="v3",
         ))
         # tau energy correction and scale factors
-        # TODO: remove tag pog mirror once integrated centrally
+        # TODO: remove tau pog mirror once integrated centrally
         json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
         if year == 2022:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
@@ -1423,11 +1418,21 @@ def add_config(
         # dy weight and recoil corrections
         add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v2.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v2.json.gz", "v1"))  # noqa: E501
-        # tau trigger scale factors
-        add_external("tau_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json", "v1"))  # noqa: E501
 
-        # jet trigger scale factors
-        add_external("jet_trigger_sf", (f"{trigger_json_mirror}/{cclub_eras}/ditaujet_jetleg_SFs_{campaign_tag}.json", "v1"))  # noqa: E501
+        # trigger scale factors
+        trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
+        add_external("trigger_sf", Ext(
+            f"{trigger_json_mirror}",
+            subpaths=DotDict(
+                muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/temporary_MuHlt_abseta_pt.json",
+                cross_muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/CrossMuTauHlt.json",
+                electron=f"{trigger_sf_internal_subpath}/{cclub_eras}/electronHlt.json",
+                cross_electron=f"{trigger_sf_internal_subpath}/{cclub_eras}/CrossEleTauHlt.json",
+                tau=f"{trigger_sf_internal_subpath}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json",
+                jet=f"{trigger_sf_internal_subpath}/{cclub_eras}/ditaujet_jetleg_SFs_{campaign_tag}.json",
+            ),
+            version="v1",
+        ))
 
     else:
         assert False

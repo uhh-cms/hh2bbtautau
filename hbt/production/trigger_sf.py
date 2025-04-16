@@ -10,16 +10,16 @@ we will derive the trigger weights producers for each channel separately to appl
 
 import functools
 
+import order as od
+
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
-from columnflow.production.cms.muon import muon_weights, muon_trigger_weights
-from columnflow.production.cms.electron import electron_trigger_weights
-import order as od
-
+from columnflow.production.cms.muon import muon_trigger_weights as cf_muon_trigger_weights
+from columnflow.production.cms.electron import electron_trigger_weights as cf_electron_trigger_weights
 
 from hbt.production.tau import tau_trigger_weights
-from hbt.production.jet import jet_trigger_weights
+from hbt.production.jet import jet_trigger_effs
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
@@ -27,11 +27,25 @@ np = maybe_import("numpy")
 # helper
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
+# subclass the electron trigger weights producer to create the electron trigger weights
+electron_trigger_weights = cf_electron_trigger_weights.derive(
+    "electron_trigger_weights",
+    cls_dict={
+        "get_electron_file": (lambda self, external_files: external_files.trigger_sf.electron),
+    },
+)
+muon_trigger_weights = cf_muon_trigger_weights.derive(
+    "muon_trigger_weights",
+    cls_dict={
+        "get_muon_file": (lambda self, external_files: external_files.trigger_sf.muon),
+    },
+)
+
 # subclass the electron weights producer to create the electron efficiencies
 single_trigger_electron_data_effs = electron_trigger_weights.derive(
     "single_trigger_electron_data_effs",
     cls_dict={
-        "get_electron_file": (lambda self, external_files: external_files.electron_trigger_sf),
+        "get_electron_file": (lambda self, external_files: external_files.trigger_sf.electron),
         "get_electron_config": (lambda self: self.config_inst.x.single_trigger_electron_data_effs_cfg),
         "weight_name": "single_trigger_electron_data_effs",
     },
@@ -40,7 +54,7 @@ single_trigger_electron_data_effs = electron_trigger_weights.derive(
 single_trigger_electron_mc_effs = electron_trigger_weights.derive(
     "single_trigger_electron_mc_effs",
     cls_dict={
-        "get_electron_file": (lambda self, external_files: external_files.electron_trigger_sf),
+        "get_electron_file": (lambda self, external_files: external_files.trigger_sf.electron),
         "get_electron_config": (lambda self: self.config_inst.x.single_trigger_electron_mc_effs_cfg),
         "weight_name": "single_trigger_electron_mc_effs",
     },
@@ -49,7 +63,7 @@ single_trigger_electron_mc_effs = electron_trigger_weights.derive(
 cross_trigger_electron_data_effs = electron_trigger_weights.derive(
     "cross_trigger_electron_data_effs",
     cls_dict={
-        "get_electron_file": (lambda self, external_files: external_files.cross_trigger_electron_sf),
+        "get_electron_file": (lambda self, external_files: external_files.trigger_sf.cross_electron),
         "get_electron_config": (lambda self: self.config_inst.x.cross_trigger_electron_data_effs_cfg),
         "weight_name": "cross_trigger_electron_data_effs",
     },
@@ -58,44 +72,44 @@ cross_trigger_electron_data_effs = electron_trigger_weights.derive(
 cross_trigger_electron_mc_effs = electron_trigger_weights.derive(
     "cross_trigger_electron_mc_effs",
     cls_dict={
-        "get_electron_file": (lambda self, external_files: external_files.cross_trigger_electron_sf),
+        "get_electron_file": (lambda self, external_files: external_files.trigger_sf.cross_electron),
         "get_electron_config": (lambda self: self.config_inst.x.cross_trigger_electron_mc_effs_cfg),
         "weight_name": "cross_trigger_electron_mc_effs",
     },
 )
 
 # subclass the muon weights producer to create the muon efficiencies
-single_trigger_muon_data_effs = muon_weights.derive(
+single_trigger_muon_data_effs = muon_trigger_weights.derive(
     "single_trigger_muon_data_effs",
     cls_dict={
-        "get_muon_file": (lambda self, external_files: external_files.muon_trigger_sf),
+        "get_muon_file": (lambda self, external_files: external_files.trigger_sf.muon),
         "get_muon_config": (lambda self: self.config_inst.x.single_trigger_muon_data_effs_cfg),
         "weight_name": "single_trigger_muon_data_effs",
     },
 )
 
-single_trigger_muon_mc_effs = muon_weights.derive(
+single_trigger_muon_mc_effs = muon_trigger_weights.derive(
     "single_trigger_muon_mc_effs",
     cls_dict={
-        "get_muon_file": (lambda self, external_files: external_files.muon_trigger_sf),
+        "get_muon_file": (lambda self, external_files: external_files.trigger_sf.muon),
         "get_muon_config": (lambda self: self.config_inst.x.single_trigger_muon_mc_effs_cfg),
         "weight_name": "single_trigger_muon_mc_effs",
     },
 )
 
-cross_trigger_muon_data_effs = muon_weights.derive(
+cross_trigger_muon_data_effs = muon_trigger_weights.derive(
     "cross_trigger_muon_data_effs",
     cls_dict={
-        "get_muon_file": (lambda self, external_files: external_files.cross_trigger_muon_sf),
+        "get_muon_file": (lambda self, external_files: external_files.trigger_sf.cross_muon),
         "get_muon_config": (lambda self: self.config_inst.x.cross_trigger_muon_data_effs_cfg),
         "weight_name": "cross_trigger_muon_data_effs",
     },
 )
 
-cross_trigger_muon_mc_effs = muon_weights.derive(
+cross_trigger_muon_mc_effs = muon_trigger_weights.derive(
     "cross_trigger_muon_mc_effs",
     cls_dict={
-        "get_muon_file": (lambda self, external_files: external_files.cross_trigger_muon_sf),
+        "get_muon_file": (lambda self, external_files: external_files.trigger_sf.cross_muon),
         "get_muon_config": (lambda self: self.config_inst.x.cross_trigger_muon_mc_effs_cfg),
         "weight_name": "cross_trigger_muon_mc_effs",
     },
@@ -105,7 +119,7 @@ cross_trigger_muon_mc_effs = muon_weights.derive(
 tau_trigger_sf_and_effs_cclub = tau_trigger_weights.derive(
     "tau_trigger_sf_and_effs_cclub",
     cls_dict={
-        "get_tau_file": (lambda self, external_files: external_files.tau_trigger_sf),
+        "get_tau_file": (lambda self, external_files: external_files.trigger_sf.tau),
         "get_tau_corrector": (lambda self: self.config_inst.x.tau_trigger_corrector_cclub),
     },
 )
@@ -429,7 +443,7 @@ def etau_mutau_trigger_weights(
 @producer(
     uses={
         "channel_id", "matched_trigger_ids",
-        tau_trigger_sf_and_effs_cclub, jet_trigger_weights,
+        tau_trigger_sf_and_effs_cclub, jet_trigger_effs,
     },
     produces={
         "tautau_trigger_weights",
@@ -489,7 +503,7 @@ def tautau_trigger_weights(
     leading_HHBJet_mask = (ak.zeros_like(events.HHBJet.pt, dtype=int) == ak.local_index(events.HHBJet.pt)[sorted_hhbjet_indices])  # noqa
     jet_mask = (ditaujet_triggered & leading_HHBJet_mask)
     # create jet trigger weights
-    events = self[jet_trigger_weights](events, jet_mask, **kwargs)
+    events = self[jet_trigger_effs](events, jet_mask, **kwargs)
 
     # add phase space requirements
     # vbf_triggered = (
@@ -507,6 +521,11 @@ def tautau_trigger_weights(
             # jet efficiencies
             jet_data_efficiencies = events.ditaujet_trigger_jet_weight_eff_data
             jet_mc_efficiencies = events.ditaujet_trigger_jet_weight_eff_mc
+
+            # make jet efficiencies to event level quantity
+            # there should be only one such efficiency for the tautaujet trigger
+            jet_data_efficiencies = ak.prod(jet_data_efficiencies, axis=1, mask_identity=False)
+            jet_mc_efficiencies = ak.prod(jet_mc_efficiencies, axis=1, mask_identity=False)
 
             events = create_trigger_weights(
                 events,
@@ -533,6 +552,11 @@ def tautau_trigger_weights(
             jet_data_efficiencies = Route(f"ditaujet_trigger_jet_weight_eff_data{postfix}").apply(events)
             jet_mc_efficiencies = Route(f"ditaujet_trigger_jet_weight_eff_mc{postfix}").apply(events)
 
+            # make jet efficiencies to event level quantity
+            # there should be only one such efficiency for the tautaujet trigger
+            jet_data_efficiencies = ak.prod(jet_data_efficiencies, axis=1, mask_identity=False)
+            jet_mc_efficiencies = ak.prod(jet_mc_efficiencies, axis=1, mask_identity=False)
+
             events = create_trigger_weights(
                 events,
                 ditau_data_efficiencies,
@@ -552,6 +576,11 @@ def tautau_trigger_weights(
             # jet efficiencies
             jet_data_efficiencies = events.ditaujet_trigger_jet_weight_eff_data
             jet_mc_efficiencies = events.ditaujet_trigger_jet_weight_eff_mc
+
+            # make jet efficiencies to event level quantity
+            # there should be only one such efficiency for the tautaujet trigger
+            jet_data_efficiencies = ak.prod(jet_data_efficiencies, axis=1, mask_identity=False)
+            jet_mc_efficiencies = ak.prod(jet_mc_efficiencies, axis=1, mask_identity=False)
 
             for dm in [0, 1, 10, 11]:
                 # tau efficiencies

@@ -32,19 +32,19 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     # only run on mc
     mc_only=True,
     # function to determine the correction file
-    get_jet_file=(lambda self, external_files: external_files.jet_trigger_sf),
+    get_jet_file=(lambda self, external_files: external_files.trigger_sf.jet),
     get_jet_corrector=(lambda self: self.config_inst.x.jet_trigger_corrector),
     weight_name="ditaujet_trigger_jet_weight",
 )
-def jet_trigger_weights(
+def jet_trigger_effs(
     self: Producer,
     events: ak.Array,
     jet_mask: ak.Array | type(Ellipsis) = Ellipsis,
     **kwargs,
 ) -> ak.Array:
     """
-    Producer for trigger scale factors derived by the CCLUB group. Requires an external file in the
-    config under ``jet_trigger_sf``:
+    Producer for jet trigger efficiencies derived by the CCLUB group at object level. Requires an
+    external file in the config under ``jet_trigger_sf``:
 
     .. code-block:: python
 
@@ -88,17 +88,14 @@ def jet_trigger_weights(
             # add the correct layout to it
             sf = layout_ak_array(sf_flat, events.HHBJet.pt[jet_mask])
 
-            # create the product over all muons in one event
-            weight = ak.prod(sf, axis=1, mask_identity=False)
-
             # store it
-            events = set_ak_column(events, f"{self.weight_name}_{corrtype}{postfix}", weight, value_type=np.float32)
+            events = set_ak_column(events, f"{self.weight_name}_{corrtype}{postfix}", sf, value_type=np.float32)
 
     return events
 
 
-@jet_trigger_weights.requires
-def jet_trigger_weights_requires(self: Producer, task: law.Task, reqs: dict) -> None:
+@jet_trigger_effs.requires
+def jet_trigger_effs_requires(self: Producer, task: law.Task, reqs: dict) -> None:
     if "external_files" in reqs:
         return
 
@@ -106,8 +103,8 @@ def jet_trigger_weights_requires(self: Producer, task: law.Task, reqs: dict) -> 
     reqs["external_files"] = BundleExternalFiles.req(task)
 
 
-@jet_trigger_weights.setup
-def jet_trigger_weights_setup(
+@jet_trigger_effs.setup
+def jet_trigger_effs_setup(
     self: Producer,
     task: law.Task,
     reqs: dict,
