@@ -728,10 +728,12 @@ def lepton_selection(
 
             # store the matched trigger id
             ids = ak.where(is_tautau, np.float32(trigger.id), np.float32(np.nan))
+            ids = ak.singletons(ak.nan_to_none(ids))
+            # TODO: add comment why we have two objects
             if trigger.has_tag({"cross_tau_tau_vbf", "cross_tau_tau_jet"}):
-                lepton_part_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+                lepton_part_trigger_ids.append(ids)
             else:
-                matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+                matched_trigger_ids.append(ids)
 
         # ee channel
         if trigger.has_tag("single_e") and (
