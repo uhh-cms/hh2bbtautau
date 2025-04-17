@@ -295,6 +295,7 @@ def etau_mutau_trigger_weights(
                     # tau efficiencies
                     cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_etau
                     cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_etau
+
                 else:
                     channel = self.config_inst.channels.n.mutau
                     single_trigger_lepton_data_efficiencies = events.single_trigger_muon_data_effs
@@ -305,6 +306,18 @@ def etau_mutau_trigger_weights(
                     # tau efficiencies
                     cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_mutau
                     cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_mutau
+
+                # make tau efficiencies to event level quantity
+                cross_trigger_tau_data_efficiencies = ak.prod(
+                    cross_trigger_tau_data_efficiencies,
+                    axis=1,
+                    mask_identity=False,
+                )
+                cross_trigger_tau_mc_efficiencies = ak.prod(
+                    cross_trigger_tau_mc_efficiencies,
+                    axis=1,
+                    mask_identity=False,
+                )
 
                 single_triggered = (events.channel_id == channel.id) & events.single_triggered
                 cross_triggered = (events.channel_id == channel.id) & events.cross_triggered
@@ -354,6 +367,18 @@ def etau_mutau_trigger_weights(
                         cross_trigger_tau_data_efficiencies = events.tau_trigger_eff_data_mutau
                         cross_trigger_tau_mc_efficiencies = events.tau_trigger_eff_mc_mutau
 
+                    # make tau efficiencies to event level quantity
+                    cross_trigger_tau_data_efficiencies = ak.prod(
+                        cross_trigger_tau_data_efficiencies,
+                        axis=1,
+                        mask_identity=False,
+                    )
+                    cross_trigger_tau_mc_efficiencies = ak.prod(
+                        cross_trigger_tau_mc_efficiencies,
+                        axis=1,
+                        mask_identity=False,
+                    )
+
                     events = create_trigger_weights(
                         events,
                         single_trigger_lepton_data_efficiencies,
@@ -389,8 +414,8 @@ def etau_mutau_trigger_weights(
                             single_trigger_lepton_mc_efficiencies,
                             cross_trigger_lepton_data_efficiencies,
                             cross_trigger_lepton_mc_efficiencies,
-                            events[f"tau_trigger_eff_data_{channel.name}_dm_{dm}{postfix}"],
-                            events[f"tau_trigger_eff_mc_{channel.name}_dm_{dm}{postfix}"],
+                            ak.prod(events[f"tau_trigger_eff_data_{channel.name}_dm_{dm}{postfix}"], axis=1, mask_identity=False),  # noqa: E501
+                            ak.prod(events[f"tau_trigger_eff_mc_{channel.name}_dm_{dm}{postfix}"], axis=1, mask_identity=False),  # noqa: E501
                             channel,
                             single_triggered,
                             cross_triggered,
@@ -487,6 +512,12 @@ def tautau_trigger_weights(
             ditaujet_tau_data_efficiencies = events.tau_trigger_eff_data_tautaujet
             ditaujet_tau_mc_efficiencies = events.tau_trigger_eff_mc_tautaujet
 
+            # make ditau efficiencies to event level quantity
+            ditau_data_efficiencies = ak.prod(ditau_data_efficiencies, axis=1, mask_identity=False)
+            ditau_mc_efficiencies = ak.prod(ditau_mc_efficiencies, axis=1, mask_identity=False)
+            ditaujet_tau_data_efficiencies = ak.prod(ditaujet_tau_data_efficiencies, axis=1, mask_identity=False)
+            ditaujet_tau_mc_efficiencies = ak.prod(ditaujet_tau_mc_efficiencies, axis=1, mask_identity=False)
+
             # jet efficiencies
             jet_data_efficiencies = events.jet_trigger_eff_data
             jet_mc_efficiencies = events.jet_trigger_eff_mc
@@ -516,6 +547,12 @@ def tautau_trigger_weights(
             ditau_mc_efficiencies = events.tau_trigger_eff_mc_tautau
             ditaujet_tau_data_efficiencies = events.tau_trigger_eff_data_tautaujet
             ditaujet_tau_mc_efficiencies = events.tau_trigger_eff_mc_tautaujet
+
+            # make ditau efficiencies to event level quantity
+            ditau_data_efficiencies = ak.prod(ditau_data_efficiencies, axis=1, mask_identity=False)
+            ditau_mc_efficiencies = ak.prod(ditau_mc_efficiencies, axis=1, mask_identity=False)
+            ditaujet_tau_data_efficiencies = ak.prod(ditaujet_tau_data_efficiencies, axis=1, mask_identity=False)
+            ditaujet_tau_mc_efficiencies = ak.prod(ditaujet_tau_mc_efficiencies, axis=1, mask_identity=False)
 
             # jet efficiencies
             jet_data_efficiencies = events[f"jet_trigger_eff_data{postfix}"]
@@ -554,10 +591,10 @@ def tautau_trigger_weights(
             for dm in [0, 1, 10, 11]:
                 events = create_trigger_weights(
                     events,
-                    events[f"tau_trigger_eff_data_tautau_dm_{dm}{postfix}"],
-                    events[f"tau_trigger_eff_mc_tautau_dm_{dm}{postfix}"],
-                    events[f"tau_trigger_eff_data_tautaujet_dm_{dm}{postfix}"],
-                    events[f"tau_trigger_eff_mc_tautaujet_dm_{dm}{postfix}"],
+                    ak.prod(events[f"tau_trigger_eff_data_tautau_dm_{dm}{postfix}"], axis=1, mask_identity=False),
+                    ak.prod(events[f"tau_trigger_eff_mc_tautau_dm_{dm}{postfix}"], axis=1, mask_identity=False),
+                    ak.prod(events[f"tau_trigger_eff_data_tautaujet_dm_{dm}{postfix}"], axis=1, mask_identity=False),
+                    ak.prod(events[f"tau_trigger_eff_mc_tautaujet_dm_{dm}{postfix}"], axis=1, mask_identity=False),
                     jet_data_efficiencies,
                     jet_mc_efficiencies,
                     channel=channel,

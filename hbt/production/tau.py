@@ -248,7 +248,7 @@ def tau_weights_setup(
 )
 def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
-    Producer for trigger scale factors derived by the TAU POG. Requires an external file in the
+    Producer for trigger scale factors derived by the TAU POG at object level. Requires an external file in the
     config under ``tau_sf``:
 
     .. code-block:: python
@@ -289,9 +289,6 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
                 tautauvbf_trigger_passed |
                 np.any(events.matched_trigger_ids == trigger.id, axis=-1)
             )
-
-    # helper to bring a flat sf array into the shape of taus, and multiply across the tau axis
-    reduce_mul = lambda sf: ak.prod(layout_ak_array(sf, events.Tau.pt), axis=1, mask_identity=False)
 
     # the correction tool only supports flat arrays, so convert inputs to flat np view first
     pt = flat_np_view(events.Tau.pt, axis=1)
@@ -349,7 +346,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
             events = set_ak_column_f32(
                 events,
                 f"tau_trigger_eff_{kind}_{corr_channel}",
-                reduce_mul(sf_nom),
+                layout_ak_array(sf_nom, events.Tau.pt),
             )
 
         #
@@ -372,7 +369,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
                     events = set_ak_column_f32(
                         events,
                         f"tau_trigger_eff_{kind}_{ch}_dm_{decay_mode}_{direction}",
-                        reduce_mul(sf_unc),
+                        layout_ak_array(sf_unc, events.Tau.pt),
                     )
     return events
 
