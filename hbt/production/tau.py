@@ -309,7 +309,8 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
         (channel_id == ch_tautau.id) &
         ((ak.local_index(events.Tau) == 0) | (ak.local_index(events.Tau) == 1))
     )
-    # TODO: add additional phase space requirements for tautau, tautauvbf, tautaujet
+
+    # TODO: add additional phase space requirements for tautauvbf
     tautau_mask = default_tautau_mask & tautau_trigger_passed
     flat_tautau_mask = flat_np_view(tautau_mask, axis=1)
     tautaujet_mask = default_tautau_mask & tautaujet_trigger_passed
@@ -355,17 +356,17 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
         # compute varied trigger weights
         #
 
-        for direction in ["up", "down"]:
-            for ch, ch_corr, mask in [
-                ("etau", "etau", etau_mask),
-                ("mutau", "mutau", mutau_mask),
-                ("tautau", "ditau", tautau_mask),
-                ("tautaujet", "ditaujet", tautaujet_mask),
-                # ("tautauvbf", "ditauvbf", tautauvbf_mask),
-            ]:
-                for decay_mode in [0, 1, 10, 11]:
-                    decay_mode_mask = mask & (events.Tau.decayMode == decay_mode)
-                    flat_decay_mode_mask = flat_np_view(decay_mode_mask, axis=1)
+        for ch, ch_corr, mask in [
+            ("etau", "etau", etau_mask),
+            ("mutau", "mutau", mutau_mask),
+            ("tautau", "ditau", tautau_mask),
+            ("tautaujet", "ditaujet", tautaujet_mask),
+            # ("tautauvbf", "ditauvbf", tautauvbf_mask),
+        ]:
+            for decay_mode in [0, 1, 10, 11]:
+                decay_mode_mask = mask & (events.Tau.decayMode == decay_mode)
+                flat_decay_mode_mask = flat_np_view(decay_mode_mask, axis=1)
+                for direction in ["up", "down"]:
                     sf_unc = sf_nom.copy()
                     sf_unc[flat_decay_mode_mask] = self.tau_trig_corrector(*eval_args(flat_decay_mode_mask, ch_corr, direction))  # noqa
                     events = set_ak_column_f32(
