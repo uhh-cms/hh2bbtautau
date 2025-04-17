@@ -440,19 +440,8 @@ def etau_mutau_trigger_weights(
     },
     produces={
         "tautau_trigger_weights",
-    } | {
-        f"tautau_trigger_weights_tau_dm{dm}_{direction}"
-        for direction in ["up", "down"]
-        for dm in [0, 1, 10, 11]
-    } | {
-        f"tautau_trigger_weights_jet_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"tautau_trigger_weights_e_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"tautau_trigger_weights_mu_{direction}"
-        for direction in ["up", "down"]
+        "tautau_trigger_weights_{e,mu,jet}_{up,down}",
+        "tautau_trigger_weights_tau_dm{0,1,10,11}_{up,down}",
     },
 )
 def tautau_trigger_weights(
@@ -645,19 +634,8 @@ emu_mu_trigger_weights = muon_trigger_weights.derive(
     },
     produces={
         "emu_trigger_weights",
-    } | {
-        f"emu_trigger_weights_mu_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"emu_trigger_weights_e_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"emu_trigger_weights_tau_dm{dm}_{direction}"
-        for direction in ["up", "down"]
-        for dm in [0, 1, 10, 11]
-    } | {
-        f"emu_trigger_weights_jet_{direction}"
-        for direction in ["up", "down"]
+        "emu_trigger_weights_{e,mu,jet}_{up,down}",
+        "emu_trigger_weights_tau_dm{0,1,10,11}_{up,down}",
     },
 )
 def emu_trigger_weights(
@@ -726,19 +704,8 @@ def emu_trigger_weights(
     },
     produces={
         "trigger_weight",
-    } | {
-        f"trigger_weight_mu_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"trigger_weight_e_{direction}"
-        for direction in ["up", "down"]
-    } | {
-        f"trigger_weight_tau_dm{dm}_{direction}"
-        for direction in ["up", "down"]
-        for dm in [0, 1, 10, 11]
-    } | {
-        f"trigger_weight_jet_{direction}"
-        for direction in ["up", "down"]
+        "trigger_weight_{e,mu,jet}_{up,down}",
+        "trigger_weight_tau_dm{0,1,10,11}_{up,down}",
     },
 )
 def trigger_weights(
