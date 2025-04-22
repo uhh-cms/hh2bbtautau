@@ -12,7 +12,7 @@ from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import T, Any, Callable, Sequence
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 
-from hbt.ml.torch_utils.functions import get_one_hot
+from hbt.ml.torch_utils.functions import get_one_hot, WeightedCrossEntropyLoss
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
@@ -37,7 +37,7 @@ if not isinstance(torch, MockModule):
     from hbt.ml.torch_utils.dataloaders import CompositeDataLoader
     from hbt.ml.torch_utils.datasets.handlers import (
         FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler,
-        DatasetHandlerMixin,    
+        DatasetHandlerMixin, WeightedFlatListRowgroupParquetFileHandler,
     )
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
     from ignite.metrics.epoch_metric import EpochMetric
@@ -61,11 +61,11 @@ if not isinstance(torch, MockModule):
             super().__init__(*args, tensorboard_path=tensorboard_path, logger=logger, **task.param_kwargs, **kwargs)
             
             columns = [
-                "leptons.{px,py,pz,energy,mass}[:, 0]",
-                "leptons.{px,py,pz,energy,mass}[:, 1]",
-                "bjets.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}[:, 0]",
-                "bjets.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}[:, 1]",
-                "fatjets.{px,py,pz,energy,mass}[:, 0]",
+                "lepton1.{px,py,pz,energy,mass}",
+                "lepton2.{px,py,pz,energy,mass}",
+                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+                "fatjet.{px,py,pz,energy,mass}",
             ]
             self.inputs = set()
             self.inputs.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
@@ -124,7 +124,9 @@ if not isinstance(torch, MockModule):
             with torch.no_grad():
                 X, y = batch[0], batch[1]
                 pred = self(X)
-                target = y["categorical_target"].to(torch.float32).reshape(-1, 1)
+                target = y["categorical_target"].to(torch.float32)
+                if target.dim() == 1:
+                    target = target.reshape(-1, 1)
                 return pred, target
 
         def init_dataset_handler(self, task: law.Task):
@@ -138,7 +140,7 @@ if not isinstance(torch, MockModule):
                 task=task,
                 columns=self.inputs,
                 batch_transformations=AkToTensor(device=device),
-                global_transformations=PreProcessFloatValues(),
+                # global_transformations=PreProcessFloatValues(),
                 build_categorical_target_fn=self._build_categorical_target,
                 group_datasets=group_datasets,
                 device=device,
@@ -166,8 +168,8 @@ if not isinstance(torch, MockModule):
             return logits
         
     class DropoutFeedForwardNet(FeedForwardNet):
-        def __init__(self):
-            super().__init__()
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
 
             self.linear_relu_stack = nn.Sequential(
                 nn.BatchNorm1d(len(self.inputs),),
@@ -232,20 +234,50 @@ if not isinstance(torch, MockModule):
         def validation_step(self, engine, batch):
             # Set the model to evaluation mode - important for batch normalization and dropout layers
             self.eval()
+            # if engine.state.iteration > self.max_val_epoch_length * (engine.state.epoch + 1):
+            #     engine.terminate_epoch()
 
             # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
             # also serves to reduce unnecessary gradient computations and memory usage for tensors with requires_grad=True
             with torch.no_grad():
                 X, y = batch[0], batch[1]
                 pred = self(X)
-                target = y["categorical_target"].to(torch.float32).reshape(-1, 1)
-                return torch.nn.functional.softmax(pred), target
+                target = y["categorical_target"].to(torch.float32)
+                if target.dim() == 1:
+                    target = target.reshape(-1, 1)
+                return pred, target
 
         def _build_categorical_target(self, dataset: str):
             for key in self.categorical_target_map.keys():
                 if dataset.startswith(key):
                     return self.categorical_target_map[key]
             raise ValueError(f"Dataset {dataset} not in categorical target map")
+
+        def _calculate_max_epoch_length(self, composite_loader, weight_cutoff: float = 0.05, cutoff: int = 2000):
+            global_max = 0
+            max_key = None
+
+            batch_comp = getattr(composite_loader.batcher, "_batch_composition", None)
+            if not batch_comp:
+                batch_comp = {key: 1. for key in composite_loader.data_map.keys()}
+            for key, batchsize in batch_comp.items():
+                weights = composite_loader.weight_dict[key]
+                if isinstance(weights, float):
+                    total_length = sum([len(x) for x in composite_loader.data_map[key]])
+                    local_max = np.ceil(total_length/batchsize)
+                    if local_max > global_max:
+                        max_key = key
+                        global_max = local_max
+                    
+                elif isinstance(weights, dict):
+                    for subkey, weight in weights.items():
+                        total_length = sum([len(x) for x in composite_loader.data_map[subkey]])
+                        submax = np.ceil(total_length/batchsize/weight)
+                        if submax > global_max and weight >= weight_cutoff:
+                            global_max = submax
+                            max_key = subkey
+            self.logger.info(f"epoch dominated by  '{max_key}': expect {global_max} batches/iteration")
+            return np.min([global_max, cutoff])
 
         def init_dataset_handler(self, task: law.Task):
             all_datasets = getattr(task, "resolved_datasets", task.datasets)
@@ -259,14 +291,65 @@ if not isinstance(torch, MockModule):
                 task=task,
                 columns=self.inputs,
                 batch_transformations=AkToTensor(device=device),
-                global_transformations=PreProcessFloatValues(),
+                # global_transformations=PreProcessFloatValues(),
                 build_categorical_target_fn=self._build_categorical_target,
                 categorical_target_transformation=partial(get_one_hot, nb_classes=3),
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
             )
-            self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()    
+            self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
+            self.max_epoch_length = self._calculate_max_epoch_length(self.training_loader)
+            # self.max_val_epoch_length = self._calculate_max_epoch_length(self.validation_loader)
+        
+    class WeightedFeedForwardMultiCls(FeedForwardMultiCls):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._loss_fn = WeightedCrossEntropyLoss()
+            self.validation_metrics = {
+                "loss": Loss(self.loss_fn),
+                # "roc_auc": ROC_AUC(),
+            }
+
+        def validation_step(self, engine, batch):
+            # Set the model to evaluation mode - important for batch normalization and dropout layers
+            self.eval()
+            # if engine.state.iteration > self.max_val_epoch_length * (engine.state.epoch + 1):
+            #     engine.terminate_epoch()
+
+            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
+            # also serves to reduce unnecessary gradient computations and memory usage for tensors with requires_grad=True
+            with torch.no_grad():
+                X, y = batch[0], batch[1]
+                pred = self(X)
+                target = y["categorical_target"].to(torch.float32)
+                if target.dim() == 1:
+                    target = target.reshape(-1, 1)
+                return pred, target, {"weight": X["weights"]}
+
+        def init_dataset_handler(self, task: law.Task):
+            all_datasets = getattr(task, "resolved_datasets", task.datasets)
+            group_datasets = {
+                "ttbar": [d for d in all_datasets if d.startswith("tt_")],
+                "dy": [d for d in all_datasets if d.startswith("dy_")],
+            }
+            device = next(self.parameters()).device
+
+            self.dataset_handler = WeightedFlatListRowgroupParquetFileHandler(
+                task=task,
+                columns=self.inputs,
+                batch_transformations=AkToTensor(device=device),
+                # global_transformations=PreProcessFloatValues(),
+                build_categorical_target_fn=self._build_categorical_target,
+                categorical_target_transformation=partial(get_one_hot, nb_classes=3),
+                group_datasets=group_datasets,
+                device=device,
+                datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
+            )
+            self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets()
+            self.max_epoch_length = self._calculate_max_epoch_length(self.training_loader)
+
+            # self.max_val_epoch_length = self._calculate_max_epoch_length(self.validation_loader)
 
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
@@ -310,6 +393,7 @@ if not isinstance(torch, MockModule):
     model_clss["feedforward"] = FeedForwardNet
     model_clss["feedforward_arrow"] = FeedForwardArrow
     model_clss["feedforward_multicls"] = FeedForwardMultiCls
+    model_clss["weighted_feedforward_multicls"] = WeightedFeedForwardMultiCls
     model_clss["deepfeedforward_multicls"] = DeepFeedForwardMultiCls
     model_clss["feedforward_dropout"] = DropoutFeedForwardNet
 
