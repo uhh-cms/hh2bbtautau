@@ -46,6 +46,8 @@ if not isinstance(ignite, MockModule):
             super().__init__(*args, **kwargs)
             self.trainer = None
             self._loss_fn = None
+            self.max_epoch_length = None
+            self.max_val_epoch_length = None
         
         @abc.abstractmethod
         def train_step(self, engine: Engine, batch: tuple) -> tuple:
@@ -85,6 +87,7 @@ if not isinstance(ignite, MockModule):
                     self.log_results,
                     evaluator=self.train_evaluator,
                     data_loader=self.training_loader.data_loader,
+                    max_epoch_length=self.max_epoch_length,
                     mode="training"
                 ),
             )
@@ -94,6 +97,7 @@ if not isinstance(ignite, MockModule):
                     self.log_results,
                     evaluator=self.val_evaluator,
                     data_loader=self.validation_loader.data_loader,
+                    max_epoch_length=self.max_val_epoch_length,
                     mode="validation"
                 ),
             )
@@ -130,9 +134,9 @@ if not isinstance(ignite, MockModule):
         def reset_dataloaders(self, trainer):
             self.training_loader.data_loader.reset()
 
-        def log_results(self, trainer, evaluator, data_loader, mode: str = "training"):
+        def log_results(self, trainer, evaluator, data_loader, max_epoch_length: int | None = None, mode: str = "training"):
             data_loader.reset()
-            evaluator.run(data_loader)
+            evaluator.run(data_loader, epoch_length = max_epoch_length)
             metrics = evaluator.state.metrics
             infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
             for name, value in metrics.items():
@@ -147,7 +151,7 @@ if not isinstance(ignite, MockModule):
         def start_training(self, run_name: str, max_epochs: int):
             if not self.trainer:
                 self.create_engines()
-            self.trainer.run(self.training_loader.data_loader, max_epochs=max_epochs)
+            self.trainer.run(self.training_loader.data_loader, max_epochs=max_epochs, epoch_length=self.max_epoch_length)
             if self.writer:
                 self.writer.close()
 
