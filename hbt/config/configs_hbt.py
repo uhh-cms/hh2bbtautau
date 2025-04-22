@@ -172,11 +172,14 @@ def add_config(
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
         if re.match(r"^tt(|_.+)$", process_name):
-            proc.add_tag({"ttbar", "tt"})
+            for _proc, _, _ in proc.walk_processes(include_self=True):
+                _proc.add_tag({"ttbar", "tt"})
         if re.match(r"^dy(|_.+)$", process_name):
-            proc.add_tag("dy")
+            for _proc, _, _ in proc.walk_processes(include_self=True):
+                _proc.add_tag("dy")
         if re.match(r"^w_lnu(|_.+)$", process_name):
-            proc.add_tag("w_lnu")
+            for _proc, _, _ in proc.walk_processes(include_self=True):
+                _proc.add_tag("w_lnu")
 
         # add the process
         cfg.add_process(proc)
