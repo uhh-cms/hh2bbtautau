@@ -378,10 +378,10 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             return hists
 
         # get dummy processes
-        factor_bin = config.get_process("qcd", default=None)
+        factor_bin = config_inst.get_process("qcd", default=None)
         if not factor_bin:
             return hists
-        factor_int = config.get_process("dy", default=None)
+        factor_int = config_inst.get_process("dy", default=None)
         if not factor_int:
             return hists
 
@@ -402,7 +402,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # create qcd groups
         qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
         for cat_id in category_ids:
-            cat_inst = config.get_category(cat_id)
+            cat_inst = config_inst.get_category(cat_id)
             # get qcd groups for a single decay channel in a specific kinematic region
             if f"{channel}__{kin_region}" in cat_inst.name:
                 if cat_inst.has_tag({os_tag, iso_tag}, mode=all):
@@ -627,7 +627,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             return hists
 
         # get the qcd process
-        qcd_proc = config.get_process("qcd", default=None)
+        qcd_proc = config_inst.get_process("qcd", default=None)
         if not qcd_proc:
             return hists
 
@@ -648,7 +648,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # create qcd groups
         qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
         for cat_id in category_ids:
-            cat_inst = config.get_category(cat_id)
+            cat_inst = config_inst.get_category(cat_id)
             # get qcd groups for all decay channels in a specific kinematic region
             if cat_inst.has_tag({os_tag, iso_tag}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
@@ -745,14 +745,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 int_den_neg = int_den <= 0
                 if int_num_neg.any():
                     shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_num_neg)[0]))
-                    shifts = list(map(config.get_shift, shift_ids))
+                    shifts = list(map(config_inst.get_shift, shift_ids))
                     logger.warning(
                         f"negative QCD integral in ss_iso region for group {group_name} and shifts: "
                         f"{', '.join(map(str, shifts))}",
                     )
                 if int_den_neg.any():
                     shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_den_neg)[0]))
-                    shifts = list(map(config.get_shift, shift_ids))
+                    shifts = list(map(config_inst.get_shift, shift_ids))
                     logger.warning(
                         f"negative QCD integral in ss_noniso region for group {group_name} and shifts: "
                         f"{', '.join(map(str, shifts))}",
@@ -862,10 +862,10 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             return hists
 
         # get dummy processes
-        factor_bin = config.get_process("qcd", default=None)
+        factor_bin = config_inst.get_process("qcd", default=None)
         if not factor_bin:
             return hists
-        factor_int = config.get_process("dy", default=None)
+        factor_int = config_inst.get_process("dy", default=None)
         if not factor_int:
             return hists
 
@@ -886,7 +886,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # create qcd groups
         qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
         for cat_id in category_ids:
-            cat_inst = config.get_category(cat_id)
+            cat_inst = config_inst.get_category(cat_id)
             if cat_inst.has_tag({"os", "iso"}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
             elif cat_inst.has_tag({"os", "noniso"}, mode=all):
@@ -1058,10 +1058,10 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             return hists
 
         # get dummy processes
-        factor_bin = config.get_process("qcd", default=None)
+        factor_bin = config_inst.get_process("qcd", default=None)
         if not factor_bin:
             return hists
-        factor_int = config.get_process("dy", default=None)
+        factor_int = config_inst.get_process("dy", default=None)
         if not factor_int:
             return hists
 
@@ -1082,7 +1082,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # create qcd groups
         qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
         for cat_id in category_ids:
-            cat_inst = config.get_category(cat_id)
+            cat_inst = config_inst.get_category(cat_id)
             if cat_inst.has_tag({"os", "iso"}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
             elif cat_inst.has_tag({"os", "noniso"}, mode=all):
