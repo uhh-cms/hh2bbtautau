@@ -102,3 +102,14 @@ if not isinstance(torch, MockModule):
         targets = targets.to_numpy()
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
         return np.astype(res.reshape(list(targets.shape)+[nb_classes]), np.int32)
+    
+    class WeightedCrossEntropyLoss(torch.nn.CrossEntropyLoss):
+        def forward(self, input, target, weight: torch.Tensor | None = None):
+            if weight is not None:
+                self.reduction = "none"
+                loss = super().forward(input, target)
+                loss = torch.sum(loss * weight) / torch.sum(weight)
+            else:
+                self.reduction = "mean"
+                loss = super().forward(input, target)
+            return loss
