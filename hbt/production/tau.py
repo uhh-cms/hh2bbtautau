@@ -238,7 +238,7 @@ def tau_weights_setup(
     },
     produces={
         "tau_trigger_eff_{data,mc}_{etau,mutau,tautau,tautaujet}",
-        "tau_trigger_eff_{data,mc}_{etau,mutau,tautau,tautaujet}_dm_{0,1,10,11}_{up,down}",
+        "tau_trigger_eff_{data,mc}_{etau,mutau,tautau,tautaujet}_dm{0,1,10,11}_{up,down}",
     },
     # only run on mc
     mc_only=True,
@@ -368,7 +368,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
                     sf_unc[flat_decay_mode_mask] = self.tau_trig_corrector(*eval_args(flat_decay_mode_mask, ch_corr, direction))  # noqa
                     events = set_ak_column_f32(
                         events,
-                        f"tau_trigger_eff_{kind}_{ch}_dm_{decay_mode}_{direction}",
+                        f"tau_trigger_eff_{kind}_{ch}_dm{decay_mode}_{direction}",
                         layout_ak_array(sf_unc, events.Tau.pt),
                     )
     return events
