@@ -2,6 +2,7 @@ from __future__ import annotations
 from functools import partial
 from copy import deepcopy
 import abc
+from collections import defaultdict
 
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.columnar_util import Route
@@ -10,7 +11,7 @@ from collections.abc import Container, Collection
 from hbt.ml.torch_utils.dataloaders import CompositeDataLoader
 from hbt.ml.torch_utils.datasets import (
     ParquetDataset, FlatRowgroupParquetDataset, FlatParquetDataset,
-    FlatArrowRowGroupParquetDataset,
+    FlatArrowRowGroupParquetDataset, WeightedFlatRowgroupParquetDataset,
 )
 from hbt.ml.torch_utils.map_and_collate import (
     NestedListRowgroupMapAndCollate, FlatListRowgroupMapAndCollate,
@@ -62,6 +63,7 @@ class BaseParquetFileHandler(object):
         self.load_parallel_cores = task.load_parallel_cores
         self.batch_size = task.batch_size
         self.columns = columns
+        self.weight_dict = dict()
 
         self.batch_transformations = batch_transformations
         self.global_transformations = global_transformations
@@ -185,8 +187,21 @@ class BaseParquetFileHandler(object):
             shuffle_indices=shuffle_indices,
             simultaneous_rowgroups=simultaneous_rowgroups,
         )
+    
+    def _get_weights(self):
+        self.weight_dict: dict[str, float | dict[str, float]] = {
+            d: 1. for d in self.datasets if not any(d in x for x in self.group_datasets.values())
+        }
+        for key, subspace in self.group_datasets.items():
+            subspace_probs = {
+                d: self._extract_probability(d) for d in subspace
+            }
+            prob_sum = sum(subspace_probs.values())
+            self.weight_dict[key] = {
+                d: val/prob_sum for d, val in subspace_probs.items()
+            }
 
-    def init_datasets(self) -> tuple[CompositeDataLoader, CompositeDataLoader]:
+    def _init_training_validation_map(self) -> tuple[dict[str, list[ParquetDataset]], dict[str, list[ParquetDataset]]]:
         # construct datamap
         training_data_map: dict[str, list[ParquetDataset]] = dict()
         validation_data_map: dict[str, list[ParquetDataset]] = dict()
@@ -221,22 +236,16 @@ class BaseParquetFileHandler(object):
             # validation_data_map[dataset] = FlatParquetDataset(validation)
             training_data_map[dataset] = training
             validation_data_map[dataset] = validation
+        return training_data_map, validation_data_map
 
+    def init_datasets(self) -> tuple[CompositeDataLoader, CompositeDataLoader]:
+        
+        training_data_map, validation_data_map = self._init_training_validation_map()
         
         # extract ttbar sub phase space
         
         
-        weight_dict: dict[str, float | dict[str, float]] = {
-            d: 1. for d in self.datasets if not any(d in x for x in self.group_datasets.values())
-        }
-        for key, subspace in self.group_datasets.items():
-            subspace_probs = {
-                d: self._extract_probability(d) for d in subspace
-            }
-            prob_sum = sum(subspace_probs.values())
-            weight_dict[key] = {
-                d: val/prob_sum for d, val in subspace_probs.items()
-            }
+        self._get_weights()
         
         # training_composite_loader = CompositeDataLoader(
         #     data_map=training_data_map,
@@ -253,7 +262,7 @@ class BaseParquetFileHandler(object):
 
         training_composite_loader = CompositeDataLoader(
             data_map=training_data_map,
-            weight_dict=weight_dict,
+            weight_dict=self.weight_dict,
             map_and_collate_cls=self.training_map_and_collate_cls,
             batch_size=self.batch_size,
             index_sampler_cls=sampler_fn,
@@ -291,6 +300,160 @@ class FlatListRowgroupParquetFileHandler(BaseParquetFileHandler):
         self.validation_map_and_collate_cls = FlatListRowgroupMapAndCollate
         self.training_sampler_cls = ListRowgroupSampler
         self.validation_sampler_cls = ListRowgroupSampler
+
+class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dataset_cls = WeightedFlatRowgroupParquetDataset
+        # self.validation_dataset_cls = WeightedFlatRowgroupParquetDataset
+        self.training_map_and_collate_cls = NestedListRowgroupMapAndCollate
+        self.validation_map_and_collate_cls = FlatListRowgroupMapAndCollate
+        self.training_sampler_cls = ListRowgroupSampler
+        self.validation_sampler_cls = ListRowgroupSampler
+
+    # def _split_pq_dataset_per_path(
+    #     self,
+    #     target_path,
+    #     ratio=0.7,
+    #     targets: Collection[str | int | Route] | str | Route | int | None = None,
+    # ) -> tuple[ParquetDataset, tuple[ParquetDataset, ParquetDataset]]:
+    #     meta = ak.metadata_from_parquet(target_path)
+        
+                
+    #     total_row_groups = meta["num_row_groups"]
+    #     rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
+    #     rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
+    #     max_training_group = int( total_row_groups*ratio)
+    #     training_row_groups = None
+    #     if max_training_group == 0:
+    #         logger.warning(
+    #             "Could not split into training and validation data"
+    #             f" number of row groups for '{target_path}' is  {total_row_groups}"
+    #         )
+    #     else:
+    #         training_row_groups = rowgroup_indices[:max_training_group]
+
+    #     final_options = self.open_options or dict()
+    #     final_options.update({"row_groups": training_row_groups})
+
+    #     dataset_kwargs = {
+    #         "columns": self.columns,
+    #         "target": targets,
+    #         "batch_transform": self.batch_transformations,
+    #         "global_transform": self.global_transformations,
+    #         "categorical_target_transform": self.categorical_target_transformation,
+    #         "data_type_transform": self.data_type_transform,
+    #     }
+
+    #     logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
+
+    #     training = self.validation_dataset_cls(
+    #         target_path,
+    #         open_options=final_options,
+    #         **dataset_kwargs,
+    #     )
+
+    #     # also create version of the dataset with weights
+    #     training_for_validation = self.validation_dataset_cls(
+    #         target_path,
+    #         open_options=final_options,
+    #         **dataset_kwargs,   
+    #     )
+
+    #     validation = None
+    #     if training_row_groups is None:
+    #         validation = training_for_validation
+    #     else:
+    #         validation_row_groups = rowgroup_indices[max_training_group:]
+    #         final_options.update({"row_groups": validation_row_groups})
+    #         logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
+    #         validation = self.validation_dataset_cls(
+    #             target_path,
+    #             open_options=final_options,
+    #             **dataset_kwargs,
+    #         )
+    #     return training, (training_for_validation, validation)
+
+    def _create_validation_dataloader(self, validation_data_map):
+        validation_data: list[ParquetDataset] = list()
+        # get total number of events
+
+        # calculate final weights
+        total_events = 0
+        for key, weight in self.weight_dict.items():
+            
+            if isinstance(weight, dict):
+                total_events = sum(len(x) for k in weight.keys() for x in validation_data_map[k])
+                # also account for sum of sub weights such that total sum is 1
+                for k, v in weight.items():
+                    for d in validation_data_map[k]:
+                        d.cls_weight = v / total_events
+            else:
+                total_events = sum(len(x) for x in validation_data_map[key])
+                for d in validation_data_map[key]:
+                    d.cls_weight = weight / total_events
+
+        for key, x in validation_data_map.items():
+            if not isinstance(x, (list, tuple, set)):
+                validation_data.append(x)
+            else:
+                validation_data.extend(x)
+        
+        return CompositeDataLoader(
+            validation_data,
+            batch_sampler_cls=tn.Batcher,
+            shuffle=False,
+            batch_size=self.batch_size,
+            batcher_options={
+                "source": tn.SamplerWrapper(self.sampler_factory(validation_data, cls=self.validation_sampler_cls)),
+            },
+            map_and_collate_cls=self.validation_map_and_collate_cls,
+            device=self.device,
+            # collate_fn=lambda x: x,
+        )
+
+    def init_datasets(self) -> tuple[CompositeDataLoader, CompositeDataLoader]:
+        
+        training_data_map, validation_data_map = self._init_training_validation_map()
+        
+        # train_val_data_map = defaultdict(list)
+        # validation_data_map = defaultdict(list)
+        # for key, x in mixed_validation_data_map.items():
+        #     train_val_data_map[key].append(x[0])
+        #     validation_data_map[key].append(x[1])
+        # from IPython import embed
+        # embed(header=f"split training (validation style) and validation dataset")
+        
+        self._get_weights()
+        
+        # training_composite_loader = CompositeDataLoader(
+        #     data_map=training_data_map,
+        #     weight_dict=weight_dict,
+        #     map_and_collate_cls=NestedDictMapAndCollate,
+        #     batch_size=self.batch_size,
+        # )
+        sampler_fn = partial(
+            self.sampler_factory,
+            cls=self.training_sampler_cls,
+            shuffle_rowgroups=True,
+            shuffle_indices=True
+        )
+
+        training_composite_loader = CompositeDataLoader(
+            data_map=training_data_map,
+            weight_dict=self.weight_dict,
+            map_and_collate_cls=self.training_map_and_collate_cls,
+            batch_size=self.batch_size,
+            index_sampler_cls=sampler_fn,
+            num_workers=self.load_parallel_cores,
+            device=self.device,
+        )
+
+        # create merged validation dataset
+        train_val_composite_loader = self._create_validation_dataloader(training_data_map)
+        validation_composite_loader = self._create_validation_dataloader(validation_data_map)
+
+        return (training_composite_loader, (train_val_composite_loader, validation_composite_loader))
 
 class FlatArrowParquetFileHandler(BaseParquetFileHandler):
     def __init__(self, *args, **kwargs):
