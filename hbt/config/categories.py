@@ -34,6 +34,22 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="iso", id=12, selection="cat_iso", label=r"iso", tags={"iso"})
     _add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"non-iso", tags={"noniso"})  # noqa: E501
 
+    # costum categories for ABCD tests
+    _add_category(config, name="all_incl", id=101, selection="cat_incl", label="inclusive")
+
+    # positive and negative same sign regions
+    _add_category(config, name="ss_pos", id=102, selection="cat_ss_pos", label="ss_pos", tags={"ss_pos"})
+    _add_category(config, name="ss_neg", id=103, selection="cat_ss_neg", label="ss_neg", tags={"ss_neg"})
+
+    # alternative tau2 isolation categories
+    _add_category(config, name="iso_l", id=104, selection="cat_iso_l", label="passes_loose", tags={"passes_loose"})
+    _add_category(config, name="iso_vl", id=105, selection="cat_iso_vl", label="passes_vloose", tags={"passes_vloose"})
+    _add_category(config, name="iso_vvl", id=106, selection="cat_iso_vvl", label="passes_vvloose", tags={"passes_vvloose"})  # noqa: E501
+    _add_category(config, name="l_m", id=107, selection="cat_l_m", label="loose_medium", tags={"loose_medium"})
+    _add_category(config, name="vl_l", id=108, selection="cat_vl_l", label="vloose_loose", tags={"vloose_loose"})  # noqa: E501
+    _add_category(config, name="vvl_vl", id=109, selection="cat_vvl_vl", label="vvloose_vloose", tags={"vvloose_vloose"})  # noqa: E501
+    _add_category(config, name="vvvl_vvl", id=111, selection="cat_vvvl_vvl", label="vvvloose_vvloose", tags={"vvvloose_vvloose"})  # noqa: E501
+
     # kinematic categories
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
     _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
@@ -77,6 +93,7 @@ def add_categories(config: od.Config) -> None:
         }
 
     # main analysis categories
+    """
     main_categories = {
         # channels first
         "channel": [
@@ -93,6 +110,32 @@ def add_categories(config: od.Config) -> None:
         # qcd regions last
         "sign": [config.get_category("os"), config.get_category("ss")],
         "tau2": [config.get_category("iso"), config.get_category("noniso")],
+    }
+    """
+    main_categories = {
+        # channels first
+        "channel": [
+            config.get_category("etau"), config.get_category("mutau"), config.get_category("tautau"),
+        ],
+        # kinematic regions in the middle (to be extended)
+        "kin": [
+            config.get_category("incl"),
+            config.get_category("2j"),
+            config.get_category("res1b"),
+            config.get_category("res2b"),
+            config.get_category("boosted"),
+        ],
+        # qcd regions last
+        "sign": [
+            config.get_category("os"), config.get_category("ss"),
+            config.get_category("ss_pos"), config.get_category("ss_neg"),
+        ],
+        "tau2": [
+            config.get_category("iso"), config.get_category("noniso"),
+            config.get_category("iso_l"), config.get_category("iso_vl"), config.get_category("iso_vvl"),
+            config.get_category("l_m"), config.get_category("vl_l"),
+            config.get_category("vvl_vl"), config.get_category("vvvl_vvl"),
+        ],
     }
 
     create_category_combinations(
