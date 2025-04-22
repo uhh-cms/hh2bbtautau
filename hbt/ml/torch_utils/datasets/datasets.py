@@ -3,6 +3,7 @@ from __future__ import annotations
 __all__ = [
     "ListDataset", "ParquetDataset", "FlatParquetDataset",
     "FlatArrowRowGroupParquetDataset", "FlatRowgroupParquetDataset",
+    "WeightedFlatRowgroupParquetDataset",
 ]
 
 from collections.abc import Iterable, Mapping, Collection
@@ -352,7 +353,14 @@ if not isinstance(torchdata, MockModule):
             return self._target_data
 
         def __len__(self):
-            return len(self.data)
+            length: int = 0
+            if self._data is not None:
+                length = len(self._data)
+            elif self.meta_data and self.meta_data.get("col_counts", None):
+                length = sum(self.meta_data["col_counts"])
+            else:
+                length = len(self.data)
+            return length
 
         def _get_data(self, i: int| Sequence[int], input_data: ak.Array | None = None) -> ak.Array:
             data: ak.Array
@@ -550,6 +558,62 @@ if not isinstance(torchdata, MockModule):
                 self.current_rowgroups = rowgroup
 
                 chunk = super().__getitem__(indices)
+                if not return_data:
+                    return_data = chunk
+                else:
+                    return_data = (self._concat_data(a, b) for a, b in zip(return_data, chunk))
+            return return_data
+        
+    class WeightedFlatRowgroupParquetDataset(FlatRowgroupParquetDataset):
+
+        def __init__(self, *args, cls_weight: float | None = None, weight_columns: Collection[str, Route] | None = None, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.cls_weight = cls_weight or 1.
+            self.weight_columns: set[Route] = set()
+            if weight_columns:
+                self.weight_columns = set(Route(x) for x in weight_columns)
+            
+            self.all_columns |= self.weight_columns
+
+
+        def _calculate_weights(self, indices: ak.Array) -> ak.Array:
+            # calculate the weights for the given indices
+            if self.weight_columns:
+                weights = self._get_data(indices, self.data)[self.weight_columns]
+                weights = ak.prod(weights, axis=-1)
+            else:
+                weights = ak.ones_like(indices, dtype=np.float32)
+            final_weights = weights * self.cls_weight
+            if self.data_type_transform:
+                final_weights = self.data_type_transform(final_weights)
+            
+            if self.batch_transform:
+                final_weights = self.batch_transform(final_weights)
+            return final_weights
+
+        def __getitem__(
+            self,
+            i: tuple[Collection[int], Collection[int]] | tuple[Collection[int], int] | Mapping[Collection[int], Collection[int]] | Mapping[Collection[int], int]
+        ) -> Any | tuple:
+            return_data = None
+            index_iter = iter(i)
+            if isinstance(i, Mapping):
+                index_iter = iter(i.items())
+            for rowgroup, indices in index_iter:
+                self.current_rowgroups = rowgroup
+
+                chunk = super().__getitem__(((rowgroup, indices),))
+                if isinstance(chunk, tuple) and isinstance(chunk[0], dict):
+                    # if the chunk is a tuple, we need to calculate the weights
+                    # append the weight array to the tuple
+                    weights = self._calculate_weights(indices)
+                    chunk[0]["weights"] = weights
+                elif isinstance(chunk, dict):
+                    # if the chunk is a dict, we need to calculate the weights
+                    # append the weight array to the dict
+                    weights = self._calculate_weights(indices)
+                    chunk["weights"] = weights
+
                 if not return_data:
                     return_data = chunk
                 else:
