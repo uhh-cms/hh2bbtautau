@@ -97,11 +97,17 @@ if not isinstance(torch, MockModule):
 
     class WeightedCrossEntropyLoss(torch.nn.CrossEntropyLoss):
         def forward(self, input, target, weight: torch.Tensor | None = None):
+            # save original reduction mode
+            reduction = self.reduction
             if weight is not None:
                 self.reduction = "none"
                 loss = super().forward(input, target)
-                loss = torch.sum(loss * weight) / torch.sum(weight)
+                self.reduction = reduction
+                loss = loss * weight
+                if self.reduction == "mean":
+                    loss = torch.sum(loss) / torch.sum(weight)
+                elif self.reduction == "sum":
+                    loss = torch.sum(loss)
             else:
-                self.reduction = "mean"
                 loss = super().forward(input, target)
             return loss
