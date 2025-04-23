@@ -225,11 +225,6 @@ def create_trigger_weight(
         raise ValueError(f"Found nan in {channel.name} trigger weight")
     trigger_weight_no_nan = np.nan_to_num(trigger_weight, nan=1.0)
 
-    from IPython import embed; embed(header="Debugging create_trigger_weight")
-    # TODO: check if float precision mess up things here
-    # TODO: check why muon variation up and down seem to be inverted for some events, but not when both triggers are macthed
-    # TODO: check why tau variation are messed up (the variations do not have the default value if the tau has different decaymode)
-
     return trigger_weight_no_nan
 
 
@@ -395,7 +390,6 @@ def etau_mutau_trigger_weight(
                 )
                 events = set_ak_column_f32(events, f"{channel.name}_trigger_weight_tau_dm{dm}_{direction}", trigger_weight)  # noqa: E501
 
-    from IPython import embed; embed(header="Debugging trigger weight producer")
     return events
 
 
