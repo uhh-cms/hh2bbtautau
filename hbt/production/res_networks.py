@@ -7,7 +7,6 @@ See https://github.com/uhh-cms/tautauNN
 
 from __future__ import annotations
 from collections.abc import Collection
-from typing import Literal
 import functools
 
 import law
@@ -30,6 +29,7 @@ logger = law.logger.get_logger(__name__)
 # helper function
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
+
 @producer(
     uses=({
         attach_coffea_behavior,
@@ -43,7 +43,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
         "FatJet.{eta,phi,pt,mass}",
     }),
-    produces = ({
+    produces=({
         "lepton{1,2}.*",
         "bjet{1,2}.*",
         "fatjet.*",
@@ -55,7 +55,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "has_jet_pair",
         "has_fatjet",
         "decay_mode{1,2}",
-    })
+    }),
 )
 def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     # ensure coffea behavior
@@ -100,7 +100,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     # the dnn treats dm 2 as 1, so we need to map it
     dm1 = np.where(dm1 == 2, 1, dm1)
     dm2 = np.where(dm2 == 2, 1, dm2)
-    
+
     # make sure to actually have two leptons
     has_lepton_pair = ak.num(leptons, axis=1) >= 2
     leptons = ak.mask(leptons, has_lepton_pair)
@@ -127,7 +127,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     tautau_mask = ak.mask(tautau_mask, event_mask)
     dm1, dm2 = ak.mask(dm1, event_mask), ak.mask(dm2, event_mask)
     has_jet_pair, has_fatjet = ak.mask(has_jet_pair, event_mask), ak.mask(has_fatjet, event_mask)
-    
+
     # calculate phi of lepton system
     phi_lep = np.arctan2(lep1.py + lep2.py, lep1.px + lep2.px)
 
@@ -160,9 +160,15 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         if additional_targets is not None:
             routes.update(additional_targets)
         for field in routes:
-            events = set_ak_column_nonull(events, f"{target_field}.{field}", getattr(array, field), placeholder, event_mask=event_mask)
+            events = set_ak_column_nonull(
+                events,
+                f"{target_field}.{field}",
+                getattr(array, field),
+                placeholder,
+                event_mask=event_mask,
+            )
         return events
-    
+
     default_4momenta_cols: set[str] = set(("pz", "energy", "mass"))
     events = save_rotated_momentum(
         events,
@@ -198,7 +204,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         bjet_events.HHBJet[:, 1],
         target_field="bjet2",
         additional_targets=jet_columns,
-        event_mask=(event_mask & has_jet_pair)
+        event_mask=(event_mask & has_jet_pair),
     )
     fatjet_events = ak.mask(events, has_fatjet)
     # fatjet variables
@@ -207,7 +213,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         fatjet_events.FatJet[:, 0],
         target_field="fatjet",
         additional_targets=default_4momenta_cols,
-        event_mask=(event_mask & has_fatjet)
+        event_mask=(event_mask & has_fatjet),
     )
 
     # combine daus
@@ -238,7 +244,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     # MET variables
     met_name = self.config_inst.x.met_name
     _met = events[met_name]
-    
+
     events = save_rotated_momentum(
         events,
         _met,
@@ -249,7 +255,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_nonull(
         events,
         "year_flag",
-        ak.ones_like(events.event)* self.year_flag,
+        ak.ones_like(events.event) * self.year_flag,
         EMPTY_INT,
         event_mask=event_mask,
     )
@@ -291,6 +297,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     )
     return events
 
+
 @res_net_preprocessing.setup
 def res_net_preprocessing_setup(
     self: Producer,
@@ -307,7 +314,8 @@ def res_net_preprocessing_setup(
         "is_boosted": [0, 1],  # whether a selected fatjet is present
         "has_jet_pair": [0, 1],  # whether two or more jets are present
         "spin": [0, 2],
-        "year": [0, 1, 2, 3, 4, 5, 6, 7,],  # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
+        # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
+        "year": [0, 1, 2, 3, 4, 5, 6, 7],
     }
     # our channel ids mapped to KLUB "pair_type"
     self.channel_id_to_pair_type = {
@@ -334,10 +342,12 @@ def res_net_preprocessing_setup(
         (2023, "BPix"): 7,
     }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
 
+
 @res_net_preprocessing.init
 def res_net_preprocessing_init(self: Producer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
     self.produces.add(f"rotated_{self.config_inst.x.met_name}.{{px,py,covXX,covXY,covYY}}")
+
 
 @producer(
     uses={
