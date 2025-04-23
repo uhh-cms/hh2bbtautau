@@ -27,14 +27,14 @@ if not isinstance(torchdata, MockModule):
     from typing import Literal, Sized
 
     # To keep things simple, let's assume that the following args are provided by the caller
-    def NodesDataLoader(
+    def NodesDataLoader(  # noqa: F811
         dataset: Sized,
         shuffle: bool,
         num_workers: int,
         collate_fn: Callable | None,
         pin_memory: bool,
         parallelize_method: Literal["thread", "process"] = "process",
-        mapping_base_cls: MapAndCollate | None = None, 
+        mapping_base_cls: MapAndCollate | None = None,
     ) -> tn.Loader[Sized]:
         # Assume we're working with a map-style dataset
         assert hasattr(dataset, "__getitem__") and hasattr(dataset, "__len__")
@@ -76,13 +76,13 @@ if not isinstance(torchdata, MockModule):
         # also provides state_dict and load_state_dict methods.
         return tn.Loader(node)
 
-    class CompositeDataLoader(object):
-    
+    class CompositeDataLoader(object):  # noqa: F811
+
         def __init__(
                 self,
                 data_map: Mapping[str, Sized] | None = None,
                 weight_dict: Mapping[str, float | Mapping[str, float]] | None = None,
-                shuffle: bool=True,
+                shuffle: bool = True,
                 batch_size: int = 256,
                 num_workers: int = 0,
                 parallelize_method: Literal["thread", "process"] = "process",
@@ -94,7 +94,7 @@ if not isinstance(torchdata, MockModule):
                 pin_memory: bool = False,
                 device=None,
         ):
-            
+
             self.data_map = data_map
             self.weight_dict = weight_dict
             self.shuffle = shuffle
@@ -124,7 +124,7 @@ if not isinstance(torchdata, MockModule):
                     self.index_sampler_cls = RandomSampler
                 else:
                     self.index_sampler_cls = SequentialSampler
-            
+
             self.batch_sampler_cls: Callable = self.batch_sampler_cls or BatchedMultiNodeWeightedSampler
 
             self.map_cls: Callable = self.map_and_collate_cls or NestedMapAndCollate
@@ -164,7 +164,7 @@ if not isinstance(torchdata, MockModule):
                 parallel_node = tn.PinMemory(parallel_node)
 
             return (parallel_node, batcher)
-        
+
         def __len__(self):
             output = 0
             if isinstance(self.data_map, Mapping):
@@ -172,7 +172,7 @@ if not isinstance(torchdata, MockModule):
             else:
                 output = len(self.data_map)
             return output
-        
+
         @property
         def num_batches(self):
             if not self._num_batches:

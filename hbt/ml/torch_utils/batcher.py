@@ -1,19 +1,15 @@
 from __future__ import annotations
 
 __all__ = [
-    "ListDataset", "ParquetDataset", "FlatParquetDataset",
+    "BatchedMultiNodeWeightedSampler",
 ]
 
-from collections import Iterable, Mapping, Collection, defaultdict
+from collections import defaultdict
 from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import T, Any, Callable, Sequence
-from columnflow.columnar_util import (
-    get_ak_routes, Route, remove_ak_column, EMPTY_FLOAT, EMPTY_INT,
-    flat_np_view,
-)
+from columnflow.types import T, Any
+
 from hbt.ml.torch_utils.utils import reorganize_idx
 import copy
-import law
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
@@ -23,13 +19,9 @@ ak = maybe_import("awkward")
 NodesDataLoader = MockModule("NodesDataLoader")
 
 if not isinstance(torchdata, MockModule):
-    import torchdata.nodes as tn
     from torchdata.nodes import MultiNodeWeightedSampler
-    from torch.utils.data import RandomSampler, SequentialSampler, default_collate, Dataset
     from torchdata.nodes.samplers.stop_criteria import StopCriteria
     from torchdata.nodes.samplers.multi_node_weighted_sampler import _WeightedSampler
-    from typing import Literal, Sized
-    import re
 
     class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
 
@@ -39,11 +31,11 @@ if not isinstance(torchdata, MockModule):
             batch_size: int,
             weights: dict[str, float | dict[str, float]],  # type: ignore
             drop_last: bool = False,
-            **kwargs
+            **kwargs,
         ):
             self.batch_size = batch_size
             self.drop_last = drop_last
-            super().__init__(*args, weights = weights, **kwargs)
+            super().__init__(*args, weights=weights, **kwargs)
             self._datasets_exhausted = {n: False for n in self.source_nodes}
 
             # the weights dictionary is used to determine the composition of each batch
@@ -51,10 +43,10 @@ if not isinstance(torchdata, MockModule):
             # a dataset should be overrepresented in the batch
 
             # the weight can also be a dictionary of weights for each key.
-            # In this case, the weights are used to sample the contribution of 
+            # In this case, the weights are used to sample the contribution of
             # each sub dataset to the batch. The sum of the weights are used to
             # calculate the batch contribution
-            
+
             # setup batches per sample
             total_weight_sum = 0
             # dictionary to store meta information: is a weighted sampler
@@ -74,13 +66,14 @@ if not isinstance(torchdata, MockModule):
 
             # calculate the composition of the batches
             self._batch_composition: dict[str, int] = {
-                key: int(weight*self.batch_size // total_weight_sum
+                key: int(
+                    weight * self.batch_size // total_weight_sum
                     if isinstance(weight, (int, float))
-                    else sum(weight.values())*self.batch_size // total_weight_sum
+                    else sum(weight.values()) * self.batch_size // total_weight_sum,
                 )
                 for key, weight in self.weights.items()
             }
-            
+
             # due to the integer division above, the sum of the batch composition
             # might not add up to the requested batch size. In this case, we adjust
             # the batch size to the sum of the batch composition
@@ -91,7 +84,7 @@ if not isinstance(torchdata, MockModule):
                 self.batch_size = _real_total_size
             # default dictionary to store weighted samplers where necessary
             self._weighted_sampler = self._get_new_weighted_sampler()
-            
+
         def _get_new_weighted_sampler(self, initial_state=None) -> DotDict[str, _WeightedSampler]:
             _weighted_sampler = DotDict()
             for key in self._weight_samplers:
@@ -111,7 +104,6 @@ if not isinstance(torchdata, MockModule):
                 )
             return _weighted_sampler
 
-        
         def _validate(self) -> None:
             if self.stop_criteria not in [
                 StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED,
@@ -119,9 +111,10 @@ if not isinstance(torchdata, MockModule):
                 StopCriteria.FIRST_DATASET_EXHAUSTED,
             ]:
                 raise ValueError(
-                    f"Invalid {self.stop_criteria=}. stop_criteria must be one of: CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED, FIRST_DATASET_EXHAUSTED, ALL_DATASETS_EXHAUSTED"
+                    f"Invalid {self.stop_criteria=}. stop_criteria must be one of: "
+                    "CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED, FIRST_DATASET_EXHAUSTED, ALL_DATASETS_EXHAUSTED",
                 )
-            
+
             if not isinstance(self.batch_size, int) and not self.batch_size >= 1:
                 raise ValueError(f"batch_size argument must be >= 1, received {self.batch_size}")
 
@@ -131,10 +124,14 @@ if not isinstance(torchdata, MockModule):
             def _weight_check(weight):
                 if not isinstance(weight, float) or weight <= 0:
                     raise ValueError(
-                        f"""Invalid {self.weights=}. For multi-dataset weighted sampling, weights must be a 1d sequence, non-negative, and non-zero.
-                        Weights are used to sample from source nodes. Zero weight means the source node will never be sampled from, and can cause
-                        unexpected behavior depending on the stop criteris. Weights are used as inputs to torch.multinomial, please refer to
-                        https://pytorch.org/docs/stable/generated/torch.multinomial.html on how to use weights for sampling."""
+                        f"""Invalid {self.weights=}. For multi-dataset weighted sampling, weights must be a 1d sequence,
+                        non-negative, and non-zero.
+                        Weights are used to sample from source nodes. Zero weight means the source node will never be
+                        sampled from, and can cause unexpected behavior depending on the stop criteria.
+                        Weights are used as inputs to torch.multinomial, please refer to
+                        https://pytorch.org/docs/stable/generated/torch.multinomial.html on how to use weights for
+                        sampling.
+                        """,
                     )
 
             all_keys = set(self.weights.keys())
@@ -146,15 +143,15 @@ if not isinstance(torchdata, MockModule):
                         _weight_check(w)
                 else:
                     _weight_check(weight)
-            
+
             # check if all keys in weights are also accounted for in the source_nodes
             difference = all_keys.symmetric_difference(set(self.source_nodes.keys()))
             if len(difference) >= 1:
                 raise ValueError(
                     "Following keys are defined in either source nodes or weight dict, but not the other: "
-                    ", ".join(difference)
+                    ", ".join(difference),
                 )
-                
+
         def reset(self, initial_state: dict[str, Any] | None = None):
             super().reset(initial_state)
             # the super class uses the weights dict to initialize the exhausted datasets
@@ -162,17 +159,16 @@ if not isinstance(torchdata, MockModule):
             # reinitialize the exhausted datasets
             if not initial_state:
                 self._datasets_exhausted = {n: False for n in self.source_nodes.keys()}
-            
-        
+
         def _next_per_dataset(self, key: str, force: bool = False):
             # print(f"entering _next_per_dataset for node {key}")
             item = None
             try:
-                if not(self._datasets_exhausted[key] and self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED):
+                if not (self._datasets_exhausted[key] and self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED):
                     # Before fetching a new item check if key corresponds to an already
                     # exhaused dataset and StopCriteria is ALL_DATASETS_EXHAUSTED, move to next key
                     item = next(self.source_nodes[key])
-            except StopIteration as e:
+            except StopIteration:
                 # Mark the dataset as exhausted
                 self._datasets_exhausted[key] = True
 
@@ -211,7 +207,7 @@ if not isinstance(torchdata, MockModule):
                         item = self._next_per_dataset(key)
                         if item is not None:
                             sub_batch[key].append(item)
-                    except StopIteration as e:
+                    except StopIteration:
                         if (
                             not self.drop_last and
                             len(sub_batch) > 0 and
@@ -233,16 +229,19 @@ if not isinstance(torchdata, MockModule):
                     self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED
                 ):
                     batch.update(sub_batch)
-            
+
             # if the batch is not completely full, check if we should raise a StopIteration
-            if sum((len(x) for x in batch.values())) < self.batch_size and not self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
+            if (
+                sum((len(x) for x in batch.values())) < self.batch_size and
+                not self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED
+            ):
                 # at this point
                 # StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED should produce a full batch
                 # StopCriteria.FIRST_DATASET_EXHAUSTED should have already raised a StopIteration
                 from IPython import embed
                 embed(header="DANGERZONE: batch is not full")
                 raise StopIteration()
-            
+
             batch = reorganize_idx(batch)
 
             # # check again that the datasets have something left to give
@@ -264,5 +263,8 @@ if not isinstance(torchdata, MockModule):
                 self.DATASET_NODE_STATES_KEY: {k: self.source_nodes[k].state_dict() for k in self.dataset_names},
                 self.EPOCH_KEY: self._epoch,
                 self.NUM_YIELDED_KEY: self._num_yielded,
-                self.WEIGHTED_SAMPLER_STATE_KEY: {k: self._weighted_sampler[k].state_dict() for k in self._weight_samplers},
+                self.WEIGHTED_SAMPLER_STATE_KEY: {
+                    k: self._weighted_sampler[k].state_dict()
+                    for k in self._weight_samplers
+                },
             }

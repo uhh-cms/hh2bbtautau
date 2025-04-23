@@ -8,7 +8,7 @@ __all__ = [
 
 from collections.abc import Iterable, Mapping, Collection
 from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import T, Any, Callable, Sequence
+from columnflow.types import Any, Callable, Sequence
 from columnflow.columnar_util import (
     get_ak_routes, Route, remove_ak_column, EMPTY_FLOAT, EMPTY_INT,
     flat_np_view, set_ak_column,
@@ -32,25 +32,24 @@ if not isinstance(torchdata, MockModule):
     from typing import Literal
     import re
 
-
-    class ListDataset(Dataset):
+    class ListDataset(Dataset):  # noqa: F811
 
         def __init__(self, len: int, prefix: str = "data"):
             self.len = len
             self.prefix = prefix
             self.data = [f"{self.prefix}_{i}" for i in range(self.len)]
             self.weights = np.linspace(0.1, 1.0, self.len)
-        
+
         def __len__(self):
             return self.len
-        
+
         def __getitem__(self, i: int) -> tuple[str, float]:
             return (self.data[i], self.weights[i])
-        
+
         def to_list(self) -> list[str]:
             return list(zip(self.data, self.weights))
 
-    class ParquetDataset(Dataset):
+    class ParquetDataset(Dataset):  # noqa: F811
         def __init__(
             self,
             input: Sequence[str] | ak.Array,
@@ -83,23 +82,21 @@ if not isinstance(torchdata, MockModule):
             self._resolved_trafo_inputs: set[Route] = set()
             self._resolved_trafo_outputs: set[Route] = set()
 
-            
             # container for meta data of parquet file(s)
             # None if input is an ak.Array
             self.meta_data = None
             self.all_columns = set()
-
 
             if isinstance(input, (str, list)):
                 if all(isinstance(x, str) for x in input):
                     self.path = input
                     # idea: write sampler that sub samples each partition individually
                     # the __getitem(s)__ method should then check which partition
-                    # is currently read, open the corresponding partition with 
+                    # is currently read, open the corresponding partition with
                     # line below, and return the requested item(s).
                     # If a new partition is requested, close/delete the current array
                     # and load the next one.
-                    # Would require reading the parquet file multiple times after 
+                    # Would require reading the parquet file multiple times after
                     # each reset call (= overhead?), but would limit the memory consumption
                     self.meta_data = DotDict.wrap(ak.metadata_from_parquet(self.path))
                 elif all(isinstance(x, ParquetDataset) for x in input):
@@ -109,13 +106,12 @@ if not isinstance(torchdata, MockModule):
                     raise ValueError(f"List-type nputs must be contain string or ParquetDataset, received {input}")
             elif isinstance(input, ak.Array):
                 self._data = input
-            
+
             # if the inputs are not of type ParquetDataset, there won't be any columns
             # parsed. In this case, do the logic to resolve them
             if not self.all_columns:
                 self._parse_columns()
                 self._parse_target(target=target)
-
 
                 self._validate()
 
@@ -164,12 +160,11 @@ if not isinstance(torchdata, MockModule):
                 self.target_columns.add(Route("categorical_target"))
             elif any(len(x.int_targets) > 0 for x in datasets):
                 raise ValueError("Cannot merge datasets: some but not all datasets define integer classes!")
-            
-            
+
         def _extract_data_columns(self) -> set[Route]:
 
             return_columns = self.all_columns.symmetric_difference(self.target_columns)
-            # add requested columns if they match columns that are produced by transformations        
+            # add requested columns if they match columns that are produced by transformations
             # if there aren't any specific columns that are requested
             # assume that all columns produced by transformations are needed
             return_columns |= self._resolved_trafo_outputs
@@ -183,7 +178,7 @@ if not isinstance(torchdata, MockModule):
                 self.columns = set(Route(x) for x in self.columns)
             elif isinstance(self._data, ak.Array):
                 self.all_columns = set(x for x in get_ak_routes(self.data))
-            
+
             # check if transformations define columns to use and
             # make sure that the needed inputs are loaded, a.k.a. add them to all_columns
             self.all_columns |= self._extract_transform_columns()
@@ -206,17 +201,15 @@ if not isinstance(torchdata, MockModule):
                         if resolved_route:
                             tmp_cols.add(resolved_route)
                             self._resolved_trafo_inputs.add(resolved_route)
-                
+
                 self.all_columns = tmp_cols
-            
+
             # check if the output of transformations is requested
             # and remove any from the columns to load
             tranform_outputs = self._extract_transform_columns(attr="produces")
             # compare element-wise
             all_columns = self.all_columns.copy()
             for col in all_columns:
-                # for x in tranform_outputs:
-                # resolved_route = 
                 if any(self._check_against_pattern(col.string_column, x) for x in tranform_outputs):
                     self.all_columns.remove(col)
                     self._resolved_trafo_outputs.add(col)
@@ -227,7 +220,6 @@ if not isinstance(torchdata, MockModule):
                 for col in self.columns:
                     if any(self._check_against_pattern(col.string_column, x) for x in tranform_outputs):
                         self._resolved_trafo_outputs.add(col)
-
 
             if len(self.all_columns) == 0:
                 raise ValueError("No columns specified and no metadata found")
@@ -241,11 +233,11 @@ if not isinstance(torchdata, MockModule):
                     i: field for i, field in enumerate(col.fields) if isinstance(field, tuple)
                 }
                 str_col = col.string_column
-                
+
             # make sure there aren't any special characters that aren't caught
             str_col = str_col.replace("{", "(").replace("}", ")").replace(",", "|")
             pattern = re.compile(f"^{str_col}$")
-            
+
             try:
                 if not pattern.match(target):
                     return
@@ -258,7 +250,7 @@ if not isinstance(torchdata, MockModule):
             parts = target.split(".")
             for index in reversed(slice_dict.keys()):
                 parts.insert(index, slice_dict[index])
-            
+
             return Route(Route.join(parts))
 
         def _extract_transform_columns(self, attr: Literal["uses", "produces"] = "uses") -> set[Route]:
@@ -269,9 +261,14 @@ if not isinstance(torchdata, MockModule):
             :returns: Set with resolved Routes to columns in awkward array (braces are expanded)
             """
             transform_inputs: set[Route] = set()
-            for t in [self.batch_transform, self.global_transform, ]:
+            for t in [
+                self.batch_transform,
+                self.global_transform,
+                self.data_type_transform,
+                self.categorical_target_transform,
+            ]:
                 transform_inputs.update(
-                    *list(map(Route, law.util.brace_expand(obj)) for obj in getattr(t, attr, []))
+                    *list(map(Route, law.util.brace_expand(obj)) for obj in getattr(t, attr, [])),
                 )
             return transform_inputs
 
@@ -298,7 +295,6 @@ if not isinstance(torchdata, MockModule):
             if self.columns and not isinstance(self.columns, Iterable):
                 raise ValueError(f"columns must be an iterable of strings, received {self.columns}")
             # sanity checks for targets
-            
 
             for target in self.target_columns:
                 # if target is a string and specific columns are supposed to be
@@ -307,17 +303,18 @@ if not isinstance(torchdata, MockModule):
                 # targets can also be produced by a transformation, so first collect all
                 # columns in one super set
                 full_column_set = self.all_columns | self._extract_transform_columns(attr="produces")
-                
+
                 if not any(self._check_against_pattern(str(target), col) for col in full_column_set):
                     raise ValueError(f"target {target} not found in columns {full_column_set=}")
-                
+
             # if target is an integer, this is a class index
             # this should be >= 0
             if any(target < 0 for target in self.int_targets):
                 raise ValueError(f"int targets must be >= 0, received {self.int_targets}")
             if len(self.int_targets) > 1:
-                raise ValueError("There cannot be more than one categorical target per dataset"
-                                 f", received {self.int_targets}"
+                raise ValueError(
+                    "There cannot be more than one categorical target per dataset"
+                    f", received {self.int_targets}",
                 )
 
         @property
@@ -329,13 +326,13 @@ if not isinstance(torchdata, MockModule):
                 if self.global_transform:
                     self._data = self.global_transform(self._data)
             return self._data
-        
+
         def _load_data(self, columns_to_remove: set[Route] | None = None) -> ak.Array:
             input_data = self.data
             for col in (columns_to_remove or set()):
                 input_data = remove_ak_column(input_data, col.string_column, silent=True)
             return input_data
-            
+
         @property
         def input_data(self) -> ak.Array:
             if self._input_data is None:
@@ -343,7 +340,7 @@ if not isinstance(torchdata, MockModule):
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
             return self._input_data
-        
+
         @property
         def target_data(self) -> ak.Array:
             if self._target_data is None and len(self.target_columns) > 0:
@@ -362,26 +359,26 @@ if not isinstance(torchdata, MockModule):
                 length = len(self.data)
             return length
 
-        def _get_data(self, i: int| Sequence[int], input_data: ak.Array | None = None) -> ak.Array:
+        def _get_data(self, i: int | Sequence[int], input_data: ak.Array | None = None) -> ak.Array:
             data: ak.Array
             if input_data is None:
                 data = self.input_data
             else:
                 data = input_data
-            
+
             return data[i]
 
         def _create_class_target(self, length: int, input_int_targets: int | None = None) -> ak.Array:
             int_target: int = input_int_targets or self.class_target
-            arr = ak.Array([int_target]*int(length))
+            arr = ak.Array([int_target] * int(length))
             if self.categorical_target_transform:
                 arr = self.categorical_target_transform(arr)
             if self.data_type_transform:
                 arr = self.data_type_transform(arr)
             return arr
-        
+
         def __getitem__(
-            self, i: int | Sequence[int]
+            self, i: int | Sequence[int],
         ) -> ak.Array | tuple[ak.Array, ak.Array] | tuple[ak.Array, ak.Array, ak.Array]:
             # from IPython import embed
             # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
@@ -393,19 +390,18 @@ if not isinstance(torchdata, MockModule):
                     return_data.append(self._get_data(i, self.target_data))
                 if len(self.int_targets) > 0:
                     return_data.append(self._create_class_target(ak.num(return_data[0], axis=0)))
-                    
+
             if self.batch_transform:
                 return_data = self.batch_transform(return_data)
             return tuple(return_data) if isinstance(return_data, list) else return_data
-        
+
         def __getitems__(self, idx: Sequence[int]) -> ak.Array:
             return self.__getitem__(idx)
-        
+
         def to_list(self) -> list[dict[str, Any]]:
             return self.data.to_list()
 
-
-    class FlatParquetDataset(ParquetDataset):
+    class FlatParquetDataset(ParquetDataset):  # noqa: F811
         def __init__(
             self,
             *args,
@@ -430,7 +426,6 @@ if not isinstance(torchdata, MockModule):
             self._target_data: Mapping[str, ak.Array] | None = None
             self.class_target_name: str = "categorical_target"
 
-        
         def _extract_columns(self, array: ak.Array, route: Route):
             # first, get super set of column
             super_route = Route(route.string_column)
@@ -440,12 +435,12 @@ if not isinstance(torchdata, MockModule):
             view = flat_np_view(total_array)
             val_type = view.dtype.type
             padding = self.padd_values.get(val_type, None)
-            
+
             if padding is None:
                 from IPython import embed
                 embed(header=f"Error for route {route}, val_type={val_type}")
                 raise ValueError(f"Could not determine padding value for type {val_type}")
-            
+
             return route.apply(array, padding)
 
         @property
@@ -459,7 +454,7 @@ if not isinstance(torchdata, MockModule):
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
             return self._input_data
-        
+
         @property
         def target_data(self) -> Mapping[str, ak.Array]:
             if self._target_data is None and len(self.target_columns) > 0:
@@ -471,7 +466,7 @@ if not isinstance(torchdata, MockModule):
                 if self.data_type_transform:
                     self._target_data = self.data_type_transform(self._target_data)
             return self._target_data
-        
+
         def __getitem__(self, i: int | Sequence[int]) -> Any | tuple | tuple:
             # from IPython import embed
             # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
@@ -483,17 +478,17 @@ if not isinstance(torchdata, MockModule):
                     return_data.append({key: self._get_data(i, data) for key, data in self.target_data.items()})
                 if len(self.int_targets) > 0:
                     first_key = list(return_data[0].keys())[0]
-                    
+
                     return_data.append({
                         self.class_target_name: self._create_class_target(
-                            len(return_data[0][first_key]), input_int_targets=self.class_target
-                        )
+                            len(return_data[0][first_key]), input_int_targets=self.class_target,
+                        ),
                     })
-                    
+
             if self.batch_transform:
                 return_data = self.batch_transform(return_data)
             return tuple(return_data) if isinstance(return_data, list) else return_data
-        
+
     class FlatRowgroupParquetDataset(FlatParquetDataset):
 
         def __init__(self, *args, **kwargs):
@@ -502,7 +497,7 @@ if not isinstance(torchdata, MockModule):
             self._allowed_rowgroups: set[int] = set()
             if not self.meta_data:
                 raise ValueError("No metadata found, cannot determine rowgroups")
-            
+
             # try to find information about rowgroups
             # the set of row groups could be in the open_options so check
             if self.open_options.get("row_groups", None):
@@ -514,7 +509,7 @@ if not isinstance(torchdata, MockModule):
         @property
         def current_rowgroups(self) -> set[int]:
             return self._current_rowgroups
-        
+
         @current_rowgroups.setter
         def current_rowgroups(self, value: int | Iterable[int]) -> None:
             value_set: set[int] = set()
@@ -524,13 +519,14 @@ if not isinstance(torchdata, MockModule):
                 value_set = set(*value)
             if not value_set == self.current_rowgroups:
                 if not self._allowed_rowgroups.issuperset(value_set):
-                    raise ValueError(f"Rowgroup '{value_set}' contains unallowed rowgroups, whole set: {self._allowed_rowgroups}")
+                    raise ValueError(
+                        f"Rowgroup '{value_set}' contains unallowed rowgroups, whole set: {self._allowed_rowgroups}",
+                    )
                 self._current_rowgroups = value_set
                 self._data = None
                 self._input_data = None
                 self._target_data = None
                 self.open_options["row_groups"] = self.current_rowgroups
-
 
         def _concat_data(self, data1, data2) -> Any:
             if all(isinstance(x, dict) for x in [data1, data2]):
@@ -548,7 +544,10 @@ if not isinstance(torchdata, MockModule):
 
         def __getitem__(
             self,
-            i: tuple[Collection[int], Collection[int]] | tuple[Collection[int], int] | Mapping[Collection[int], Collection[int]] | Mapping[Collection[int], int]
+            i: (tuple[Collection[int], Collection[int]] |
+                tuple[Collection[int], int] |
+                Mapping[Collection[int], Collection[int]] |
+                Mapping[Collection[int], int]),
         ) -> Any | tuple:
             return_data = None
             index_iter = iter(i)
@@ -563,18 +562,23 @@ if not isinstance(torchdata, MockModule):
                 else:
                     return_data = (self._concat_data(a, b) for a, b in zip(return_data, chunk))
             return return_data
-        
+
     class WeightedFlatRowgroupParquetDataset(FlatRowgroupParquetDataset):
 
-        def __init__(self, *args, cls_weight: float | None = None, weight_columns: Collection[str, Route] | None = None, **kwargs):
+        def __init__(
+            self,
+            *args,
+            cls_weight: float | None = None,
+            weight_columns: Collection[str, Route] | None = None,
+            **kwargs,
+        ):
             super().__init__(*args, **kwargs)
             self.cls_weight = cls_weight or 1.
             self.weight_columns: set[Route] = set()
             if weight_columns:
                 self.weight_columns = set(Route(x) for x in weight_columns)
-            
-            self.all_columns |= self.weight_columns
 
+            self.all_columns |= self.weight_columns
 
         def _calculate_weights(self, indices: ak.Array) -> ak.Array:
             # calculate the weights for the given indices
@@ -586,14 +590,17 @@ if not isinstance(torchdata, MockModule):
             final_weights = weights * self.cls_weight
             if self.data_type_transform:
                 final_weights = self.data_type_transform(final_weights)
-            
+
             if self.batch_transform:
                 final_weights = self.batch_transform(final_weights)
             return final_weights
 
         def __getitem__(
             self,
-            i: tuple[Collection[int], Collection[int]] | tuple[Collection[int], int] | Mapping[Collection[int], Collection[int]] | Mapping[Collection[int], int]
+            i: (tuple[Collection[int], Collection[int]] |
+                tuple[Collection[int], int] |
+                Mapping[Collection[int], Collection[int]] |
+                Mapping[Collection[int], int]),
         ) -> Any | tuple:
             return_data = None
             index_iter = iter(i)
@@ -619,7 +626,7 @@ if not isinstance(torchdata, MockModule):
                 else:
                     return_data = (self._concat_data(a, b) for a, b in zip(return_data, chunk))
             return return_data
-        
+
     class FlatArrowRowGroupParquetDataset(FlatRowgroupParquetDataset):
         def __init__(self, *args, filters: pa._compute.Expression | list[str] | None = None, **kwargs):
             self.parquet_columns = None
@@ -633,7 +640,7 @@ if not isinstance(torchdata, MockModule):
 
             # extract column structure from first parquet file
             self.parquet_columns = self._load_paquet_columns(pq.ParquetFile(first))
-            
+
             for fragment in pq.ParquetDataset(self.path).fragments:
                 self.rowgroup_fragments.extend(fragment.split_by_row_group())
             self.rowgroup_fragments = np.array(self.rowgroup_fragments)
@@ -645,13 +652,13 @@ if not isinstance(torchdata, MockModule):
             list_indicator = "list.item"
             for column_metadata in metadata.schema:
                 if (
-                    column_metadata.max_repetition_level > 0
-                    and ".list.element" in column_metadata.path
+                    column_metadata.max_repetition_level > 0 and
+                    ".list.element" in column_metadata.path
                 ):
                     list_indicator = "list.element"
                     break
             subform = ak._connect.pyarrow.form_handle_arrow(
-                metadata.schema_arrow, pass_empty_field=True
+                metadata.schema_arrow, pass_empty_field=True,
             )
             if self.all_columns is not None:
                 subform = subform.select_columns([str(x) for x in self.all_columns])
@@ -662,7 +669,7 @@ if not isinstance(torchdata, MockModule):
             else:
                 column_prefix = ()
             return subform.columns(
-                list_indicator=list_indicator, column_prefix=column_prefix
+                list_indicator=list_indicator, column_prefix=column_prefix,
             )
 
         def _update_meta_data(self) -> None:
@@ -692,7 +699,7 @@ if not isinstance(torchdata, MockModule):
                 self._data = ak.concatenate([
                     ak.from_arrow(pq.read_table(x.open(), **self.open_options))
                     for x in self.rowgroup_fragments[rg_idx]],
-                    axis=0
+                    axis=0,
                 )
 
                 if self.global_transform:

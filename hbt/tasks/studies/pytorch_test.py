@@ -1,15 +1,11 @@
 from __future__ import annotations
 import law.decorator
-from collections import Collection
-from functools import partial
 
 from columnflow.tasks.union import UniteColumns, UniteColumnsWrapper
 from columnflow.util import dev_sandbox, DotDict, maybe_import
-from columnflow.columnar_util import Route
 from columnflow.tasks.framework.remote import RemoteWorkflow
 from columnflow.tasks.framework.base import Requirements
 from columnflow.tasks.selection import MergeSelectionStats
-from columnflow.types import Callable
 
 from hbt.tasks.base import HBTTask
 # from hbt.ml.pytorch_util import ListDataset, MapAndCollate
@@ -18,10 +14,8 @@ import luigi
 
 logger = law.logger.get_logger(__name__)
 
-dd = maybe_import("dask.dataframe")
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
-dak = maybe_import("dask_awkward")
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
 tqdm = maybe_import("tqdm")
@@ -43,22 +37,24 @@ def run_task(datasets=["hh_ggf_hbb_htt_kl1_kt1_powheg", "tt_sl_powheg"]):
         ],
     )
 
-    sub_targets = {
+    sub_targets = {  # noqa: F841
         d: UniteColumns(
-            config = "run3_2022_postEE_limited",
-            version = "pytorch_test",
-            dataset = d,
+            config="run3_2022_postEE_limited",
+            version="pytorch_test",
+            dataset=d,
         ).target()
         for d in datasets
     }
 
-    from IPython import embed; embed(header="finished running task")
+    from IPython import embed
+    embed(header="finished running task")
     return task.target()
 
+
 def main():
-    
     output_paths = run_task()
-    from IPython import embed; embed(header=f"output_paths: {output_paths}")
+    from IPython import embed
+    embed(header=f"output_paths: {output_paths}")
 
 
 class HBTPytorchTask(
@@ -143,15 +139,49 @@ class HBTPytorchTask(
     )
 
     additional_params: list[str] = list()
+
     def create_branch_map(self):
         return dict(enumerate(self.models))
 
     def workflow_requires(self):
         reqs = super().workflow_requires()
 
-        # require the full merge forest
-        reqs["unite_columns"] = self.reqs.UniteColumnsWrapper.req(self)
-        # from IPython import embed; embed(header="workflow_requires")
+        self.resolved_configs = set()
+        self.resolved_datasets = set()
+        self.resolved_shifts = set()
+        for config, shift, dataset in self.wrapper_parameters:
+            self.resolved_configs.add(config)
+            self.resolved_datasets.add(dataset)
+            self.resolved_shifts.add(shift)
+
+        reqs["events"] = DotDict.wrap({
+            d: DotDict.wrap({
+                config: self.reqs.UniteColumns.req(
+                    self,
+                    dataset=d,
+                    config=config,
+                    branch=-1,
+                    _exclude=["datasets", "configs", "branch", "branches"])
+                for config in self.resolved_configs
+            })
+            for d in self.resolved_datasets
+        })
+        # also require selection stats
+
+        reqs["selection_stats"] = DotDict.wrap({
+            d: DotDict.wrap({
+                config: self.reqs.MergeSelectionStats.req_different_branching(
+                    self,
+                    dataset=d,
+                    config=config,
+                    _exclude=["datasets", "configs"],
+                )
+                for config in self.resolved_configs
+            })
+            for d in self.resolved_datasets
+        })
+
+        # from IPython import embed; embed(header="requires")
         return reqs
 
     def requires(self):
@@ -166,7 +196,7 @@ class HBTPytorchTask(
 
         reqs["events"] = DotDict.wrap({
             d: DotDict.wrap({
-                config:  self.reqs.UniteColumns.req(
+                config: self.reqs.UniteColumns.req(
                     self,
                     dataset=d,
                     config=config,
@@ -180,7 +210,12 @@ class HBTPytorchTask(
 
         reqs["selection_stats"] = DotDict.wrap({
             d: DotDict.wrap({
-                config: self.reqs.MergeSelectionStats.req_different_branching(self, dataset=d, config=config, _exclude=["datasets", "configs"])
+                config: self.reqs.MergeSelectionStats.req_different_branching(
+                    self,
+                    dataset=d,
+                    config=config,
+                    _exclude=["datasets", "configs"],
+                )
                 for config in self.resolved_configs
             })
             for d in self.resolved_datasets
@@ -188,14 +223,14 @@ class HBTPytorchTask(
 
         # from IPython import embed; embed(header="requires")
         return reqs
-    
+
     def output(self):
         return {
             "model": self.target(f"torch_model_{self.branch_data}.pt"),
             "parameter_summary": self.target(f"parameter_summary_{self.branch_data}.json"),
-            "tensorboard": self.local_target(f"tb_logger_{self.branch_data}", dir=True, optional=True),   
+            "tensorboard": self.local_target(f"tb_logger_{self.branch_data}", dir=True, optional=True),
         }
-    
+
     @property
     def _parameter_repr(self) -> str:
         self.additional_params = [
@@ -225,7 +260,7 @@ class HBTPytorchTask(
         # parts.insert_after("task_family", "model", f"model_{self.branch_data}")
         parts.insert_after("datasets", "parameters", self._parameter_repr)
         return parts
-    
+
     def complete(self):
         from law.util import flatten
         # create a flat list of all outputs
@@ -241,74 +276,10 @@ class HBTPytorchTask(
     @law.decorator.safe_output
     @law.decorator.localize(input=True, output=True)
     def run(self):
-        from hbt.ml.torch_utils.dataloaders import (
-            CompositeDataLoader, 
-        )
-        from hbt.ml.torch_utils.datasets import ParquetDataset, FlatParquetDataset, FlatRowgroupParquetDataset
-        from torch.utils.data import default_collate
-        import torch.nn.functional as F
-        from hbt.ml.torch_utils.map_and_collate import NestedDictMapAndCollate
-
-        from hbt.ml.torch_utils.transforms import (
-            AkToTensor, PreProcessFloatValues, PreProssesAndCast,
-        )
-        from hbt.ml.torch_models import FeedForwardNet
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         logger.info(f"Running pytorch on {device}")
-        # if device.type == "cuda":                
-        #     torch.multiprocessing.set_start_method('spawn')
-        open_options = {}
-
-        ### read via dask dataframe ######################################################
-        # signal_dfs = dd.read_parquet(
-        #     [
-        #         t.path
-        #         for collections in signal_targets
-        #         for targets in collections.targets.values()
-        #         for t in targets.values() 
-        #     ]
-        # )
-        # background_dfs = dd.read_parquet(
-        #     [
-        #         t.path
-        #         for collections in backgrounds_targets
-        #         for targets in collections.targets.values()
-        #         for t in targets.values() 
-        #     ]
-        # )
-
-        ### read via dask awkward ###################################################
-        # signal_daks = dak.from_parquet(
-        #     signal_target_paths,
-        #     split_row_groups=True,
-        # )
-
-        # pro:
-        # - can read multiple parquet files w/o loading to memory
-        # - can read only the columns we need
-        # - option to split between row groups
-        # con:
-        # - when accessing single elements, there seems to be a lot of overhead/
-        #   leaked memory
-        # - each compute step takes time
-
-
-        #### read via awkward array #####################################################
-        # signal_daks = ak.from_parquet(
-        #     signal_target_paths,
-        # )
-
-        # pro:
-        # - can read multiple parquet files
-        # - can read only the columns we need
-        # - fast
-        # - can also read individual partitions (not implemented now)
-        # con:
-        # - eager loading of all data (problem?)
-
-        #### test case
 
         from hbt.ml.torch_models import model_clss
         model_cls = model_clss.get(self.branch_data, None)
@@ -323,8 +294,6 @@ class HBTPytorchTask(
 
         model.init_dataset_handler(task=self)
 
-        from torch.utils.tensorboard import SummaryWriter
-        
         run_name = f"{self._parameter_repr}_{self.version}"
         # How many batches to wait before logging training status
         # from IPython import embed
@@ -349,4 +318,3 @@ class HBTPytorchTask(
         # good source: https://discuss.pytorch.org/t/how-to-handle-imbalanced-classes/11264
         # https://discuss.pytorch.org/t/proper-way-of-using-weightedrandomsampler/73147
         # https://pytorch.org/data/0.10/stateful_dataloader_tutorial.html
-        

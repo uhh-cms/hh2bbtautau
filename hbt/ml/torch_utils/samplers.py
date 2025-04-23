@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 __all__ = [
-    "NodesDataLoader", "CompositeDataLoader",
+    "RowgroupSampler",
+    "ListRowgroupSampler",
 ]
 
 from functools import partial
 
-from collections.abc import Mapping, Container
+from collections.abc import Container
 from columnflow.util import MockModule, maybe_import
 from columnflow.types import Any, Callable
 
@@ -23,8 +24,9 @@ RowgroupSampler = MockModule("RowgroupSampler")  # type: ignore
 if not isinstance(torchdata, MockModule):
     from torch.utils.data import RandomSampler, SequentialSampler, Sampler, BatchSampler
 
-    class RowgroupSampler(Sampler):
-        def __init__(self,
+    class RowgroupSampler(Sampler):  # noqa: F811
+        def __init__(
+            self,
             inputs: ParquetDataset | None = None,
             metadata: dict[str, Any] | None = None,
             rowgroup_list: Container[int] | None = None,
@@ -63,7 +65,7 @@ if not isinstance(torchdata, MockModule):
             # try to extrac them from the other information
             if rowgroup_list is None or rowgroup_sizes is None:
                 self._extract_rowgroup_information()
-            
+
             # make sure that the rowgroup list and size list are torch tensors
             # for smart indexing
             self.rowgroup_list = torch.tensor(self.rowgroup_list)
@@ -71,7 +73,8 @@ if not isinstance(torchdata, MockModule):
             if self.simultaneous_rowgroups == -1:
                 self.simultaneous_rowgroups = len(self.rowgroup_list)
 
-        def sampler_factory(self,
+        def sampler_factory(
+            self,
             data: Any,
             cls: Callable = RandomSampler,
             replacement: bool = False,
@@ -102,7 +105,7 @@ if not isinstance(torchdata, MockModule):
 
         def __len__(self):
             return sum(self.rowgroup_sizes)
-    
+
         def __iter__(self):
             rowgroup_idx_sampler = self.rowgroup_sampler_cls(self.rowgroup_list)
             for rg_idx in BatchSampler(rowgroup_idx_sampler, self.simultaneous_rowgroups, drop_last=False):
@@ -112,7 +115,7 @@ if not isinstance(torchdata, MockModule):
                 size_sampler = self.index_sampler_cls(range(sum(sizes)))
                 # from IPython import embed
                 # embed(header=f"indices for rowgroup_sampler {rg_idx}")
-                
+
                 for data_idx in size_sampler:
                     yield (tuple(rowgroups.tolist()), data_idx)
 
@@ -146,10 +149,10 @@ if not isinstance(torchdata, MockModule):
                 self.samplers = [RowgroupSampler(x, **forward_pass_args) for x in inputs]
             elif all(isinstance(x, RowgroupSampler) for x in inputs):
                 self.samplers = list(inputs)
-        
+
         def __len__(self):
             return sum(len(x) for x in self.samplers)
-        
+
         def __iter__(self):
             for dataset_idx, sampler in enumerate(self.samplers):
                 for output in sampler:

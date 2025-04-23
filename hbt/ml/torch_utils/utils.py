@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 __all__ = [
-    "reorganize_idx",
+    "reorganize_idx", "CustomEarlyStopping", "RelativeEarlyStopping",
 ]
 from collections import defaultdict
 from columnflow.util import maybe_import, MockModule
@@ -9,6 +9,7 @@ from columnflow.types import Any
 from copy import deepcopy
 
 ignite = maybe_import("ignite")
+
 
 def reorganize_list_idx(entries):
     first = entries[0]
@@ -29,6 +30,7 @@ def reorganize_list_idx(entries):
                 sub_dict[key].append(e[-1])
         return sub_dict
 
+
 def reorganize_dict_idx(batch):
     return_dict = dict()
     for key, entries in batch.items():
@@ -37,12 +39,14 @@ def reorganize_dict_idx(batch):
         return_dict[key] = reorganize_list_idx(entries)
     return return_dict
 
+
 def reorganize_idx(batch):
     if isinstance(batch, dict):
         return reorganize_dict_idx(batch)
     else:
         return reorganize_list_idx(batch)
-    
+
+
 if not isinstance(ignite, MockModule):
     from ignite.handlers import EarlyStopping
     from ignite.engine import Engine

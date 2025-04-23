@@ -1,14 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Collection
-from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import T, Any, Callable, Sequence
-from columnflow.columnar_util import (
-    flat_np_view, attach_behavior, default_coffea_collections, set_ak_column,
-    Route, attach_coffea_behavior,
-)
-import copy
-import traceback
+from columnflow.util import MockModule, maybe_import
 
 torch = maybe_import("torch")
 tqdm = maybe_import("tqdm")
@@ -96,13 +88,13 @@ if not isinstance(torch, MockModule):
             pred = model(X)
             target = y["categorical_target"].to(torch.float32).reshape(-1, 1)
             return pred, target
-        
+
     def get_one_hot(targets, nb_classes):
         # at this point the targets are still ak arrays, so cast to numpy
         targets = targets.to_numpy()
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
-        return np.astype(res.reshape(list(targets.shape)+[nb_classes]), np.int32)
-    
+        return np.astype(res.reshape(list(targets.shape) + [nb_classes]), np.int32)
+
     class WeightedCrossEntropyLoss(torch.nn.CrossEntropyLoss):
         def forward(self, input, target, weight: torch.Tensor | None = None):
             if weight is not None:
