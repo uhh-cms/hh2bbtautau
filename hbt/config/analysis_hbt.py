@@ -34,6 +34,7 @@ analysis_hbt.x.bash_sandboxes = [
     "$CF_BASE/sandboxes/cf.sh",
     "$CF_BASE/sandboxes/venv_columnar.sh",
     "$HBT_BASE/sandboxes/venv_columnar_tf.sh",
+    "$HBT_BASE/sandboxes/venv_columnar_torch.sh",
 ]
 
 # files of cmssw sandboxes that might be required by remote tasks
@@ -82,6 +83,8 @@ def add_lazy_config(
     campaign_attr: str,
     config_name: str,
     config_id: int,
+    limit_dataset_files: int | None = 2,
+    custom_suffix_for_limit: str | None = None,
     add_limited: bool = True,
     **kwargs,
 ):
@@ -106,8 +109,13 @@ def add_lazy_config(
         return factory
 
     analysis_hbt.configs.add_lazy_factory(config_name, create_factory(config_id))
-    if add_limited:
-        analysis_hbt.configs.add_lazy_factory(f"{config_name}_limited", create_factory(config_id + 200, "_limited", 2))
+    if limit_dataset_files and add_limited:
+        suffix = "_".join([custom_suffix_for_limit, "limited"]) if custom_suffix_for_limit else "_limited"
+
+        analysis_hbt.configs.add_lazy_factory(
+            f"{config_name}_{suffix}",
+            create_factory(config_id + 200, f"_{suffix}", limit_dataset_files)
+        )
 
 
 # 2022, preEE
@@ -123,6 +131,8 @@ add_lazy_config(
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
     config_name="22pre_v14",
     config_id=5014,
+    custom_suffix_for_limit="larger",
+    limit_dataset_files=10,
 )
 
 # 2022, postEE
@@ -138,6 +148,8 @@ add_lazy_config(
     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
     config_name="22post_v14",
     config_id=6014,
+    custom_suffix_for_limit="larger",
+    limit_dataset_files=10,
 )
 
 # 2023, preBPix
