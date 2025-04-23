@@ -6,10 +6,13 @@ Config-related object definitions and utils.
 
 from __future__ import annotations
 
-from typing import Callable, Any, Sequence
+import re
+from dataclasses import dataclass
 
 from order import UniqueObject, TagMixin
 from order.util import typed
+
+from columnflow.types import Callable, Any, Sequence, Hashable, ClassVar
 
 
 class TriggerLeg(object):
@@ -103,8 +106,8 @@ class Trigger(UniqueObject, TagMixin):
         - *id*: A unique id of the trigger.
         - *run_range*: An inclusive range describing the runs where the trigger is to be applied
           (usually only defined by data). None in the tuple means no lower or upper boundary.
-        - *legs*: A list of :py:class:`TriggerLeg` objects contraining additional information and
-          constraints of particular trigger legs.
+        - *legs*: A dictionary mapping arbitrary keys to :py:class:`TriggerLeg` objects containing
+          additional information and constraints of particular trigger legs.
         - *applies_to_dataset*: A function that obtains an ``order.Dataset`` instance to decide
           whether the trigger applies to that dataset. Defaults to *True*.
 
@@ -121,7 +124,7 @@ class Trigger(UniqueObject, TagMixin):
         name: str,
         id: int,
         run_range: tuple[int | None, int | None] | None = None,
-        legs: Sequence[TriggerLeg] | None = None,
+        legs: dict[Hashable, TriggerLeg] | Sequence[TriggerLeg] | None = None,
         applies_to_dataset: Callable | bool | Any = True,
         tags: Any = None,
     ):
@@ -144,7 +147,7 @@ class Trigger(UniqueObject, TagMixin):
 
     def __repr__(self):
         return (
-            f"<{self.__class__.__name__} 'name={self.name}, nlegs={self.n_legs}' "
+            f"<{self.__class__.__name__} 'name={self.name}, id={self.id}, nlegs={self.n_legs}' "
             f"at {hex(id(self))}>"
         )
 
@@ -184,37 +187,29 @@ class Trigger(UniqueObject, TagMixin):
     @typed
     def legs(
         self,
-        legs: (
-            dict |
-            tuple[dict] |
-            list[dict] |
-            TriggerLeg |
-            tuple[TriggerLeg] |
-            list[TriggerLeg] |
-            None
-        ),
-    ) -> list[TriggerLeg]:
+        legs: dict[Hashable, TriggerLeg] | Sequence[TriggerLeg] | TriggerLeg | None,
+    ) -> dict[Hashable, TriggerLeg] | None:
         if legs is None:
             return None
 
-        if isinstance(legs, tuple):
-            legs = list(legs)
-        elif not isinstance(legs, list):
+        # cast to dict
+        if isinstance(legs, TriggerLeg):
             legs = [legs]
+        if isinstance(legs, (list, tuple)):
+            legs = dict(enumerate(legs))
 
-        _legs = []
-        for leg in legs:
-            if isinstance(leg, dict):
-                leg = TriggerLeg(**leg)
+        # validate
+        for key, leg in legs.items():
             if not isinstance(leg, TriggerLeg):
-                raise TypeError(f"invalid trigger leg: {leg}")
-            _legs.append(leg)
+                raise TypeError(f"invalid trigger leg with key {key}: {leg}")
 
-        return _legs or None
+        return legs or None
 
     @typed
     def applies_to_dataset(self, func: Callable | bool | Any) -> Callable:
         if not callable(func):
+            if func is not None:
+                raise TypeError(f"invalid applies_to_dataset: {func}")
             decision = True if func is None else bool(func)
             func = lambda dataset_inst: decision
 
@@ -232,3 +227,42 @@ class Trigger(UniqueObject, TagMixin):
     def hlt_field(self):
         # remove the first four "HLT_" characters
         return self.name[4:]
+
+
+@dataclass
+class TriggerBits:
+    """
+    Lightweight container wrapping trigger bits for different versions of NanoAOD.
+    """
+
+    v12: int | None = None
+    v14: int | None = None
+
+    supported_versions: ClassVar[set[int]] = {12, 14}
+
+    def __post_init__(self) -> None:
+        # versions might be strings such as "v12" that act as references
+        cre = re.compile(r"^v(\d+)$")
+        for v in self.supported_versions:
+            attr = f"v{v}"
+            # only check strings
+            if not isinstance((val := getattr(self, attr)), str):
+                continue
+            # check format
+            if not (m := cre.match(val)):
+                raise ValueError(f"invalid reference {attr} -> {val}")
+            # check if not circular
+            ref_v = int(m.group(1))
+            if v == ref_v:
+                raise ValueError(f"reference to same version {attr} -> {val}")
+            # check type of referred value
+            ref_val = getattr(self, f"v{ref_v}")
+            if not isinstance(ref_val, int) and v is not None:
+                raise ValueError(f"wrong reference value in {attr} -> {val}")
+            # set it
+            setattr(self, attr, ref_val)
+
+    def get(self, nano_version: int) -> int:
+        if nano_version not in self.supported_versions:
+            raise ValueError(f"nano_version {nano_version} not supported")
+        return getattr(self, f"v{nano_version}")

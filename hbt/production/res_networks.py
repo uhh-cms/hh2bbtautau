@@ -6,15 +6,19 @@ See https://github.com/uhh-cms/tautauNN
 """
 
 from __future__ import annotations
-
+from collections.abc import Collection
 import functools
 
 import law
 
 from columnflow.production import Producer, producer
-from columnflow.production.util import attach_coffea_behavior, default_collections
-from columnflow.columnar_util import set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT
-from columnflow.util import maybe_import, dev_sandbox, InsertableDict, DotDict
+from columnflow.production.util import attach_coffea_behavior
+from columnflow.columnar_util import (
+    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections,
+    EMPTY_INT,
+)
+from columnflow.util import maybe_import, dev_sandbox, DotDict
+from columnflow.types import Any
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -24,6 +28,325 @@ logger = law.logger.get_logger(__name__)
 
 # helper function
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
+
+
+@producer(
+    uses=({
+        attach_coffea_behavior,
+        # custom columns created upstream, probably by a selector
+        "channel_id",
+        # nano columns
+        "event",
+        "Tau.{eta,phi,pt,mass,charge,decayMode}",
+        "Electron.{eta,phi,pt,mass,charge}",
+        "Muon.{eta,phi,pt,mass,charge}",
+        "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+        "FatJet.{eta,phi,pt,mass}",
+    }),
+    produces=({
+        "lepton{1,2}.*",
+        "bjet{1,2}.*",
+        "fatjet.*",
+        "htt.*",
+        "hbb.*",
+        "htthbb.*",
+        "year_flag",
+        "pair_type",
+        "has_jet_pair",
+        "has_fatjet",
+        "decay_mode{1,2}",
+    }),
+)
+def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
+    # ensure coffea behavior
+    events = self[attach_coffea_behavior](
+        events,
+        collections={"HHBJet": default_coffea_collections["Jet"]},
+        **kwargs,
+    )
+
+    # sanity masks for later usage
+    # has_jet_pair = ak.num(events.HHBJet) >= 2
+    # has_fatjet = ak.num(events.FatJet) >= 1
+
+    # define the pair type (KLUBs channel id)
+    pair_type = np.zeros(len(events), dtype=np.int32)
+    for channel_id, pair_type_id in self.channel_id_to_pair_type.items():
+        pair_type[events.channel_id == channel_id] = pair_type_id
+
+    # first extract Leptons
+    leptons: ak.Array = attach_behavior(
+        ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
+        type_name="Tau",
+    )
+
+    # get decay mode of first lepton (e, mu or tau)
+    tautau_mask = events.channel_id == self.config_inst.channels.n.tautau.id
+    dm1 = -1 * np.ones(len(events), dtype=np.int32)
+    if ak.any(tautau_mask):
+        dm1[tautau_mask] = events.Tau.decayMode[tautau_mask][:, 0]
+
+    # get decay mode of second lepton (also a tau, but position depends on channel)
+    leptau_mask = (
+        (events.channel_id == self.config_inst.channels.n.etau.id) |
+        (events.channel_id == self.config_inst.channels.n.mutau.id)
+    )
+    dm2 = -1 * np.ones(len(events), dtype=np.int32)
+    if ak.any(leptau_mask):
+        dm2[leptau_mask] = events.Tau.decayMode[leptau_mask][:, 0]
+    if ak.any(tautau_mask):
+        dm2[tautau_mask] = events.Tau.decayMode[tautau_mask][:, 1]
+
+    # the dnn treats dm 2 as 1, so we need to map it
+    dm1 = np.where(dm1 == 2, 1, dm1)
+    dm2 = np.where(dm2 == 2, 1, dm2)
+
+    # make sure to actually have two leptons
+    has_lepton_pair = ak.num(leptons, axis=1) >= 2
+    leptons = ak.mask(leptons, has_lepton_pair)
+    lep1, lep2 = leptons[:, 0], leptons[:, 1]
+
+    # whether the events is resolvede, boosted or neither
+    has_jet_pair = ak.num(events.HHBJet) >= 2
+    has_fatjet = ak.num(events.FatJet) >= 1
+
+    # before preparing the network inputs, define a mask of events which have caregorical features
+    # that are actually covered by the networks embedding layers; other events cannot be evaluated!
+    event_mask = (
+        np.isin(pair_type, self.embedding_expected_inputs["pair_type"]) &
+        np.isin(dm1, self.embedding_expected_inputs["decay_mode1"]) &
+        np.isin(dm2, self.embedding_expected_inputs["decay_mode2"]) &
+        np.isin(lep1.charge, self.embedding_expected_inputs["charge1"]) &
+        np.isin(lep2.charge, self.embedding_expected_inputs["charge2"]) &
+        (has_jet_pair | has_fatjet) &
+        (self.year_flag in self.embedding_expected_inputs["year"])
+    )
+    pair_type = ak.mask(pair_type, event_mask)
+    leptons = ak.mask(leptons, event_mask)
+    lep1, lep2 = leptons[:, 0], leptons[:, 1]
+    tautau_mask = ak.mask(tautau_mask, event_mask)
+    dm1, dm2 = ak.mask(dm1, event_mask), ak.mask(dm2, event_mask)
+    has_jet_pair, has_fatjet = ak.mask(has_jet_pair, event_mask), ak.mask(has_fatjet, event_mask)
+
+    # calculate phi of lepton system
+    phi_lep = np.arctan2(lep1.py + lep2.py, lep1.px + lep2.px)
+
+    def set_ak_column_nonull(events, name, values, placeholder, event_mask):
+        try:
+            arr = ak.ones_like(events.event, dtype=(np.int32 if placeholder == EMPTY_INT else np.float32)) * placeholder
+            arr = ak.fill_none(arr, placeholder, axis=0)
+            event_mask = ak.fill_none(event_mask, False, axis=0)
+            flat_np_view(arr)[event_mask] = values[event_mask]
+        except Exception as e:
+            from IPython import embed
+            embed(header=f"error when writing column {name}")
+            raise e
+        return set_ak_column(events, name, arr)
+
+    def save_rotated_momentum(
+        events: ak.Array,
+        array: ak.Array,
+        event_mask: ak.Array,
+        target_field: str,
+        additional_targets: Collection[str] | None = None,
+        placeholder: float | int = EMPTY_FLOAT,
+    ) -> ak.Array:
+        px, py = rotate_to_phi(phi_lep, array.px, array.py)
+        # save px and py
+        events = set_ak_column_nonull(events, f"{target_field}.px", px, placeholder=placeholder, event_mask=event_mask)
+        events = set_ak_column_nonull(events, f"{target_field}.py", py, placeholder=placeholder, event_mask=event_mask)
+
+        routes: set[str] = set()
+        if additional_targets is not None:
+            routes.update(additional_targets)
+        for field in routes:
+            events = set_ak_column_nonull(
+                events,
+                f"{target_field}.{field}",
+                getattr(array, field),
+                placeholder,
+                event_mask=event_mask,
+            )
+        return events
+
+    default_4momenta_cols: set[str] = set(("pz", "energy", "mass"))
+    events = save_rotated_momentum(
+        events,
+        lep1,
+        target_field="lepton1",
+        additional_targets=(default_4momenta_cols | {"charge"}),
+        event_mask=(event_mask & has_lepton_pair),
+    )
+    events = save_rotated_momentum(
+        events,
+        lep2,
+        target_field="lepton2",
+        additional_targets=(default_4momenta_cols | {"charge"}),
+        event_mask=(event_mask & has_lepton_pair),
+    )
+
+    # there might be less than two jets or no fatjet, so pad them
+    # bjets = ak.pad_none(_events.HHBJet, 2, axis=1)
+    # fatjet = ak.pad_none(_events.FatJet, 1, axis=1)[:, 0]
+
+    jet_columns = {"btagDeepFlavB", "hhbtag", "btagDeepFlavCvB", "btagDeepFlavCvL"} | default_4momenta_cols
+
+    bjet_events = ak.mask(events, has_jet_pair)
+    events = save_rotated_momentum(
+        events,
+        bjet_events.HHBJet[:, 0],
+        target_field="bjet1",
+        additional_targets=jet_columns,
+        event_mask=(event_mask & has_jet_pair),
+    )
+    events = save_rotated_momentum(
+        events,
+        bjet_events.HHBJet[:, 1],
+        target_field="bjet2",
+        additional_targets=jet_columns,
+        event_mask=(event_mask & has_jet_pair),
+    )
+    fatjet_events = ak.mask(events, has_fatjet)
+    # fatjet variables
+    events = save_rotated_momentum(
+        events,
+        fatjet_events.FatJet[:, 0],
+        target_field="fatjet",
+        additional_targets=default_4momenta_cols,
+        event_mask=(event_mask & has_fatjet),
+    )
+
+    # combine daus
+    events = save_rotated_momentum(
+        events,
+        leptons[:, :2].sum(axis=-1),
+        target_field="htt",
+        additional_targets=default_4momenta_cols,
+        event_mask=(event_mask & has_lepton_pair),
+    )
+    # combine bjets
+    events = save_rotated_momentum(
+        events,
+        events.HHBJet[:, :2].sum(axis=-1),
+        target_field="hbb",
+        additional_targets=default_4momenta_cols,
+        event_mask=(event_mask & has_jet_pair),
+    )
+
+    # htt + hbb
+    events = save_rotated_momentum(
+        events,
+        leptons[:, :2].sum(axis=-1) + events.HHBJet[:, :2].sum(axis=-1),
+        target_field="htthbb",
+        additional_targets=default_4momenta_cols,
+        event_mask=(event_mask & has_lepton_pair & has_jet_pair),
+    )
+    # MET variables
+    met_name = self.config_inst.x.met_name
+    _met = events[met_name]
+
+    events = save_rotated_momentum(
+        events,
+        _met,
+        target_field=f"rotated_{met_name}",
+        additional_targets={"covXX", "covXY", "covYY"},
+        event_mask=event_mask,
+    )
+    events = set_ak_column_nonull(
+        events,
+        "year_flag",
+        ak.ones_like(events.event) * self.year_flag,
+        EMPTY_INT,
+        event_mask=event_mask,
+    )
+    events = set_ak_column_nonull(
+        events,
+        "pair_type",
+        pair_type,
+        EMPTY_INT,
+        event_mask=event_mask,
+    )
+    events = set_ak_column_nonull(
+        events,
+        "has_jet_pair",
+        has_jet_pair,
+        False,
+        event_mask=event_mask,
+    )
+    events = set_ak_column_nonull(
+        events,
+        "has_fatjet",
+        has_fatjet,
+        False,
+        event_mask=event_mask,
+    )
+
+    events = set_ak_column_nonull(
+        events,
+        "decay_mode1",
+        dm1,
+        EMPTY_INT,
+        event_mask=(event_mask & tautau_mask),
+    )
+    events = set_ak_column_nonull(
+        events,
+        "decay_mode2",
+        dm2,
+        EMPTY_INT,
+        event_mask=(event_mask & (leptau_mask | tautau_mask)),
+    )
+    return events
+
+
+@res_net_preprocessing.setup
+def res_net_preprocessing_setup(
+    self: Producer,
+    task: law.Task,
+    reqs: dict[str, DotDict[str, Any]],
+    **kwargs,
+) -> None:
+    self.embedding_expected_inputs = {
+        "pair_type": [0, 1, 2],  # see mapping below
+        "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
+        "decay_mode2": [0, 1, 10, 11],
+        "charge1": [-1, 1],
+        "charge2": [-1, 1],
+        "is_boosted": [0, 1],  # whether a selected fatjet is present
+        "has_jet_pair": [0, 1],  # whether two or more jets are present
+        "spin": [0, 2],
+        # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
+        "year": [0, 1, 2, 3, 4, 5, 6, 7],
+    }
+    # our channel ids mapped to KLUB "pair_type"
+    self.channel_id_to_pair_type = {
+        # known during training
+        self.config_inst.channels.n.mutau.id: 0,
+        self.config_inst.channels.n.etau.id: 1,
+        self.config_inst.channels.n.tautau.id: 2,
+        # unknown during training
+        self.config_inst.channels.n.ee.id: 1,
+        self.config_inst.channels.n.mumu.id: 0,
+        self.config_inst.channels.n.emu.id: 1,
+    }
+
+    # define the year based on the incoming campaign
+    # (the training was done only for run 2, so map run 3 campaigns to 2018)
+    self.year_flag = {
+        (2016, "APV"): 0,
+        (2016, ""): 1,
+        (2017, ""): 2,
+        (2018, ""): 3,
+        (2022, ""): 4,
+        (2022, "EE"): 5,
+        (2023, ""): 6,
+        (2023, "BPix"): 7,
+    }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
+
+
+@res_net_preprocessing.init
+def res_net_preprocessing_init(self: Producer) -> None:
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
+    self.produces.add(f"rotated_{self.config_inst.x.met_name}.{{px,py,covXX,covXY,covYY}}")
 
 
 @producer(
@@ -37,8 +360,8 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "Electron.{eta,phi,pt,mass,charge}",
         "Muon.{eta,phi,pt,mass,charge}",
         "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
-        "MET.{pt,phi,covXX,covXY,covYY}",
         "FatJet.{eta,phi,pt,mass}",
+        # MET variables added in dynamic init,
     },
     # whether the model is parameterized in mass, spin and year
     # (this is a slight forward declaration but simplifies the code reasonably well in our use case)
@@ -63,12 +386,10 @@ def _res_dnn_evaluation(
     correct order can be found in the tautauNN repo:
     https://github.com/uhh-cms/tautauNN/blob/f1ca194/evaluation/interface.py#L67
     """
-    tf = maybe_import("tensorflow")
-
     # ensure coffea behavior
     events = self[attach_coffea_behavior](
         events,
-        collections={"HHBJet": default_collections["Jet"]},
+        collections={"HHBJet": default_coffea_collections["Jet"]},
         **kwargs,
     )
 
@@ -87,12 +408,19 @@ def _res_dnn_evaluation(
     # get decay mode of first lepton (e, mu or tau)
     tautau_mask = events.channel_id == self.config_inst.channels.n.tautau.id
     dm1 = -1 * np.ones(len(events), dtype=np.int32)
-    dm1[tautau_mask] = events.Tau.decayMode[tautau_mask][:, 0]
+    if ak.any(tautau_mask):
+        dm1[tautau_mask] = events.Tau.decayMode[tautau_mask][:, 0]
 
     # get decay mode of second lepton (also a tau, but position depends on channel)
-    dm2 = np.zeros(len(events), dtype=np.int32)
-    dm2[~tautau_mask] = events.Tau.decayMode[~tautau_mask][:, 0]
-    dm2[tautau_mask] = events.Tau.decayMode[tautau_mask][:, 1]
+    leptau_mask = (
+        (events.channel_id == self.config_inst.channels.n.etau.id) |
+        (events.channel_id == self.config_inst.channels.n.mutau.id)
+    )
+    dm2 = -1 * np.ones(len(events), dtype=np.int32)
+    if ak.any(leptau_mask):
+        dm2[leptau_mask] = events.Tau.decayMode[leptau_mask][:, 0]
+    if ak.any(tautau_mask):
+        dm2[tautau_mask] = events.Tau.decayMode[tautau_mask][:, 1]
 
     # the dnn treats dm 2 as 1, so we need to map it
     dm1 = np.where(dm1 == 2, 1, dm1)
@@ -202,17 +530,18 @@ def _res_dnn_evaluation(
     mask_values(~has_fatjet, 0.0, "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz")
 
     # MET variables
+    _met = _events[self.config_inst.x.met_name]
     f.met_px, f.met_py = rotate_to_phi(
         phi_lep,
-        _events.MET.pt * np.cos(_events.MET.phi),
-        _events.MET.pt * np.sin(_events.MET.phi),
+        _met.pt * np.cos(_met.phi),
+        _met.pt * np.sin(_met.phi),
     )
-    f.met_cov00, f.met_cov01, f.met_cov11 = _events.MET.covXX, _events.MET.covXY, _events.MET.covYY
+    f.met_cov00, f.met_cov01, f.met_cov11 = _met.covXX, _met.covXY, _met.covYY
 
     # build continous inputs
     # (order exactly as documented in link above)
     continous_inputs = [
-        t[..., None] for t in [
+        np.asarray(t[..., None], dtype=np.float32) for t in [
             f.met_px, f.met_py, f.met_cov00, f.met_cov01, f.met_cov11,
             f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
             f.vis_tau2_px, f.vis_tau2_py, f.vis_tau2_pz, f.vis_tau2_e,
@@ -231,7 +560,7 @@ def _res_dnn_evaluation(
     # build categorical inputs
     # (order exactly as documented in link above)
     categorical_inputs = [
-        t[..., None] for t in [
+        np.asarray(t[..., None], dtype=np.int32) for t in [
             pair_type,
             dm1, dm2,
             vis_tau1.charge, vis_tau2.charge,
@@ -242,10 +571,13 @@ def _res_dnn_evaluation(
     ]
 
     # evaluate the model
-    scores = self.res_model(
-        cont_input=tf.concat(continous_inputs, axis=1),
-        cat_input=tf.concat(categorical_inputs, axis=1),
-    )["hbt_ensemble"].numpy()
+    scores = self.evaluator(
+        "res",
+        inputs=[
+            np.concatenate(continous_inputs, axis=1),
+            np.concatenate(categorical_inputs, axis=1),
+        ],
+    )
 
     # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
     # so issue a warning and set them to a default value
@@ -263,26 +595,56 @@ def _res_dnn_evaluation(
         values[event_mask] = scores[:, i]
         events = set_ak_column_f32(events, column, values)
 
+    if self.config_inst.x.sync:
+        # store input columns for sync
+        cont_inputs_names = [
+            "met_px", "met_py", "met_cov00", "met_cov01", "met_cov11",
+            "vis_tau1_px", "vis_tau1_py", "vis_tau1_pz", "vis_tau1_e",
+            "vis_tau2_px", "vis_tau2_py", "vis_tau2_pz", "vis_tau2_e",
+            "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e", "bjet1_btag_df", "bjet1_cvsb", "bjet1_cvsl", "bjet1_hhbtag",
+            "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e", "bjet2_btag_df", "bjet2_cvsb", "bjet2_cvsl", "bjet2_hhbtag",
+            "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e",
+            "htt_e", "htt_px", "htt_py", "htt_pz",
+            "hbb_e", "hbb_px", "hbb_py", "hbb_pz",
+            "htthbb_e", "htthbb_px", "htthbb_py", "htthbb_pz",
+            "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz",
+        ]
+
+        cat_inputs_names = [
+            "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
+        ]
+        for column, values in zip(
+            cont_inputs_names + cat_inputs_names,
+            continous_inputs + categorical_inputs,
+        ):
+            values_placeholder = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
+            values_placeholder[event_mask] = ak.flatten(values)
+            events = set_ak_column_f32(events, "sync_res_dnn_" + column, values_placeholder)
     return events
 
 
+@_res_dnn_evaluation.init
+def _res_dnn_evaluation_init(self: Producer, **kwargs) -> None:
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
+
+
 @_res_dnn_evaluation.requires
-def _res_dnn_evaluation_requires(self: Producer, reqs: dict) -> None:
+def _res_dnn_evaluation_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     if "external_files" in reqs:
         return
 
     from columnflow.tasks.external import BundleExternalFiles
-    reqs["external_files"] = BundleExternalFiles.req(self.task)
+    reqs["external_files"] = BundleExternalFiles.req(task)
 
 
 @_res_dnn_evaluation.setup
 def _res_dnn_evaluation_setup(
     self: Producer,
-    reqs: dict,
-    inputs: dict,
-    reader_targets: InsertableDict,
+    task: law.Task,
+    reqs: dict[str, DotDict[str, Any]],
+    **kwargs,
 ) -> None:
-    tf = maybe_import("tensorflow")
+    from hbt.ml.tf_evaluator import TFEvaluator
 
     # some checks
     if not isinstance(self.parametrized, bool):
@@ -294,10 +656,9 @@ def _res_dnn_evaluation_setup(
     model_dir = bundle.files_dir.child(self.cls_name, type="d")
     getattr(bundle.files, self.cls_name).load(model_dir, formatter="tar")
 
-    # load the model
-    with self.task.publish_step(f"loading resonant model '{self.cls_name}' ..."):
-        saved_model = tf.saved_model.load(model_dir.child("model_fold0").abspath)
-        self.res_model = saved_model.signatures["serving_default"]
+    # setup the evaluator
+    self.evaluator = TFEvaluator()
+    self.evaluator.add_model("res", model_dir.child("model_fold0").abspath, signature_key="serving_default")
 
     # categorical values handled by the network
     # (names and values from training code that was aligned to KLUB notation)
@@ -315,9 +676,14 @@ def _res_dnn_evaluation_setup(
 
     # our channel ids mapped to KLUB "pair_type"
     self.channel_id_to_pair_type = {
+        # known during training
         self.config_inst.channels.n.mutau.id: 0,
         self.config_inst.channels.n.etau.id: 1,
         self.config_inst.channels.n.tautau.id: 2,
+        # unknown during training
+        self.config_inst.channels.n.ee.id: 1,
+        self.config_inst.channels.n.mumu.id: 0,
+        self.config_inst.channels.n.emu.id: 1,
     }
 
     # define the year based on the incoming campaign
@@ -332,6 +698,18 @@ def _res_dnn_evaluation_setup(
         (2023, ""): 3,
         (2023, "BPix"): 3,
     }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
+
+    # start the evaluator
+    self.evaluator.start()
+
+
+@_res_dnn_evaluation.teardown
+def _res_dnn_evaluation_teardown(self: Producer, **kwargs) -> None:
+    """
+    Stops the TF evaluator.
+    """
+    if (evaluator := getattr(self, "evaluator", None)) is not None:
+        evaluator.stop()
 
 
 #
@@ -348,7 +726,9 @@ res_pdnn = _res_dnn_evaluation.derive("res_pdnn", cls_dict={
 
 
 @res_pdnn.init
-def res_pdnn_init(self: Producer) -> None:
+def res_pdnn_init(self: Producer, **kwargs) -> None:
+    super(res_pdnn, self).init_func(**kwargs)
+
     # check spin value and mass values
     if self.spin not in {0, 2}:
         raise ValueError(f"invalid spin value: {self.spin}")
@@ -377,7 +757,9 @@ res_dnn = _res_dnn_evaluation.derive("res_dnn", cls_dict={
 
 
 @res_dnn.init
-def res_dnn_init(self: Producer) -> None:
+def res_dnn_init(self: Producer, **kwargs) -> None:
+    super(res_dnn, self).init_func(**kwargs)
+
     # output column names (in this order)
     self.output_columns = [
         f"res_dnn_{name}"
@@ -386,6 +768,8 @@ def res_dnn_init(self: Producer) -> None:
 
     # update produced columns
     self.produces |= set(self.output_columns)
+    if self.config_inst.x.sync:
+        self.produces.add("sync_*")
 
 
 #

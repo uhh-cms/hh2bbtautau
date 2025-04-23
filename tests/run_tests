@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+# Script that runs all unit tests.
+
+action() {
+    local shell_is_zsh=$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )
+    local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+    local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
+    local cf_dir="${CF_BASE}"
+
+    # dev flag for sandboxes
+    local dev="$( ${CF_DEV} && echo "_dev" || echo "" )"
+
+    # start tests and keep track of immediate and global return values
+    local gret="0"
+    local ret
+
+    # test_columnar_util
+    echo
+    bash "${this_dir}/run_test" test_torch_util "${HBT_BASE}/sandboxes/venv_columnar_torch${dev}.sh"
+    ret="$?"
+    [ "${gret}" = "0" ] && gret="${ret}"
+
+    return "${gret}"
+}
+action "$@"

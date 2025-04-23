@@ -1,4 +1,4 @@
-# version 1
+# version 3
 
 -r ../modules/columnflow/sandboxes/columnar.txt
 
@@ -6,3 +6,6 @@ torch~=2.5.1
 lightning~=2.4.0
 torchmetrics~=1.6.0
 tensorboard
+torchdata~=0.10
+pytorch-ignite~=0.5.1
+scikit-learn~=1.6.1

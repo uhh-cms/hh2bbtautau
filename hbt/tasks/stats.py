@@ -9,7 +9,6 @@ import functools
 import law
 
 from columnflow.tasks.framework.base import ConfigTask
-from columnflow.util import dev_sandbox
 
 from hbt.tasks.base import HBTTask
 from hbt.tasks.parameters import table_format_param
@@ -17,12 +16,12 @@ from hbt.tasks.parameters import table_format_param
 
 class ListDatasetStats(HBTTask, ConfigTask, law.tasks.RunOnceTask):
 
+    single_config = True
+
     table_format = table_format_param
 
     # no version required
     version = None
-
-    sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
 
     def run(self):
         import tabulate
@@ -82,6 +81,15 @@ class ListDatasetStats(HBTTask, ConfigTask, law.tasks.RunOnceTask):
                 # increment sums
                 sum_files_b_syst += info.n_files
                 sum_events_b_syst += info.n_events
+        # overall
+        sum_files_all = (
+            sum_files_s_nonres + sum_files_s_res + sum_files_b_nom + sum_files_b_syst +
+            sum_files_data
+        )
+        sum_events_all = (
+            sum_events_s_nonres + sum_events_s_res + sum_events_b_nom + sum_events_b_syst +
+            sum_events_data
+        )
 
         # sums
         rows.append([bright("total signal (non-res.)"), sum_files_s_nonres, sum_events_s_nonres])
@@ -91,6 +99,8 @@ class ListDatasetStats(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             rows.append([bright("total background (syst.)"), sum_files_b_syst, sum_events_b_syst])
         if sum_files_data or sum_events_data:
             rows.append([bright("total data"), sum_files_data, sum_events_data])
+        if sum_files_all or sum_events_all:
+            rows.append([bright("total"), sum_files_all, sum_events_all])
 
         # print the table
         table = tabulate.tabulate(rows, headers=headers, tablefmt=self.table_format, intfmt="_")
