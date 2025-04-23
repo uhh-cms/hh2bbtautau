@@ -312,14 +312,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             results[proc] = h_new
         return results
 
-    def factor_shape(
+    def factor_shape_per_config(
         task: law.Task,
         config_inst: od.Config,
         hists: dict[od.Process, Any],
         perbin: bool = False,
-        method_I: bool = False,
+        method_I: bool = True,
         qcd_shape: bool = False,
-        is_validation: bool = True,
+        is_validation: bool = False,
         return_hists: bool = True,
         iso_tag_name: str = "iso",
         noniso_tag_name: str = "noniso",
@@ -526,6 +526,16 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         else:
             return factor_int, factor_int_variances, int_num, int_den
 
+    def factor_shape(
+        task: law.Task,
+        config_inst: od.Config,
+        hists: dict[od.Config, dict[od.Process, Any]],
+    ) -> dict[od.Config, dict[od.Process, Any]]:
+        return {
+            config_inst: factor_shape_per_config(task, config_inst, hists[config_inst])
+            for config_inst in hists.keys()
+        }
+
     def get_WP_factors(
         task: law.Task,
         config_inst: od.Config,
@@ -693,9 +703,9 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         #           channel_id = group[region_name].id
         #           print(group[region_name])
         #           channels_id.append(channel_id)
-        #        get_hist = lambda h, region_name: h[{"category": hist.loc(id) for id in channels_id}].sum("category")  #noqa: E501
+        #        get_hist = lambda h, region_name: h[{"category": hist.loc(id) for id in channels_id}].sum("category")
 
-        # calculate the qcd estimation for a sing decay channels in a specific kinematic region
+        # calculate the qcd estimation for a single decay channels in a specific kinematic region
         for group_name in complete_groups:
             if (all_channels is False and group_name == f"{channel}__{kin_region}"):
                 group = qcd_groups[group_name]
