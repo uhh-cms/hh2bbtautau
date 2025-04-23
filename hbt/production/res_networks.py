@@ -55,6 +55,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "has_jet_pair",
         "has_fatjet",
         "decay_mode{1,2}",
+        "charge{1,2}",
     }),
 )
 def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
@@ -295,6 +296,21 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         EMPTY_INT,
         event_mask=(event_mask & (leptau_mask | tautau_mask)),
     )
+
+    events = set_ak_column_nonull(
+        events,
+        "charge1",
+        dm1,
+        EMPTY_INT,
+        event_mask=(event_mask & tautau_mask),
+    )
+    events = set_ak_column_nonull(
+        events,
+        "charge2",
+        dm2,
+        EMPTY_INT,
+        event_mask=(event_mask & (leptau_mask | tautau_mask)),
+    )
     return events
 
 
@@ -305,18 +321,8 @@ def res_net_preprocessing_setup(
     reqs: dict[str, DotDict[str, Any]],
     **kwargs,
 ) -> None:
-    self.embedding_expected_inputs = {
-        "pair_type": [0, 1, 2],  # see mapping below
-        "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
-        "decay_mode2": [0, 1, 10, 11],
-        "charge1": [-1, 1],
-        "charge2": [-1, 1],
-        "is_boosted": [0, 1],  # whether a selected fatjet is present
-        "has_jet_pair": [0, 1],  # whether two or more jets are present
-        "spin": [0, 2],
-        # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
-        "year": [0, 1, 2, 3, 4, 5, 6, 7],
-    }
+    from hbt.ml.torch_utils.utils import embedding_expected_inputs
+    self.embedding_expected_inputs = embedding_expected_inputs
     # our channel ids mapped to KLUB "pair_type"
     self.channel_id_to_pair_type = {
         # known during training

@@ -13,6 +13,18 @@ ignite = maybe_import("ignite")
 torch = maybe_import("torch")
 np = maybe_import("numpy")
 
+embedding_expected_inputs = {
+    "pair_type": [0, 1, 2],  # see mapping below
+    "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
+    "decay_mode2": [0, 1, 10, 11],
+    "charge1": [-1, 1],
+    "charge2": [-1, 1],
+    "has_fatjet": [0, 1],  # whether a selected fatjet is present
+    "has_jet_pair": [0, 1],  # whether two or more jets are present
+    # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
+    "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
+}
+
 
 def reorganize_list_idx(entries):
     first = entries[0]
@@ -135,20 +147,20 @@ if not isinstance(ignite, MockModule):
 if not any(isinstance(module, MockModule) for module in (torch, np)):
     import torch.nn as nn
 
-    def LookUpTable(array: np.ndarray, EMPTY=EMPTY_INT):
+    def LookUpTable(array: torch.Tensor, EMPTY=EMPTY_INT):
         """Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
         Empty values are replaced with *EMPTY*.
 
         Args:
-            array (np.ndarray): 2D array of categories.
+            array (torch.Tensor): 2D array of categories.
             EMPTY (int, optional): Replacement value if empty. Defaults to columnflow EMPTY_INT.
 
         Returns:
-            tuple([np.ndarray]): Returns minimum and LookUpTable
+            tuple([torch.Tensor]): Returns minimum and LookUpTable
         """
         # shift input by minimum, pushing the categories to the valid indice space
-        minimum = array.min(dim=0)[0]
-        indice_array = array - minimum
+        minimum = array.min(axis=-1).values
+        indice_array = array - minimum.reshape(-1, 1)
         upper_bound = torch.max(indice_array) + 1
 
         # warn for big categories
@@ -166,7 +178,7 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
 
         stride = 0
         # transpose from event to feature loop
-        for feature_idx, feature in enumerate(indice_array.transpose(0, 1)):
+        for feature_idx, feature in enumerate(indice_array):
             unique = torch.unique(feature, dim=None)
             mapping_array[feature_idx, unique] = torch.arange(
                 stride, stride + len(unique),
@@ -190,6 +202,10 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
             self.map = translation
             self.min = minimum
             self.indices = torch.arange(len(minimum))
+
+        @property
+        def num_dim(self):
+            return self.map.shape[-1]
 
         def forward(self, x):
             # shift input array by their respective minimum and slice translation accordingly

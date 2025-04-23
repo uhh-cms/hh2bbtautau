@@ -31,6 +31,9 @@ if not isinstance(torch, MockModule):
         FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler,
         WeightedFlatListRowgroupParquetFileHandler,
     )
+    from hbt.ml.torch_utils.utils import (
+        embedding_expected_inputs, LookUpTable, CategoricalTokenizer,
+    )
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
 
     class NetworkBase(nn.Module):
@@ -145,12 +148,14 @@ if not isinstance(torch, MockModule):
             )
             self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
 
-        def _handle_input(self, x):
+        def _handle_input(self, x, feature_list: set[str] | None = None):
+            if not feature_list:
+                feature_list = self.inputs
             input_data = x
             if isinstance(x, dict):
                 input_data: torch.Tensor = torch.cat([
                     val.reshape(-1, 1) for key, val in x.items()
-                    if key in [str(r) for r in self.inputs]],
+                    if key in [str(r) for r in sorted(feature_list)]],
                     axis=-1,
                 )
             # check for dummy values
@@ -349,6 +354,85 @@ if not isinstance(torch, MockModule):
 
             # self.max_val_epoch_length = self._calculate_max_epoch_length(self.validation_loader)
 
+    class WeightedResNet(WeightedFeedForwardMultiCls):
+        def __init__(
+            self,
+            *args,
+            **kwargs,
+        ):
+            super().__init__(*args, **kwargs)
+            self.floating_inputs = sorted(self.inputs)
+            n_floating_inputs = len(self.inputs)
+            self.categorical_inputs = sorted({
+                "pair_type",
+                "decay_mode1",
+                "decay_mode2",
+                "charge1",
+                "charge2",
+                "is_boosted",
+                "has_jet_pair",
+                "spin",
+                "year",
+            })
+
+            # update list of inputs
+            self.inputs |= set(self.categorical_inputs)
+            local_max = max([len(embedding_expected_inputs[x]) for x in self.categorical_inputs])
+
+            array = torch.stack(
+                [
+                    nn.functional.pad(
+                        torch.tensor(embedding_expected_inputs[x]),
+                        (0, local_max - len(embedding_expected_inputs[x])),
+                        mode="constant",
+                        value=0,
+                    )
+                    for x in self.categorical_inputs
+                ],
+            )
+            self.min, self.look_up_table = LookUpTable(array)
+            self.tokenizer = CategoricalTokenizer(
+                self.look_up_table,
+                self.min,
+            )
+
+            self.embeddings = torch.nn.Embedding(
+                self.tokenizer.num_dim,
+                50,
+            ),
+
+            self.floating_layer = nn.BatchNorm1d(n_floating_inputs)
+            self.linear_relu_stack = nn.Sequential(
+                nn.Linear(n_floating_inputs + 50, 512),
+                nn.ReLU(),
+                nn.BatchNorm1d(512),
+                nn.Linear(512, 1024),
+                nn.ReLU(),
+                nn.BatchNorm1d(1024),
+                nn.Linear(1024, 512),
+                nn.ReLU(),
+            )
+
+        def forward(self, x):
+            floating_inputs = self._handle_input(x, self.floating_inputs)
+
+            categorical_inputs = self._handle_input(x, self.categorical_inputs)
+
+            normed_floating_inputs = self.floating_layer(floating_inputs.to(torch.float32))
+
+            tokenized_inputs = self.tokenizer(categorical_inputs)
+            # tokenize categorical inputs
+
+
+            # embed categorical inputs
+            cat_inputs = self.embeddings(tokenized_inputs)
+
+            # concatenate with other inputs
+            input_data = torch.cat([normed_floating_inputs, cat_inputs], axis=-1)
+            logits = self.linear_relu_stack(input_data.to(torch.float32))
+            return logits
+
+
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -388,9 +472,61 @@ if not isinstance(torch, MockModule):
             logits = self.linear_relu_stack2(logits)
             return logits
 
+    class ResNet(
+        IgniteEarlyStoppingMixin,
+        IgniteTrainingMixin,
+        NetworkBase,
+    ):
+        def __init__(
+            self,
+            *args,
+            tensorboard_path: str | None = None, logger: Any | None = None,
+            task: law.Task,
+            **kwargs,
+        ):
+            super().__init__(*args, tensorboard_path=tensorboard_path, logger=logger, **task.param_kwargs, **kwargs)
+
+            cat_inputs = []
+
+            columns = [
+                "lepton1.{px,py,pz,energy,mass}",
+                "lepton2.{px,py,pz,energy,mass}",
+                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+                "fatjet.{px,py,pz,energy,mass}",
+            ]
+            self.inputs = set()
+            self.inputs.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+
+            self.linear_relu_stack = nn.Sequential(
+                nn.BatchNorm1d(len(self.inputs)),
+                nn.Linear(len(self.inputs), 512),
+                nn.ReLU(),
+                nn.BatchNorm1d(512),
+                nn.Linear(512, 1024),
+                nn.ReLU(),
+                nn.BatchNorm1d(1024),
+                nn.Linear(1024, 512),
+                nn.ReLU(),
+                nn.Linear(512, 1),
+                nn.Sigmoid(),
+            )
+
+            self.logger.info("Constructing loss and optimizer")
+            self._loss_fn = nn.BCELoss()
+            self.validation_metrics = {
+                "loss": Loss(self.loss_fn),
+                "roc_auc": ROC_AUC(),
+            }
+
+
+
+
     model_clss["feedforward"] = FeedForwardNet
     model_clss["feedforward_arrow"] = FeedForwardArrow
     model_clss["feedforward_multicls"] = FeedForwardMultiCls
     model_clss["weighted_feedforward_multicls"] = WeightedFeedForwardMultiCls
     model_clss["deepfeedforward_multicls"] = DeepFeedForwardMultiCls
     model_clss["feedforward_dropout"] = DropoutFeedForwardNet
+    model_clss["resnet"] = ResNet
+    model_clss["weighted_resnet"] = WeightedResNet
