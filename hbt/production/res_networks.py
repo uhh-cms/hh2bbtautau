@@ -120,7 +120,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         np.isin(lep1.charge, self.embedding_expected_inputs["charge1"]) &
         np.isin(lep2.charge, self.embedding_expected_inputs["charge2"]) &
         (has_jet_pair | has_fatjet) &
-        (self.year_flag in self.embedding_expected_inputs["year"])
+        (self.year_flag in self.embedding_expected_inputs["year_flag"])
     )
     pair_type = ak.mask(pair_type, event_mask)
     leptons = ak.mask(leptons, event_mask)
@@ -445,7 +445,7 @@ def _res_dnn_evaluation(
         np.isin(vis_tau1.charge, self.embedding_expected_inputs["charge1"]) &
         np.isin(vis_tau2.charge, self.embedding_expected_inputs["charge2"]) &
         (has_jet_pair | has_fatjet) &
-        (self.year_flag in self.embedding_expected_inputs["year"])
+        (self.year_flag in self.embedding_expected_inputs["year_flag"])
     )
 
     # apply to all arrays needed until now
