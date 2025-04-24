@@ -152,7 +152,7 @@ if not isinstance(torch, MockModule):
 
         def _handle_input(
             self,
-            x,
+            x: dict[str, torch.Tensor],
             feature_list: Container[str] | None = None,
             empty_int_val: int = -10,
             empty_float_val: float = -10,
@@ -161,10 +161,10 @@ if not isinstance(torch, MockModule):
             if not feature_list:
                 feature_list = self.inputs
             input_data = x
+
             if isinstance(x, dict):
                 input_data: torch.Tensor = torch.cat([
-                    val.reshape(-1, 1) for key, val in x.items()
-                    if key in [str(r) for r in sorted(feature_list)]],
+                    x[str(key)].reshape(-1, 1) for key in sorted(feature_list)],
                     axis=-1,
                 )
             # check for dummy values
