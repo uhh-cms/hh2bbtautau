@@ -8,6 +8,8 @@ from functools import partial
 
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import Any
+from collections.abc import Container
+
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 
 from hbt.ml.torch_utils.functions import get_one_hot, WeightedCrossEntropyLoss
@@ -148,7 +150,14 @@ if not isinstance(torch, MockModule):
             )
             self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
 
-        def _handle_input(self, x, feature_list: set[str] | None = None, dtype=torch.float32):
+        def _handle_input(
+            self,
+            x,
+            feature_list: Container[str] | None = None,
+            empty_int_val: int = -10,
+            empty_float_val: float = -10,
+            dtype=torch.float32,
+        ):
             if not feature_list:
                 feature_list = self.inputs
             input_data = x
@@ -160,8 +169,9 @@ if not isinstance(torch, MockModule):
                 )
             # check for dummy values
             empty_float = input_data == EMPTY_FLOAT
+            input_data[empty_float] = empty_float_val
             empty_int = input_data == EMPTY_INT
-            input_data[empty_float | empty_int] = 0
+            input_data[empty_int] = empty_int_val
             return input_data.to(dtype)
 
         def forward(self, x):
