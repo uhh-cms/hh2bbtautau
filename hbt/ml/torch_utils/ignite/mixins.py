@@ -82,7 +82,7 @@ if not isinstance(ignite, MockModule):
                     self.log_results,
                     evaluator=self.train_evaluator,
                     data_loader=self.training_loader.data_loader,
-                    max_epoch_length=self.max_epoch_length,
+                    max_epoch_length=self.max_val_epoch_length,
                     mode="training",
                 ),
             )
