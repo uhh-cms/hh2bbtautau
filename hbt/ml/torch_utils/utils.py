@@ -17,8 +17,8 @@ embedding_expected_inputs = {
     "pair_type": [0, 1, 2],  # see mapping below
     "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
     "decay_mode2": [0, 1, 10, 11],
-    "charge1": [-1, 1],
-    "charge2": [-1, 1],
+    "lepton1.charge": [-1, 1],
+    "lepton2.charge": [-1, 1],
     "has_fatjet": [0, 1],  # whether a selected fatjet is present
     "has_jet_pair": [0, 1],  # whether two or more jets are present
     # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
@@ -147,7 +147,7 @@ if not isinstance(ignite, MockModule):
 if not any(isinstance(module, MockModule) for module in (torch, np)):
     import torch.nn as nn
 
-    def LookUpTable(array: torch.Tensor, EMPTY=EMPTY_INT):
+    def LookUpTable(array: torch.Tensor, EMPTY=EMPTY_INT, placeholder: int = 15):
         """Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
         Empty values are replaced with *EMPTY*.
 
@@ -158,6 +158,8 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
         Returns:
             tuple([torch.Tensor]): Returns minimum and LookUpTable
         """
+        # add placeholder value to array
+        array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1)
         # shift input by minimum, pushing the categories to the valid indice space
         minimum = array.min(axis=-1).values
         indice_array = array - minimum.reshape(-1, 1)
@@ -205,7 +207,7 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
 
         @property
         def num_dim(self):
-            return torch.max(self.map)
+            return torch.max(self.map) + 1
 
         def forward(self, x):
             # shift input array by their respective minimum and slice translation accordingly
