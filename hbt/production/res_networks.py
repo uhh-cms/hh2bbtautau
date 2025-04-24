@@ -117,8 +117,8 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         np.isin(pair_type, self.embedding_expected_inputs["pair_type"]) &
         np.isin(dm1, self.embedding_expected_inputs["decay_mode1"]) &
         np.isin(dm2, self.embedding_expected_inputs["decay_mode2"]) &
-        np.isin(lep1.charge, self.embedding_expected_inputs["charge1"]) &
-        np.isin(lep2.charge, self.embedding_expected_inputs["charge2"]) &
+        np.isin(lep1.charge, self.embedding_expected_inputs["lepton1.charge"]) &
+        np.isin(lep2.charge, self.embedding_expected_inputs["lepton2.charge"]) &
         (has_jet_pair | has_fatjet) &
         (self.year_flag in self.embedding_expected_inputs["year_flag"])
     )
@@ -297,20 +297,6 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         event_mask=(event_mask & (leptau_mask | tautau_mask)),
     )
 
-    events = set_ak_column_nonull(
-        events,
-        "charge1",
-        dm1,
-        EMPTY_INT,
-        event_mask=(event_mask & tautau_mask),
-    )
-    events = set_ak_column_nonull(
-        events,
-        "charge2",
-        dm2,
-        EMPTY_INT,
-        event_mask=(event_mask & (leptau_mask | tautau_mask)),
-    )
     return events
 
 
