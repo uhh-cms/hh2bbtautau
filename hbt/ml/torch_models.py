@@ -384,7 +384,8 @@ if not isinstance(torch, MockModule):
                         torch.tensor(embedding_expected_inputs[x]),
                         (0, local_max - len(embedding_expected_inputs[x])),
                         mode="constant",
-                        value=0,
+                        # pad with a value that exists in the embedding
+                        value=embedding_expected_inputs[x][0],
                     )
                     for x in self.categorical_inputs
                 ],
