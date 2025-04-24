@@ -30,7 +30,7 @@ class CategoricalTokenizer_New(nn.Module):
         self.map, self.min = self.LookUpTable(
             self.prepare_mapping(
                 categories=categories,
-                expected_categorical_inputs=expected_categorical_inputs
+                expected_categorical_inputs=expected_categorical_inputs,
             ), placeholder=placeholder)
 
         self.indices = torch.arange(len(self.min))
@@ -114,13 +114,13 @@ class CategoricalTokenizer_New(nn.Module):
         return super().to(*args, **kwargs)
 
 
-class MyEmbeddingLayer(nn.Module):
+class CatEmbeddingLayer(nn.Module):
     def __init__(
         self,
         embedding_dim: int,
         categories: tuple[str],
         expected_categorical_inputs: dict[list[int]],
-        placeholder: int = 15
+        placeholder: int = 15,
     ):
         """
         Initializes the categorical feature interface with a tokenizer and an embedding layer.
