@@ -480,7 +480,7 @@ def tautau_trigger_weight(
         # jet efficiencies
         # make jet efficiencies to event level quantity
         # there should be only one such efficiency for the tautaujet trigger
-        ttj_tau_data_effs = ak.prod(events[f"jet_trigger_eff_data_{direction}"], axis=1, mask_identity=False)
+        ttj_jet_data_effs = ak.prod(events[f"jet_trigger_eff_data_{direction}"], axis=1, mask_identity=False)
         ttj_jet_mc_effs = ak.prod(events[f"jet_trigger_eff_mc_{direction}"], axis=1, mask_identity=False)
 
         trigger_weight = create_trigger_weight(
@@ -489,7 +489,7 @@ def tautau_trigger_weight(
             tt_mc_effs,
             ttj_tau_data_effs,
             ttj_tau_mc_effs,
-            ttj_tau_data_effs,
+            ttj_jet_data_effs,
             ttj_jet_mc_effs,
             channel=channel,
             first_trigger_matched=tt_triggered,
@@ -502,7 +502,7 @@ def tautau_trigger_weight(
         # jet efficiencies
         # make jet efficiencies to event level quantity
         # there should be only one such efficiency for the tautaujet trigger
-        ttj_tau_data_effs = ak.prod(events.jet_trigger_eff_data, axis=1, mask_identity=False)
+        ttj_jet_data_effs = ak.prod(events.jet_trigger_eff_data, axis=1, mask_identity=False)
         ttj_jet_mc_effs = ak.prod(events.jet_trigger_eff_mc, axis=1, mask_identity=False)
 
         for dm in [0, 1, 10, 11]:
@@ -512,7 +512,7 @@ def tautau_trigger_weight(
                 ak.prod(events[f"tau_trigger_eff_mc_tautau_dm{dm}_{direction}"], axis=1, mask_identity=False),
                 ak.prod(events[f"tau_trigger_eff_data_tautaujet_dm{dm}_{direction}"], axis=1, mask_identity=False),
                 ak.prod(events[f"tau_trigger_eff_mc_tautaujet_dm{dm}_{direction}"], axis=1, mask_identity=False),
-                ttj_tau_data_effs,
+                ttj_jet_data_effs,
                 ttj_jet_mc_effs,
                 channel=channel,
                 first_trigger_matched=tt_triggered,
