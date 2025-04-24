@@ -148,7 +148,7 @@ if not isinstance(torch, MockModule):
             )
             self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
 
-        def _handle_input(self, x, feature_list: set[str] | None = None):
+        def _handle_input(self, x, feature_list: set[str] | None = None, dtype=torch.float32):
             if not feature_list:
                 feature_list = self.inputs
             input_data = x
@@ -162,11 +162,11 @@ if not isinstance(torch, MockModule):
             empty_float = input_data == EMPTY_FLOAT
             empty_int = input_data == EMPTY_INT
             input_data[empty_float | empty_int] = 0
-            return input_data
+            return input_data.to(dtype)
 
         def forward(self, x):
             input_data = self._handle_input(x)
-            logits = self.linear_relu_stack(input_data.to(torch.float32))
+            logits = self.linear_relu_stack(input_data)
             return logits
 
     class DropoutFeedForwardNet(FeedForwardNet):
@@ -369,10 +369,9 @@ if not isinstance(torch, MockModule):
                 "decay_mode2",
                 "charge1",
                 "charge2",
-                "is_boosted",
+                "has_fatjet",
                 "has_jet_pair",
-                "spin",
-                "year",
+                "year_flag",
             })
 
             # update list of inputs
@@ -399,7 +398,7 @@ if not isinstance(torch, MockModule):
             self.embeddings = torch.nn.Embedding(
                 self.tokenizer.num_dim,
                 50,
-            ),
+            )
 
             self.floating_layer = nn.BatchNorm1d(n_floating_inputs)
             self.linear_relu_stack = nn.Sequential(
@@ -416,22 +415,26 @@ if not isinstance(torch, MockModule):
         def forward(self, x):
             floating_inputs = self._handle_input(x, self.floating_inputs)
 
-            categorical_inputs = self._handle_input(x, self.categorical_inputs)
+            categorical_inputs = self._handle_input(x, self.categorical_inputs, dtype=torch.int32)
 
-            normed_floating_inputs = self.floating_layer(floating_inputs.to(torch.float32))
+            normed_floating_inputs = self.floating_layer(floating_inputs)
 
             tokenized_inputs = self.tokenizer(categorical_inputs)
             # tokenize categorical inputs
-
 
             # embed categorical inputs
             cat_inputs = self.embeddings(tokenized_inputs)
 
             # concatenate with other inputs
-            input_data = torch.cat([normed_floating_inputs, cat_inputs], axis=-1)
-            logits = self.linear_relu_stack(input_data.to(torch.float32))
+            from IPython import embed
+            embed(header=f"cat_inputs: {cat_inputs.shape}, normed_floating_inputs: {normed_floating_inputs.shape}")
+            input_data = torch.cat([normed_floating_inputs, cat_inputs], axis=-1).to(torch.float32)
+            logits = self.linear_relu_stack(input_data)
             return logits
 
+        def to(self, *args, **kwargs):
+            self.tokenizer = self.tokenizer.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):

@@ -205,11 +205,18 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
 
         @property
         def num_dim(self):
-            return self.map.shape[-1]
+            return torch.max(self.map)
 
         def forward(self, x):
             # shift input array by their respective minimum and slice translation accordingly
             return self.map[self.indices, x - self.min]
+
+        def to(self, *args, **kwargs):
+            # make sure to move the translation array to the same device as the input
+            self.map = self.map.to(*args, **kwargs)
+            self.min = self.min.to(*args, **kwargs)
+            self.indices = self.indices.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
     def test_(print_comparions=False):
         def prepare_data():
