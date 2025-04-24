@@ -506,6 +506,18 @@ if not isinstance(torchdata, MockModule):
                 # otherwise, build from metadata
                 self._allowed_rowgroups = set(range(self.meta_data["num_row_groups"]))
 
+        def __len__(self):
+            length: int = 0
+            if self._data is not None:
+                length = len(self._data)
+            elif self.meta_data and self.meta_data.get("col_counts", None):
+                # only consider allowed rowgroups
+                col_counts = np.array(self.meta_data["col_counts"])
+                length = sum(col_counts[list(self._allowed_rowgroups)])
+            else:
+                length = len(self.data)
+            return length
+
         @property
         def current_rowgroups(self) -> set[int]:
             return self._current_rowgroups
