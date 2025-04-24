@@ -154,8 +154,8 @@ if not isinstance(torch, MockModule):
             self,
             x: dict[str, torch.Tensor],
             feature_list: Container[str] | None = None,
-            empty_int_val: int = -10,
-            empty_float_val: float = -10,
+            mask_value: int | float = EMPTY_FLOAT,
+            empty_fill_val: float = -10,
             dtype=torch.float32,
         ):
             if not feature_list:
@@ -168,10 +168,8 @@ if not isinstance(torch, MockModule):
                     axis=-1,
                 )
             # check for dummy values
-            empty_float = input_data == EMPTY_FLOAT
-            input_data[empty_float] = empty_float_val
-            empty_int = input_data == EMPTY_INT
-            input_data[empty_int] = empty_int_val
+            empty_mask = input_data == mask_value
+            input_data[empty_mask] = empty_fill_val
             return input_data.to(dtype)
 
         def forward(self, x):
@@ -362,7 +360,9 @@ if not isinstance(torch, MockModule):
             self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets()  # noqa
             self.max_epoch_length = self._calculate_max_epoch_length(self.training_loader)
 
-            # self.max_val_epoch_length = self._calculate_max_epoch_length(self.validation_loader)
+            dm = self.validation_loader.data_map
+            batcher = self.validation_loader.batcher
+            self.max_val_epoch_length = np.ceil(sum(map(len, dm)) / batcher.batch_size)
 
     class WeightedResNet(WeightedFeedForwardMultiCls):
         def __init__(
@@ -377,8 +377,8 @@ if not isinstance(torch, MockModule):
                 "pair_type",
                 "decay_mode1",
                 "decay_mode2",
-                "charge1",
-                "charge2",
+                "lepton1.charge",
+                "lepton2.charge",
                 "has_fatjet",
                 "has_jet_pair",
                 "year_flag",
@@ -387,7 +387,7 @@ if not isinstance(torch, MockModule):
             # update list of inputs
             self.inputs |= set(self.categorical_inputs)
             local_max = max([len(embedding_expected_inputs[x]) for x in self.categorical_inputs])
-
+            self.placeholder = 15
             array = torch.stack(
                 [
                     nn.functional.pad(
@@ -400,7 +400,7 @@ if not isinstance(torch, MockModule):
                     for x in self.categorical_inputs
                 ],
             )
-            self.min, self.look_up_table = LookUpTable(array)
+            self.min, self.look_up_table = LookUpTable(array, placeholder=self.placeholder)
             self.tokenizer = CategoricalTokenizer(
                 self.look_up_table,
                 self.min,
@@ -413,7 +413,7 @@ if not isinstance(torch, MockModule):
 
             self.floating_layer = nn.BatchNorm1d(n_floating_inputs)
             self.linear_relu_stack = nn.Sequential(
-                nn.Linear(n_floating_inputs + 50, 512),
+                nn.Linear(n_floating_inputs + len(self.categorical_inputs) * 50, 512),
                 nn.ReLU(),
                 nn.BatchNorm1d(512),
                 nn.Linear(512, 1024),
@@ -421,25 +421,32 @@ if not isinstance(torch, MockModule):
                 nn.BatchNorm1d(1024),
                 nn.Linear(1024, 512),
                 nn.ReLU(),
+                nn.Linear(512, 3),
             )
 
         def forward(self, x):
             floating_inputs = self._handle_input(x, self.floating_inputs)
 
-            categorical_inputs = self._handle_input(x, self.categorical_inputs, dtype=torch.int32)
+            categorical_inputs = self._handle_input(
+                x,
+                self.categorical_inputs,
+                dtype=torch.int32,
+                empty_fill_val=self.placeholder,
+                mask_value=EMPTY_INT,
+            )
 
             normed_floating_inputs = self.floating_layer(floating_inputs)
 
-            tokenized_inputs = self.tokenizer(categorical_inputs)
             # tokenize categorical inputs
+            tokenized_inputs = self.tokenizer(categorical_inputs)
 
             # embed categorical inputs
             cat_inputs = self.embeddings(tokenized_inputs)
-
             # concatenate with other inputs
-            from IPython import embed
-            embed(header=f"cat_inputs: {cat_inputs.shape}, normed_floating_inputs: {normed_floating_inputs.shape}")
-            input_data = torch.cat([normed_floating_inputs, cat_inputs], axis=-1).to(torch.float32)
+            # flatten new embedding space
+            flat_cat_inputs = cat_inputs.flatten(start_dim=1)
+
+            input_data = torch.cat([normed_floating_inputs, flat_cat_inputs], axis=-1).to(torch.float32)
             logits = self.linear_relu_stack(input_data)
             return logits
 
