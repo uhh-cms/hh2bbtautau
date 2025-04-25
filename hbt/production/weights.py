@@ -14,6 +14,7 @@ from columnflow.production import Producer, producer
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
+from columnflow.production.cms.parton_shower import ps_weights
 from columnflow.util import maybe_import, safe_div
 from columnflow.columnar_util import set_ak_column
 
@@ -133,7 +134,7 @@ def normalized_pdf_weight_post_init(self: Producer, task: law.Task, **kwargs) ->
         )
     }
     # adjust columns
-    self.uses -= {pdf_weights.PRODUCES}
+    self.uses.clear()
     self.uses |= self.pdf_weight_names
     self.produces |= {f"normalized_{weight_name}" for weight_name in self.pdf_weight_names}
 
@@ -195,7 +196,7 @@ def normalized_murmuf_weight_post_init(self: Producer, task: law.Task, **kwargs)
         )
     }
     # adjust columns
-    self.uses -= {murmuf_weights.PRODUCES}
+    self.uses.clear()
     self.uses |= self.mu_weight_names
     self.produces |= {f"normalized_{weight_name}" for weight_name in self.mu_weight_names}
 
@@ -221,4 +222,61 @@ def normalized_murmuf_weight_setup(self: Producer, task: law.Task, inputs: dict,
     self.average_mu_weights = {
         weight_name: safe_div(hists[f"sum_{weight_name}"].sum().value, hists["num_events"].sum())
         for weight_name in self.mu_weight_names
+    }
+
+
+@producer(
+    uses={ps_weights.PRODUCES},
+    mc_only=True,
+)
+def normalized_ps_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    for weight_name in self.ps_weight_names:
+        # create the normalized weight
+        avg = self.average_ps_weights[weight_name]
+        normalized_weight = events[weight_name] / avg
+
+        # store it
+        events = set_ak_column_f32(events, f"normalized_{weight_name}", normalized_weight)
+
+    return events
+
+
+@normalized_ps_weights.post_init
+def normalized_ps_weights_post_init(self: Producer, task: law.Task, **kwargs) -> None:
+    # remember ps weight columns to read and produce
+    self.ps_weight_names = {
+        weight_name
+        for weight_name in map(str, self[ps_weights].produced_columns)
+        if (
+            "weight" in weight_name and
+            (task.global_shift_inst.is_nominal or not weight_name.endswith(("_up", "_down")))
+        )
+    }
+    # adjust columns
+    self.uses.clear()
+    self.uses |= self.ps_weight_names
+    self.produces |= {f"normalized_{weight_name}" for weight_name in self.ps_weight_names}
+
+
+@normalized_ps_weights.requires
+def normalized_ps_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
+    from columnflow.tasks.selection import MergeSelectionStats
+    reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
+        task,
+        branch=-1 if task.is_workflow() else 0,
+    )
+
+
+@normalized_ps_weights.setup
+def normalized_ps_weights_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
+    # load the selection stats
+    hists = task.cached_value(
+        key="selection_hists",
+        func=lambda: inputs["selection_stats"]["hists"].load(formatter="pickle"),
+    )
+
+    # save average weights
+    self.average_ps_weights = {
+        weight_name: safe_div(hists[f"sum_{weight_name}"].sum().value, hists["num_events"].sum())
+        for weight_name in self.ps_weight_names
     }
