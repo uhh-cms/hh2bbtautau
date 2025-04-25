@@ -42,13 +42,13 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="ss_neg", id=103, selection="cat_ss_neg", label="ss_neg", tags={"ss_neg"})
 
     # alternative tau2 isolation categories
-    _add_category(config, name="iso_l", id=104, selection="cat_iso_l", label="passes_loose", tags={"passes_loose"})
-    _add_category(config, name="iso_vl", id=105, selection="cat_iso_vl", label="passes_vloose", tags={"passes_vloose"})
-    _add_category(config, name="iso_vvl", id=106, selection="cat_iso_vvl", label="passes_vvloose", tags={"passes_vvloose"})  # noqa: E501
-    _add_category(config, name="l_m", id=107, selection="cat_l_m", label="loose_medium", tags={"loose_medium"})
-    _add_category(config, name="vl_l", id=108, selection="cat_vl_l", label="vloose_loose", tags={"vloose_loose"})  # noqa: E501
-    _add_category(config, name="vvl_vl", id=109, selection="cat_vvl_vl", label="vvloose_vloose", tags={"vvloose_vloose"})  # noqa: E501
-    _add_category(config, name="vvvl_vvl", id=111, selection="cat_vvvl_vvl", label="vvvloose_vvloose", tags={"vvvloose_vvloose"})  # noqa: E501
+    _add_category(config, name="iso_l", id=104, selection="cat_iso_l", label="passes_loose", tags={"iso_l"})
+    _add_category(config, name="iso_vl", id=105, selection="cat_iso_vl", label="passes_vloose", tags={"iso_vl"})
+    _add_category(config, name="iso_vvl", id=106, selection="cat_iso_vvl", label="passes_vvloose", tags={"iso_vvl"})  # noqa: E501
+    _add_category(config, name="l_m", id=107, selection="cat_l_m", label="loose_medium", tags={"l_m"})
+    _add_category(config, name="vl_l", id=108, selection="cat_vl_l", label="vloose_loose", tags={"vl_l"})  # noqa: E501
+    _add_category(config, name="vvl_vl", id=109, selection="cat_vvl_vl", label="vvloose_vloose", tags={"vvl_vl"})  # noqa: E501
+    _add_category(config, name="vvvl_vvl", id=111, selection="cat_vvvl_vvl", label="vvvloose_vvloose", tags={"vvvl_vvl"})  # noqa: E501
 
     # kinematic categories
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
