@@ -159,6 +159,14 @@ add_lazy_config(
     config_name="23pre_v14",
     config_id=7014,
 )
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_uhh_v14",
+    campaign_attr="campaign_run3_2023_preBPix_nano_uhh_v14",
+    config_name="23pre_v14",
+    config_id=7016,
+    custom_suffix_for_limit="larger",
+    limit_dataset_files=10,
+)
 
 # 2023, postBPix
 add_lazy_config(
@@ -166,6 +174,14 @@ add_lazy_config(
     campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14",
     config_name="23post_v14",
     config_id=8014,
+)
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_uhh_v14",
+    campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14",
+    config_name="23post_v14",
+    config_id=8016,
+    custom_suffix_for_limit="larger",
+    limit_dataset_files=10,
 )
 
 #
