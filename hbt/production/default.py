@@ -18,7 +18,8 @@ from hbt.production.weights import (
     normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight,
 )
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
-from hbt.production.tau import tau_weights, trigger_weights
+from hbt.production.tau import tau_weights
+from hbt.production.trigger_sf import trigger_weight
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
 
 ak = maybe_import("awkward")
@@ -84,9 +85,9 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         if self.has_dep(muon_weights):
             events = self[muon_weights](events, **kwargs)
 
-        # trigger weights
-        if self.has_dep(trigger_weights):
-            events = self[trigger_weights](events, **kwargs)
+        # trigger weight
+        if self.has_dep(trigger_weight):
+            events = self[trigger_weight](events, **kwargs)
 
         # top pt weight
         if self.has_dep(top_pt_weight):
@@ -102,7 +103,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 @default.init
 def default_init(self: Producer, **kwargs) -> None:
     if self.produce_weights:
-        weight_producers = {tau_weights, electron_weights, muon_weights, trigger_weights}
+        weight_producers = {tau_weights, electron_weights, muon_weights, trigger_weight}
         if self.dataset_inst.has_tag("ttbar"):
             weight_producers.add(top_pt_weight)
         if self.dataset_inst.has_tag("dy"):
