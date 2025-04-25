@@ -652,8 +652,6 @@ def trigger_weight(
     """
     Producer for trigger scale factors.
     """
-
-    # create the columns
     # etau and mutau
     events = self[etau_mutau_trigger_weight](events, **kwargs)
 
@@ -666,16 +664,19 @@ def trigger_weight(
     # emu
     events = self[emu_trigger_weight](events, **kwargs)
 
+    # get channels
+    channels = {
+        channel_name: self.config_inst.channels.get(channel_name)
+        for channel_name in ["etau", "mutau", "tautau", "ee", "mumu", "emu"]
+    }
+
     # create the total trigger scale factor
     # A multiplication is done here, as every the columns used contain the value 1.0 for events not in the channel
     # and the channels are mutually exclusive
-
-    # in doubt, check with:
-    for channel_name in ["etau", "mutau", "tautau", "ee", "mumu", "emu"]:
-        channel = self.config_inst.channels.get(channel_name)
+    for channel_name, channel in channels.items():
         channel_mask = (events.channel_id == channel.id)
         if not ak.all(channel_mask | (events[f"{channel_name}_trigger_weight"] == 1.0)):
-            raise ValueError(f"Trigger weight for {channel_name} not all 1.0 for events not in the channel")
+            raise ValueError(f"trigger weight for {channel_name} not all 1.0 for events not in the channel")
     trigger_weight = (
         events.etau_trigger_weight *
         events.mutau_trigger_weight *
@@ -687,11 +688,10 @@ def trigger_weight(
     events = set_ak_column_f32(events, "trigger_weight", trigger_weight)
 
     # create the variations
-    channels = ["ee", "mumu", "emu", "etau", "mutau", "tautau"]
     # Do to the choice of triggers, certain channel do not have variations for certain objects
     # e.g. etau does not have a muon or jet dependent trigger, therefore the variations are not defined
     # we check further down that the columns do not exist for only these specific cases
-    undefined_variations = [
+    undefined_variations = {
         ("etau", "mu"), ("etau", "jet"),
         ("mutau", "e"), ("mutau", "jet"),
         ("tautau", "e"), ("tautau", "mu"),
@@ -701,21 +701,19 @@ def trigger_weight(
         ("mumu", "tau_dm0"), ("mumu", "tau_dm1"), ("mumu", "tau_dm10"), ("mumu", "tau_dm11"),
         ("emu", "jet"),
         ("emu", "tau_dm0"), ("emu", "tau_dm1"), ("emu", "tau_dm10"), ("emu", "tau_dm11"),
-    ]
+    }
 
     for direction in ["up", "down"]:
         for variation in ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]:
             trigger_weight = events.trigger_weight
             weight_name = "trigger_weight"
             varied_weight_name = f"{weight_name}_{variation}_{direction}"
-            for channel_name in channels:
-                channel = self.config_inst.channels.get(channel_name)
-
+            for channel_name, channel in channels.items():
                 # for all variations, the default is the nominal trigger weight
                 channel_weight_name = f"{channel_name}_{varied_weight_name}"
                 if channel_weight_name not in events.fields:
                     if (channel_name, variation) not in undefined_variations:
-                        raise ValueError(f"Trigger weight variation {channel_weight_name} not found in events")
+                        raise ValueError(f"trigger weight variation {channel_weight_name} not found in events")
                     channel_weight_name = f"{channel_name}_{weight_name}"
                 variation_array = events[channel_weight_name]
 
@@ -724,5 +722,4 @@ def trigger_weight(
                 trigger_weight = ak.where(channel_mask, variation_array, trigger_weight)
 
             events = set_ak_column_f32(events, varied_weight_name, trigger_weight)
-
     return events

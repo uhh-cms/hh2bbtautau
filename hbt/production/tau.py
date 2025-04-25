@@ -365,13 +365,17 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
                 flat_decay_mode_mask = flat_np_view(decay_mode_mask, axis=1)
                 for direction in ["up", "down"]:
                     # only possible with object-level information
-                    sf_unc = flat_np_view(events[f"tau_trigger_eff_{kind}_{ch}"], axis=1).copy()
-                    sf_unc[flat_decay_mode_mask] = self.tau_trig_corrector(*eval_args(flat_decay_mode_mask, ch_corr, direction))  # noqa
+                    sf_unc = ak.copy(events[f"tau_trigger_eff_{kind}_{ch}"])
+                    sf_unc_flat = flat_np_view(sf_unc, axis=1)
+                    sf_unc_flat[flat_decay_mode_mask] = self.tau_trig_corrector(
+                        *eval_args(flat_decay_mode_mask, ch_corr, direction),
+                    )
                     events = set_ak_column_f32(
                         events,
                         f"tau_trigger_eff_{kind}_{ch}_dm{decay_mode}_{direction}",
-                        layout_ak_array(sf_unc, events.Tau.pt),
+                        sf_unc,
                     )
+
     return events
 
 
