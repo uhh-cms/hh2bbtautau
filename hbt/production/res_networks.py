@@ -55,7 +55,6 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "has_jet_pair",
         "has_fatjet",
         "decay_mode{1,2}",
-        "charge{1,2}",
     }),
 )
 def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
