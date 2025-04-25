@@ -1294,11 +1294,32 @@ def add_config(
         },
     )
 
+    cfg.add_shift(name="isr_up", id=150, type="shape")
+    cfg.add_shift(name="isr_down", id=151, type="shape")
+    add_shift_aliases(
+        cfg,
+        "isr",
+        {
+            "isr_weight": "isr_weight_{direction}",
+            "normalized_isr_weight": "normalized_isr_weight_{direction}",
+        },
+    )
+    cfg.add_shift(name="fsr_up", id=155, type="shape")
+    cfg.add_shift(name="fsr_down", id=156, type="shape")
+    add_shift_aliases(
+        cfg,
+        "fsr",
+        {
+            "fsr_weight": "fsr_weight_{direction}",
+            "normalized_fsr_weight": "normalized_fsr_weight_{direction}",
+        },
+    )
+
     # trigger scale factors
     trigger_legs = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]
     for i, leg in enumerate(trigger_legs):
-        cfg.add_shift(name=f"trigger_{leg}_up", id=150 + 2 * i, type="shape")
-        cfg.add_shift(name=f"trigger_{leg}_down", id=151 + 2 * i, type="shape")
+        cfg.add_shift(name=f"trigger_{leg}_up", id=180 + 2 * i, type="shape")
+        cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape")
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
     ################################################################################################
@@ -1493,6 +1514,8 @@ def add_config(
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
+        "normalized_isr_weight": get_shifts("isr"),
+        "normalized_fsr_weight": get_shifts("fsr"),
         # TODO: enable again once we have btag cuts
         # "normalized_njet_btag_deepjet_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
