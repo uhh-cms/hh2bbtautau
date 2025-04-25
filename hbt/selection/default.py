@@ -22,6 +22,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
+from columnflow.production.cms.parton_shower import ps_weights
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import Route, set_ak_column, full_like
 from columnflow.hist_util import create_hist_from_variables, fill_hist
@@ -83,11 +84,12 @@ def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
 @selector(
     uses={
         json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
-        mc_weight, pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
-        attach_coffea_behavior, patch_ecalBadCalibFilter, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
+        cutflow_features, attach_coffea_behavior, patch_ecalBadCalibFilter,
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, btag_weights_deepjet,
+        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
         process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
@@ -164,6 +166,9 @@ def default(
         # renormalization/factorization scale weights
         if self.has_dep(murmuf_weights):
             events = self[murmuf_weights](events, **kwargs)
+
+        # parton shower weights
+        events = self[ps_weights](events, **kwargs)
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
@@ -353,6 +358,9 @@ def empty_call(
         if self.has_dep(murmuf_weights):
             events = self[murmuf_weights](events, **kwargs)
 
+        # parton shower weights
+        events = self[ps_weights](events, **kwargs)
+
         # pileup weights
         events = self[pu_weight](events, **kwargs)
 
@@ -487,6 +495,14 @@ def increment_stats(
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 add(f"sum_murmuf_weight{v}", no_sel, events[f"murmuf_weight{v}"])
                 add(f"sum_murmuf_weight{v}_selected", event_sel, events[f"murmuf_weight{v}"])
+
+        # parton shower weights with variations
+        if self.has_dep(ps_weights):
+            for v in (("",) if skip_shifts else ("", "_up", "_down")):
+                add(f"sum_isr_weight{v}", no_sel, events[f"isr_weight{v}"])
+                add(f"sum_isr_weight{v}_selected", event_sel, events[f"isr_weight{v}"])
+                add(f"sum_fsr_weight{v}", no_sel, events[f"fsr_weight{v}"])
+                add(f"sum_fsr_weight{v}_selected", event_sel, events[f"fsr_weight{v}"])
 
         # btag weights
         for prod in [btag_weights_deepjet, btag_weights_pnet]:
