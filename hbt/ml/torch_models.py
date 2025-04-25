@@ -490,7 +490,7 @@ if not isinstance(torch, MockModule):
             )
         
         def init_dataset_handler(self, task: law.Task):
-            super().init_dataset_handler()
+            super().init_dataset_handler(task)
             self.max_epoch_length = self._calculate_max_epoch_length(
                 self.training_loader,
                 cutoff = 5000,
