@@ -454,6 +454,29 @@ if not isinstance(torch, MockModule):
             self.tokenizer = self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
+    class WeightedResnetNoDropout(WeightedResNet):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.floating_inputs |= {
+                "htt.{px,py,pz,energy,mass}",
+                "hbb.{px,py,pz,energy,mass}",
+                "htthbb.{px,py,pz,energy,mass}",
+            }
+            self.inputs |= self.floating_inputs
+            self.linear_relu_stack = nn.Sequential(
+                nn.Linear(len(self.inputs) + len(self.categorical_inputs) * 50, 512),
+                nn.ReLU(),
+                nn.BatchNorm1d(512),
+                nn.Linear(512, 1024),
+                nn.ReLU(),
+                nn.BatchNorm1d(1024),
+                nn.Linear(1024, 512),
+                nn.ReLU(),
+                nn.Linear(512, 256),
+                nn.ReLU(),
+                nn.Linear(256, 3),
+            )
+
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -551,3 +574,4 @@ if not isinstance(torch, MockModule):
     model_clss["feedforward_dropout"] = DropoutFeedForwardNet
     model_clss["resnet"] = ResNet
     model_clss["weighted_resnet"] = WeightedResNet
+    model_clss["weighted_resnet_nodroupout"] = WeightedResnetNoDropout
