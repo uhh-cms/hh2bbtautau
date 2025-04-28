@@ -974,8 +974,10 @@ def lepton_selection(
     leptons_os = ak.fill_none(leptons_os, False)
 
     # concatenate matched trigger ids
-    matched_trigger_ids = ak.concatenate(matched_trigger_ids, axis=1)
-    lepton_part_trigger_ids = ak.concatenate(lepton_part_trigger_ids, axis=1)
+    empty_ids = ak.singletons(full_like(events.event, 0, dtype=np.int32), axis=0)[:, :0]
+    merge_ids = lambda ids: ak.values_astype(ak.concatenate(ids, axis=1), np.int32) if ids else empty_ids
+    matched_trigger_ids = merge_ids(matched_trigger_ids)
+    lepton_part_trigger_ids = merge_ids(lepton_part_trigger_ids)
 
     # save new columns
     events = set_ak_column(events, "channel_id", channel_id)
@@ -983,7 +985,7 @@ def lepton_selection(
     events = set_ak_column(events, "tau2_isolated", tau2_isolated)
     events = set_ak_column(events, "single_triggered", single_triggered)
     events = set_ak_column(events, "cross_triggered", cross_triggered)
-    events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
+    events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids)
 
     # convert lepton masks to sorted indices (pt for e/mu, iso for tau)
     sel_electron_indices = sorted_indices_from_mask(sel_electron_mask, events.Electron.pt, ascending=False)

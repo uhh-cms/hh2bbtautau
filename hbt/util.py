@@ -16,6 +16,16 @@ np = maybe_import("numpy")
 
 
 @deferred_column
+def IF_DATA(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if func.dataset_inst.is_data else None
+
+
+@deferred_column
+def IF_MC(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if func.dataset_inst.is_mc else None
+
+
+@deferred_column
 def IF_NANO_V9(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
     return self.get() if func.config_inst.campaign.x.version == 9 else None
 

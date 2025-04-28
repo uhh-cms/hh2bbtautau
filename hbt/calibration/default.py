@@ -18,29 +18,44 @@ from columnflow.production.cms.seeds import (
 )
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_2, IF_RUN_3
+from hbt.util import IF_RUN_2, IF_RUN_3, IF_DATA, IF_MC
 
 ak = maybe_import("awkward")
 
 
 # custom seed producer skipping GenPart fields
-custom_deterministic_event_seeds = deterministic_event_seeds.derive(
-    "custom_deterministic_event_seeds",
-    cls_dict={"object_count_columns": [
-        route
-        for route in deterministic_event_seeds.object_count_columns
-        if not str(route).startswith(("GenPart.", "Photon."))
-    ]},
+custom_deterministic_event_seeds_mc = deterministic_event_seeds.derive(
+    "custom_deterministic_event_seeds_mc",
+    cls_dict={
+        "object_count_columns": [
+            route for route in deterministic_event_seeds.object_count_columns
+            if not str(route).startswith(("GenPart.", "Photon."))
+        ],
+    },
+)
+custom_deterministic_event_seeds_data = custom_deterministic_event_seeds_mc.derive(
+    "custom_deterministic_event_seeds_data",
+    cls_dict={
+        "event_columns": [
+            route for route in custom_deterministic_event_seeds_mc.event_columns
+            if not str(route).startswith("Pileup.nPU")
+        ],
+        "object_count_columns": [
+            route for route in custom_deterministic_event_seeds_mc.object_count_columns
+            if not str(route).startswith("GenJet.")
+        ],
+    },
 )
 
 
 @calibrator(
     uses={
-        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
-        electron_sceta,
+        IF_MC(mc_weight), IF_MC(custom_deterministic_event_seeds_mc), IF_DATA(custom_deterministic_event_seeds_data),
+        deterministic_jet_seeds, deterministic_electron_seeds, electron_sceta,
     },
     produces={
-        mc_weight, custom_deterministic_event_seeds, deterministic_jet_seeds, deterministic_electron_seeds,
+        IF_MC(mc_weight), IF_MC(custom_deterministic_event_seeds_mc), IF_DATA(custom_deterministic_event_seeds_data),
+        deterministic_jet_seeds, deterministic_electron_seeds,
     },
 )
 def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
@@ -52,7 +67,10 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     # seed producers
     # !! as this is the first step, the object collections should still be pt-sorted,
     # !! so no manual sorting needed here (but necessary if, e.g., jec is applied before)
-    events = self[custom_deterministic_event_seeds](events, **kwargs)
+    if self.dataset_inst.is_mc:
+        events = self[custom_deterministic_event_seeds_mc](events, **kwargs)
+    else:
+        events = self[custom_deterministic_event_seeds_data](events, **kwargs)
     events = self[deterministic_jet_seeds](events, **kwargs)
     events = self[deterministic_electron_seeds](events, **kwargs)
 
