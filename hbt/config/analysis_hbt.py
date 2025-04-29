@@ -63,9 +63,11 @@ analysis_hbt.x.hist_hooks = DotDict()
 from hbt.hist_hooks.blinding import add_hooks as add_blinding_hooks
 add_blinding_hooks(analysis_hbt)
 
-# qcd estimation
+# qcd estimation and tests
 from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
 add_qcd_hooks(analysis_hbt)
+from hbt.hist_hooks.qcd_tests import add_hooks as add_qcd_tests_hooks
+add_qcd_tests_hooks(analysis_hbt)
 
 # binning
 from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
