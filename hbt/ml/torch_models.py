@@ -263,7 +263,13 @@ if not isinstance(torch, MockModule):
                     return self.categorical_target_map[key]
             raise ValueError(f"Dataset {dataset} not in categorical target map")
 
-        def _calculate_max_epoch_length(self, composite_loader, weight_cutoff: float = 0.05, cutoff: int = 2000):
+        def _calculate_max_epoch_length(
+            self,
+            composite_loader,
+            weight_cutoff: float = 0.05,
+            cutoff: int = 2000,
+            # priority_list: list[str] | None = None,
+        ):
             global_max = 0
             max_key = None
 
@@ -286,8 +292,10 @@ if not isinstance(torch, MockModule):
                         if submax > global_max and weight >= weight_cutoff:
                             global_max = submax
                             max_key = subkey
+            if cutoff:
+                global_max = np.min([global_max, cutoff])
             self.logger.info(f"epoch dominated by  '{max_key}': expect {global_max} batches/iteration")
-            return np.min([global_max, cutoff])
+            return global_max
 
         def init_dataset_handler(self, task: law.Task):
             all_datasets = getattr(task, "resolved_datasets", task.datasets)
@@ -454,6 +462,41 @@ if not isinstance(torch, MockModule):
             self.tokenizer = self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
+    class WeightedResnetNoDropout(WeightedResNet):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.floating_inputs = set(self.floating_inputs)
+            self.floating_inputs |= {
+                f"{field}.{prop}"
+                for field in ("htt", "hbb", "htthbb")
+                for prop in ("px", "py", "pz", "energy", "mass")
+            }
+            self.inputs |= self.floating_inputs
+            self.floating_inputs = sorted([str(x) for x in self.floating_inputs])
+            
+            self.floating_layer = nn.BatchNorm1d(len(self.floating_inputs))
+            self.linear_relu_stack = nn.Sequential(
+                nn.Linear(len(self.floating_inputs) + len(self.categorical_inputs) * 50, 512),
+                nn.ReLU(),
+                nn.BatchNorm1d(512),
+                nn.Linear(512, 1024),
+                nn.ReLU(),
+                nn.BatchNorm1d(1024),
+                nn.Linear(1024, 512),
+                nn.ReLU(),
+                nn.Linear(512, 256),
+                nn.ReLU(),
+                nn.Linear(256, 3),
+            )
+        
+        def init_dataset_handler(self, task: law.Task):
+            super().init_dataset_handler(task)
+            self.max_epoch_length = self._calculate_max_epoch_length(
+                self.training_loader,
+                cutoff = 5000,
+                weight_cutoff = 0.1,
+            )
+
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -551,3 +594,4 @@ if not isinstance(torch, MockModule):
     model_clss["feedforward_dropout"] = DropoutFeedForwardNet
     model_clss["resnet"] = ResNet
     model_clss["weighted_resnet"] = WeightedResNet
+    model_clss["weighted_resnet_nodroupout"] = WeightedResnetNoDropout

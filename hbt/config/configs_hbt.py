@@ -853,7 +853,7 @@ def add_config(
         if year == 2022:
             e_tag = {"": "preEE", "EE": "postEE"}[campaign.x.postfix]
         elif year == 2023:
-            e_tag = {"": "preBPix", "BPix": "postBPix"}[campaign.x.postfix]
+            e_tag = {"": "preBPIX", "BPix": "postBPIX"}[campaign.x.postfix]
         else:
             assert False
         cfg.x.eec = EGammaCorrectionConfig(
