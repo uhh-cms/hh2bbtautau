@@ -168,7 +168,7 @@ def default(
             events = self[murmuf_weights](events, **kwargs)
 
         # parton shower weights
-        events = self[ps_weights](events, **kwargs)
+        events = self[ps_weights](events, invalid_weights_action="ignore_one", **kwargs)
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
@@ -359,7 +359,7 @@ def empty_call(
             events = self[murmuf_weights](events, **kwargs)
 
         # parton shower weights
-        events = self[ps_weights](events, **kwargs)
+        events = self[ps_weights](events, invalid_weights_action="ignore_one", **kwargs)
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
