@@ -34,7 +34,7 @@ def default(self: HistProducer, events: ak.Array, **kwargs) -> ak.Array:
 def default_init(self: HistProducer) -> None:
     # use the config's auxiliary event_weights, drop some of them based on drop_weights, and on this
     # weight producer instance, store weight_columns, used columns, and shifts
-    self.weight_columns = []
+    self.weight_columns = set()
 
     if self.dataset_inst.is_data:
         return
@@ -44,7 +44,7 @@ def default_init(self: HistProducer) -> None:
     do_drop = pattern_matcher(self.drop_weights) if self.drop_weights else (lambda _, /: False)
 
     # collect all possible weight columns and affected shifts
-    all_weights = self.config_inst.x.event_weights
+    all_weights = self.config_inst.x.event_weights.copy()
     all_weights.update(self.dataset_inst.x("event_weights", {}))
     for weight_name, shift_insts in all_weights.items():
         if not do_keep(weight_name) or do_drop(weight_name):
@@ -55,7 +55,7 @@ def default_init(self: HistProducer) -> None:
         if is_lhe_weight and self.dataset_inst.has_tag("no_lhe_weights"):
             continue
 
-        self.weight_columns.append(weight_name)
+        self.weight_columns.add(weight_name)
         self.uses.add(weight_name)
         self.shifts |= {shift_inst.name for shift_inst in shift_insts}
 
