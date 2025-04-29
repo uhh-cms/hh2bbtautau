@@ -122,6 +122,28 @@ def add_variables(config: od.Config) -> None:
         binning=(66, -3.3, 3.3),
         x_title=r"MET $\phi$",
     )
+    add_variable(
+        config,
+        name="met_phi_recoil",
+        expression="RecoilCorrMET.phi",
+        binning=(66, -3.3, 3.3),
+        x_title=r"Recoil corr. MET $\phi$",
+    )
+    add_variable(
+        config,
+        name="met_pt_recoil",
+        expression="RecoilCorrMET.pt",
+        binning=(40, 0.0, 400.0),
+        x_title=r"Recoil corr. MET $p_{T}$",
+    )
+    for syst in ["RespUp", "RespDown", "ResolUp", "ResolDown"]:
+        add_variable(
+            config,
+            name=f"met_pt_recoil_{syst}",
+            expression=f"RecoilCorrMET.pt_{syst}",
+            binning=(40, 0.0, 400.0),
+            x_title=f"Recoil corr. MET $p_{{T}}$ ({syst})",
+        )
 
     # weights
     add_variable(
@@ -165,6 +187,29 @@ def add_variables(config: od.Config) -> None:
         expression="normalized_njet_btag_weight",
         binning=(60, 0, 3),
         x_title="$N_{jet}$ normalized b-tag weight",
+    )
+
+    add_variable(
+        config,
+        name="dy_weight",
+        expression="dy_weight",
+        binning=(200, 0.94, 1.01),
+        x_title="DY weight",
+    )
+    add_variable(
+        config,
+        name="dy_weight1_up",
+        expression="dy_weight1_up",
+        binning=(200, 0.94, 1.01),
+        x_title="DY weight [up1]",
+    )
+    add_variable(
+        config,
+        name="gen_dilepton_pt",
+        expression="gen_dilepton.pt",
+        binning=(40, 50.0, 250.0),
+        unit="GeV",
+        x_title="Gen $p_{T,ll}$",
     )
 
     # cutflow variables
