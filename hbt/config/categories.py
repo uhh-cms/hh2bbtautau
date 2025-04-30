@@ -114,13 +114,17 @@ def add_categories(config: od.Config) -> None:
         "kin": [
             config.get_category("incl"),
             config.get_category("dy"),
-            config.get_category("dy_res1b"),
-            config.get_category("dy_res2b"),
             config.get_category("tt"),
         ],
         # relative sign last
         "sign": [config.get_category("os")],
     }
+
+    CCLUB = False
+    if CCLUB:
+        control_categories["kin"].append(config.get_category("dy_res1b"))
+        control_categories["kin"].append(config.get_category("dy_res2b"))
+        # main_categories["kin"].append(config.get_category("dy_not_boosted"))
 
     def skip_fn_ctrl(categories: dict[str, od.Category]) -> bool:
         if "channel" not in categories or "kin" not in categories:
@@ -128,7 +132,7 @@ def add_categories(config: od.Config) -> None:
         ch_cat = categories["channel"]
         kin_cat = categories["kin"]
         # skip dy in emu
-        if kin_cat.name == "dy" and ch_cat.name == "emu":
+        if (kin_cat.name in ("dy", "dy_res1b", "dy_res2b")) and ch_cat.name == "emu":
             return True
         # skip tt in ee/mumu
         if kin_cat.name == "tt" and ch_cat.name in ("ee", "mumu"):

@@ -176,14 +176,24 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # e/mu driven DY region: mll > 40 and met < 30 (to supress tau decays into e/mu)
     leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-    # use same values as CCLUB
     mask = (
+        (leps.sum(axis=1).mass > 40) &
+        (events[self.config_inst.x.met_name].pt < 30)
+    )
+
+    # option to use same values as CCLUB
+    CCLUB = False
+    mask_cclub = (
         (leps.sum(axis=1).mass >= 70) &
         (leps.sum(axis=1).mass <= 110) &
         (events[self.config_inst.x.met_name].pt < 45)
     )
-    return events, mask
+    if CCLUB:
+        return events, mask_cclub
+    else:
+        return events, mask
 
 
 @cat_dy.init
