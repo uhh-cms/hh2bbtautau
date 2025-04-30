@@ -177,12 +177,14 @@ class BaseParquetFileHandler(object):
         cls: Callable = ListRowgroupSampler,
         shuffle_rowgroups=False,
         shuffle_indices=False,
-        simultaneous_rowgroups=1,
+        shuffle_list=False,
+        simultaneous_rowgroups=-1,
     ):
         return cls(
             inputs=datasets,
             shuffle_rowgroups=shuffle_rowgroups,
             shuffle_indices=shuffle_indices,
+            shuffle_list=shuffle_list,
             simultaneous_rowgroups=simultaneous_rowgroups,
         )
 
@@ -233,8 +235,7 @@ class BaseParquetFileHandler(object):
     def _create_validation_dataloader(
         self,
         validation_data_map,
-        shuffle_rowgroups: bool = False,
-        shuffle_indices: bool = False,
+        **sampler_kwargs,
     ) -> CompositeDataLoader:
         # create merged validation dataset since it's ok to simply evaluate the
         # events one by one
@@ -256,8 +257,7 @@ class BaseParquetFileHandler(object):
                     self.sampler_factory(
                         validation_data,
                         cls=self.validation_sampler_cls,
-                        shuffle_rowgroups=shuffle_rowgroups,
-                        shuffle_indices=shuffle_indices,
+                        **sampler_kwargs,
                     ),
                 ),
             },
@@ -279,6 +279,7 @@ class BaseParquetFileHandler(object):
             cls=self.training_sampler_cls,
             shuffle_rowgroups=True,
             shuffle_indices=True,
+            shuffle_list=True,
         )
 
         # create loader for training data
@@ -320,8 +321,7 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
     def _create_validation_dataloader(
         self,
         validation_data_map,
-        shuffle_rowgroups: bool = False,
-        shuffle_indices: bool = False,
+        **sampler_kwargs,
     ) -> CompositeDataLoader:
         # calculate final weights
         total_events = 0
@@ -340,8 +340,7 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
 
         return super()._create_validation_dataloader(
             validation_data_map,
-            shuffle_rowgroups=shuffle_rowgroups,
-            shuffle_indices=shuffle_indices,
+            **sampler_kwargs,
         )
 
     def init_datasets(self) -> tuple[CompositeDataLoader, CompositeDataLoader]:
@@ -355,6 +354,7 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
             cls=self.training_sampler_cls,
             shuffle_rowgroups=True,
             shuffle_indices=True,
+            shuffle_list=True,
         )
 
         training_composite_loader = CompositeDataLoader(
@@ -372,6 +372,7 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
             training_data_map,
             shuffle_rowgroups=False,
             shuffle_indices=True,
+            shuffle_list=True,
         )
         validation_composite_loader = self._create_validation_dataloader(validation_data_map)
 

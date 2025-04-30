@@ -128,6 +128,7 @@ if not isinstance(torchdata, MockModule):
             rowgroup_sizes: Container[int] | None = None,
             shuffle_rowgroups: bool = False,
             shuffle_indices: bool = False,
+            shuffle_list: bool = False,
             simultaneous_rowgroups: int = 1,
             replacement: bool = False,
             num_samples: int | None = None,
@@ -150,10 +151,13 @@ if not isinstance(torchdata, MockModule):
             elif all(isinstance(x, RowgroupSampler) for x in inputs):
                 self.samplers = list(inputs)
 
+            self.list_idx_sampler_cls = SequentialSampler if not shuffle_list else RandomSampler
+
         def __len__(self):
             return sum(len(x) for x in self.samplers)
 
         def __iter__(self):
-            for dataset_idx, sampler in enumerate(self.samplers):
+            for dataset_idx in self.list_idx_sampler_cls(self.samplers):
+                sampler = self.samplers[dataset_idx]
                 for output in sampler:
                     yield (dataset_idx, *output)
