@@ -12,7 +12,9 @@ from collections.abc import Container
 
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 
-from hbt.ml.torch_utils.functions import get_one_hot, WeightedCrossEntropyLoss
+from hbt.ml.torch_utils.functions import (
+    get_one_hot, WeightedCrossEntropyLoss, preprocess_multiclass_outputs,
+)
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
@@ -24,10 +26,13 @@ model_clss: DotDict[str, torch.nn.Module] = DotDict()
 
 if not isinstance(torch, MockModule):
     from torch import nn
-    from torch.optim import Adam
+    from torch.optim import Adam, AdamW
     from torch.utils.tensorboard import SummaryWriter
     from ignite.metrics import Loss, ROC_AUC
 
+    from hbt.ml.torch_utils.ignite.metrics import (
+        WeightedROC_AUC, WeightedLoss,
+    )
     from hbt.ml.torch_utils.transforms import AkToTensor, PreProcessFloatValues
     from hbt.ml.torch_utils.datasets.handlers import (
         FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler,
@@ -44,7 +49,8 @@ if not isinstance(torch, MockModule):
             self.writer = None
             self.logger = logger or law.logger.get_logger(__name__)
             if tensorboard_path:
-                self.writer = SummaryWriter(tensorboard_path)
+                self.logger.info(f"Creating tensorboard logger at {tensorboard_path}")
+                self.writer = SummaryWriter(log_dir=tensorboard_path)
             self.custom_hooks = list()
 
     class FeedForwardNet(
@@ -91,6 +97,11 @@ if not isinstance(torch, MockModule):
                 "loss": Loss(self.loss_fn),
                 "roc_auc": ROC_AUC(),
             }
+            self.training_epoch_length_cutoff = None
+            self.training_weight_cutoff = None
+            self.val_epoch_length_cutoff = None
+            self.val_weight_cutoff = None
+            self.training_logger_interval = 20
 
         def init_optimizer(self, learning_rate=1e-3, weight_decay=1e-5) -> None:
             self.optimizer = Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
@@ -239,6 +250,8 @@ if not isinstance(torch, MockModule):
                 "loss": Loss(self.loss_fn),
                 # "roc_auc": ROC_AUC(),
             }
+            self.training_epoch_length_cutoff = 2000
+            self.training_weight_cutoff = 0.05
 
         def validation_step(self, engine, batch):
             # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -266,12 +279,13 @@ if not isinstance(torch, MockModule):
         def _calculate_max_epoch_length(
             self,
             composite_loader,
-            weight_cutoff: float = 0.05,
-            cutoff: int = 2000,
+            weight_cutoff: float | None = None,
+            cutoff: int | None = None,
             # priority_list: list[str] | None = None,
         ):
             global_max = 0
             max_key = None
+            weight_cutoff = weight_cutoff or 0.
 
             batch_comp = getattr(composite_loader.batcher, "_batch_composition", None)
             if not batch_comp:
@@ -317,7 +331,11 @@ if not isinstance(torch, MockModule):
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
             )
             self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
-            self.max_epoch_length = self._calculate_max_epoch_length(self.training_loader)
+            self.max_epoch_length = self._calculate_max_epoch_length(
+                self.training_loader,
+                cutoff=self.training_epoch_length_cutoff,
+                weight_cutoff=self.training_weight_cutoff,
+            )
             # self.max_val_epoch_length = self._calculate_max_epoch_length(self.validation_loader)
 
     class WeightedFeedForwardMultiCls(FeedForwardMultiCls):
@@ -328,6 +346,8 @@ if not isinstance(torch, MockModule):
                 "loss": Loss(self.loss_fn),
                 # "roc_auc": ROC_AUC(),
             }
+            self.training_epoch_length_cutoff = 2000
+            self.training_weight_cutoff = 0.05
 
         def validation_step(self, engine, batch):
             # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -366,11 +386,18 @@ if not isinstance(torch, MockModule):
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
             )
             self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets()  # noqa
-            self.max_epoch_length = self._calculate_max_epoch_length(self.training_loader)
+            self.max_epoch_length = self._calculate_max_epoch_length(
+                self.training_loader,
+                cutoff=self.training_epoch_length_cutoff,
+                weight_cutoff=self.training_weight_cutoff,
+            )
 
             dm = self.validation_loader.data_map
             batcher = self.validation_loader.batcher
             self.max_val_epoch_length = np.ceil(sum(map(len, dm)) / batcher.batch_size)
+            if self.val_epoch_length_cutoff is not None and self.max_val_epoch_length > self.val_epoch_length_cutoff:
+                self.logger.info(f"validation epoch length cutoff: {self.val_epoch_length_cutoff}")
+                self.max_val_epoch_length = self.val_epoch_length_cutoff
 
     class WeightedResNet(WeightedFeedForwardMultiCls):
         def __init__(
@@ -473,7 +500,7 @@ if not isinstance(torch, MockModule):
             }
             self.inputs |= self.floating_inputs
             self.floating_inputs = sorted([str(x) for x in self.floating_inputs])
-            
+
             self.floating_layer = nn.BatchNorm1d(len(self.floating_inputs))
             self.linear_relu_stack = nn.Sequential(
                 nn.Linear(len(self.floating_inputs) + len(self.categorical_inputs) * 50, 512),
@@ -488,14 +515,65 @@ if not isinstance(torch, MockModule):
                 nn.ReLU(),
                 nn.Linear(256, 3),
             )
-        
-        def init_dataset_handler(self, task: law.Task):
+
+            self.training_epoch_length_cutoff = 5000
+            self.training_weight_cutoff = 0.1
+
+    class WeightedResnetTest(WeightedResnetNoDropout):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.validation_metrics.update({
+                f"roc_auc_cls_{identifier}": WeightedROC_AUC(
+                    output_transform=partial(
+                        preprocess_multiclass_outputs,
+                        multi_class="ovr",
+                        average=None,
+                    ),
+                    target_class_idx=idx,
+                )
+                for identifier, idx in self.categorical_target_map.items()
+            })
+            self.validation_metrics["loss"] = WeightedLoss(self.loss_fn)
+
+            self.training_epoch_length_cutoff = 2000
+            # self.val_epoch_length_cutoff = 100
+
+        def init_optimizer(self, learning_rate=0.001, weight_decay=0.00001):
+            self.optimizer = Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    class WeightedResnetTest2(WeightedResnetTest):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+            self.training_epoch_length_cutoff = 100
+            self.training_logger_interval = 1
+            # self.val_epoch_length_cutoff = 100
+
+        def init_dataset_handler(self, task):
             super().init_dataset_handler(task)
-            self.max_epoch_length = self._calculate_max_epoch_length(
-                self.training_loader,
-                cutoff = 5000,
-                weight_cutoff = 0.1,
-            )
+
+            # from IPython import embed
+            # embed(header=f"initialized datasets for class {self.__class__.__name__}")
+
+        def train_step(self, engine, batch):
+            # Set the model to training mode - important for batch normalization and dropout layers
+            self.train()
+            # Compute prediction and loss
+            X, y = batch[0], batch[1]
+            self.optimizer.zero_grad()
+            pred = self(X)
+            target = y["categorical_target"].to(torch.float32)
+            if target.dim() == 1:
+                target = target.reshape(-1, 1)
+
+            loss = self.loss_fn(pred, target)
+            from IPython import embed
+            embed(header=f"in training step of class {self.__class__.__name__}")
+            # Backpropagation
+            loss.backward()
+            self.optimizer.step()
+
+            return loss.item()
 
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
@@ -583,9 +661,6 @@ if not isinstance(torch, MockModule):
                 "roc_auc": ROC_AUC(),
             }
 
-
-
-
     model_clss["feedforward"] = FeedForwardNet
     model_clss["feedforward_arrow"] = FeedForwardArrow
     model_clss["feedforward_multicls"] = FeedForwardMultiCls
@@ -595,3 +670,6 @@ if not isinstance(torch, MockModule):
     model_clss["resnet"] = ResNet
     model_clss["weighted_resnet"] = WeightedResNet
     model_clss["weighted_resnet_nodroupout"] = WeightedResnetNoDropout
+    model_clss["weighted_resnet_test"] = WeightedResnetTest
+    model_clss["weighted_resnet_test2"] = WeightedResnetTest2
+
