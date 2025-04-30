@@ -10,9 +10,10 @@ from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
 from columnflow.production.cms.top_pt_weight import top_pt_weight as cf_top_pt_weight
-from columnflow.production.cms.dy import dy_weights
+from columnflow.production.cms.dy import dy_weights, recoil_corrected_met
 from columnflow.util import maybe_import
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
+from columnflow.columnar_util import set_ak_column
 
 from hbt.production.weights import (
     normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight, normalized_ps_weights,
@@ -20,10 +21,10 @@ from hbt.production.weights import (
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
 from hbt.production.tau import tau_weights
 from hbt.production.trigger_sf import trigger_weight
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATASET_IS_RUN3_DY
 
 ak = maybe_import("awkward")
-
+np = maybe_import("numpy")
 
 top_pt_weight = cf_top_pt_weight.derive("top_pt_weight", cls_dict={"require_dataset_tag": None})
 
@@ -32,12 +33,16 @@ top_pt_weight = cf_top_pt_weight.derive("top_pt_weight", cls_dict={"require_data
     uses={
         category_ids, stitched_normalization_weights, normalized_pu_weight, normalized_ps_weights,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
+        IF_DATASET_IS_RUN3_DY(recoil_corrected_met),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
     produces={
         category_ids, stitched_normalization_weights, normalized_pu_weight, normalized_ps_weights,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
+        # IF_DATASET_IS_RUN3_DY(recoil_corrected_met),
+        "RecoilCorrMET.{pt,phi}",
+        "RecoilCorrMET.{pt,phi}_{recoilresp,recoilres}_{up,down}",
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
@@ -51,6 +56,21 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         collections={"HHBJet": default_coffea_collections["Jet"]},
     )
     events = self[category_ids](events, **kwargs)
+
+    # dy MET corrections
+    if self.has_dep(recoil_corrected_met):
+        events = self[recoil_corrected_met](events, **kwargs)
+    else:
+        events = set_ak_column(events, "RecoilCorrMET.pt", events.PuppiMET.pt, value_type=np.float32)
+        events = set_ak_column(events, "RecoilCorrMET.phi", events.PuppiMET.phi, value_type=np.float32)
+        for syst, postfix in [
+            ("RespUp", "recoilresp_up"),
+            ("RespDown", "recoilresp_down"),
+            ("ResolUp", "recoilres_up"),
+            ("ResolDown", "recoilres_down"),
+        ]:
+            events = set_ak_column(events, f"RecoilCorrMET.pt_{postfix}", events.PuppiMET.pt, value_type=np.float32)
+            events = set_ak_column(events, f"RecoilCorrMET.phi_{postfix}", events.PuppiMET.phi, value_type=np.float32)
 
     # mc-only weights
     if self.dataset_inst.is_mc:

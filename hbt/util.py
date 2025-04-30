@@ -96,6 +96,15 @@ def IF_DATASET_IS_DY(
 ) -> Any | set[Any]:
     return self.get() if func.dataset_inst.has_tag("dy") else None
 
+@deferred_column
+def IF_DATASET_IS_RUN3_DY(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    if getattr(func, "dataset_inst", None) is None:
+        return self.get()
+
+    return self.get() if (func.dataset_inst.has_tag("dy") and func.config_inst.campaign.x.run == 3) else None
 
 @deferred_column
 def IF_DATASET_IS_W_LNU(
