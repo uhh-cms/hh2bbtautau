@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from columnflow.util import MockModule, maybe_import
 
 torch = maybe_import("torch")
@@ -7,6 +6,7 @@ tqdm = maybe_import("tqdm")
 np = maybe_import("numpy")
 
 if not isinstance(torch, MockModule):
+
     def train_loop(dataloader, model, loss_fn, optimizer, update_interval=100):
         # Set the model to training mode - important for batch normalization and dropout layers
         # Unnecessary in this situation but added for best practices
@@ -95,6 +95,24 @@ if not isinstance(torch, MockModule):
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
         return np.astype(res.reshape(list(targets.shape) + [nb_classes]), np.int32)
 
+    def preprocess_multiclass_outputs(outputs, **additional_kwargs):
+        kwargs = dict()
+        if len(outputs) == 2:
+            y_pred, y_true = outputs
+        elif len(outputs) == 3:
+            y_pred, y_true, kwargs = outputs
+
+        # fix mismatch in weight naming
+        if "weight" in kwargs.keys():
+            kwargs["sample_weight"] = kwargs.pop("weight")
+
+        kwargs.update(additional_kwargs)
+
+        # first get softmax from predictions
+        y_pred = torch.nn.functional.softmax(y_pred)
+
+        return y_pred, y_true, kwargs
+
     class WeightedCrossEntropyLoss(torch.nn.CrossEntropyLoss):
         def forward(self, input, target, weight: torch.Tensor | None = None):
             # save original reduction mode
@@ -111,3 +129,4 @@ if not isinstance(torch, MockModule):
             else:
                 loss = super().forward(input, target)
             return loss
+
