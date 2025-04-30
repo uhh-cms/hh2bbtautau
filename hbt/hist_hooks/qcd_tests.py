@@ -355,7 +355,14 @@ def add_hooks(config: od.Config) -> None:
         else:
             return factor_int, factor_int_variances, int_num, int_den
 
-    def get_WP_factors(task, hists):
+    def get_WP_factors(
+        task,
+        hists,
+        perbin: bool = False,
+        method_I: bool = False,
+        is_validation: bool = True,
+        all_channels: bool = False,
+    ):
 
         tags = [
             ("vvloose_vloose", "vvvloose_vvloose"),
@@ -497,21 +504,6 @@ def add_hooks(config: od.Config) -> None:
         # initializing dictionary for later use
         dict_hists = {}
 
-        # helper function to get the corresponding histograms in single decay channels
-        # if all_channels is False:
-        #   get_hist = lambda h, group, region_name: h[{"category": hist.loc(group[region_name].id)}]
-        # elif all_channels is True:
-        #   channels_id = []
-        #   # get all decay channels for a single kinematic region
-        #   filtered_groups = [group_name for group_name in complete_groups if f"{kin_region}" in group_name]
-        #   for group_name in filtered_groups:
-        #       for region_name in control_regions:
-        #           group = qcd_groups[group_name]
-        #           channel_id = group[region_name].id
-        #           print(group[region_name])
-        #           channels_id.append(channel_id)
-        #        get_hist = lambda h, region_name: h[{"category": hist.loc(id) for id in channels_id}].sum("category")  #noqa: E501
-
         # calculate the qcd estimation for a sing decay channels in a specific kinematic region
         for group_name in complete_groups:
             if (all_channels is False and group_name == f"{channel}__{kin_region}"):
@@ -631,7 +623,6 @@ def add_hooks(config: od.Config) -> None:
                         f"for category {signal_region}",
                     )
 
-        print(qcd_estimation_values)
         return hists
 
     # add all hooks

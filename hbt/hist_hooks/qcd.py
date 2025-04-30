@@ -162,8 +162,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 group = qcd_groups[group_name]
                 dic_ids[region_name].append(hist.loc(group[region_name].id))
 
-        # helper function to sum the hists from the selected decay channels, per qcd region
-        get_hist = lambda h, region_name: h[{"category": dic_ids[region_name]}][{"category": sum}]
+            # helper function to sum the hists from the selected decay channels, per qcd region
+            # get_hist = lambda h, region_name: h[{"category": dic_ids[region_name]}][{"category": sum}]
 
             # get the corresponding histograms and convert them to number objects, each one storing an array of values
             # with uncertainties
@@ -256,18 +256,18 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         qcd_estimation_values[zero_mask] = 1e-5
         qcd_estimation_variances[zero_mask] = 0
 
-            # insert values into the qcd histogram
-            cat_axis = qcd_hist.axes["category"]
-            for cat_index in range(cat_axis.size):
-                if cat_axis.value(cat_index) == group.os_iso.name:
-                    qcd_hist.view().value[cat_index, ...] = os_iso_qcd_values
-                    qcd_hist.view().variance[cat_index, ...] = os_iso_qcd_variances
-                    break
-            else:
-                raise RuntimeError(
-                    f"could not find index of bin on 'category' axis of qcd histogram {qcd_hist} for category "
-                    f"{group.os_iso}",
-                )
+        # insert values into the qcd histogram
+        cat_axis = qcd_hist.axes["category"]
+        for cat_index in range(cat_axis.size):
+            if cat_axis.value(cat_index) == group.os_iso.name:
+                qcd_hist.view().value[cat_index, ...] = os_iso_qcd_values
+                qcd_hist.view().variance[cat_index, ...] = os_iso_qcd_variances
+                break
+        else:
+            raise RuntimeError(
+                f"could not find index of bin on 'category' axis of qcd histogram {qcd_hist} for category "
+                f"{group.os_iso}",
+            )
 
         return hists
 
