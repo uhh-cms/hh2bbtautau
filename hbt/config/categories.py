@@ -38,6 +38,8 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
     _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
     _add_category(config, name="dy", id=210, selection="cat_dy", label="DY enriched")
+    _add_category(config, name="dy_res1b", id=211, selection="cat_dy_res1b", label="DY enriched res1b")
+    _add_category(config, name="dy_res2b", id=212, selection="cat_dy_res2b", label="DY enriched res2b")
     _add_category(config, name="tt", id=220, selection="cat_tt", label=r"$t\bar{t}$ enriched")
 
     _add_category(config, name="res1b", id=300, selection="cat_res1b", label="res1b")
@@ -109,7 +111,13 @@ def add_categories(config: od.Config) -> None:
             config.get_category("ee"), config.get_category("mumu"), config.get_category("emu"),
         ],
         # kinematic regions in the middle (to be extended)
-        "kin": [config.get_category("incl"), config.get_category("dy"), config.get_category("tt")],
+        "kin": [
+            config.get_category("incl"),
+            config.get_category("dy"),
+            config.get_category("dy_res1b"),
+            config.get_category("dy_res2b"),
+            config.get_category("tt"),
+        ],
         # relative sign last
         "sign": [config.get_category("os")],
     }

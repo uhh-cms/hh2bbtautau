@@ -176,17 +176,84 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # e/mu driven DY region: mll > 40 and met < 30 (to supress tau decays into e/mu)
     leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+    # use same values as CCLUB
     mask = (
-        (leps.sum(axis=1).mass > 40) &
-        (events[self.config_inst.x.met_name].pt < 30)
+        (leps.sum(axis=1).mass >= 70) &
+        (leps.sum(axis=1).mass <= 110) &
+        (events[self.config_inst.x.met_name].pt < 45)
     )
     return events, mask
 
 
 @cat_dy.init
 def cat_dy_init(self: Categorizer) -> None:
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+
+
+@categorizer(uses={
+    "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
+    di_bjet_mass_window, di_tau_mass_window,
+    "Jet.{btagPNetB,mass,hhbtag,pt,eta,phi}",
+})
+def cat_dy_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+    # use same values as CCLUB
+    mask_dy = (
+        (leps.sum(axis=1).mass >= 70) &
+        (leps.sum(axis=1).mass <= 110) &
+        (events[self.config_inst.x.met_name].pt < 45)
+    )
+
+    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
+    tagged = events.Jet.btagPNetB > wp
+    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
+    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
+    mask_res1b = (
+        (ak.sum(tagged, axis=1) == 1) &
+        tau_mass_mask &
+        bjet_mass_mask
+    )
+    mask = mask_dy & mask_res1b
+
+    return events, mask
+
+
+@cat_dy_res1b.init
+def cat_dy_res1b_init(self: Categorizer) -> None:
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+
+
+@categorizer(uses={
+    "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
+    di_bjet_mass_window, di_tau_mass_window,
+    "Jet.{btagPNetB,mass,hhbtag,pt,eta,phi}",
+})
+def cat_dy_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+    # use same values as CCLUB
+    mask_dy = (
+        (leps.sum(axis=1).mass >= 70) &
+        (leps.sum(axis=1).mass <= 110) &
+        (events[self.config_inst.x.met_name].pt < 45)
+    )
+
+    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
+    tagged = events.Jet.btagPNetB > wp
+    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
+    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
+    mask_res2b = (
+        (ak.sum(tagged, axis=1) == 2) &
+        tau_mass_mask &
+        bjet_mass_mask
+    )
+    mask = mask_dy & mask_res2b
+
+    return events, mask
+
+
+@cat_dy_res2b.init
+def cat_dy_res2b_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
 
