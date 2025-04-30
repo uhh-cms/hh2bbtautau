@@ -274,34 +274,35 @@ class HBTPytorchTask(
 
     @law.decorator.log
     @law.decorator.safe_output
-    @law.decorator.localize(input=True, output=True)
+    @law.decorator.localize(input=True, output=False)
     def run(self):
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         logger.info(f"Running pytorch on {device}")
+        outputs = self.output()
+        with outputs["model"].localize() as model_output:
 
-        from hbt.ml.torch_models import model_clss
-        model_cls = model_clss.get(self.branch_data, None)
-        if not model_cls:
-            raise ValueError(f"Unable to load model {self.branch_data}, available list: {model_clss}")
-        logger_path = self.output()["tensorboard"].abspath
-        logger.info(f"Creating tensorboard logger at {logger_path}")
-        model = model_cls(tensorboard_path=logger_path, logger=logger, task=self)
-        model = model.to(device)
+            from hbt.ml.torch_models import model_clss
+            model_cls = model_clss.get(self.branch_data, None)
+            if not model_cls:
+                raise ValueError(f"Unable to load model {self.branch_data}, available list: {model_clss}")
+            logger_path = self.output()["tensorboard"].abspath
+            model = model_cls(tensorboard_path=logger_path, logger=logger, task=self)
+            model = model.to(device)
 
-        model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
+            model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
 
-        model.init_dataset_handler(task=self)
+            model.init_dataset_handler(task=self)
 
-        run_name = f"{self._parameter_repr}_{self.version}"
-        # How many batches to wait before logging training status
-        # from IPython import embed
+            run_name = f"{self._parameter_repr}_{self.version}"
+            # How many batches to wait before logging training status
+            # from IPython import embed
 
-        # embed(header=f"about to start training of {self.branch_data}")
-        model.start_training(run_name=run_name, max_epochs=self.max_epochs)
-        logger.info(f"Saving model to {self.output()['model'].abspath}")
-        torch.save(model.state_dict(), self.output()["model"].abspath)
+            # embed(header=f"about to start training of {self.branch_data}")
+            model.start_training(run_name=run_name, max_epochs=self.max_epochs)
+            logger.info(f"Saving model to {model_output.abspath}")
+            torch.save(model.state_dict(), model_output.abspath)
 
         # save model parameter summary
         params = {
