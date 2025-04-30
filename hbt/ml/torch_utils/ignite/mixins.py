@@ -19,13 +19,13 @@ if not isinstance(ignite, MockModule):
     class IgniteMixinBase:
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.custom_hooks = []
-            self.trainer = None
-            self.train_evaluator = None
-            self.val_evaluator = None
-            self.validation_metrics = {}
-            self.writer = None
-            self.run_name = None
+            self.custom_hooks = getattr(self, "custom_hooks", list())
+            self.trainer = getattr(self, "trainer", None)
+            self.train_evaluator = getattr(self, "train_evaluator", None)
+            self.val_evaluator = getattr(self, "val_evaluator", None)
+            self.validation_metrics = getattr(self, "validation_metrics", None)
+            self.run_name = getattr(self, "run_name", None)
+            self.writer = getattr(self, "writer", None)
 
     class IgniteTrainingMixin(DatasetHandlerMixin, IgniteMixinBase):
         trainer: Engine
@@ -39,10 +39,11 @@ if not isinstance(ignite, MockModule):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.trainer = None
             self._loss_fn = None
             self.max_epoch_length = None
             self.max_val_epoch_length = None
+            self.training_logger_interval = 20
+            self.training_printout_interval = 100
 
         @abc.abstractmethod
         def train_step(self, engine: Engine, batch: tuple) -> tuple:
@@ -69,9 +70,19 @@ if not isinstance(ignite, MockModule):
             self.init_metrics()
 
             self.trainer.add_event_handler(
-                Events.ITERATION_COMPLETED(every=100),
+                Events.ITERATION_COMPLETED(every=self.training_logger_interval),
                 self.log_training_loss,
             )
+            self.trainer.add_event_handler(
+                Events.ITERATION_COMPLETED(every=self.training_printout_interval),
+                self.print_training_loss,
+            )
+            if self.writer:
+                self.trainer.add_event_handler(
+                    Events.ITERATION_COMPLETED(once=2),
+                    self.log_graph,
+                )
+
             self.trainer.add_event_handler(
                 Events.EPOCH_STARTED,
                 self.reset_dataloaders,
@@ -81,7 +92,7 @@ if not isinstance(ignite, MockModule):
                 partial(
                     self.log_results,
                     evaluator=self.train_evaluator,
-                    data_loader=self.training_loader.data_loader,
+                    data_loader=getattr(self, "train_validation_loader", self.training_loader).data_loader,
                     max_epoch_length=self.max_val_epoch_length,
                     mode="training",
                 ),
@@ -113,19 +124,58 @@ if not isinstance(ignite, MockModule):
             for name, metric in self.validation_metrics.items():
                 metric.attach(self.val_evaluator, name)
 
+        def log_graph(self, engine):
+            self.writer.add_graph(self, engine.state.batch[0])
+
         def log_training_loss(self, engine):
+
             if self.writer:
                 self.writer.add_scalars(
                     f"{self.run_name}_per_batch_training",
                     {"loss": engine.state.output},
                     engine.state.iteration,
                 )
+
+                # save model weights as histogram
+                for name, values in self.state_dict().items():
+                    weights = values
+                    flattened_weights = weights.flatten()
+                    tag = f"{name}_per_batch_training"
+                    self.writer.add_histogram(
+                        tag,
+                        flattened_weights,
+                        global_step=engine.state.iteration,
+                        bins="tensorflow",
+                    )
+
+        def print_training_loss(self, engine):
             self.logger.info(
                 f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.2f}",
             )
 
         def reset_dataloaders(self, trainer):
             self.training_loader.data_loader.reset()
+
+        def _log_attributes(self, metrics, trainer, mode="training"):
+
+            for name, value in metrics.items():
+                self.logger.info(f"adding scalar {self.run_name}_{name}")
+                self.writer.add_scalars(
+                    f"{self.run_name}_{name}",
+                    {mode: value},
+                    trainer.state.epoch,
+                )
+            # save model weights as histogram
+            for name, values in self.state_dict().items():
+                weights = values
+                flattened_weights = weights.flatten()
+                tag = f"{name}"
+                self.writer.add_histogram(
+                    tag,
+                    flattened_weights,
+                    global_step=trainer.state.epoch,
+                    bins="tensorflow",
+                )
 
         def log_results(
             self,
@@ -139,18 +189,16 @@ if not isinstance(ignite, MockModule):
             evaluator.run(data_loader, epoch_length=max_epoch_length)
             metrics = evaluator.state.metrics
             infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
-            for name, value in metrics.items():
-                if self.writer:
-                    self.writer.add_scalars(
-                        f"{self.run_name}_{name}",
-                        {mode: value},
-                        trainer.state.epoch,
-                    )
-            self.logger.info(f"Results ({mode}) - Epoch[{trainer.state.epoch}] {infos}")
+            if self.writer:
+                self._log_attributes(metrics=metrics, trainer=trainer, mode=mode)
+
+            time_per_epoch = evaluator.state.times[Events.EPOCH_COMPLETED.name] / evaluator.state.epoch_length
+            self.logger.info(f"Results ({mode}) - Epoch[{trainer.state.epoch}] ({time_per_epoch:.2f} s/iteration) {infos}")
 
         def start_training(self, run_name: str, max_epochs: int):
             if not self.trainer:
                 self.create_engines()
+            self.run_name = run_name
             self.trainer.run(self.training_loader.data_loader, max_epochs=max_epochs, epoch_length=self.max_epoch_length)
             if self.writer:
                 self.writer.close()
