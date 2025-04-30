@@ -300,6 +300,10 @@ def add_config(
         # "z_qq_2j_pt400to600_amcatnlo",
         # "z_qq_2j_pt600toinf_amcatnlo",
 
+        # vbf w/z production
+        "w_vbf_wlnu_madgraph",
+        "z_vbf_zll_m50toinf_madgraph",
+
         # vv
         "zz_pythia",
         "wz_pythia",
@@ -313,8 +317,10 @@ def add_config(
 
         # single H
         "h_ggf_htt_powheg",
+        "h_ggf_hbb_powheg",
         "h_vbf_htt_powheg",
-        "vh_hnonbb_amcatnlo",
+        "h_vbf_hbb_powheg",
+        # "vh_hnonbb_amcatnlo",  # overlaps with dedicated wh/zh datasets, only kept as a backup!
         "wmh_wlnu_hbb_powheg",
         "wph_wlnu_hbb_powheg",
         "wph_htt_powheg",
