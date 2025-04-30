@@ -4,8 +4,8 @@
 Default histogram producers (mostly for event weight generation).
 """
 
-from columnflow.histograming import HistProducer
-from columnflow.histograming.default import cf_default
+from columnflow.histogramming import HistProducer
+from columnflow.histogramming.default import cf_default
 from columnflow.columnar_util import Route
 from columnflow.util import maybe_import, pattern_matcher
 
