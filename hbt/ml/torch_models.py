@@ -77,8 +77,8 @@ if not isinstance(torch, MockModule):
             self.inputs = set()
             self.inputs.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
 
+            self.norm_layer = nn.BatchNorm1d(len(self.inputs))
             self.linear_relu_stack = nn.Sequential(
-                nn.BatchNorm1d(len(self.inputs)),
                 nn.Linear(len(self.inputs), 512),
                 nn.ReLU(),
                 nn.BatchNorm1d(512),
@@ -166,7 +166,8 @@ if not isinstance(torch, MockModule):
             x: dict[str, torch.Tensor],
             feature_list: Container[str] | None = None,
             mask_value: int | float = EMPTY_FLOAT,
-            empty_fill_val: float = -10,
+            empty_fill_val: float = 0,
+            norm_layer: nn.Module | None = None,
             dtype=torch.float32,
         ):
             if not feature_list:
@@ -181,10 +182,16 @@ if not isinstance(torch, MockModule):
             # check for dummy values
             empty_mask = input_data == mask_value
             input_data[empty_mask] = empty_fill_val
+
+            if norm_layer:
+                input_data = norm_layer(input_data.to(dtype))
+                # from IPython import embed
+                # embed(header=f"using norm layer to derive default values")
+
             return input_data.to(dtype)
 
         def forward(self, x):
-            input_data = self._handle_input(x)
+            input_data = self._handle_input(x, norm_layer=getattr(self, "norm_layer", None))
             logits = self.linear_relu_stack(input_data)
             return logits
 
@@ -193,7 +200,7 @@ if not isinstance(torch, MockModule):
             super().__init__(*args, **kwargs)
 
             self.linear_relu_stack = nn.Sequential(
-                nn.BatchNorm1d(len(self.inputs)),
+
                 # nn.Dropout(p=0.2),
                 nn.Linear(len(self.inputs), 512),
                 nn.ReLU(),
