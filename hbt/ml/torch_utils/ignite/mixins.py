@@ -159,7 +159,6 @@ if not isinstance(ignite, MockModule):
         def _log_attributes(self, metrics, trainer, mode="training"):
 
             for name, value in metrics.items():
-                self.logger.info(f"adding scalar {self.run_name}_{name}")
                 self.writer.add_scalars(
                     f"{self.run_name}_{name}",
                     {mode: value},
