@@ -43,12 +43,12 @@ def patch_bundle_repo_exclude_files():
 def patch_remote_workflow_poll_interval():
     """
     Patches the HTCondorWorkflow and SlurmWorkflow tasks to change the default value of the
-    poll_interval parameter to 30 seconds.
+    poll_interval parameter to 1 minute.
     """
     from columnflow.tasks.framework.remote import HTCondorWorkflow, SlurmWorkflow
 
-    HTCondorWorkflow.poll_interval._default = 0.5  # minutes
-    SlurmWorkflow.poll_interval._default = 0.5  # minutes
+    HTCondorWorkflow.poll_interval._default = 1.0  # minutes
+    SlurmWorkflow.poll_interval._default = 1.0  # minutes
 
     logger.debug(
         f"patched poll_interval._default of {HTCondorWorkflow.task_family} and "

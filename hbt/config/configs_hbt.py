@@ -384,7 +384,7 @@ def add_config(
             dataset.add_tag("no_lhe_weights")
         # datasets that are allowed to contain some events with missing lhe infos
         # (known to happen for amcatnlo)
-        if dataset.name.endswith("_amcatnlo"):
+        if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
             dataset.add_tag("partial_lhe_weights")
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
