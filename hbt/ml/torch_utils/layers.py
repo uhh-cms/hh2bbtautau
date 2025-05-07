@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch
 
 
-class CategoricalTokenizer_New(nn.Module):
+class CategoricalTokenizer(nn.Module):
     def __init__(
         self,
         categories: tuple[str],
@@ -123,11 +123,13 @@ class CatEmbeddingLayer(nn.Module):
         placeholder: int = 15,
     ):
         """
-        Initializes the categorical feature interface with a tokenizer and an embedding layer.
+        Initializes the categorical feature interface with a tokenizer and an embedding layer with
+        given *embedding_dim*.
 
-        The tokenizer maps categorical features into a combined feature space and includes an
-        empty category for missing values. The embedding layer then maps this combined feature
-        space into a dense representation.
+        The tokenizer maps given *categories* to values defined in *expected_categorical_inputs*.
+        Missing values are given a *placeholder* value, which
+        The mapping is defined in .
+        The embedding layer then maps this combined feature space into a dense representation.
 
             embedding_dim (int): Number of dimensions for the embedding layer.
             categories (tuple[str]): Names of the categories as strings.
@@ -136,7 +138,8 @@ class CatEmbeddingLayer(nn.Module):
                 each category.
         """
         super().__init__()
-        self.tokenizer = CategoricalTokenizer_New(
+
+        self.tokenizer = CategoricalTokenizer(
             categories=categories,
             expected_categorical_inputs=expected_categorical_inputs,
             placeholder=placeholder)
@@ -145,6 +148,12 @@ class CatEmbeddingLayer(nn.Module):
             self.tokenizer.num_dim,
             embedding_dim,
         )
+
+        self.ndim = embedding_dim * len(categories)
+
+    @property
+    def look_up_table(self):
+        return self.tokenizer.map
 
     def forward(self, x):
         x = self.tokenizer(x)
