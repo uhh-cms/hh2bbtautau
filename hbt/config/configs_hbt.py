@@ -523,6 +523,7 @@ def add_config(
     cfg.x.dataset_groups = {
         "data": (data_group := [dataset.name for dataset in cfg.datasets if dataset.is_data]),
         "backgrounds": (backgrounds := [
+            # ! this "mindlessly" includes all non-signal MC datasets from above
             dataset.name for dataset in cfg.datasets
             if dataset.is_mc and not dataset.has_tag("signal")
         ]),
@@ -894,7 +895,8 @@ def add_config(
         if year == 2022:
             e_tag = {"": "preEE", "EE": "postEE"}[campaign.x.postfix]
         elif year == 2023:
-            e_tag = {"": "preBPix", "BPix": "postBPix"}[campaign.x.postfix]
+            # note the upper-case IX
+            e_tag = {"": "preBPIX", "BPix": "postBPIX"}[campaign.x.postfix]
         else:
             assert False
         cfg.x.eec = EGammaCorrectionConfig(
@@ -1356,10 +1358,7 @@ def add_config(
                 if campaign_tag:
                     raise ValueError(f"Multiple campaign tags found: {cfg.x.campaign_tag} and {tag}")
                 campaign_tag = tag
-        cclub_eras = (
-            f"{year}"
-            f"{campaign_tag}"
-        )
+        cclub_eras = f"{year}{campaign_tag}"
     else:
         assert False
 
