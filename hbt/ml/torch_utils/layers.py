@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch
 
 
-class CategoricalTokenizer_New(nn.Module):
+class CategoricalTokenizer(nn.Module):
     def __init__(
         self,
         categories: tuple[str],
@@ -123,11 +123,13 @@ class CatEmbeddingLayer(nn.Module):
         placeholder: int = 15,
     ):
         """
-        Initializes the categorical feature interface with a tokenizer and an embedding layer.
+        Initializes the categorical feature interface with a tokenizer and an embedding layer with
+        given *embedding_dim*.
 
-        The tokenizer maps categorical features into a combined feature space and includes an
-        empty category for missing values. The embedding layer then maps this combined feature
-        space into a dense representation.
+        The tokenizer maps given *categories* to values defined in *expected_categorical_inputs*.
+        Missing values are given a *placeholder* value, which
+        The mapping is defined in .
+        The embedding layer then maps this combined feature space into a dense representation.
 
             embedding_dim (int): Number of dimensions for the embedding layer.
             categories (tuple[str]): Names of the categories as strings.
@@ -136,7 +138,8 @@ class CatEmbeddingLayer(nn.Module):
                 each category.
         """
         super().__init__()
-        self.tokenizer = CategoricalTokenizer_New(
+
+        self.tokenizer = CategoricalTokenizer(
             categories=categories,
             expected_categorical_inputs=expected_categorical_inputs,
             placeholder=placeholder)
@@ -146,7 +149,94 @@ class CatEmbeddingLayer(nn.Module):
             embedding_dim,
         )
 
+        self.ndim = embedding_dim * len(categories)
+
+    @property
+    def look_up_table(self):
+        return self.tokenizer.map
+
     def forward(self, x):
         x = self.tokenizer(x)
         x = self.embeddings(x)
         return x.flatten(start_dim=1)
+
+
+class InputLayer(nn.Module):
+    def __init__(
+        self,
+        continuous_inputs: tuple[str],
+        categorical_inputs: tuple[str],
+        embedding_dim: int,
+        expected_categorical_inputs: dict[list[int]],
+        placeholder: int = 15,
+    ):
+        """
+        Enables the use of categorical and continous features in a single model.
+        A tokenizer and embedding layer are created  is created using and an embedding layer.
+        The continuous features are passed through a linear layer and then concatenated with the
+        categorical features.
+        """
+        super().__init__()
+        if categorical_inputs is not None and expected_categorical_inputs is not None:
+            self.embedding_layer = CatEmbeddingLayer(
+                embedding_dim=embedding_dim,
+                categories=categorical_inputs,
+                expected_categorical_inputs=expected_categorical_inputs,
+            )
+        self.ndim = len(continuous_inputs) + self.embedding_layer.ndim
+
+    def forward(self, continuous_features, categorical_features):
+        return torch.cat(
+            (continuous_features, self.embedding_layer(categorical_features)),
+            dim=1,
+        )
+
+
+class ResNetBlock(nn.Module):
+    def __init__(
+        self,
+        nodes,
+        activation_functions="LeakyReLu",
+        skip_connection_init=1,
+        freeze_skip_connection=False,
+    ):
+        """
+        ResNetBlock is a residual block that consists of a linear layer, batch normalization, and an activation function.
+        A adjustable skip connection connects input and output of the block.
+        The adjustable skip connection has a learnable parameter, *skip_connection_amplifier*.
+        The dimension of the input and output of the block are defined by *nodes*.
+        If skip_connection_init is set to 0, the skip connection is disabled.
+        This also make if possible to use different in_nodes and out_nodes must can be different.
+        To freeze the skip connection parameter, set *freeze_skip_connection* to True.
+
+        Args:
+            nodes (int): Number of nodes in the block.
+            activation_functions (str, optional): Name of the pytorch activation function, case insenstive.
+                Defaults to "LeakyReLu".
+            skip_connection_init (int, optional): Start value of the skipconnection. Defaults to 1.
+            freeze_skip_connection (bool, optional): Turn off learning for skipconnection parameter. Defaults to False.
+        """
+        super().__init__()
+        self.nodes = nodes
+        self.act_func = self._get_attr(nn.modules.activation, activation_functions)()
+        self.skip_connection_amplifier = nn.Parameter(torch.ones(1) * skip_connection_init)
+        if freeze_skip_connection:
+            self.skip_connection_amplifier.requires_grad = False
+        self.layers = nn.Sequential(
+            nn.Linear(self.nodes, self.nodes, bias=False),
+            nn.BatchNorm1d(self.nodes),
+            self.act_func,
+        )
+
+    def _get_attr(self, obj, attr):
+        for o in dir(obj):
+            if o.lower() == attr.lower():
+                return getattr(obj, o)
+        else:
+            raise AttributeError(f"Object has no attribute '{attr}'")
+
+    def forward(self, x):
+        skip_connection = self.skip_connection_amplifier * x
+        x = self.layers(x)
+        x = x + skip_connection
+        return x
