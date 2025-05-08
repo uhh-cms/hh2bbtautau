@@ -14,6 +14,7 @@ from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 
 from hbt.ml.torch_utils.functions import (
     get_one_hot, WeightedCrossEntropyLoss, preprocess_multiclass_outputs,
+    WeightedCrossEntropySlice,
 )
 
 torch = maybe_import("torch")
@@ -529,6 +530,14 @@ if not isinstance(torch, MockModule):
     class WeightedResnetTest(WeightedResnetNoDropout):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            self.validation_metrics["loss"] = WeightedLoss(self.loss_fn)
+
+            self.validation_metrics.update({
+                f"loss_cls_{identifier}": WeightedLoss(
+                    WeightedCrossEntropySlice(cls_index=idx),
+                )
+                for identifier, idx in self.categorical_target_map.items()
+            })
             self.validation_metrics.update({
                 f"roc_auc_cls_{identifier}": WeightedROC_AUC(
                     output_transform=partial(
@@ -540,13 +549,12 @@ if not isinstance(torch, MockModule):
                 )
                 for identifier, idx in self.categorical_target_map.items()
             })
-            self.validation_metrics["loss"] = WeightedLoss(self.loss_fn)
 
             self.training_epoch_length_cutoff = 2000
             # self.val_epoch_length_cutoff = 100
 
         def init_optimizer(self, learning_rate=0.001, weight_decay=0.00001):
-            self.optimizer = Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            self.optimizer = AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     class WeightedResnetTest2(WeightedResnetTest):
         def __init__(self, *args, **kwargs):
@@ -574,13 +582,20 @@ if not isinstance(torch, MockModule):
                 target = target.reshape(-1, 1)
 
             loss = self.loss_fn(pred, target)
-            from IPython import embed
-            embed(header=f"in training step of class {self.__class__.__name__}")
+            # from IPython import embed
+            # embed(header=f"in training step of class {self.__class__.__name__}")
             # Backpropagation
             loss.backward()
             self.optimizer.step()
 
             return loss.item()
+
+        def validation_step(self, engine, batch):
+            output = super().validation_step(engine=engine, batch=batch)
+
+            from IPython import embed
+            embed(header=f"validation step of {self.__class__.__name__}")
+            return output
 
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
