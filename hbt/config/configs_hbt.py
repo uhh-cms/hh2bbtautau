@@ -419,11 +419,11 @@ def add_config(
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
             if dataset.name.endswith("_madgraph"):
-                dataset.add_tag("dy_LO")
+                dataset.add_tag("dy_lo")
             if dataset.name.endswith("_amcatnlo"):
-                dataset.add_tag("dy_NLO")
+                dataset.add_tag("dy_nlo")
             elif dataset.name.endswith("_powheg"):
-                dataset.add_tag("dy_NNLO")
+                dataset.add_tag("dy_nnlo")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):
@@ -556,10 +556,10 @@ def add_config(
             },
         }
         """
-        cfg.x.dy_stitching_LO = {
+        cfg.x.dy_lo_stitching = {
             "m50toinf": {
                 "inclusive_dataset": cfg.datasets.n.dy_m50toinf_madgraph,
-                "leaf_processes_pt": [
+                "leaf_processes": [
                     # the following processes cover the full pt phasespace
                     *(
                         procs.get(f"dy_m50toinf_pt{pt}")
@@ -575,10 +575,10 @@ def add_config(
             },
         }
 
-        cfg.x.dy_stitching_NLLO = {
+        cfg.x.dy_nnlo_stitching = {
             "ee_m50toinf": {
                 "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
-                "leaf_processes_pt": [
+                "leaf_processes": [
                     # the following processes cover the full inv mass phasespace
                     *(
                         procs.get(f"dy_ee_m{mass}")
@@ -643,10 +643,15 @@ def add_config(
 
     # category groups for conveniently looping over certain categories
     # (used during plotting)
-    cfg.x.category_groups = {}
+    cfg.x.category_groups = {
+        "default": [
+            "ee__dy__os", "mumu__dy__os", "emu__tt__os",
+        ],
+    }
 
     # variable groups for conveniently looping over certain variables
     # (used during plotting)
+    """
     cfg.x.variable_groups = {
         "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
@@ -656,6 +661,19 @@ def add_config(
             "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
+        ],
+    }
+    """
+
+    cfg.x.variable_groups = {
+        "hh": (hh := [f"hh_{var}" for var in ["mass", "pt", "dr"]]),
+        "dilep": (dilep := [f"dilep_{var}" for var in ["mass", "pt"]]),
+        "dijet": (dijet := [f"dijet_{var}" for var in ["mass", "pt"]]),
+        "default": [
+            *dijet, *dilep, *hh,
+            "e1_pt", "e1_eta", "mu1_pt", "mu1_eta", "tau1_pt", "tau1_eta",
+            "jet1_pt", "jet1_eta", "ht",
+            "nbjets_deepjet", "nbjets_pnet", "njets",
         ],
     }
 
