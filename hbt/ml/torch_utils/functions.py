@@ -121,12 +121,39 @@ if not isinstance(torch, MockModule):
                 self.reduction = "none"
                 loss = super().forward(input, target)
                 self.reduction = reduction
-                loss = loss * weight
+                loss = torch.dot(loss, weight)
                 if self.reduction == "mean":
-                    loss = torch.sum(loss) / torch.sum(weight)
-                elif self.reduction == "sum":
-                    loss = torch.sum(loss)
+                    loss = loss / torch.sum(weight)
             else:
                 loss = super().forward(input, target)
             return loss
 
+    class WeightedCrossEntropySlice(WeightedCrossEntropyLoss):
+        def __init__(self, cls_index: int, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.cls_index = cls_index
+
+        def forward(self, input, target, weight: torch.Tensor | None = None, **kwargs):
+            if weight is None:
+                shape = input.shape[:-1] if input.dim() > 1 else input.shape
+                weight = torch.ones(shape)
+            # save original reduction mode
+            reduction = self.reduction
+            self.reduction = "none"
+            loss = super().forward(input, target)
+            self.reduction = reduction
+            # select the loss items that belong to the current slice index
+            # first, see where the maximum entry in the target vector can be found
+            max_idx = torch.max(target, dim=-1).indices
+
+            # create mask that corresponds to current class index and reduce
+            # tensors accordingly
+            cls_mask = max_idx == self.cls_index
+            loss = loss[cls_mask]
+            weight = weight[cls_mask]
+
+            # continue with calculation
+            loss = torch.dot(loss, weight)
+            if self.reduction == "mean" and not loss == 0 and not torch.sum(weight) == 0:
+                loss = loss / torch.sum(weight)
+            return loss

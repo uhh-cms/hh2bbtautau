@@ -89,6 +89,10 @@ if not isinstance(ignite, MockModule):
             )
             self.trainer.add_event_handler(
                 Events.EPOCH_COMPLETED,
+                self._log_timing,
+            )
+            self.trainer.add_event_handler(
+                Events.EPOCH_COMPLETED,
                 partial(
                     self.log_results,
                     evaluator=self.train_evaluator,
@@ -114,6 +118,10 @@ if not isinstance(ignite, MockModule):
                     self.logger.warning(f"Could not find custom hook '{custom_hook}', skipping")
                 else:
                     fn()
+
+        def _log_timing(self, engine) -> None:
+            time_per_epoch = engine.state.times[Events.EPOCH_COMPLETED.name] / engine.state.epoch_length
+            self.logger.info(f"Timing of Epoch [{engine.state.epoch}]: {time_per_epoch:0.3f} s/iteration")
 
         def init_metrics(self) -> None:
 
@@ -187,6 +195,9 @@ if not isinstance(ignite, MockModule):
             data_loader.reset()
             evaluator.run(data_loader, epoch_length=max_epoch_length)
             metrics = evaluator.state.metrics
+            # if mode == "validation":
+            #     from IPython import embed
+            #     embed(header="in log_results with mode validation")
             infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
             if self.writer:
                 self._log_attributes(metrics=metrics, trainer=trainer, mode=mode)
