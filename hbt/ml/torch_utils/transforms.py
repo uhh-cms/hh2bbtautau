@@ -101,6 +101,21 @@ if not isinstance(torch, MockModule):
 
             return return_tensor
 
+    class MoveToDevice(torch.nn.Module):
+        def __init__(self, device=None, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.device = device
+
+        def forward(self, X: ak.Array | torch.Tensor | NestedTensor) -> (ak.Array | torch.Tensor | NestedTensor):
+            if isinstance(X, (ak.Array, np.ndarray)):
+                return ak.to_torch(X).to(device=self.device)
+            elif isinstance(X, (torch.Tensor, NestedTensor)):
+                return X.to(device=self.device)
+            elif isinstance(X, (list, tuple)):
+                return [self.forward(entry) for entry in X]
+            else:
+                raise ValueError(f"Could not convert input {X=}")
+
     class AkToTensor(AkToNestedTensor):
         def _transform_input(self, X):
             return_tensor = None
@@ -119,6 +134,10 @@ if not isinstance(torch, MockModule):
                 raise ValueError(f"Could not convert input {X=}")
 
             return return_tensor
+
+    class EventFilter(torch.nn.Module):
+        def __init__(self, *args, **kwargs):
+            self.uses = {"category_ids"}
 
     class PreProcessFloatValues(torch.nn.Module):
         def __init__(self, *args, **kwargs):

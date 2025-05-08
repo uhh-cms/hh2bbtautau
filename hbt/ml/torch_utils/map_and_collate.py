@@ -201,3 +201,64 @@ if not isinstance(torch, MockModule):
                 batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
 
             return batch
+
+    class TensorListRowgroupMapAndCollate(FlatListRowgroupMapAndCollate):
+        """A simple transform that takes a batch of indices, maps with dataset, and then applies
+        collate.
+        TODO: make this a standard utility in torchdata.nodes
+        """
+
+        def _concat_tensors(self, input_arrays: Sequence[torch.Tensor], *args, **kwargs) -> torch.Tensor:
+            # helper function to concatenate different types of objects
+            first_tensor = input_arrays[0]
+            if isinstance(first_tensor, torch.Tensor):
+                # if the first tensor is a torch tensor, use torch.cat
+                return torch.cat(input_arrays, *args, **kwargs)
+            elif isinstance(first_tensor, (list, tuple)):
+                # if the first tensor is a list or tuple, use torch.cat
+                return [torch.cat(x, *args, **kwargs) for x in zip(input_arrays)]
+
+        def _default_collate(self, idx: dict[str, dict[tuple[int, int], Sequence[int]]]) -> Sequence[T]:
+            batch: list[T] = []
+
+            # the indices are dictionaries with multiple entries, so loop
+            idx = reorganize_idx(idx)
+            for (dataset_idx, rowgroup), entry_idx in idx.items():
+                try:
+                    dataset = self.dataset[dataset_idx]
+                    if self.weights:
+                        weight = self.weights[dataset_idx]
+                        dataset.cls_weight = weight
+                    current_batch = dataset[((rowgroup, entry_idx),)]
+                    batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_tensors)
+                except Exception as e:  # noqa: F841
+                    from IPython import embed
+                    embed(header=f"Detected problem in {self.__class__.__name__}")
+
+            return batch
+
+    class NestedTensorListRowgroupMapAndCollate(TensorListRowgroupMapAndCollate):
+        dataset: dict[str, Sequence[FlatRowgroupParquetDataset]]
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.all_datasets = self.dataset
+
+        def _default_collate(self, idx: dict[str, dict[tuple[int, int], Sequence[int]]]) -> Sequence[T]:
+            batch: list[T] = []
+            keys = np.array(list(idx.keys()))
+
+            worker_info = torch.utils.data.get_worker_info()
+            if worker_info and worker_info.num_workers > 1 and worker_info.id is not None:
+                key_idx = np.indeces(keys.shape)
+                mask = ((key_idx + 1) % (worker_info.id + 1)) == 0
+                keys = keys[key_idx[mask]]
+                print(f"Worker {worker_info.id}: {keys=}")
+
+            for key in keys:
+                indices = idx[key]
+                self.dataset = self.all_datasets[key]
+                current_batch = super()._default_collate(indices)
+                batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_tensors)
+
+            return batch

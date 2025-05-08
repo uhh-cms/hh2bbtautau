@@ -6,15 +6,16 @@ import abc
 from columnflow.util import maybe_import
 from columnflow.columnar_util import Route
 from columnflow.types import Any, Callable
-from collections.abc import Collection
+from collections.abc import Collection, Container
 from hbt.ml.torch_utils.dataloaders import CompositeDataLoader
 from hbt.ml.torch_utils.datasets import (
     ParquetDataset, FlatRowgroupParquetDataset, FlatParquetDataset,
     FlatArrowRowGroupParquetDataset, WeightedFlatRowgroupParquetDataset,
+    WeightedRgTensorParquetDataset, RgTensorParquetDataset,
 )
 from hbt.ml.torch_utils.map_and_collate import (
     NestedListRowgroupMapAndCollate, FlatListRowgroupMapAndCollate,
-    NestedDictMapAndCollate,
+    NestedDictMapAndCollate, TensorListRowgroupMapAndCollate, NestedTensorListRowgroupMapAndCollate
 )
 
 from hbt.ml.torch_utils.samplers import ListRowgroupSampler, RowgroupSampler
@@ -392,6 +393,175 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
         validation_composite_loader = self._create_validation_dataloader(validation_data_map)
 
         return (training_composite_loader, (train_val_composite_loader, validation_composite_loader))
+
+
+class RgTensorParquetFileHandler(BaseParquetFileHandler):
+    def __init__(
+        self,
+        *args,
+        continuous_features: Container[str] | None = None,
+        categorical_features: Container[str] | None = None,
+        **kwargs,
+    ):
+        # overwrite the columns to load
+        self.continuous_features = continuous_features or {}
+        self.categorical_features = categorical_features or {}
+        columns = set(self.continuous_features) | set(self.categorical_features)
+        if getattr(kwargs, "columns", None) is not None:
+            logger.warning(
+                f"{self.__class__.__name__} only supports input feature columns "
+                "that are split by categorical and continuous features. Will ignore "
+                f"columns={kwargs['columns']} and use columns={columns} instead.",
+            )
+        kwargs["columns"] = columns
+        super().__init__(*args, **kwargs)
+        self.dataset_cls = RgTensorParquetDataset
+        self.training_map_and_collate_cls = NestedTensorListRowgroupMapAndCollate
+        self.validation_map_and_collate_cls = TensorListRowgroupMapAndCollate
+        self.training_sampler_cls = ListRowgroupSampler
+        self.validation_sampler_cls = ListRowgroupSampler
+
+    def _split_pq_dataset_per_path(
+        self,
+        target_path,
+        ratio=0.7,
+        targets: Collection[str | int | Route] | str | Route | int | None = None,
+    ):
+        meta = ak.metadata_from_parquet(target_path)
+
+        total_row_groups = meta["num_row_groups"]
+        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
+        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
+        max_training_group = int(total_row_groups * ratio)
+        training_row_groups = None
+        if max_training_group == 0:
+            logger.warning(
+                "Could not split into training and validation data"
+                f" number of row groups for '{target_path}' is  {total_row_groups}",
+            )
+        else:
+            training_row_groups = rowgroup_indices[:max_training_group]
+
+        final_options = self.open_options or dict()
+        final_options.update({"row_groups": training_row_groups})
+
+        dataset_kwargs = {
+            "categorical_features": self.categorical_features,
+            "continuous_features": self.continuous_features,
+            "target": targets,
+            "batch_transform": self.batch_transformations,
+            "global_transform": self.global_transformations,
+            "categorical_target_transform": self.categorical_target_transformation,
+            "data_type_transform": self.data_type_transform,
+        }
+
+        logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
+
+        training = self.dataset_cls(
+            target_path,
+            open_options=final_options,
+            **dataset_kwargs,
+        )
+
+        validation = None
+        if training_row_groups is None:
+            validation = training
+        else:
+            validation_row_groups = rowgroup_indices[max_training_group:]
+            final_options.update({"row_groups": validation_row_groups})
+            logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
+            validation = self.dataset_cls(
+                target_path,
+                open_options=final_options,
+                **dataset_kwargs,
+            )
+        return training, validation
+
+
+class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHandler):
+    def __init__(
+        self,
+        *args,
+        continuous_features: Container[str] | None = None,
+        categorical_features: Container[str] | None = None,
+        **kwargs,
+    ):
+        # overwrite the columns to load
+        self.continuous_features = continuous_features or {}
+        self.categorical_features = categorical_features or {}
+        columns = set(self.continuous_features) | set(self.categorical_features)
+        if getattr(kwargs, "columns", None) is not None:
+            logger.warning(
+                f"{self.__class__.__name__} only supports input feature columns "
+                "that are split by categorical and continuous features. Will ignore "
+                f"columns={kwargs['columns']} and use columns={columns} instead.",
+            )
+        kwargs["columns"] = columns
+        super().__init__(*args, **kwargs)
+        self.dataset_cls = WeightedRgTensorParquetDataset
+        # self.validation_dataset_cls = WeightedFlatRowgroupParquetDataset
+        self.training_map_and_collate_cls = NestedTensorListRowgroupMapAndCollate
+        self.validation_map_and_collate_cls = TensorListRowgroupMapAndCollate
+        self.training_sampler_cls = ListRowgroupSampler
+        self.validation_sampler_cls = ListRowgroupSampler
+
+    def _split_pq_dataset_per_path(
+        self,
+        target_path,
+        ratio=0.7,
+        targets: Collection[str | int | Route] | str | Route | int | None = None,
+    ):
+        meta = ak.metadata_from_parquet(target_path)
+
+        total_row_groups = meta["num_row_groups"]
+        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
+        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
+        max_training_group = int(total_row_groups * ratio)
+        training_row_groups = None
+        if max_training_group == 0:
+            logger.warning(
+                "Could not split into training and validation data"
+                f" number of row groups for '{target_path}' is  {total_row_groups}",
+            )
+        else:
+            training_row_groups = rowgroup_indices[:max_training_group]
+
+        final_options = self.open_options or dict()
+        final_options.update({"row_groups": training_row_groups})
+
+        dataset_kwargs = {
+            "categorical_features": self.categorical_features,
+            "continuous_features": self.continuous_features,
+            "target": targets,
+            "batch_transform": self.batch_transformations,
+            "global_transform": self.global_transformations,
+            "categorical_target_transform": self.categorical_target_transformation,
+            "data_type_transform": self.data_type_transform,
+            "padd_value_float": 0,
+            "padd_value_int": 15,
+        }
+
+        logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
+
+        training = self.dataset_cls(
+            target_path,
+            open_options=final_options,
+            **dataset_kwargs,
+        )
+
+        validation = None
+        if training_row_groups is None:
+            validation = training
+        else:
+            validation_row_groups = rowgroup_indices[max_training_group:]
+            final_options.update({"row_groups": validation_row_groups})
+            logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
+            validation = self.dataset_cls(
+                target_path,
+                open_options=final_options,
+                **dataset_kwargs,
+            )
+        return training, validation
 
 
 class FlatArrowParquetFileHandler(BaseParquetFileHandler):
