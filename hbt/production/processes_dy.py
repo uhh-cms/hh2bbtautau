@@ -269,12 +269,21 @@ class stiched_process_ids_1d(stitched_process_ids):
 
         return (var_bins[0], ) if single else (var_bins, )
 
-process_ids_dy_1d = stiched_process_ids_1d.derive("process_ids_dy_1d", cls_dict={
+
+process_ids_dy_lo = stiched_process_ids_1d.derive("process_ids_dy_lo", cls_dict={
     "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
     "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
     "include_condition": IF_DATASET_IS_DY_LO,
     # still misses leaf_processes, must be set dynamically
 })
+
+process_ids_dy_nnlo = stiched_process_ids_1d.derive("process_ids_dy_nnlo", cls_dict={
+    "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
+    "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
+    "include_condition": IF_DATASET_IS_DY_NNLO,
+    # still misses leaf_processes, must be set dynamically
+})
+
 
 process_ids_dy = stiched_process_ids_nj_pt.derive("process_ids_dy", cls_dict={
     "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
