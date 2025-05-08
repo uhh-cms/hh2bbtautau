@@ -118,13 +118,56 @@ def add_config(
             label=r"$t\bar{t}$ + Multiboson",
             processes=[procs.n.ttv, procs.n.ttvv],
         )
+        cfg.add_process(
+            name="dy_nlo",
+            id=7995,
+            label="DY NLO",
+            processes=[
+                procs.n.dy_m4to10, procs.n.dy_m10to50, procs.n.dy_m50toinf,
+                procs.n.dy_m50toinf_0j, procs.n.dy_m50toinf_1j, procs.n.dy_m50toinf_2j, procs.n.dy_m50toinf_ge3j,
+                procs.n.dy_m50toinf_1j_pt40to100, procs.n.dy_m50toinf_1j_pt100to200, procs.n.dy_m50toinf_1j_pt200to400,
+                procs.n.dy_m50toinf_1j_pt400to600, procs.n.dy_m50toinf_1j_pt600toinf,
+                procs.n.dy_m50toinf_2j_pt40to100, procs.n.dy_m50toinf_2j_pt100to200, procs.n.dy_m50toinf_2j_pt200to400,
+                procs.n.dy_m50toinf_2j_pt400to600, procs.n.dy_m50toinf_2j_pt600toinf,
+            ],
+        )
+        cfg.add_process(
+            name="dy_lo",
+            id=7994,
+            label="DY LO",
+            processes=[
+                procs.n.dy_m4to50_ht40to70, procs.n.dy_m4to50_ht70to100, procs.n.dy_m4to50_ht100to400,
+                procs.n.dy_m4to50_ht400to800, procs.n.dy_m4to50_ht800to1500, procs.n.dy_m4to50_ht1500to2500,
+                procs.n.dy_m4to50_ht2500toinf, procs.n.dy_m50toinf_pt40to100, procs.n.dy_m50toinf_pt100to200,
+                procs.n.dy_m50toinf_pt200to400, procs.n.dy_m50toinf_pt400to600, procs.n.dy_m50toinf_pt600toinf,
+            ],
+        )
+        cfg.add_process(
+            name="dy_nnlo",
+            id=7993,
+            label="DY NNLO",
+            processes=[
+                procs.n.dy_ee_m10to50, procs.n.dy_ee_m50to120, procs.n.dy_ee_m120to200,
+                procs.n.dy_ee_m200to400, procs.n.dy_ee_m400to800, procs.n.dy_ee_m800to1500,
+                procs.n.dy_ee_m1500to2500, procs.n.dy_ee_m2500to4000, procs.n.dy_ee_m4000to6000,
+                procs.n.dy_ee_m6000toinf, procs.n.dy_mumu_m10to50, procs.n.dy_mumu_m50to120,
+                procs.n.dy_mumu_m120to200, procs.n.dy_mumu_m200to400, procs.n.dy_mumu_m400to800,
+                procs.n.dy_mumu_m800to1500, procs.n.dy_mumu_m1500to2500, procs.n.dy_mumu_m2500to4000,
+                procs.n.dy_mumu_m4000to6000, procs.n.dy_mumu_m6000toinf, procs.n.dy_tautau_m10to50,
+                procs.n.dy_tautau_m50to120, procs.n.dy_tautau_m120to200, procs.n.dy_tautau_m200to400,
+                procs.n.dy_tautau_m400to800, procs.n.dy_tautau_m800to1500, procs.n.dy_tautau_m1500to2500,
+                procs.n.dy_tautau_m2500to4000, procs.n.dy_tautau_m4000to6000, procs.n.dy_tautau_m6000toinf,
+            ],
+        )
 
     # processes we are interested in
     process_names = [
         "data",
         "tt",
         "st",
-        "dy",
+        "dy_lo",
+        "dy_nlo",
+        "dy_nnlo",
         "v",
         "multiboson",
         "tt_multiboson",
@@ -177,6 +220,12 @@ def add_config(
         if re.match(r"^dy(|_.+)$", process_name):
             for _proc, _, _ in proc.walk_processes(include_self=True):
                 _proc.add_tag("dy")
+        if process_name.startswith("dy_") and process_name.endswith("_madgraph"):
+            proc.add_tag("dy_lo")
+        if process_name.startswith("dy_") and process_name.endswith("_amcatnlo"):
+            proc.add_tag("dy_nlo")
+        if process_name.startswith("dy_") and process_name.endswith("_powheg"):
+            proc.add_tag("dy_nnlo")
         if re.match(r"^w_lnu(|_.+)$", process_name):
             for _proc, _, _ in proc.walk_processes(include_self=True):
                 _proc.add_tag("w_lnu")
@@ -273,6 +322,7 @@ def add_config(
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
 
         *if_era(year=2022, tag="preEE", values=[
+            # TODO: STITCHING ! leave out some datasets for now
             # dy LO
             "dy_m4to50_ht40to70_madgraph",
             "dy_m4to50_ht70to100_madgraph",
@@ -281,19 +331,19 @@ def add_config(
             "dy_m4to50_ht800to1500_madgraph",
             "dy_m4to50_ht1500to2500_madgraph",
             "dy_m4to50_ht2500toinf_madgraph",
-            "dy_m50toinf_madgraph",
+            # "dy_m50toinf_madgraph",
             "dy_m50toinf_pt40to100_madgraph",
             "dy_m50toinf_pt100to200_madgraph",
             "dy_m50toinf_pt200to400_madgraph",
             "dy_m50toinf_pt400to600_madgraph",
             "dy_m50toinf_pt600toinf_madgraph",
-            "dy_m50toinf_1j_madgraph",
-            "dy_m50toinf_2j_madgraph",
-            "dy_m50toinf_3j_madgraph",
-            "dy_m50toinf_4j_madgraph",
+            # "dy_m50toinf_1j_madgraph",
+            # "dy_m50toinf_2j_madgraph",
+            # "dy_m50toinf_3j_madgraph",
+            # "dy_m50toinf_4j_madgraph",
 
             # dy NNLO, split in leptons
-            "dy_ee_m50toinf_powheg",
+            # "dy_ee_m50toinf_powheg",
             "dy_ee_m10to50_powheg",
             "dy_ee_m50to120_powheg",
             "dy_ee_m120to200_powheg",
@@ -505,7 +555,7 @@ def add_config(
             "hh_ggf_hbb_htt_kl5_kt1",
         ],
         "backgrounds": (backgrounds := [
-            "dy",
+            # "dy",
             "tt",
             "qcd",
             "st",
@@ -534,7 +584,9 @@ def add_config(
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
-        "sm_data": ["data"] + sm_group,
+        "sm_lo_data": ["data", "dy_lo"] + sm_group,
+        "sm_nlo_data": ["data", "dy_nlo"] + sm_group,
+        "sm_nnlo_data": ["data", "dy_nnlo"] + sm_group,
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
