@@ -15,6 +15,7 @@ if not isinstance(ignite, MockModule):
     from ignite.metrics import Metric
     from torch.utils.tensorboard import SummaryWriter
     import torchdata.nodes as tn
+    import numpy as np
 
     class IgniteMixinBase:
         def __init__(self, *args, **kwargs):
@@ -165,7 +166,6 @@ if not isinstance(ignite, MockModule):
             self.training_loader.data_loader.reset()
 
         def _log_attributes(self, metrics, trainer, mode="training"):
-
             for name, value in metrics.items():
                 self.writer.add_scalars(
                     f"{self.run_name}_{name}",
@@ -195,10 +195,8 @@ if not isinstance(ignite, MockModule):
             data_loader.reset()
             evaluator.run(data_loader, epoch_length=max_epoch_length)
             metrics = evaluator.state.metrics
-            # if mode == "validation":
-            #     from IPython import embed
-            #     embed(header="in log_results with mode validation")
-            infos = " | ".join([f"Avg {name}: {value:.2f}" for name, value in metrics.items()])
+
+            infos = " | ".join([f"Avg {name}: {np.round(value,2)}" for name, value in metrics.items()])
             if self.writer:
                 self._log_attributes(metrics=metrics, trainer=trainer, mode=mode)
 

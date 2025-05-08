@@ -160,6 +160,10 @@ class CatEmbeddingLayer(nn.Module):
         x = self.embeddings(x)
         return x.flatten(start_dim=1)
 
+    def to(self, *args, **kwargs):
+        self.tokenizer.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
 
 class InputLayer(nn.Module):
     def __init__(
@@ -190,6 +194,10 @@ class InputLayer(nn.Module):
             (continuous_features, self.embedding_layer(categorical_features)),
             dim=1,
         )
+
+    def to(self, *args, **kwargs):
+        self.embedding_layer.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
 
 
 class ResNetBlock(nn.Module):

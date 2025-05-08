@@ -4,10 +4,13 @@ __all__ = [
     "reorganize_idx", "CustomEarlyStopping", "RelativeEarlyStopping",
 ]
 from collections import defaultdict
+
+import law
 from columnflow.util import maybe_import, MockModule
-from columnflow.columnar_util import EMPTY_INT
+from columnflow.columnar_util import Route, EMPTY_INT
 from columnflow.types import Any
 from copy import deepcopy
+
 
 ignite = maybe_import("ignite")
 torch = maybe_import("torch")
@@ -24,6 +27,18 @@ embedding_expected_inputs = {
     # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
     "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
 }
+
+
+def expand_columns(*columns):
+    if isinstance(columns, str):
+        columns = [columns]
+
+    _columns = set()
+    for column_expression in columns:
+        expanded_columns = law.util.brace_expand(column_expression)
+        routed_columns = set(map(Route, expanded_columns))
+        _columns.update(routed_columns)
+    return sorted(_columns)
 
 
 def reorganize_list_idx(entries):
