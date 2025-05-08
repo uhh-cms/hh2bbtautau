@@ -418,6 +418,12 @@ def add_config(
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
+            if dataset.name.endswith("_madgraph"):
+                dataset.add_tag("dy_LO")
+            if dataset.name.endswith("_amcatnlo"):
+                dataset.add_tag("dy_NLO")
+            elif dataset.name.endswith("_powheg"):
+                dataset.add_tag("dy_NNLO")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):
@@ -549,6 +555,40 @@ def add_config(
                 ],
             },
         }
+        """
+        cfg.x.dy_stitching_LO = {
+            "m50toinf": {
+                "inclusive_dataset": cfg.datasets.n.dy_m50toinf_madgraph,
+                "leaf_processes_pt": [
+                    # the following processes cover the full pt phasespace
+                    *(
+                        procs.get(f"dy_m50toinf_pt{pt}")
+                        for pt in ["40to100", "100to200", "200to400", "400to600", "600toinf"]
+                    ),
+                "leaf_processes_nj": [
+                    # the following processes cover the full njet phasespace
+                    *(
+                        procs.get(f"dy_m50toinf_{nj}j")
+                        for nj in [1,2,3,4]
+                    ),
+                ],
+            },
+        }
+
+        cfg.x.dy_stitching_NLLO = {
+            "ee_m50toinf": {
+                "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
+                "leaf_processes_pt": [
+                    # the following processes cover the full inv mass phasespace
+                    *(
+                        procs.get(f"dy_ee_m{mass}")
+                        for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]
+                    ),
+                ],
+            },
+        }
+
+        """
         # w+jets
         cfg.x.w_lnu_stitching = {
             "incl": {
@@ -1143,6 +1183,31 @@ def add_config(
             dy_era += "preBPix" if campaign.has_tag("preBPix") else "postBPix"
         else:
             assert False
+
+        """
+        for dataset in cfg.datasets:
+            if dataset.has_tag("dy_LO"):
+                cfg.x.dy_weight_config = DrellYanConfig(
+                    era=dy_era,
+                    order="LO",
+                    correction="DY_pTll_reweighting",
+                    unc_correction="DY_pTll_reweighting_N_uncertainty",
+                )
+            elif dataset.has_tag("dy_NNLO"):
+                cfg.x.dy_weight_config = DrellYanConfig(
+                    era=dy_era,
+                    order="NNLO",
+                    correction="DY_pTll_reweighting",
+                    unc_correction="DY_pTll_reweighting_N_uncertainty",
+                )
+            else:
+                cfg.x.dy_weight_config = DrellYanConfig(
+                    era=dy_era,
+                    order="NLO",
+                    correction="DY_pTll_reweighting",
+                    unc_correction="DY_pTll_reweighting_N_uncertainty",
+                )
+        """
 
         # dy reweighting
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
