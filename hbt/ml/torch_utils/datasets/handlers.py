@@ -235,18 +235,32 @@ class BaseParquetFileHandler(object):
     def _create_validation_dataloader(
         self,
         validation_data_map,
+        weights=None,
         **sampler_kwargs,
     ) -> CompositeDataLoader:
         # create merged validation dataset since it's ok to simply evaluate the
         # events one by one
         validation_data: list[ParquetDataset] = list()
+        validation_weights = None
+        if weights is not None:
+            validation_weights: list[float] = list()
 
         for key, x in validation_data_map.items():
             if not isinstance(x, (list, tuple, set)):
                 validation_data.append(x)
+                if validation_weights is not None:
+                    validation_weights.append(weights[key])
             else:
                 validation_data.extend(x)
+                if validation_weights is not None:
+                    validation_weights.extend([weights[key]] * len(x))
 
+        def wrapped_map_and_collate_cls(data_map, collate_fn):
+            return self.validation_map_and_collate_cls(
+                data_map,
+                collate_fn=collate_fn,
+                weights=validation_weights,
+            )
         return CompositeDataLoader(
             validation_data,
             batch_sampler_cls=tn.Batcher,
@@ -261,7 +275,7 @@ class BaseParquetFileHandler(object):
                     ),
                 ),
             },
-            map_and_collate_cls=self.validation_map_and_collate_cls,
+            map_and_collate_cls=wrapped_map_and_collate_cls,
             device=self.device,
             # collate_fn=lambda x: x,
         )
@@ -325,21 +339,22 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
     ) -> CompositeDataLoader:
         # calculate final weights
         total_events = 0
+        weights = dict()
         for key, weight in self.weight_dict.items():
 
             if isinstance(weight, dict):
-                total_events = sum(len(x) for k in weight.keys() for x in validation_data_map[k])
                 # also account for sum of sub weights such that total sum is 1
                 for k, v in weight.items():
-                    for d in validation_data_map[k]:
-                        d.cls_weight = v / total_events
+                    total_events = sum(len(x) for x in validation_data_map[k])
+                    weights[k] = v / total_events
             else:
                 total_events = sum(len(x) for x in validation_data_map[key])
                 for d in validation_data_map[key]:
-                    d.cls_weight = weight / total_events
+                    weights[key] = weight / total_events
 
         return super()._create_validation_dataloader(
             validation_data_map,
+            weights=weights,
             **sampler_kwargs,
         )
 

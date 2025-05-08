@@ -9,7 +9,7 @@ __all__ = [
     "NestedListRowgroupMapAndCollate",
 ]
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from columnflow.util import MockModule, maybe_import
 from columnflow.types import T, Callable, Sequence
 
@@ -58,9 +58,11 @@ if not isinstance(torch, MockModule):
             self,
             dataset: dict[str, Collection[T]],
             collate_fn: Callable | None = None,
+            weights: Collection[float] | Mapping[str, float] | None = None,
         ):
             self.dataset = dataset
             self.collate_fn: Callable = collate_fn or self._default_collate
+            self.weights = weights
 
         def _concat_batches(
             self,
@@ -84,6 +86,9 @@ if not isinstance(torch, MockModule):
             batch: list[T] = []
 
             for key, indices in idx.items():
+                if self.weights:
+                    weight = self.weights[key]
+                    self.dataset[key].cls_weight = weight
                 current_batch = self.dataset[key][indices]
                 concat_fn = ak.concatenate
                 if isinstance(current_batch, (list, tuple)):
@@ -134,6 +139,9 @@ if not isinstance(torch, MockModule):
             batch: list[T] = []
 
             for key, indices in idx.items():
+                if self.weights:
+                    weight = self.weights[key]
+                    self.dataset[key].cls_weight = weight
                 try:
                     current_batch = self.dataset[key][indices]
                 except Exception as e:
@@ -157,6 +165,9 @@ if not isinstance(torch, MockModule):
             for (dataset_idx, rowgroup), entry_idx in idx.items():
                 try:
                     dataset = self.dataset[dataset_idx]
+                    if self.weights:
+                        weight = self.weights[dataset_idx]
+                        dataset.cls_weight = weight
                     current_batch = dataset[((rowgroup, entry_idx),)]
                     batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
                 except Exception as e:  # noqa: F841
