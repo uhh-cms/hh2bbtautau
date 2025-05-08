@@ -37,10 +37,14 @@ def add_categories(config: od.Config) -> None:
     # kinematic categories
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
     _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
+    _add_category(config, name="tt", id=220, selection="cat_tt", label=r"$t\bar{t}$ enriched")
+
     _add_category(config, name="dy", id=210, selection="cat_dy", label="DY enriched")
     _add_category(config, name="dy_res1b", id=211, selection="cat_dy_res1b", label="DY enriched res1b")
     _add_category(config, name="dy_res2b", id=212, selection="cat_dy_res2b", label="DY enriched res2b")
-    _add_category(config, name="tt", id=220, selection="cat_tt", label=r"$t\bar{t}$ enriched")
+    _add_category(config, name="dyc", id=213, selection="cat_dyc", label="DY enriched (CCLUB)")
+    _add_category(config, name="dyc_res1b", id=214, selection="cat_dyc_res1b", label="DY enriched res1b (CCLUB)")
+    _add_category(config, name="dyc_res2b", id=215, selection="cat_dyc_res2b", label="DY enriched res2b (CCLUB)")
 
     _add_category(config, name="res1b", id=300, selection="cat_res1b", label="res1b")
     _add_category(config, name="res2b", id=301, selection="cat_res2b", label="res2b")
@@ -114,17 +118,16 @@ def add_categories(config: od.Config) -> None:
         "kin": [
             config.get_category("incl"),
             config.get_category("dy"),
+            config.get_category("dy_res1b"),
+            config.get_category("dy_res2b"),
+            config.get_category("dyc"),
+            config.get_category("dyc_res1b"),
+            config.get_category("dyc_res2b"),
             config.get_category("tt"),
         ],
         # relative sign last
         "sign": [config.get_category("os")],
     }
-
-    CCLUB = False
-    if CCLUB:
-        control_categories["kin"].append(config.get_category("dy_res1b"))
-        control_categories["kin"].append(config.get_category("dy_res2b"))
-        # main_categories["kin"].append(config.get_category("dy_not_boosted"))
 
     def skip_fn_ctrl(categories: dict[str, od.Category]) -> bool:
         if "channel" not in categories or "kin" not in categories:
@@ -132,7 +135,7 @@ def add_categories(config: od.Config) -> None:
         ch_cat = categories["channel"]
         kin_cat = categories["kin"]
         # skip dy in emu
-        if (kin_cat.name in ("dy", "dy_res1b", "dy_res2b")) and ch_cat.name == "emu":
+        if ("dy" in kin_cat.name) and ch_cat.name == "emu":
             return True
         # skip tt in ee/mumu
         if kin_cat.name == "tt" and ch_cat.name in ("ee", "mumu"):
