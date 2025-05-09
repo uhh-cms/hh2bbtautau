@@ -160,13 +160,15 @@ class WeightMixin:
             weights = ak.prod(weights, axis=-1)
         else:
             weights = ak.ones_like(indices, dtype=np.float32)
-        final_weights = weights * self.cls_weight
+
+        if self.cls_weight:
+            weights = weights * self.cls_weight
         if self.data_type_transform:
-            final_weights = self.data_type_transform(final_weights)
+            weights = self.data_type_transform(weights)
 
         if self.batch_transform:
-            final_weights = self.batch_transform(final_weights)
-        return final_weights
+            weights = self.batch_transform(weights)
+        return weights
 
     def __getitem__(
         self,
@@ -183,18 +185,20 @@ class WeightMixin:
             self.current_rowgroups = rowgroup
 
             chunk = super().__getitem__(((rowgroup, indices),))
-            if isinstance(chunk, (tuple, list)) and isinstance(chunk[0], dict):
-                # if the chunk is a tuple, we need to calculate the weights
-                # append the weight array to the tuple
+            if self.weight_columns or self.cls_weight:
                 weights = self._calculate_weights(indices)
-                chunk[0]["weights"] = weights
-            elif isinstance(chunk, (tuple, list)) and isinstance(chunk[0], (list)):
-                chunk[0].append(self._calculate_weights(indices))
-            elif isinstance(chunk, dict):
-                # if the chunk is a dict, we need to calculate the weights
-                # append the weight array to the dict
-                weights = self._calculate_weights(indices)
-                chunk["weights"] = weights
+                if isinstance(chunk, (tuple, list)) and isinstance(chunk[0], dict):
+                    # if the chunk is a tuple, we need to calculate the weights
+                    # append the weight array to the tuple
+                    chunk[0]["weights"] = weights
+                elif isinstance(chunk, (tuple, list)) and isinstance(chunk[0], (list)):
+                    chunk[0].append(weights)
+                elif isinstance(chunk, (tuple, list)) and isinstance(chunk[0], torch.Tensor):
+                    chunk = ([chunk[0], weights], chunk[1])
+                elif isinstance(chunk, dict):
+                    # if the chunk is a dict, we need to calculate the weights
+                    # append the weight array to the dict
+                    chunk["weights"] = weights
 
             if not return_data:
                 return_data = chunk
