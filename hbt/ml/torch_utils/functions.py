@@ -103,8 +103,8 @@ if not isinstance(torch, MockModule):
             y_pred, y_true, kwargs = outputs
 
         # fix mismatch in weight naming
-        if "weight" in kwargs.keys():
-            kwargs["sample_weight"] = kwargs.pop("weight")
+        # if "weight" in kwargs.keys():
+        #     kwargs["sample_weight"] = kwargs.pop("weight")
 
         kwargs.update(additional_kwargs)
 
@@ -113,20 +113,34 @@ if not isinstance(torch, MockModule):
 
         return y_pred, y_true, kwargs
 
-    class WeightedCrossEntropyLoss(torch.nn.CrossEntropyLoss):
-        def forward(self, input, target, weight: torch.Tensor | None = None):
-            # save original reduction mode
-            reduction = self.reduction
-            if weight is not None:
-                self.reduction = "none"
-                loss = super().forward(input, target)
-                self.reduction = reduction
-                loss = torch.dot(loss, weight)
-                if self.reduction == "mean":
-                    loss = loss / torch.sum(weight)
-            else:
-                loss = super().forward(input, target)
-            return loss
+    def generate_weighted_loss(
+        loss_fn: torch.nn.Module,
+    ):
+
+        class WeightedLoss(loss_fn):
+            def forward(self, input, target, weight: torch.Tensor | None = None):
+                # save original reduction mode
+                reduction = self.reduction
+
+                if weight is not None:
+                    self.reduction = "none"
+                    loss = super().forward(input, target)
+                    self.reduction = reduction
+
+                    # dot product is only defined for flat tensors, so flatten
+                    loss = torch.flatten(loss)
+                    weight = torch.flatten(weight)
+                    loss = torch.dot(loss, weight)
+                    if self.reduction == "mean":
+                        loss = loss / torch.sum(weight)
+                else:
+                    loss = super().forward(input, target)
+                return loss
+            
+        WeightedLoss.__name__ = f"Weighted{loss_fn.__name__}"
+        return WeightedLoss
+
+    WeightedCrossEntropyLoss = generate_weighted_loss(torch.nn.CrossEntropyLoss)
 
     class WeightedCrossEntropySlice(WeightedCrossEntropyLoss):
         def __init__(self, cls_index: int, *args, **kwargs):
