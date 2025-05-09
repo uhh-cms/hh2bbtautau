@@ -124,7 +124,8 @@ def add_config(
             label="DY NLO",
             processes=[
                 procs.n.dy_m4to10, procs.n.dy_m10to50, procs.n.dy_m50toinf,
-                procs.n.dy_m50toinf_0j, procs.n.dy_m50toinf_1j, procs.n.dy_m50toinf_2j, procs.n.dy_m50toinf_ge3j,
+                procs.n.dy_m50toinf_0j, procs.n.dy_m50toinf_1j, procs.n.dy_m50toinf_2j,
+                procs.n.dy_m50toinf_3j, procs.n.dy_m50toinf_4j, procs.n.dy_0j, procs.n.dy_1j, procs.n.dy_2j,
                 procs.n.dy_m50toinf_1j_pt40to100, procs.n.dy_m50toinf_1j_pt100to200, procs.n.dy_m50toinf_1j_pt200to400,
                 procs.n.dy_m50toinf_1j_pt400to600, procs.n.dy_m50toinf_1j_pt600toinf,
                 procs.n.dy_m50toinf_2j_pt40to100, procs.n.dy_m50toinf_2j_pt100to200, procs.n.dy_m50toinf_2j_pt200to400,
@@ -587,6 +588,9 @@ def add_config(
         "sm_lo_data": ["data", "dy_lo"] + sm_group,
         "sm_nlo_data": ["data", "dy_nlo"] + sm_group,
         "sm_nnlo_data": ["data", "dy_nnlo"] + sm_group,
+        "sm_lo_data_bkg": ["data", "dy_lo", *backgrounds],
+        "sm_nlo_data_bkg": ["data", "dy_nlo", *backgrounds],
+        "sm_nnlo_data_bkg": ["data", "dy_nnlo", *backgrounds],
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
@@ -720,9 +724,9 @@ def add_config(
     cfg.x.variable_groups = {
         "hh": (hh := [f"hh_{var}" for var in ["mass", "pt", "dr"]]),
         "dilep": (dilep := [f"dilep_{var}" for var in ["mass", "pt"]]),
-        "dijet": (dijet := [f"dijet_{var}" for var in ["mass", "pt"]]),
+        "dibjet": (dibjet := [f"dibjet_{var}" for var in ["mass", "pt"]]),
         "default": [
-            *dijet, *dilep, *hh,
+            *dibjet, *dilep, *hh,
             "e1_pt", "e1_eta", "mu1_pt", "mu1_eta", "tau1_pt", "tau1_eta",
             "jet1_pt", "jet1_eta", "ht",
             "nbjets_deepjet", "nbjets_pnet", "njets",
