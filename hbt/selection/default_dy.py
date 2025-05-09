@@ -190,7 +190,7 @@ def default(
             )
 
     # create process ids
-    if self.process_ids_dy is not None:
+    if ((self.process_ids_dy is not None) and (self.dataset_inst.has_tag("dy_nlo"))):
         events = self[self.process_ids_dy](events, **kwargs)
     elif self.process_ids_w_lnu is not None:
         events = self[self.process_ids_w_lnu](events, **kwargs)
@@ -382,7 +382,7 @@ def empty_call(
             )
 
     # create process ids
-    if self.process_ids_dy is not None:
+    if ((self.process_ids_dy is not None) and (self.dataset_inst.has_tag("dy_nlo"))):
         events = self[self.process_ids_dy](events, **kwargs)
     elif self.process_ids_w_lnu is not None:
         events = self[self.process_ids_w_lnu](events, **kwargs)
