@@ -47,11 +47,12 @@ if not isinstance(torch, MockModule):
                     Defaults to 15.
             """
             super().__init__()
+            self.placeholder = placeholder
             self.map, self.min = self.LookUpTable(
                 self.prepare_mapping(
                     categories=categories,
                     expected_categorical_inputs=expected_categorical_inputs,
-                ), placeholder=placeholder)
+                ), placeholder=self.placeholder)
 
             self.indices = torch.arange(len(self.min))
 
@@ -159,11 +160,14 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
 
+            self.placeholder = placeholder
             self.tokenizer = CategoricalTokenizer(
                 categories=categories,
                 expected_categorical_inputs=expected_categorical_inputs,
-                placeholder=placeholder)
+                placeholder=self.placeholder)
 
+            from IPython import embed
+            embed(header="Check if the tokenizer is working correctly")
             self.embeddings = torch.nn.Embedding(
                 self.tokenizer.num_dim,
                 embedding_dim,
@@ -197,11 +201,13 @@ if not isinstance(torch, MockModule):
             categorical features.
             """
             super().__init__()
+            self.placeholder = placeholder
             if categorical_inputs is not None and expected_categorical_inputs is not None:
                 self.embedding_layer = CatEmbeddingLayer(
                     embedding_dim=embedding_dim,
                     categories=categorical_inputs,
                     expected_categorical_inputs=expected_categorical_inputs,
+                    placeholder=self.placeholder,
                 )
             self.ndim = len(continuous_inputs) + self.embedding_layer.ndim
 
