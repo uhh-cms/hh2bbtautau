@@ -44,6 +44,7 @@ if not isinstance(torch, MockModule):
         embedding_expected_inputs, LookUpTable, CategoricalTokenizer,
     )
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
+    from hbt.ml.torch_utils.layers import PaddingLayer
 
     class NetworkBase(nn.Module):
         def __init__(self, *args, tensorboard_path: str | None = None, logger: Any | None = None, **kwargs):
@@ -79,6 +80,7 @@ if not isinstance(torch, MockModule):
             self.inputs = set()
             self.inputs.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
 
+            self.padding_layer = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
             self.norm_layer = nn.BatchNorm1d(len(self.inputs))
             self.linear_relu_stack = nn.Sequential(
                 nn.Linear(len(self.inputs), 512),
@@ -117,6 +119,7 @@ if not isinstance(torch, MockModule):
             # Compute prediction and loss
             X, y = batch[0], batch[1]
             self.optimizer.zero_grad()
+
             pred = self(X)
             target = y["categorical_target"].to(torch.float32)
             if target.dim() == 1:
@@ -182,8 +185,7 @@ if not isinstance(torch, MockModule):
                     axis=-1,
                 )
             # check for dummy values
-            empty_mask = input_data == mask_value
-            input_data[empty_mask] = empty_fill_val
+            input_data = self.padding_layer(input_data)
 
             if norm_layer:
                 input_data = norm_layer(input_data.to(dtype))
@@ -218,6 +220,7 @@ if not isinstance(torch, MockModule):
             self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
 
         def forward(self, x):
+            x = self.padding_layer(x)
             x = self.norm_layer(x.to(torch.float32))
             logits = self.linear_relu_stack(x)
             return logits
