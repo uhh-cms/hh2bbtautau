@@ -142,7 +142,7 @@ class BaseParquetFileHandler(object):
     ):
         training_ds = list()
         validation_ds = list()
-        for path in target_paths:
+        for path in sorted(target_paths):
             training, validation = self._split_pq_dataset_per_path(
                 target_path=path,
                 ratio=ratio,
@@ -207,9 +207,9 @@ class BaseParquetFileHandler(object):
         training_data_map: dict[str, list[ParquetDataset]] = dict()
         validation_data_map: dict[str, list[ParquetDataset]] = dict()
 
-        for dataset in self.datasets:
+        for dataset in sorted(self.datasets):
             # following code is used for SiblingFileCollections
-            targets = [self.inputs.events[dataset][c]["collection"] for c in self.configs]
+            targets = [self.inputs.events[dataset][c]["collection"] for c in sorted(self.configs)]
             target_paths = [
                 t.abspath
                 for collections in targets
@@ -453,6 +453,8 @@ class RgTensorParquetFileHandler(BaseParquetFileHandler):
             "global_transform": self.global_transformations,
             "categorical_target_transform": self.categorical_target_transformation,
             "data_type_transform": self.data_type_transform,
+            "padd_value_float": 0,
+            "padd_value_int": 15,
         }
 
         logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")

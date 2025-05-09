@@ -138,6 +138,12 @@ class HBTPytorchTask(
         description="Track training process with tensorboard. Default: True",
     )
 
+    deterministic_seed = luigi.IntParameter(
+        default=-1,
+        significant=False,
+        description="If set to >= 0, will be set as random seed for torch, python and numpy. Default: -1",
+    )
+
     additional_params: list[str] = list()
 
     def create_branch_map(self):
@@ -239,6 +245,7 @@ class HBTPytorchTask(
             "early_stopping_patience",
             "early_stopping_min_epochs",
             "early_stopping_min_diff",
+            "deterministic_seed",
         ]
         param_repr = f"bs_{self.batch_size}__max_epochs_{self.max_epochs}"
         if self.additional_params:
@@ -276,7 +283,6 @@ class HBTPytorchTask(
     @law.decorator.safe_output
     @law.decorator.localize(input=True, output=False)
     def run(self):
-
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         logger.info(f"Running pytorch on {device}")
@@ -288,6 +294,18 @@ class HBTPytorchTask(
             if not model_cls:
                 raise ValueError(f"Unable to load model {self.branch_data}, available list: {model_clss}")
             logger_path = self.output()["tensorboard"].abspath
+
+            if self.deterministic_seed >= 0:
+                # set seed for reproducibility
+                torch.manual_seed(self.deterministic_seed)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed(self.deterministic_seed)
+                    torch.cuda.manual_seed_all(self.deterministic_seed)
+                np.random.seed(self.deterministic_seed)
+                import random
+                random.seed(self.deterministic_seed)
+                torch.use_deterministic_algorithms(True)
+
             model = model_cls(tensorboard_path=logger_path, logger=logger, task=self)
             model = model.to(device)
 
