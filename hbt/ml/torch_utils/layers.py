@@ -1,242 +1,262 @@
-from columnflow.columnar_util import EMPTY_INT
+from __future__ import annotations
+from columnflow.columnar_util import EMPTY_INT, EMPTY_FLOAT
+from columnflow.util import maybe_import, MockModule
 
-import torch.nn as nn
-import torch
+torch = maybe_import("torch")
 
+if not isinstance(torch, MockModule):
+    from torch import nn
 
-class CategoricalTokenizer(nn.Module):
-    def __init__(
-        self,
-        categories: tuple[str],
-        expected_categorical_inputs: dict[list[int]],
-        placeholder: int = 15,
-    ):
-        """
-        Initializes tokenizer for given *expected_categorical_inputs*.
-        The tokenizer creates a mapping array in the order of given columns defined in *categories*.
-        Empty values are represented as *placeholder*.
-        All given categories will be mapped into a common categorical space and ready to be used by a embedding layer.
+    class PaddingLayer(nn.Module):
+        def __init__(self, padding_value: float | int = 0, mask_value: float | int = EMPTY_FLOAT):
+            """
+            Padding layer for torch models. Pads the input tensor with the given padding value.
 
-        Args:
-            categories (tuple[str]): Names of the categories as strings.
-            expected_categorical_inputs (dict[list[int]], optional): Dictionary where keys are category
-                names and values are lists of integers representing the expected values for
-                each category.
-            placeholder (int, optional): Placeholder value for empty categories.
-                Negative values discouraged, since the tokenizer uses minimal values as shift value.
-                Defaults to 15.
-        """
-        super().__init__()
-        self.map, self.min = self.LookUpTable(
-            self.prepare_mapping(
-                categories=categories,
-                expected_categorical_inputs=expected_categorical_inputs,
-            ), placeholder=placeholder)
+            Args:
+                padding (int, optional): Padding value. Defaults to 0.
+            """
+            super().__init__()
+            self.padding_value = padding_value
+            self.mask_value = mask_value
 
-        self.indices = torch.arange(len(self.min))
+        def forward(self, x):
+            mask = x == self.mask_value
+            x[mask] = self.padding_value
+            return x
 
-    @property
-    def num_dim(self):
-        return torch.max(self.map) + 1
+    class CategoricalTokenizer(nn.Module):
+        def __init__(
+            self,
+            categories: tuple[str],
+            expected_categorical_inputs: dict[list[int]],
+            placeholder: int = 15,
+        ):
+            """
+            Initializes tokenizer for given *expected_categorical_inputs*.
+            The tokenizer creates a mapping array in the order of given columns defined in *categories*.
+            Empty values are represented as *placeholder*.
+            All given categories will be mapped into a common categorical space and ready to be used by a embedding layer.
 
-    def prepare_mapping(self, categories, expected_categorical_inputs):
-        local_max = max([
-            len(expected_categorical_inputs[categorie])
-            for categorie in categories
-        ])
+            Args:
+                categories (tuple[str]): Names of the categories as strings.
+                expected_categorical_inputs (dict[list[int]], optional): Dictionary where keys are category
+                    names and values are lists of integers representing the expected values for
+                    each category.
+                placeholder (int, optional): Placeholder value for empty categories.
+                    Negative values discouraged, since the tokenizer uses minimal values as shift value.
+                    Defaults to 15.
+            """
+            super().__init__()
+            self.map, self.min = self.LookUpTable(
+                self.prepare_mapping(
+                    categories=categories,
+                    expected_categorical_inputs=expected_categorical_inputs,
+                ), placeholder=placeholder)
 
-        array = torch.stack(
-            [
-                # pad to length of longest category, padding value is the first value of the category
-                nn.functional.pad(
-                    torch.tensor(expected_categorical_inputs[categorie]),
-                    (0, local_max - len(expected_categorical_inputs[categorie])),
-                    mode="constant",
-                    value=expected_categorical_inputs[categorie][0],
-                )
+            self.indices = torch.arange(len(self.min))
+
+        @property
+        def num_dim(self):
+            return torch.max(self.map) + 1
+
+        def prepare_mapping(self, categories, expected_categorical_inputs):
+            local_max = max([
+                len(expected_categorical_inputs[categorie])
                 for categorie in categories
-            ],
-        )
-        return array
+            ])
 
-    def LookUpTable(self, array: torch.Tensor, EMPTY=EMPTY_INT, placeholder: int = 15):
-        """Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
-        Empty values are replaced with *EMPTY*.
+            array = torch.stack(
+                [
+                    # pad to length of longest category, padding value is the first value of the category
+                    nn.functional.pad(
+                        torch.tensor(expected_categorical_inputs[categorie]),
+                        (0, local_max - len(expected_categorical_inputs[categorie])),
+                        mode="constant",
+                        value=expected_categorical_inputs[categorie][0],
+                    )
+                    for categorie in categories
+                ],
+            )
+            return array
 
-        Args:
-            array (torch.Tensor): 2D array of categories.
-            EMPTY (int, optional): Replacement value if empty. Defaults to columnflow EMPTY_INT.
+        def LookUpTable(self, array: torch.Tensor, EMPTY=EMPTY_INT, placeholder: int = 15):
+            """Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
+            Empty values are replaced with *EMPTY*.
 
-        Returns:
-            tuple([torch.Tensor]): Returns minimum and LookUpTable
-        """
-        # append placeholder to the array representing the empty category
-        array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1)
+            Args:
+                array (torch.Tensor): 2D array of categories.
+                EMPTY (int, optional): Replacement value if empty. Defaults to columnflow EMPTY_INT.
 
-        # shift input by minimum, pushing the categories to the valid indice space
-        minimum = array.min(axis=-1).values
-        indice_array = array - minimum.reshape(-1, 1)
-        upper_bound = torch.max(indice_array) + 1
+            Returns:
+                tuple([torch.Tensor]): Returns minimum and LookUpTable
+            """
+            # append placeholder to the array representing the empty category
+            array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1)
 
-        # warn for big categories
-        if upper_bound > 100:
-            print("Be aware that a large number of categories will result in a large sparse lookup array")
+            # shift input by minimum, pushing the categories to the valid indice space
+            minimum = array.min(axis=-1).values
+            indice_array = array - minimum.reshape(-1, 1)
+            upper_bound = torch.max(indice_array) + 1
 
-        # create mapping placeholder
-        mapping_array = torch.full(
-            size=(len(minimum), upper_bound),
-            fill_value=EMPTY,
-            dtype=torch.int32,
-        )
+            # warn for big categories
+            if upper_bound > 100:
+                print("Be aware that a large number of categories will result in a large sparse lookup array")
 
-        # fill placeholder with vocabulary
-
-        stride = 0
-        # transpose from event to feature loop
-        for feature_idx, feature in enumerate(indice_array):
-            unique = torch.unique(feature, dim=None)
-            mapping_array[feature_idx, unique] = torch.arange(
-                stride, stride + len(unique),
+            # create mapping placeholder
+            mapping_array = torch.full(
+                size=(len(minimum), upper_bound),
+                fill_value=EMPTY,
                 dtype=torch.int32,
             )
-            stride += len(unique)
-        return mapping_array, minimum
 
-    def forward(self, x):
-        # shift input array by their respective minimum and slice translation accordingly
-        return self.map[self.indices, x - self.min]
+            # fill placeholder with vocabulary
 
-    def to(self, *args, **kwargs):
-        # make sure to move the translation array to the same device as the input
-        self.map = self.map.to(*args, **kwargs)
-        self.min = self.min.to(*args, **kwargs)
-        self.indices = self.indices.to(*args, **kwargs)
-        return super().to(*args, **kwargs)
+            stride = 0
+            # transpose from event to feature loop
+            for feature_idx, feature in enumerate(indice_array):
+                unique = torch.unique(feature, dim=None)
+                mapping_array[feature_idx, unique] = torch.arange(
+                    stride, stride + len(unique),
+                    dtype=torch.int32,
+                )
+                stride += len(unique)
+            return mapping_array, minimum
 
+        def forward(self, x):
+            # shift input array by their respective minimum and slice translation accordingly
+            return self.map[self.indices, x - self.min]
 
-class CatEmbeddingLayer(nn.Module):
-    def __init__(
-        self,
-        embedding_dim: int,
-        categories: tuple[str],
-        expected_categorical_inputs: dict[list[int]],
-        placeholder: int = 15,
-    ):
-        """
-        Initializes the categorical feature interface with a tokenizer and an embedding layer with
-        given *embedding_dim*.
-
-        The tokenizer maps given *categories* to values defined in *expected_categorical_inputs*.
-        Missing values are given a *placeholder* value, which
-        The mapping is defined in .
-        The embedding layer then maps this combined feature space into a dense representation.
-
-            embedding_dim (int): Number of dimensions for the embedding layer.
-            categories (tuple[str]): Names of the categories as strings.
-            expected_categorical_inputs (dict[list[int]]): Dictionary where keys are category
-                names and values are lists of integers representing the expected values for
-                each category.
-        """
-        super().__init__()
-
-        self.tokenizer = CategoricalTokenizer(
-            categories=categories,
-            expected_categorical_inputs=expected_categorical_inputs,
-            placeholder=placeholder)
-
-        self.embeddings = torch.nn.Embedding(
-            self.tokenizer.num_dim,
-            embedding_dim,
-        )
-
-        self.ndim = embedding_dim * len(categories)
-
-    @property
-    def look_up_table(self):
-        return self.tokenizer.map
-
-    def forward(self, x):
-        x = self.tokenizer(x)
-        x = self.embeddings(x)
-        return x.flatten(start_dim=1)
+        def to(self, *args, **kwargs):
+            # make sure to move the translation array to the same device as the input
+            self.map = self.map.to(*args, **kwargs)
+            self.min = self.min.to(*args, **kwargs)
+            self.indices = self.indices.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
 
-class InputLayer(nn.Module):
-    def __init__(
-        self,
-        continuous_inputs: tuple[str],
-        categorical_inputs: tuple[str],
-        embedding_dim: int,
-        expected_categorical_inputs: dict[list[int]],
-        placeholder: int = 15,
-    ):
-        """
-        Enables the use of categorical and continous features in a single model.
-        A tokenizer and embedding layer are created  is created using and an embedding layer.
-        The continuous features are passed through a linear layer and then concatenated with the
-        categorical features.
-        """
-        super().__init__()
-        if categorical_inputs is not None and expected_categorical_inputs is not None:
-            self.embedding_layer = CatEmbeddingLayer(
-                embedding_dim=embedding_dim,
-                categories=categorical_inputs,
+    class CatEmbeddingLayer(nn.Module):
+        def __init__(
+            self,
+            embedding_dim: int,
+            categories: tuple[str],
+            expected_categorical_inputs: dict[list[int]],
+            placeholder: int = 15,
+        ):
+            """
+            Initializes the categorical feature interface with a tokenizer and an embedding layer with
+            given *embedding_dim*.
+
+            The tokenizer maps given *categories* to values defined in *expected_categorical_inputs*.
+            Missing values are given a *placeholder* value, which
+            The mapping is defined in .
+            The embedding layer then maps this combined feature space into a dense representation.
+
+                embedding_dim (int): Number of dimensions for the embedding layer.
+                categories (tuple[str]): Names of the categories as strings.
+                expected_categorical_inputs (dict[list[int]]): Dictionary where keys are category
+                    names and values are lists of integers representing the expected values for
+                    each category.
+            """
+            super().__init__()
+
+            self.tokenizer = CategoricalTokenizer(
+                categories=categories,
                 expected_categorical_inputs=expected_categorical_inputs,
+                placeholder=placeholder)
+
+            self.embeddings = torch.nn.Embedding(
+                self.tokenizer.num_dim,
+                embedding_dim,
             )
-        self.ndim = len(continuous_inputs) + self.embedding_layer.ndim
 
-    def forward(self, continuous_features, categorical_features):
-        return torch.cat(
-            (continuous_features, self.embedding_layer(categorical_features)),
-            dim=1,
-        )
+            self.ndim = embedding_dim * len(categories)
+
+        @property
+        def look_up_table(self):
+            return self.tokenizer.map
+
+        def forward(self, x):
+            x = self.tokenizer(x)
+            x = self.embeddings(x)
+            return x.flatten(start_dim=1)
 
 
-class ResNetBlock(nn.Module):
-    def __init__(
-        self,
-        nodes,
-        activation_functions="LeakyReLu",
-        skip_connection_init=1,
-        freeze_skip_connection=False,
-    ):
-        """
-        ResNetBlock is a residual block that consists of a linear layer, batch normalization, and an activation function.
-        A adjustable skip connection connects input and output of the block.
-        The adjustable skip connection has a learnable parameter, *skip_connection_amplifier*.
-        The dimension of the input and output of the block are defined by *nodes*.
-        If skip_connection_init is set to 0, the skip connection is disabled.
-        This also make if possible to use different in_nodes and out_nodes must can be different.
-        To freeze the skip connection parameter, set *freeze_skip_connection* to True.
+    class InputLayer(nn.Module):
+        def __init__(
+            self,
+            continuous_inputs: tuple[str],
+            categorical_inputs: tuple[str],
+            embedding_dim: int,
+            expected_categorical_inputs: dict[list[int]],
+            placeholder: int = 15,
+        ):
+            """
+            Enables the use of categorical and continous features in a single model.
+            A tokenizer and embedding layer are created  is created using and an embedding layer.
+            The continuous features are passed through a linear layer and then concatenated with the
+            categorical features.
+            """
+            super().__init__()
+            if categorical_inputs is not None and expected_categorical_inputs is not None:
+                self.embedding_layer = CatEmbeddingLayer(
+                    embedding_dim=embedding_dim,
+                    categories=categorical_inputs,
+                    expected_categorical_inputs=expected_categorical_inputs,
+                )
+            self.ndim = len(continuous_inputs) + self.embedding_layer.ndim
 
-        Args:
-            nodes (int): Number of nodes in the block.
-            activation_functions (str, optional): Name of the pytorch activation function, case insenstive.
-                Defaults to "LeakyReLu".
-            skip_connection_init (int, optional): Start value of the skipconnection. Defaults to 1.
-            freeze_skip_connection (bool, optional): Turn off learning for skipconnection parameter. Defaults to False.
-        """
-        super().__init__()
-        self.nodes = nodes
-        self.act_func = self._get_attr(nn.modules.activation, activation_functions)()
-        self.skip_connection_amplifier = nn.Parameter(torch.ones(1) * skip_connection_init)
-        if freeze_skip_connection:
-            self.skip_connection_amplifier.requires_grad = False
-        self.layers = nn.Sequential(
-            nn.Linear(self.nodes, self.nodes, bias=False),
-            nn.BatchNorm1d(self.nodes),
-            self.act_func,
-        )
+        def forward(self, continuous_features, categorical_features):
+            return torch.cat(
+                (continuous_features, self.embedding_layer(categorical_features)),
+                dim=1,
+            )
 
-    def _get_attr(self, obj, attr):
-        for o in dir(obj):
-            if o.lower() == attr.lower():
-                return getattr(obj, o)
-        else:
-            raise AttributeError(f"Object has no attribute '{attr}'")
 
-    def forward(self, x):
-        skip_connection = self.skip_connection_amplifier * x
-        x = self.layers(x)
-        x = x + skip_connection
-        return x
+    class ResNetBlock(nn.Module):
+        def __init__(
+            self,
+            nodes,
+            activation_functions="LeakyReLu",
+            skip_connection_init=1,
+            freeze_skip_connection=False,
+        ):
+            """
+            ResNetBlock is a residual block that consists of a linear layer, batch normalization, and an activation function.
+            A adjustable skip connection connects input and output of the block.
+            The adjustable skip connection has a learnable parameter, *skip_connection_amplifier*.
+            The dimension of the input and output of the block are defined by *nodes*.
+            If skip_connection_init is set to 0, the skip connection is disabled.
+            This also make if possible to use different in_nodes and out_nodes must can be different.
+            To freeze the skip connection parameter, set *freeze_skip_connection* to True.
+
+            Args:
+                nodes (int): Number of nodes in the block.
+                activation_functions (str, optional): Name of the pytorch activation function, case insenstive.
+                    Defaults to "LeakyReLu".
+                skip_connection_init (int, optional): Start value of the skipconnection. Defaults to 1.
+                freeze_skip_connection (bool, optional): Turn off learning for skipconnection parameter. Defaults to False.
+            """
+            super().__init__()
+            self.nodes = nodes
+            self.act_func = self._get_attr(nn.modules.activation, activation_functions)()
+            self.skip_connection_amplifier = nn.Parameter(torch.ones(1) * skip_connection_init)
+            if freeze_skip_connection:
+                self.skip_connection_amplifier.requires_grad = False
+            self.layers = nn.Sequential(
+                nn.Linear(self.nodes, self.nodes, bias=False),
+                nn.BatchNorm1d(self.nodes),
+                self.act_func,
+            )
+
+        def _get_attr(self, obj, attr):
+            for o in dir(obj):
+                if o.lower() == attr.lower():
+                    return getattr(obj, o)
+            else:
+                raise AttributeError(f"Object has no attribute '{attr}'")
+
+        def forward(self, x):
+            skip_connection = self.skip_connection_amplifier * x
+            x = self.layers(x)
+            x = x + skip_connection
+            return x
