@@ -34,10 +34,11 @@ if not isinstance(torch, MockModule):
     from hbt.ml.torch_utils.ignite.metrics import (
         WeightedROC_AUC, WeightedLoss,
     )
-    from hbt.ml.torch_utils.transforms import AkToTensor, PreProcessFloatValues
+    from hbt.ml.torch_utils.transforms import AkToTensor, PreProcessFloatValues, MoveToDevice
     from hbt.ml.torch_utils.datasets.handlers import (
         FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler,
         WeightedFlatListRowgroupParquetFileHandler,
+        RgTensorParquetFileHandler, WeightedRgTensorParquetFileHandler,
     )
     from hbt.ml.torch_utils.utils import (
         embedding_expected_inputs, LookUpTable, CategoricalTokenizer,
@@ -105,7 +106,7 @@ if not isinstance(torch, MockModule):
             self.training_logger_interval = 20
 
         def init_optimizer(self, learning_rate=1e-3, weight_decay=1e-5) -> None:
-            self.optimizer = Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            self.optimizer = AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
         def _build_categorical_target(self, dataset: str):
             return int(1) if dataset.startswith("hh") else int(0)
@@ -195,6 +196,69 @@ if not isinstance(torch, MockModule):
             input_data = self._handle_input(x, norm_layer=getattr(self, "norm_layer", None))
             logits = self.linear_relu_stack(input_data)
             return logits
+
+    class TensorFeedForwardNet(FeedForwardNet):
+        def init_dataset_handler(self, task: law.Task):
+            group_datasets = {
+                "ttbar": [d for d in task.datasets if d.startswith("tt_")],
+            }
+            device = next(self.parameters()).device
+            all_datasets = getattr(task, "resolved_datasets", task.datasets)
+
+            self.dataset_handler = RgTensorParquetFileHandler(
+                task=task,
+                continuous_features=self.inputs,
+                batch_transformations=MoveToDevice(device=device),
+                # global_transformations=PreProcessFloatValues(),
+                build_categorical_target_fn=self._build_categorical_target,
+                group_datasets=group_datasets,
+                device=device,
+                datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
+            )
+            self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
+
+        def forward(self, x):
+            x = self.norm_layer(x.to(torch.float32))
+            logits = self.linear_relu_stack(x)
+            return logits
+
+        def train_step(self, engine, batch):
+            # Set the model to training mode - important for batch normalization and dropout layers
+            self.train()
+            # Compute prediction and loss
+            X, y = batch[0], batch[1]
+            self.optimizer.zero_grad()
+            pred = self(X)
+
+            target = y.to(torch.float32)
+            if target.dim() == 1:
+                target = target.reshape(-1, 1)
+
+            loss = self.loss_fn(pred, target)
+            # Backpropagation
+            loss.backward()
+            self.optimizer.step()
+
+            return loss.item()
+
+        def validation_step(self, engine, batch):
+            # Set the model to evaluation mode - important for batch normalization and dropout layers
+            self.eval()
+
+            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
+            # also serves to reduce unnecessary gradient computations and memory usage for tensors
+            # with requires_grad=True
+            with torch.no_grad():
+                X, y = batch[0], batch[1]
+                pred = self(X)
+                target = y.to(torch.float32)
+                if target.dim() == 1:
+                    target = target.reshape(-1, 1)
+                return pred, target
+
+    class TensorFeedForwardNetAdam(TensorFeedForwardNet):
+        def init_optimizer(self, learning_rate=0.001, weight_decay=0.00001):
+            self.optimizer = Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     class DropoutFeedForwardNet(FeedForwardNet):
         def __init__(self, *args, **kwargs):
@@ -592,9 +656,6 @@ if not isinstance(torch, MockModule):
 
         def validation_step(self, engine, batch):
             output = super().validation_step(engine=engine, batch=batch)
-
-            from IPython import embed
-            embed(header=f"validation step of {self.__class__.__name__}")
             return output
 
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
@@ -684,6 +745,8 @@ if not isinstance(torch, MockModule):
             }
 
     model_clss["feedforward"] = FeedForwardNet
+    model_clss["feedforward_tensor"] = TensorFeedForwardNet
+    model_clss["feedforward_tensor_adam"] = TensorFeedForwardNetAdam
     model_clss["feedforward_arrow"] = FeedForwardArrow
     model_clss["feedforward_multicls"] = FeedForwardMultiCls
     model_clss["weighted_feedforward_multicls"] = WeightedFeedForwardMultiCls
