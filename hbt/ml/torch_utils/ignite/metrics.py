@@ -14,7 +14,7 @@ from typing import cast
 
 if not isinstance(torch, MockModule):
     from ignite.metrics.epoch_metric import EpochMetric, EpochMetricWarning
-    from ignite.metrics.metric import Metric, reinit__is_reduced
+    from ignite.metrics.metric import Metric, reinit__is_reduced, sync_all_reduce
     from ignite.metrics.loss import Loss
     from ignite.exceptions import NotComputableError
     import ignite.distributed as idist
@@ -119,7 +119,9 @@ if not isinstance(torch, MockModule):
         y_true = y_targets.cpu().numpy()
         y_pred = y_preds.cpu().numpy()
         numpy_kwargs = {k: v.cpu().numpy() if isinstance(v, torch.Tensor) else v for k, v in kwargs.items()}
-
+        if "weight" in numpy_kwargs:
+            # If weights are provided, we need to convert them to a 1D array
+            numpy_kwargs["sample_weight"] = numpy_kwargs.pop("weight")
         result = roc_auc_score(y_true, y_pred, **numpy_kwargs)
 
         return result
@@ -157,6 +159,11 @@ if not isinstance(torch, MockModule):
 
     class WeightedLoss(Loss):
         @reinit__is_reduced
+        def reset(self) -> None:
+            self._internal_sum = list()
+            self._internal_num_examples = list()
+
+        @reinit__is_reduced
         def update(self, output: Sequence[torch.Tensor | dict[str, Any]]) -> None:
             if len(output) == 2:
                 y_pred, y = cast(tuple[torch.Tensor, torch.Tensor], output)
@@ -173,5 +180,19 @@ if not isinstance(torch, MockModule):
                 n = torch.sum(kwargs["weight"]).item()
             else:
                 n = self._batch_size(y)
-            self._sum += average_loss.to(self._device) * n
-            self._num_examples += n
+            self._internal_sum.append(average_loss.to(self._device) * n)
+            self._internal_num_examples.append(n)
+
+        @property
+        def _sum(self):
+            return torch.sum(torch.tensor(self._internal_sum))
+
+        @property
+        def _num_examples(self):
+            return torch.sum(torch.tensor(self._internal_num_examples))
+
+        @sync_all_reduce("_sum", "_num_examples")
+        def compute(self) -> float:
+            if self._num_examples == 0:
+                raise NotComputableError("Loss must have at least one example before it can be computed.")
+            return self._sum.item() / self._num_examples
