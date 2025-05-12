@@ -478,6 +478,27 @@ if not isinstance(torchdata, MockModule):
             categorical_features: Container[str] | None = None,
             **kwargs,
         ):
+            """ParquetDataset that loads the data as torch tensors.
+            Input features are split into continuous and categorical features.
+            Corresponding columns are loaded according to the string representation
+            of the column names.
+
+            Output of :py:func:`__getitem__` is a tuple of the form `list[input_data, target_data]`.
+            In this representation, `input_data` can be the following:
+
+            - `torch.Tensor` if either categorical or continuous features are defined, but not both
+            - `list[torch.Tensor, torch.Tensor]` if both categorical and continuous features are defined.
+                First tensor is categorical, second is continuous.
+
+            In case `cls_weights` are defined, they are appended to `input_data`, i.e. are the last values
+            in the list.
+            
+            :param continuous_features: List, tuple or set of continuous features to load
+            :param categorical_features: List, tuple or set of categorical features to load
+            :param args: Arguments to pass to upstream classes
+            :param kwargs: Additional arguments to pass to upstream classes
+            """
+
             # overwrite the columns to load
             self.continuous_features = continuous_features or {}
             self.categorical_features = categorical_features or {}
