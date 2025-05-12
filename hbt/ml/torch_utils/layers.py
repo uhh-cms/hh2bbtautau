@@ -38,7 +38,8 @@ if not isinstance(torch, MockModule):
             All given categories will be mapped into a common categorical space and ready to be used by a embedding layer.
 
             Args:
-                categories (tuple[str]): Names of the categories as strings.
+                categories (tuple[str]): Names of the categories as strings. Sorting of the entries must correspond to the
+                    order of columns in input tensor!
                 expected_categorical_inputs (dict[list[int]], optional): Dictionary where keys are category
                     names and values are lists of integers representing the expected values for
                     each category.
@@ -166,8 +167,6 @@ if not isinstance(torch, MockModule):
                 expected_categorical_inputs=expected_categorical_inputs,
                 placeholder=self.placeholder)
 
-            from IPython import embed
-            embed(header="Check if the tokenizer is working correctly")
             self.embeddings = torch.nn.Embedding(
                 self.tokenizer.num_dim,
                 embedding_dim,
@@ -183,6 +182,10 @@ if not isinstance(torch, MockModule):
             x = self.tokenizer(x)
             x = self.embeddings(x)
             return x.flatten(start_dim=1)
+        
+        def to(self, *args, **kwargs):
+            self.tokenizer.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
 
     class InputLayer(nn.Module):
@@ -216,6 +219,11 @@ if not isinstance(torch, MockModule):
                 (continuous_features, self.embedding_layer(categorical_features)),
                 dim=1,
             )
+        
+        def to(self, *args, **kwargs):
+            if hasattr(self, "embedding_layer"):
+                self.embedding_layer.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
 
     class ResNetBlock(nn.Module):
