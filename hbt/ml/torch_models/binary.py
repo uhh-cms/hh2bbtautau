@@ -313,12 +313,16 @@ if not isinstance(torch, MockModule):
                 "year_flag",
             }
             self.continuous_features = self.inputs
+            self.embedding_dims = 50
 
+            self.init_layers()
+
+        def init_layers(self):
             self.input_layer = InputLayer(
-                categorical_inputs=self.categorical_features,
-                continuous_inputs=self.inputs,
+                categorical_inputs=sorted(self.categorical_features, key=str),
+                continuous_inputs=sorted(self.inputs, key=str),
                 expected_categorical_inputs=embedding_expected_inputs,
-                embedding_dim=50,
+                embedding_dim=self.embedding_dims,
             )
             self.norm_layer = nn.BatchNorm1d(len(self.continuous_features))
             self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.placeholder, mask_value=EMPTY_INT)
@@ -353,22 +357,32 @@ if not isinstance(torch, MockModule):
             return logits
         
         def validation_step(self, engine, batch):
-                # Set the model to evaluation mode - important for batch normalization and dropout layers
-                self.eval()
+            # Set the model to evaluation mode - important for batch normalization and dropout layers
+            self.eval()
 
-                # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
-                # also serves to reduce unnecessary gradient computations and memory usage for tensors
-                # with requires_grad=True
-                with torch.no_grad():
-                    X, y = batch[0], batch[1]
-                    from IPython import embed
-                    embed(header=f"validation step of {self.__class__.__name__}")
-                    input_data, weights = X
-                    pred = self(input_data)
-                    target = y.to(torch.float32)
-                    if target.dim() == 1:
-                        target = target.reshape(-1, 1)
-                    return pred, target, {"weight": weights}
+            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
+            # also serves to reduce unnecessary gradient computations and memory usage for tensors
+            # with requires_grad=True
+            with torch.no_grad():
+                X, y = batch[0], batch[1]
+                input_data, weights = X[:-1], X[-1]
+                pred = self(input_data)
+                target = y.to(torch.float32)
+                if target.dim() == 1:
+                    target = target.reshape(-1, 1)
+                return pred, target, {"weight": weights}
+            
+        def to(self, *args, **kwargs):
+            self.input_layer.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
+        
+    class WeightedTensorFeedForwardNetWithCatReducedEmbedding(WeightedTensorFeedForwardNetWithCat):
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+            self.embedding_dims = 10
+            self.init_layers()
 
     class TensorFeedForwardNetAdam(TensorFeedForwardNet):
         def init_optimizer(self, learning_rate=0.001, weight_decay=0.00001):
