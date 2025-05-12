@@ -6,6 +6,7 @@ from hbt.ml.torch_models.binary import (
     DropoutFeedForwardNet,
     WeightedTensorFeedForwardNet,
     WeightedTensorFeedForwardNetWithCat,
+    WeightedTensorFeedForwardNetWithCatReducedEmbedding
 )
 from hbt.ml.torch_models.multi_class import (
     FeedForwardMultiCls,
@@ -27,6 +28,7 @@ model_clss["feedforward_tensor_adam"] = TensorFeedForwardNetAdam
 model_clss["feedforward_arrow"] = FeedForwardArrow
 model_clss["weighted_feedforward_tensor"] = WeightedTensorFeedForwardNet
 model_clss["weighted_feedforward_tensor_cat"] = WeightedTensorFeedForwardNetWithCat
+model_clss["weighted_feedforward_tensor_cat_reduced_embedding"] = WeightedTensorFeedForwardNetWithCatReducedEmbedding
 
 # multi class networks
 model_clss["feedforward_multicls"] = FeedForwardMultiCls
