@@ -19,6 +19,7 @@ from hbt.ml.torch_models.resnet import (
     WeightedResnetNoDropout,
     WeightedResnetTest,
     WeightedResnetTest2,
+    BogNet,
 )
 
 model_clss = {}
@@ -42,3 +43,4 @@ model_clss["weighted_resnet"] = WeightedResNet
 model_clss["weighted_resnet_nodroupout"] = WeightedResnetNoDropout
 model_clss["weighted_resnet_test"] = WeightedResnetTest
 model_clss["weighted_resnet_test2"] = WeightedResnetTest2
+model_clss["bognet"] = BogNet

@@ -307,17 +307,18 @@ class HBTPytorchTask(
                 torch.use_deterministic_algorithms(True)
 
             model = model_cls(tensorboard_path=logger_path, logger=logger, task=self)
+
+            model.init_dataset_handler(task=self, device=device)
+            model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
+            run_name = f"{self._parameter_repr}_{self.version}"
+
+            # How many batches to wait before logging training status
+
+            # set statitical modes for preprocessing
+            model.setup_preprocessing()
+            # move all model parameters to device
             model = model.to(device)
 
-            model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
-
-            model.init_dataset_handler(task=self)
-
-            run_name = f"{self._parameter_repr}_{self.version}"
-            # How many batches to wait before logging training status
-            # from IPython import embed
-
-            # embed(header=f"about to start training of {self.branch_data}")
             model.start_training(run_name=run_name, max_epochs=self.max_epochs)
             logger.info(f"Saving model to {model_output.abspath}")
             torch.save(model.state_dict(), model_output.abspath)
