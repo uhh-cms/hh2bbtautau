@@ -478,6 +478,27 @@ if not isinstance(torchdata, MockModule):
             categorical_features: Container[str] | None = None,
             **kwargs,
         ):
+            """ParquetDataset that loads the data as torch tensors.
+            Input features are split into continuous and categorical features.
+            Corresponding columns are loaded according to the string representation
+            of the column names.
+
+            Output of :py:func:`__getitem__` is a tuple of the form `list[input_data, target_data]`.
+            In this representation, `input_data` can be the following:
+
+            - `torch.Tensor` if either categorical or continuous features are defined, but not both
+            - `list[torch.Tensor, torch.Tensor]` if both categorical and continuous features are defined.
+                First tensor is categorical, second is continuous.
+
+            In case `cls_weights` are defined, they are appended to `input_data`, i.e. are the last values
+            in the list.
+            
+            :param continuous_features: List, tuple or set of continuous features to load
+            :param categorical_features: List, tuple or set of categorical features to load
+            :param args: Arguments to pass to upstream classes
+            :param kwargs: Additional arguments to pass to upstream classes
+            """
+
             # overwrite the columns to load
             self.continuous_features = continuous_features or {}
             self.categorical_features = categorical_features or {}
@@ -515,25 +536,24 @@ if not isinstance(torchdata, MockModule):
             self._target_data: torch.Tensor | list[torch.Tensor] | None = None
             self.class_target_name: str = "categorical_target"
 
+        def _array_set_to_tensor(self, features: list[str | Route]) -> torch.Tensor:
+            return torch.cat(
+                [
+                    ak.to_torch(self._extract_columns(self.data, r)).reshape(-1, 1)
+                    for r in sorted(features, key=lambda x: str(x))
+                ],
+                axis=-1,
+            )
+
         @property
         def input_data(self) -> torch.Tensor | list[torch.Tensor]:
             if self._input_data is None:
-                self._input_data = self._load_data(columns_to_remove=self.target_columns)
                 if not all(len(x) > 0 for x in [self.continuous_features, self.categorical_features]):
                     to_fill = self.continuous_features or self.categorical_features
-                    self._input_data = torch.cat([
-                        ak.to_torch(self._extract_columns(self._input_data, r)).reshape(-1, 1)
-                        for r in to_fill
-                    ], axis=-1)
+                    self._input_data = self._array_set_to_tensor(to_fill)
                 else:
-                    cat_features = torch.cat([
-                        ak.to_torch(self._extract_columns(self._input_data, r)).reshape(-1, 1)
-                        for r in self.categorical_features
-                    ], axis=-1)
-                    cont_features = torch.cat([
-                        ak.to_torch(self._extract_columns(self._input_data, r)).reshape(-1, 1)
-                        for r in self.continuous_features
-                    ], axis=-1)
+                    cat_features = self._array_set_to_tensor(self.categorical_features)
+                    cont_features = self._array_set_to_tensor(self.continuous_features)
                     self._input_data = [cat_features, cont_features]
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
@@ -542,11 +562,7 @@ if not isinstance(torchdata, MockModule):
         @property
         def target_data(self) -> torch.Tensor:
             if self._target_data is None and len(self.target_columns) > 0:
-                self._target_data = self._load_data(columns_to_remove=self.data_columns)
-                self._target_data = torch.cat([
-                    ak.to_torch(self._extract_columns(self._target_data, r)).reshape(-1, 1)
-                    for r in self.target_columns
-                ], axis=-1)
+                self._target_data = self._array_set_to_tensor(self.target_columns)
                 if self.data_type_transform:
                     self._target_data = self.data_type_transform(self._target_data)
             return self._target_data

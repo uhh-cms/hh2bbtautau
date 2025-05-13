@@ -13,6 +13,7 @@ ignite = maybe_import("ignite")
 if not isinstance(ignite, MockModule):
     from ignite.engine import Engine, Events
     from ignite.metrics import Metric
+    import torch
     from torch.utils.tensorboard import SummaryWriter
     import torchdata.nodes as tn
     import numpy as np
@@ -134,7 +135,10 @@ if not isinstance(ignite, MockModule):
                 metric.attach(self.val_evaluator, name)
 
         def log_graph(self, engine):
-            self.writer.add_graph(self, engine.state.batch[0])
+            input_data = engine.state.batch[0]
+            if not isinstance(input_data, torch.Tensor):
+                input_data = (input_data,)
+            self.writer.add_graph(self, input_data)
 
         def log_training_loss(self, engine):
 

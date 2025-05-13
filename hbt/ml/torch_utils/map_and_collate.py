@@ -168,6 +168,8 @@ if not isinstance(torch, MockModule):
                     if self.weights:
                         weight = self.weights[dataset_idx]
                         dataset.cls_weight = weight
+                    else:
+                        dataset.cls_weight = None
                     current_batch = dataset[((rowgroup, entry_idx),)]
                     batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_dicts)
                 except Exception as e:  # noqa: F841
@@ -216,7 +218,7 @@ if not isinstance(torch, MockModule):
                 return torch.cat(input_arrays, *args, **kwargs)
             elif isinstance(first_tensor, (list, tuple)):
                 # if the first tensor is a list or tuple, use torch.cat
-                return [torch.cat(x, *args, **kwargs) for x in zip(input_arrays)]
+                return [self._concat_tensors(x, *args, **kwargs) for x in zip(*input_arrays)]
 
         def _default_collate(self, idx: dict[str, dict[tuple[int, int], Sequence[int]]]) -> Sequence[T]:
             batch: list[T] = []
@@ -229,6 +231,8 @@ if not isinstance(torch, MockModule):
                     if self.weights:
                         weight = self.weights[dataset_idx]
                         dataset.cls_weight = weight
+                    else:
+                        dataset.cls_weight = None
                     current_batch = dataset[((rowgroup, entry_idx),)]
                     batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_tensors)
                 except Exception as e:  # noqa: F841
