@@ -374,9 +374,28 @@ if not isinstance(torch, MockModule):
             # Set the model to training mode - important for batch normalization and dropout layers
             self.train()
             # Compute prediction and loss
-            X, y = batch[0], batch[1]
+
+            continous_x, categorial_x, y = batch
             self.optimizer.zero_grad()
-            pred = self(X)
+
+            categorial_x = self._handle_input(
+                categorial_x,
+                self.categorical_inputs,
+                dtype=torch.int32,
+                empty_fill_val=self.placeholder,
+                mask_value=EMPTY_INT,
+            )
+
+            continous_x = self._handle_input(
+                continous_x,
+                self.continous_inputs,
+                dtype=torch.float32,
+                empty_fill_val=self.placeholder,
+                mask_value=EMPTY_FLOAT,
+                norm_layer=self.std_layer,
+            )
+
+            pred = self(continous_x, categorial_x)
             target = y["categorical_target"].to(torch.float32)
             if target.dim() == 1:
                 target = target.reshape(-1, 1)
@@ -450,18 +469,7 @@ if not isinstance(torch, MockModule):
             self.optimizer = AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
             self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
 
-        def forward(self, x, *args, **kwargs):
+        def forward(self, continous_x, categorial_x):
             from IPython import embed; embed(header="string - 890 in RESNET FORWARD ")
-            cat_inp = self._handle_input(
-                x,
-                self.categorical_inputs,
-                dtype=torch.int32,
-                empty_fill_val=self.placeholder,
-                mask_value=EMPTY_INT,
-            )
-            self.cemb = self.cemb(cat_inp)
-            con_inp = self._handle_input(x, self.continous_inputs)
-            # standardize inputs
-            con_inp = self.std_layer(con_inp)
-            x = self.input_layer(con_inp, cat_inp)
+            x = self.input_layer(continous_x, categorial_x)
             return self.model(x)

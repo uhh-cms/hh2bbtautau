@@ -168,10 +168,12 @@ if not isinstance(torch, MockModule):
                     each category.
             """
             super().__init__()
+            self.categories = categories
+            self.expected_values = expected_categorical_inputs
 
             self.tokenizer = CategoricalTokenizer(
                 categories=categories,
-                expected_categorical_inputs=expected_categorical_inputs,
+                expected_categorical_inputs=self.expected_values,
                 placeholder=placeholder)
 
             self.embeddings = torch.nn.Embedding(
@@ -184,6 +186,16 @@ if not isinstance(torch, MockModule):
         @property
         def look_up_table(self):
             return self.tokenizer.map
+
+        def check_for_values_outside_range(self, x):
+            # reshape to have features in the first dimension
+            x = x.reshape(x.shape[-1], -1)
+            for i, categorie in enumerate(self.categories):
+                uniques = set(torch.unique(x[i]).to(torch.int32).tolist())
+                expected = set(self.expected_values[categorie])
+                if uniques != expected:
+                    difference = uniques - expected
+                    print(f"{categorie} has values outside the expected range: {difference}")
 
         def forward(self, x):
             x = self.tokenizer(x)
@@ -217,21 +229,21 @@ if not isinstance(torch, MockModule):
                     expected_categorical_inputs=expected_categorical_inputs,
                     placeholder=placeholder)
 
-                self.ndim = embedding_dim * len(categorical_inputs)
+            self.ndim = embedding_dim * len(categorical_inputs) + len(continuous_inputs)
 
-            def forward(self, continuous_inputs, categorical_inputs):
-                x = torch.cat(
-                    [
-                        continuous_inputs,
-                        self.embedding_layer(categorical_inputs),
-                    ],
-                    dim=1,
-                )
-                return x.flatten(start_dim=1)
+        def forward(self, continuous_inputs, categorical_inputs):
+            x = torch.cat(
+                [
+                    continuous_inputs,
+                    self.embedding_layer(categorical_inputs).flatten(start_dim=1),
+                ],
+                dim=1,
+            )
+            return x
 
-            def to(self, *args, **kwargs):
-                self.embedding_layer.to(*args, **kwargs)
-                return super().to(*args, **kwargs)
+        def to(self, *args, **kwargs):
+            self.embedding_layer.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
     class ResNetBlock(nn.Module):
         def __init__(
