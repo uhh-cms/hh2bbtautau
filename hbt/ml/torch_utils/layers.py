@@ -161,54 +161,10 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
 
-        self.tokenizer = CategoricalTokenizer(
-            categories=categories,
-            expected_categorical_inputs=expected_categorical_inputs,
-            placeholder=placeholder)
-
-        self.embeddings = torch.nn.Embedding(
-            self.tokenizer.num_dim,
-            embedding_dim,
-        )
-
-        self.ndim = embedding_dim * len(categories)
-
-    @property
-    def look_up_table(self):
-        return self.tokenizer.map
-
-    def forward(self, x):
-        x = self.tokenizer(x)
-        x = self.embeddings(x)
-        return x.flatten(start_dim=1)
-
-    def to(self, *args, **kwargs):
-        self.tokenizer.to(*args, **kwargs)
-        return super().to(*args, **kwargs)
-
-
-class InputLayer(nn.Module):
-    def __init__(
-        self,
-        continuous_inputs: tuple[str],
-        categorical_inputs: tuple[str],
-        embedding_dim: int,
-        expected_categorical_inputs: dict[list[int]],
-        placeholder: int = 15,
-    ):
-        """
-        Enables the use of categorical and continous features in a single model.
-        A tokenizer and embedding layer are created  is created using and an embedding layer.
-        The continuous features are passed through a linear layer and then concatenated with the
-        categorical features.
-        """
-        super().__init__()
-        if categorical_inputs is not None and expected_categorical_inputs is not None:
-            self.embedding_layer = CatEmbeddingLayer(brew
-                embedding_dim=embedding_dim,
-                categories=categorical_inputs,
+            self.tokenizer = CategoricalTokenizer(
+                categories=categories,
                 expected_categorical_inputs=expected_categorical_inputs,
-                placeholder=self.placeholder)
+                placeholder=placeholder)
 
             self.embeddings = torch.nn.Embedding(
                 self.tokenizer.num_dim,
@@ -230,10 +186,6 @@ class InputLayer(nn.Module):
             self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-    def to(self, *args, **kwargs):
-        self.embedding_layer.to(*args, **kwargs)
-        return super().to(*args, **kwargs)
-
 
     class InputLayer(nn.Module):
         def __init__(
@@ -251,27 +203,36 @@ class InputLayer(nn.Module):
             categorical features.
             """
             super().__init__()
-            self.placeholder = placeholder
             if categorical_inputs is not None and expected_categorical_inputs is not None:
                 self.embedding_layer = CatEmbeddingLayer(
                     embedding_dim=embedding_dim,
                     categories=categorical_inputs,
                     expected_categorical_inputs=expected_categorical_inputs,
-                    placeholder=self.placeholder,
-                )
-            self.ndim = len(continuous_inputs) + self.embedding_layer.ndim
+                    placeholder=self.placeholder)
 
-        def forward(self, continuous_features, categorical_features):
-            return torch.cat(
-                (continuous_features, self.embedding_layer(categorical_features)),
-                dim=1,
-            )
+                self.embeddings = torch.nn.Embedding(
+                    self.tokenizer.num_dim,
+                    embedding_dim,
+                )
+
+                self.ndim = embedding_dim * len(categories)
+
+            @property
+            def look_up_table(self):
+                return self.tokenizer.map
+
+            def forward(self, x):
+                x = self.tokenizer(x)
+                x = self.embeddings(x)
+                return x.flatten(start_dim=1)
+
+            def to(self, *args, **kwargs):
+                self.tokenizer.to(*args, **kwargs)
+                return super().to(*args, **kwargs)
 
         def to(self, *args, **kwargs):
-            if hasattr(self, "embedding_layer"):
-                self.embedding_layer.to(*args, **kwargs)
+            self.embedding_layer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
-
 
     class ResNetBlock(nn.Module):
         def __init__(
