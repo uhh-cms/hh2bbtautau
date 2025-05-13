@@ -85,20 +85,9 @@ if not isinstance(torch, MockModule):
             """Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
             Empty values are replaced with *EMPTY*.
 
-<<<<<<< Updated upstream
             Args:
                 array (torch.Tensor): 2D array of categories.
                 EMPTY (int, optional): Replacement value if empty. Defaults to columnflow EMPTY_INT.
-=======
-        Returns:
-            tuple([torch.Tensor]): Returns minimum and LookUpTable
-        """
-        # append placeholder to the array representing the empty category
-        from IPython import embed; embed(header="string - 73 in layers.py ")
-        array = torch.cat(
-            [array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1
-            )
->>>>>>> Stashed changes
 
             Returns:
                 tuple([torch.Tensor]): Returns minimum and LookUpTable
@@ -172,7 +161,6 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
 
-<<<<<<< HEAD
         self.tokenizer = CategoricalTokenizer(
             categories=categories,
             expected_categorical_inputs=expected_categorical_inputs,
@@ -198,61 +186,6 @@ if not isinstance(torch, MockModule):
         self.tokenizer.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
-class StandardizeLayer(nn.Module):
-    def __init__(self, mean: torch.Tensor, std: torch.Tensor):
-        """
-        Standardizes the input data using the given mean and standard deviation.
-
-        Args:
-            mean (torch.Tensor): Mean values for each feature.
-            std (torch.Tensor): Standard deviation values for each feature.
-            epsilon (float, optional): Small value to avoid division by zero. Defaults to 1e-8.
-        """
-        super().__init__()
-        self.mean = mean
-        self.std = std
-        self.epsilon = torch.Tensor((1e-8,))
-
-    def forward(self, x):
-        return (x - self.mean) / (self.std + self.epsilon)
-
-    def set_mean_std(self, mean: torch.Tensor, std: torch.Tensor):
-        self.mean = mean
-        self.std = std
-
-    def to(self, *args, **kwargs):
-        self.mean = self.mean.to(*args, **kwargs)
-        self.std = self.std.to(*args, **kwargs)
-        self.epsilon = self.epsilon.to(*args, **kwargs)
-        return super().to(*args, **kwargs)
-
-class CombinedEmbeddings(nn.Module):
-    def __init__(
-        self,
-        categorical_inputs: tuple[str],
-        uniques: dict[str, list[int]],
-        dims: list[int],
-    ):
-        super(CombinedEmbeddings, self).__init__()
-        lay = []
-        for i, cat in enumerate(categorical_inputs):
-            lay.append(
-                torch.nn.Embedding(
-                    len(uniques[cat]),
-                    dims[i],
-                )
-            )
-        self.lay = torch.nn.ModuleList(lay)
-        self.ndim = sum([layer.embedding_dim for layer in self.lay])
-
-    def forward(self, x):
-        outputs = []
-        for i, layer in enumerate(self.lay):
-            x = layer(x[:, i])
-            outputs.append(x)
-
-        return torch.cat(outputs, dim=1)
-
 
 class InputLayer(nn.Module):
     def __init__(
@@ -271,16 +204,10 @@ class InputLayer(nn.Module):
         """
         super().__init__()
         if categorical_inputs is not None and expected_categorical_inputs is not None:
-            self.embedding_layer = CatEmbeddingLayer(
+            self.embedding_layer = CatEmbeddingLayer(brew
                 embedding_dim=embedding_dim,
                 categories=categorical_inputs,
-=======
-            self.placeholder = placeholder
-            self.tokenizer = CategoricalTokenizer(
-                categories=categories,
->>>>>>> 54a2cbefcad3f594583f03f2f97b9819404c7abe
                 expected_categorical_inputs=expected_categorical_inputs,
-<<<<<<< Updated upstream
                 placeholder=self.placeholder)
 
             self.embeddings = torch.nn.Embedding(
@@ -298,26 +225,10 @@ class InputLayer(nn.Module):
             x = self.tokenizer(x)
             x = self.embeddings(x)
             return x.flatten(start_dim=1)
-        
+
         def to(self, *args, **kwargs):
             self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
-=======
-            )
-        # self.ndim = len(continuous_inputs)
-        self.ndim = len(continuous_inputs) + self.embedding_layer.ndim
-
-    def forward(self, continuous_features, categorical_features):
-        # return continuous_features
-        return torch.cat(
-            (continuous_features, self.embedding_layer(categorical_features)),
-            dim=1,
-        )
->>>>>>> Stashed changes
-
-    def to(self, *args, **kwargs):
-        self.embedding_layer.to(*args, **kwargs)
-        return super().to(*args, **kwargs)
 
     def to(self, *args, **kwargs):
         self.embedding_layer.to(*args, **kwargs)
@@ -355,7 +266,7 @@ class InputLayer(nn.Module):
                 (continuous_features, self.embedding_layer(categorical_features)),
                 dim=1,
             )
-        
+
         def to(self, *args, **kwargs):
             if hasattr(self, "embedding_layer"):
                 self.embedding_layer.to(*args, **kwargs)
