@@ -314,8 +314,10 @@ class HBTPytorchTask(
 
             # How many batches to wait before logging training status
 
+            # run only when datastitics exists
             # set statitical modes for preprocessing
-            model.setup_preprocessing()
+            if hasattr(model, "dataset_statitics"):
+                model.setup_preprocessing()
             # move all model parameters to device
             model = model.to(device)
 
