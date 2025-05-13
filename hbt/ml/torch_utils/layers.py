@@ -61,6 +61,14 @@ if not isinstance(torch, MockModule):
         def num_dim(self):
             return torch.max(self.map) + 1
 
+        def print_mapping(self):
+            """Prints the mapping of the tokenizer."""
+            print("Mapping:")
+            for i, categorie in enumerate(self.map):
+                print(f"{i}: {categorie}")
+            print("Minimum:")
+            print(self.min)
+
         def prepare_mapping(self, categories, expected_categorical_inputs):
             local_max = max([
                 len(expected_categorical_inputs[categorie])
@@ -186,7 +194,6 @@ if not isinstance(torch, MockModule):
             self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-
     class InputLayer(nn.Module):
         def __init__(
             self,
@@ -208,31 +215,23 @@ if not isinstance(torch, MockModule):
                     embedding_dim=embedding_dim,
                     categories=categorical_inputs,
                     expected_categorical_inputs=expected_categorical_inputs,
-                    placeholder=self.placeholder)
+                    placeholder=placeholder)
 
-                self.embeddings = torch.nn.Embedding(
-                    self.tokenizer.num_dim,
-                    embedding_dim,
+                self.ndim = embedding_dim * len(categorical_inputs)
+
+            def forward(self, continuous_inputs, categorical_inputs):
+                x = torch.cat(
+                    [
+                        continuous_inputs,
+                        self.embedding_layer(categorical_inputs),
+                    ],
+                    dim=1,
                 )
-
-                self.ndim = embedding_dim * len(categories)
-
-            @property
-            def look_up_table(self):
-                return self.tokenizer.map
-
-            def forward(self, x):
-                x = self.tokenizer(x)
-                x = self.embeddings(x)
                 return x.flatten(start_dim=1)
 
             def to(self, *args, **kwargs):
-                self.tokenizer.to(*args, **kwargs)
+                self.embedding_layer.to(*args, **kwargs)
                 return super().to(*args, **kwargs)
-
-        def to(self, *args, **kwargs):
-            self.embedding_layer.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
 
     class ResNetBlock(nn.Module):
         def __init__(
@@ -282,3 +281,36 @@ if not isinstance(torch, MockModule):
             x = self.layers(x)
             x = x + skip_connection
             return x
+
+    class StandardizeLayer(nn.Module):
+        def __init__(self, mean: float | int = 0, std: float | int = 1):
+            """
+            Standardize layer for torch models. Standardizes the input tensor with the given mean and std.
+
+            Args:
+                mean (float, optional): Mean value. Defaults to 0.
+                std (float, optional): Standard deviation value. Defaults to 1.
+            """
+            super().__init__()
+            self.mean = mean
+            self.std = std
+
+        def forward(self, x):
+            x = (x - self.mean) / self.std
+            return x
+
+        def set_mean_std(self, mean: float | int = 0, std: float | int = 1):
+            """
+            Set the mean and std values for the standardization layer.
+
+            Args:
+                mean (float, optional): Mean value. Defaults to 0.
+                std (float, optional): Standard deviation value. Defaults to 1.
+            """
+            self.mean = mean
+            self.std = std
+
+        def to(self, *args, **kwargs):
+            self.mean = self.mean.to(*args, **kwargs)
+            self.std = self.std.to(*args, **kwargs)
+            return super().to(*args, **kwargs)

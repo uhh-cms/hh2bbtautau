@@ -45,7 +45,7 @@ if not isinstance(torch, MockModule):
         embedding_expected_inputs, LookUpTable, CategoricalTokenizer, expand_columns, get_standardization_parameter,
     )
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
-    from hbt.ml.torch_utils.layers import PaddingLayer, InputLayer, StandardizeLayer, CombinedEmbeddings
+    from hbt.ml.torch_utils.layers import PaddingLayer, InputLayer, StandardizeLayer, ResNetBlock
 
     class WeightedResNet(WeightedFeedForwardMultiCls):
         def __init__(
@@ -332,11 +332,11 @@ if not isinstance(torch, MockModule):
                 "loss": WeightedLoss(self.loss_fn),
             }
 
-            self.cemb = CombinedEmbeddings(
-                self.categorical_inputs,
-                embedding_expected_inputs,
-                [10 for i in self.categorical_inputs],
-            )
+            # self.cemb = CombinedEmbeddings(
+            #     self.categorical_inputs,
+            #     embedding_expected_inputs,
+            #     [10 for i in self.categorical_inputs],
+            # )
 
         def _build_network(self):
             std_layer = StandardizeLayer(
@@ -422,12 +422,36 @@ if not isinstance(torch, MockModule):
                     self.trainer.state.iteration,
                 )
 
+        def init_dataset_handler(self, task: law.Task, device: str = "cpu") -> None:
+            group_datasets = {
+                "ttbar": [d for d in task.datasets if d.startswith("tt_")],
+            }
+            all_datasets = getattr(task, "resolved_datasets", task.datasets)
+
+            self.dataset_handler = WeightedRgTensorParquetFileHandler(
+                task=task,
+                continuous_features=getattr(self, "continuous_features", self.inputs),
+                categorical_features=getattr(self, "categorical_features", None),
+                batch_transformations=MoveToDevice(device=device),
+                # global_transformations=PreProcessFloatValues(),
+                build_categorical_target_fn=self._build_categorical_target,
+                group_datasets=group_datasets,
+                device=device,
+                datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
+            )
+            self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets() #noqa
+
+            # get statistics for standardization from training dataset without oversampling
+            train_valid_dataset_map = self.train_validation_loader.data_map
+            self.dataset_statitics = get_standardization_parameter(self.train_validation_loader.data_map, self.continous_inputs)
+
+
         def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
             self.optimizer = AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
             self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
 
         def forward(self, x, *args, **kwargs):
-            from IPython import embed; embed(header="string - 890 in torch_models.py ")
+            from IPython import embed; embed(header="string - 890 in RESNET FORWARD ")
             cat_inp = self._handle_input(
                 x,
                 self.categorical_inputs,
