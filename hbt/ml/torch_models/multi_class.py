@@ -46,7 +46,6 @@ if not isinstance(torch, MockModule):
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
     from hbt.ml.torch_utils.layers import PaddingLayer
 
-
     class FeedForwardMultiCls(FeedForwardNet):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -220,7 +219,6 @@ if not isinstance(torch, MockModule):
             if self.val_epoch_length_cutoff is not None and self.max_val_epoch_length > self.val_epoch_length_cutoff:
                 self.logger.info(f"validation epoch length cutoff: {self.val_epoch_length_cutoff}")
                 self.max_val_epoch_length = self.val_epoch_length_cutoff
-
 
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):

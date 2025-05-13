@@ -33,7 +33,7 @@ if not isinstance(torch, MockModule):
         WeightedROC_AUC, WeightedLoss,
     )
     from hbt.ml.torch_utils.utils import (
-        embedding_expected_inputs
+        embedding_expected_inputs,
     )
     from hbt.ml.torch_utils.functions import generate_weighted_loss
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
@@ -251,15 +251,14 @@ if not isinstance(torch, MockModule):
                 if target.dim() == 1:
                     target = target.reshape(-1, 1)
                 return pred, target
-            
-    class WeightedTensorFeedForwardNet(TensorFeedForwardNet):
 
+    class WeightedTensorFeedForwardNet(TensorFeedForwardNet):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self._loss_fn = generate_weighted_loss(nn.BCELoss)()
             self.validation_metrics = {
                 "loss": WeightedLoss(self.loss_fn),
-                "roc_auc": WeightedROC_AUC()
+                "roc_auc": WeightedROC_AUC(),
             }
 
         def init_dataset_handler(self, task: law.Task):
@@ -280,7 +279,7 @@ if not isinstance(torch, MockModule):
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
             )
-            self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets()
+            self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets() #noqa
 
         def validation_step(self, engine, batch):
             # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -297,11 +296,11 @@ if not isinstance(torch, MockModule):
                 if target.dim() == 1:
                     target = target.reshape(-1, 1)
                 return pred, target, {"weight": weights}
-            
+
     class WeightedTensorFeedForwardNetWithCat(WeightedTensorFeedForwardNet):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            
+
             self.categorical_features = {
                 "pair_type",
                 "decay_mode1",
@@ -352,10 +351,10 @@ if not isinstance(torch, MockModule):
             features = self.input_layer(cont_features, cat_features.to(torch.int32))
 
             # concatenate the continuous and categorical features
-            
+
             logits = self.linear_relu_stack(features)
             return logits
-        
+
         def validation_step(self, engine, batch):
             # Set the model to evaluation mode - important for batch normalization and dropout layers
             self.eval()
@@ -371,11 +370,11 @@ if not isinstance(torch, MockModule):
                 if target.dim() == 1:
                     target = target.reshape(-1, 1)
                 return pred, target, {"weight": weights}
-            
+
         def to(self, *args, **kwargs):
             self.input_layer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
-        
+
     class WeightedTensorFeedForwardNetWithCatReducedEmbedding(WeightedTensorFeedForwardNetWithCat):
 
         def __init__(self, *args, **kwargs):

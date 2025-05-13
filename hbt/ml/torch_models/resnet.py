@@ -42,10 +42,10 @@ if not isinstance(torch, MockModule):
         RgTensorParquetFileHandler, WeightedRgTensorParquetFileHandler,
     )
     from hbt.ml.torch_utils.utils import (
-        embedding_expected_inputs, LookUpTable, CategoricalTokenizer,
+        embedding_expected_inputs, LookUpTable, CategoricalTokenizer, expand_columns, get_standardization_parameter,
     )
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
-    from hbt.ml.torch_utils.layers import PaddingLayer
+    from hbt.ml.torch_utils.layers import PaddingLayer, InputLayer, StandardizeLayer, CombinedEmbeddings
 
     class WeightedResNet(WeightedFeedForwardMultiCls):
         def __init__(
@@ -281,7 +281,6 @@ if not isinstance(torch, MockModule):
                 "roc_auc": ROC_AUC(),
             }
 
-
     class BogNet(WeightedFeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -320,39 +319,24 @@ if not isinstance(torch, MockModule):
             self.skip_connection_init = kwargs.get("skip_connection_init", 0)
             self.freeze_skip_connection = kwargs.get("freeze_skip_connection", True)
 
-
             # layer layout
-
             self.training_epoch_length_cutoff = 2000
             self.training_weight_cutoff = 0.05
             self.placeholder = 15
             self.std_layer, self.input_layer, self.model = self._build_network()
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             self.linear_relu_stack = None
             # loss,
             self._loss_fn = nn.CrossEntropyLoss()
             self.validation_metrics = {
                 # "unweighted_loss": Loss(self.loss_fn),
                 "loss": WeightedLoss(self.loss_fn),
-                }
+            }
 
-            # self.validation_metrics.update({
-            #     f"roc_auc_cls_{identifier}": WeightedROC_AUC(
-            #         output_transform=partial(
-            #             preprocess_multiclass_outputs,
-            #             multi_class="ovr",
-            #             average=None,
-            #         ),
-            #         target_class_idx=idx,
-            #     )
-            #     for identifier, idx in self.categorical_target_map.items()
-            # })
             self.cemb = CombinedEmbeddings(
                 self.categorical_inputs,
                 embedding_expected_inputs,
                 [10 for i in self.categorical_inputs],
             )
-
 
         def _build_network(self):
             std_layer = StandardizeLayer(
@@ -365,23 +349,19 @@ if not isinstance(torch, MockModule):
                 self.categorical_inputs,
                 embedding_dim=1,
                 expected_categorical_inputs=embedding_expected_inputs,
-                placeholder=self.placeholder
+                placeholder=self.placeholder,
             )
 
-
-
             model = nn.Sequential(
-                # torch.nn.BatchNorm1d(input_layer.ndim),
                 torch.nn.Linear(input_layer.ndim, self.nodes),
                 torch.nn.BatchNorm1d(self.nodes),
                 torch.nn.LeakyReLU(),
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection),
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection),
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection),
+                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
                 torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
             )
             return std_layer, input_layer, model
-
 
         def to(self, *args, **kwargs):
             self.std_layer = self.std_layer.to(*args, **kwargs)
@@ -421,7 +401,7 @@ if not isinstance(torch, MockModule):
             # set up standardization layer
             self.std_layer.set_mean_std(
                 mean.float(),
-                std.float()
+                std.float(),
             )
 
         def logging(self, *args, **kwargs):
@@ -441,13 +421,6 @@ if not isinstance(torch, MockModule):
                     logit[:, index],
                     self.trainer.state.iteration,
                 )
-
-            # frequencies = {target : num for target, num in zip(self.categorical_target_map.keys(), kwargs["frequency"])}
-            # self.writer.add_scalars(
-            #     "frequency",
-            #     frequencies,
-            #     self.trainer.state.iteration,
-            # )
 
         def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
             self.optimizer = AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
