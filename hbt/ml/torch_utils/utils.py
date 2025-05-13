@@ -7,7 +7,7 @@ from collections import defaultdict
 
 import law
 from columnflow.util import maybe_import, MockModule
-from columnflow.columnar_util import Route, EMPTY_INT
+from columnflow.columnar_util import Route, EMPTY_INT, EMPTY_FLOAT
 from columnflow.types import Any
 from copy import deepcopy
 
@@ -15,6 +15,7 @@ from copy import deepcopy
 ignite = maybe_import("ignite")
 torch = maybe_import("torch")
 np = maybe_import("numpy")
+ak = maybe_import("awkward")
 
 embedding_expected_inputs = {
     "pair_type": [0, 1, 2],  # see mapping below
@@ -27,6 +28,26 @@ embedding_expected_inputs = {
     # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
     "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
 }
+def get_standardization_parameter(
+    data_map: list[ParquetDataset],
+    columns: list[Route | str] | None = None,
+    ) -> dict[str : ak.Array]:
+    # open parquet files and concatenate to get statistics for whole datasets
+    # beware missing values are currently ignored
+    all_data = ak.concatenate(list(map(lambda x: x.data, data_map)))
+
+    statistics = {}
+    for _route in columns:
+        # ignore empty fields
+        arr = _route.apply(all_data)
+        # filter missing values out
+        empty_mask = arr == EMPTY_FLOAT
+        masked_arr = arr[~empty_mask]
+        std = ak.std(masked_arr, axis=None)
+        mean = ak.mean(masked_arr, axis=None)
+        # reshape to 1D array, torch has no interface for 0D
+        statistics[_route.column] = {"std": std.reshape(1), "mean": mean.reshape(1)}
+    return statistics
 
 
 def expand_columns(*columns):
@@ -35,6 +56,9 @@ def expand_columns(*columns):
 
     _columns = set()
     for column_expression in columns:
+        if isinstance(column_expression, Route):
+            # do nothing if already a route
+            break
         expanded_columns = law.util.brace_expand(column_expression)
         routed_columns = set(map(Route, expanded_columns))
         _columns.update(routed_columns)
