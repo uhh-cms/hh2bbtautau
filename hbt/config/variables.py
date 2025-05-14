@@ -23,6 +23,7 @@ def add_variables(config: od.Config) -> None:
         expression="event",
         binning=(1, 0.0, 1.0e9),
         x_title="Event number",
+        discrete_x=True,
     )
     add_variable(
         config,
@@ -30,6 +31,7 @@ def add_variables(config: od.Config) -> None:
         expression="run",
         binning=(1, 100000.0, 500000.0),
         x_title="Run number",
+        discrete_x=True,
     )
     add_variable(
         config,
@@ -37,6 +39,7 @@ def add_variables(config: od.Config) -> None:
         expression="luminosityBlock",
         binning=(1, 0.0, 5000.0),
         x_title="Luminosity block",
+        discrete_x=True,
     )
     add_variable(
         config,
@@ -628,308 +631,6 @@ def add_variables(config: od.Config) -> None:
         binning=(11, -0.5, 10.5),
         x_title=r"Number of jets",
     )
-    add_variable(
-        config,
-        name="dibjet_phi",
-        expression=partial(build_dibjet, which="phi"),
-        aux={"inputs": build_dibjet.inputs},
-        binning=(66, -3.3, 3.3),
-        x_title=r"$\phi_{bb}$",
-    )
-    add_variable(
-        config,
-        name="dibjet_dr",
-        expression=partial(build_dibjet, which="dr"),
-        aux={"inputs": build_dibjet.inputs},
-        binning=(30, 0, 6),
-        x_title=r"$\Delta R_{bb}$",
-    )
-
-    def build_nbjets(events, which=None):
-        wp = "medium"
-        if which == "btagPNetB":
-            wp_value = config.x.btag_working_points["particleNet"][wp]
-        elif which == "btagDeepFlavB":
-            wp_value = config.x.btag_working_points["deepjet"][wp]
-        else:
-            raise ValueError(f"Unknown which: {which}")
-        bjet_mask = events.Jet[which] >= wp_value
-        objects = events.Jet[bjet_mask]
-        objects_num = ak.num(objects, axis=1)
-        return objects_num
-
-    build_nbjets.inputs = ["Jet.{btagPNetB,btagDeepFlavB}"]
-
-    add_variable(
-        config,
-        name="nbjets_deepjet",
-        expression=partial(build_nbjets, which="btagDeepFlavB"),
-        aux={"inputs": build_nbjets.inputs},
-        binning=(11, -0.5, 10.5),
-        x_title=r"Number of b-jets (DeepJet medium)",
-        discrete_x=True,
-    )
-    add_variable(
-        config,
-        name="nbjets_pnet",
-        expression=partial(build_nbjets, which="btagPNetB"),
-        aux={"inputs": build_nbjets.inputs},
-        binning=(11, -0.5, 10.5),
-        x_title=r"Number of b-jets (PNet medium)",
-        discrete_x=True,
-    )
-
-    # dilepton variables
-    add_variable(
-        config,
-        name="dilep_energy",
-        expression=partial(build_dilep, which="energy"),
-        aux={"inputs": build_dilep.inputs},
-        binning=(40, 40, 300),
-        unit="GeV",
-        x_title=r"$E_{ll}$",
-    )
-    add_variable(
-        config,
-        name="dilep_mass",
-        expression=partial(build_dilep, which="mass"),
-        aux={"inputs": build_dilep.inputs},
-        binning=(40, 40, 120),
-        unit="GeV",
-        x_title=r"$m_{ll}$",
-    )
-    add_variable(
-        config,
-        name="dilep_pt",
-        expression=partial(build_dilep, which="pt"),
-        aux={"inputs": build_dilep.inputs},
-        binning=(40, 0, 200),
-        unit="GeV",
-        x_title=r"$p_{T,ll}$",
-    )
-    add_variable(
-        config,
-        name="dilep_eta",
-        expression=partial(build_dilep, which="eta"),
-        aux={"inputs": build_dilep.inputs},
-        binning=(50, -5, 5),
-        unit="GeV",
-        x_title=r"$\eta_{ll}$",
-    )
-    add_variable(
-        config,
-        name="dilep_phi",
-        expression=partial(build_dilep, which="phi"),
-        aux={"inputs": build_dilep.inputs},
-        binning=(66, -3.3, 3.3),
-        unit="GeV",
-        x_title=r"$\phi_{ll}$",
-    )
-    add_variable(
-        config,
-        name="dilep_dr",
-        expression=partial(build_dilep, which="dr"),
-        aux={"inputs": build_dilep.inputs},
-        binning=(30, 0, 6),
-        x_title=r"$\Delta R_{ll}$",
-    )
-
-    # hh variables
-    add_variable(
-        config,
-        name="hh_energy",
-        expression=partial(build_hh, which="energy"),
-        aux={"inputs": build_hh.inputs},
-        binning=(35, 100, 800),
-        unit="GeV",
-        x_title=r"$E_{ll+bb}$",
-    )
-    add_variable(
-        config,
-        name="hh_mass",
-        expression=partial(build_hh, which="mass"),
-        aux={"inputs": build_hh.inputs},
-        binning=(50, 0, 1000),
-        unit="GeV",
-        x_title=r"$m_{ll+bb}$",
-    )
-    add_variable(
-        config,
-        name="hh_pt",
-        expression=partial(build_hh, which="pt"),
-        aux={"inputs": build_hh.inputs},
-        binning=(40, 0, 400),
-        unit="GeV",
-        x_title=r"$p_{T,ll+bb}$",
-    )
-    add_variable(
-        config,
-        name="hh_eta",
-        expression=partial(build_hh, which="eta"),
-        aux={"inputs": build_hh.inputs},
-        binning=(50, -5, 5),
-        unit="GeV",
-        x_title=r"$\eta_{ll+bb}$",
-    )
-    add_variable(
-        config,
-        name="hh_phi",
-        expression=partial(build_hh, which="phi"),
-        aux={"inputs": build_hh.inputs},
-        binning=(66, -3.3, 3.3),
-        unit="GeV",
-        x_title=r"$\phi_{ll+bb}$",
-    )
-    add_variable(
-        config,
-        name="hh_dr",
-        expression=partial(build_hh, which="dr"),
-        aux={"inputs": build_hh.inputs},
-        binning=(30, 0, 6),
-        x_title=r"$\Delta R_{ll,bb}$",
-    )
-
-    # single lepton variables
-    # single electron
-    add_variable(
-        config,
-        name="e1_pt",
-        expression="Electron.pt[:, 0]",
-        binning=(30, 0, 150),
-        x_title=r"Leading electron $p_{T}$",
-    )
-    add_variable(
-        config,
-        name="e2_pt",
-        expression="Electron.pt[:,1]",
-        binning=(30, 0, 150),
-        x_title=r"Subleading electron $p_{T}$",
-    )
-    add_variable(
-        config,
-        name="e1_eta",
-        expression="Electron.eta[:,0]",
-        binning=(50, -2.5, 2.5),
-        x_title=r"Leading electron $\eta$",
-    )
-    add_variable(
-        config,
-        name="e2_eta",
-        expression="Electron.eta[:,1]",
-        binning=(50, -2.5, 2.5),
-        x_title=r"Subleading electron $\eta$",
-    )
-    add_variable(
-        config,
-        name="e1_phi",
-        expression="Electron.phi[:,0]",
-        binning=(66, -3.3, 3.3),
-        x_title=r"Leading electron $\phi$",
-    )
-    add_variable(
-        config,
-        name="e2_phi",
-        expression="Electron.phi[:,1]",
-        binning=(66, -3.3, 3.3),
-        x_title=r"Subleading electron $\phi$",
-    )
-
-    # single tau
-    add_variable(
-        config,
-        name="tau1_pt",
-        expression="Tau.pt[:, 0]",
-        binning=(30, 0, 150),
-        x_title=r"Leading tau p$_{T}$",
-    )
-    add_variable(
-        config,
-        name="tau2_pt",
-        expression="Tau.pt[:,1]",
-        binning=(30, 0, 150),
-        x_title=r"Subleading tau $p_{T}$",
-    )
-    add_variable(
-        config,
-        name="tau1_eta",
-        expression="Tau.eta[:,0]",
-        binning=(50, -2.5, 2.5),
-        x_title=r"Leading tau $\eta$",
-    )
-    add_variable(
-        config,
-        name="tau2_eta",
-        expression="Tau.eta[:,1]",
-        binning=(50, -2.5, 2.5),
-        x_title=r"Subleading tau $\eta$",
-    )
-    add_variable(
-        config,
-        name="tau1_phi",
-        expression="Tau.phi[:,0]",
-        binning=(66, -3.3, 3.3),
-        x_title=r"Leading tau $\phi$",
-    )
-    add_variable(
-        config,
-        name="tau2_phi",
-        expression="Tau.phi[:,1]",
-        binning=(66, -3.3, 3.3),
-        x_title=r"Subleading tau $\phi$",
-    )
-
-    # single mu
-    add_variable(
-        config,
-        name="mu1_pt",
-        expression="Muon.pt[:,0]",
-        binning=(30, 0, 150),
-        x_title=r"Leading muon $p_{T}$",
-    )
-    add_variable(
-        config,
-        name="mu2_pt",
-        expression="Muon.pt[:,1]",
-        binning=(30, 0, 150),
-        x_title=r"Subleading muon $p_{T}$",
-    )
-    add_variable(
-        config,
-        name="mu1_eta",
-        expression="Muon.eta[:,0]",
-        binning=(50, -2.5, 2.5),
-        x_title=r"Leading muon $\eta$",
-    )
-    add_variable(
-        config,
-        name="mu2_eta",
-        expression="Muon.eta[:,1]",
-        binning=(50, -2.5, 2.5),
-        x_title=r"Subleading muon $\eta$",
-    )
-    add_variable(
-        config,
-        name="mu1_phi",
-        expression="Muon.phi[:,0]",
-        binning=(66, -3.3, 3.3),
-        x_title=r"Leading muon $\phi$",
-    )
-    add_variable(
-        config,
-        name="mu2_phi",
-        expression="Muon.phi[:,1]",
-        binning=(66, -3.3, 3.3),
-        x_title=r"Subleading muon $\phi$",
-    )
-
-    add_variable(
-        config,
-        name="njets",
-        expression=lambda events: ak.num(events.Jet["pt"], axis=1),
-        aux={"inputs": {"Jet.pt"}},
-        binning=(11, -0.5, 10.5),
-        x_title=r"Number of jets",
-    )
 
     add_variable(
         config,
@@ -1016,7 +717,6 @@ def add_variables(config: od.Config) -> None:
             x_title=rf"{obj} mass",
             unit="GeV",
         )
-
 
     for proc in ["hh", "tt", "dy"]:
         # outputs of the resonant pDNN at SM-like mass and spin values
