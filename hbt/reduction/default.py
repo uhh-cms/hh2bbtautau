@@ -3,8 +3,7 @@
 """
 Custom event and object reducers.
 """
-from functools import reduce
-from operator import or_
+
 from columnflow.reduction import Reducer, reducer
 from columnflow.reduction.default import cf_default
 from columnflow.production.cms.dy import gen_dilepton, recoil_corrected_met
@@ -46,26 +45,3 @@ def default(self: Reducer, events: ak.Array, selection: ak.Array, **kwargs) -> a
         events = self[recoil_corrected_met](events, **kwargs)
 
     return events
-
-
-# signal_region_reducer = default.derive("signal_region_reducer")
-
-
-@reducer(
-    uses={default, "channel_id"},
-    produces={default},
-)
-def signal_region_reducer(self, events, selection, **kwargs):
-    events = self[default](events, selection, **kwargs)
-
-    # only select signal-like channels
-    channel_id = events.channel_id
-
-    signal_ids = [
-        self.config_inst.channels.n.mutau.id,
-        self.config_inst.channels.n.etau.id,
-        self.config_inst.channels.n.tautau.id,
-    ]
-
-    event_mask = reduce(or_, [channel_id == x for x in signal_ids])
-    return events[event_mask]

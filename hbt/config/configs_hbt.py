@@ -172,11 +172,14 @@ def add_config(
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
         if re.match(r"^tt(|_.+)$", process_name):
-            proc.add_tag({"ttbar", "tt"})
+            for _proc, _, _ in proc.walk_processes(include_self=True):
+                _proc.add_tag({"ttbar", "tt"})
         if re.match(r"^dy(|_.+)$", process_name):
-            proc.add_tag("dy")
+            for _proc, _, _ in proc.walk_processes(include_self=True):
+                _proc.add_tag("dy")
         if re.match(r"^w_lnu(|_.+)$", process_name):
-            proc.add_tag("w_lnu")
+            for _proc, _, _ in proc.walk_processes(include_self=True):
+                _proc.add_tag("w_lnu")
 
         # add the process
         cfg.add_process(proc)
@@ -297,6 +300,10 @@ def add_config(
         # "z_qq_2j_pt400to600_amcatnlo",
         # "z_qq_2j_pt600toinf_amcatnlo",
 
+        # vbf w/z production
+        "w_vbf_wlnu_madgraph",
+        "z_vbf_zll_m50toinf_madgraph",
+
         # vv
         "zz_pythia",
         "wz_pythia",
@@ -310,8 +317,10 @@ def add_config(
 
         # single H
         "h_ggf_htt_powheg",
+        "h_ggf_hbb_powheg",
         "h_vbf_htt_powheg",
-        "vh_hnonbb_amcatnlo",
+        "h_vbf_hbb_powheg",
+        # "vh_hnonbb_amcatnlo",  # overlaps with dedicated wh/zh datasets, only kept as a backup!
         "wmh_wlnu_hbb_powheg",
         "wph_wlnu_hbb_powheg",
         "wph_htt_powheg",
@@ -375,7 +384,7 @@ def add_config(
             dataset.add_tag("no_lhe_weights")
         # datasets that are allowed to contain some events with missing lhe infos
         # (known to happen for amcatnlo)
-        if dataset.name.endswith("_amcatnlo"):
+        if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
             dataset.add_tag("partial_lhe_weights")
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
@@ -514,6 +523,7 @@ def add_config(
     cfg.x.dataset_groups = {
         "data": (data_group := [dataset.name for dataset in cfg.datasets if dataset.is_data]),
         "backgrounds": (backgrounds := [
+            # ! this "mindlessly" includes all non-signal MC datasets from above
             dataset.name for dataset in cfg.datasets
             if dataset.is_mc and not dataset.has_tag("signal")
         ]),
@@ -778,6 +788,9 @@ def add_config(
     cfg.x.jet_id = JetIdConfig(corrections={"AK4PUPPI_Tight": 2, "AK4PUPPI_TightLeptonVeto": 3})
     cfg.x.fatjet_id = JetIdConfig(corrections={"AK8PUPPI_Tight": 2, "AK8PUPPI_TightLeptonVeto": 3})
 
+    # trigger sf corrector
+    cfg.x.jet_trigger_corrector = "jetlegSFs"
+
     ################################################################################################
     # tau settings
     ################################################################################################
@@ -823,6 +836,10 @@ def add_config(
         "trigger_corr": "VVLoose",
     })
 
+    # tau trigger correctors
+    cfg.x.tau_trigger_corrector = "tau_trigger"
+    cfg.x.tau_trigger_corrector_cclub = "tauTriggerSF"
+
     ################################################################################################
     # electron settings
     ################################################################################################
@@ -865,10 +882,36 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
+        cfg.x.electron_trigger_sf_names = ElectronSFConfig(
+            correction="Electron-HLT-SF",
+            campaign=f"{year}{e_postfix}",
+            hlt_path="HLT_SF_Ele30_TightID",
+        )
+        cfg.x.single_trigger_electron_data_effs_cfg = ElectronSFConfig(
+            correction="Electron-HLT-DataEff",
+            campaign=f"{year}{e_postfix}",
+            hlt_path="HLT_SF_Ele30_TightID",
+        )
+        cfg.x.single_trigger_electron_mc_effs_cfg = ElectronSFConfig(
+            correction="Electron-HLT-McEff",
+            campaign=f"{year}{e_postfix}",
+            hlt_path="HLT_SF_Ele30_TightID",
+        )
+        cfg.x.cross_trigger_electron_data_effs_cfg = ElectronSFConfig(
+            correction="Electron-HLT-DataEff",
+            campaign=f"{year}{e_postfix}",
+            hlt_path="HLT_SF_Ele24_TightID",
+        )
+        cfg.x.cross_trigger_electron_mc_effs_cfg = ElectronSFConfig(
+            correction="Electron-HLT-McEff",
+            campaign=f"{year}{e_postfix}",
+            hlt_path="HLT_SF_Ele24_TightID",
+        )
         # eec and eer
         if year == 2022:
             e_tag = {"": "preEE", "EE": "postEE"}[campaign.x.postfix]
         elif year == 2023:
+            # note the upper-case IX
             e_tag = {"": "preBPIX", "BPix": "postBPIX"}[campaign.x.postfix]
         else:
             assert False
@@ -897,6 +940,22 @@ def add_config(
         cfg.x.muon_sf_names = MuonSFConfig(correction="NUM_TightRelIso_DEN_TightIDandIPCut")
     elif run == 3:
         cfg.x.muon_sf_names = MuonSFConfig(correction="NUM_TightPFIso_DEN_TightID")
+        cfg.x.muon_trigger_sf_names = MuonSFConfig(
+            correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
+        )
+        cfg.x.single_trigger_muon_data_effs_cfg = MuonSFConfig(
+            correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
+        )
+        cfg.x.single_trigger_muon_mc_effs_cfg = MuonSFConfig(
+            correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
+        )
+        cfg.x.cross_trigger_muon_data_effs_cfg = MuonSFConfig(
+            correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_DATAeff",
+        )
+        cfg.x.cross_trigger_muon_mc_effs_cfg = MuonSFConfig(
+            correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
+        )
+
     else:
         assert False
 
@@ -1176,7 +1235,7 @@ def add_config(
 
     # start at id=50
     cfg.x.tau_unc_names = [
-        "jet_dm0", "jet_dm1", "jet_dm10",
+        "jet_dm0", "jet_dm1", "jet_dm10", "jet_dm11",
         "e_barrel", "e_endcap",
         "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
     ]
@@ -1184,20 +1243,6 @@ def add_config(
         cfg.add_shift(name=f"tau_{unc}_up", id=50 + 2 * i, type="shape")
         cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape")
         add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_" + "{direction}"})
-
-    cfg.add_shift(name="tautau_trigger_up", id=80, type="shape")
-    cfg.add_shift(name="tautau_trigger_down", id=81, type="shape")
-    add_shift_aliases(cfg, "tautau_trigger", {"tau_trigger_weight": "tau_trigger_weight_tautau_{direction}"})
-    cfg.add_shift(name="etau_trigger_up", id=82, type="shape")
-    cfg.add_shift(name="etau_trigger_down", id=83, type="shape")
-    add_shift_aliases(cfg, "etau_trigger", {"tau_trigger_weight": "tau_trigger_weight_etau_{direction}"})
-    cfg.add_shift(name="mutau_trigger_up", id=84, type="shape")
-    cfg.add_shift(name="mutau_trigger_down", id=85, type="shape")
-    add_shift_aliases(cfg, "mutau_trigger", {"tau_trigger_weight": "tau_trigger_weight_mutau_{direction}"})
-    # no uncertainty for di-tau VBF trigger existing yet
-    # cfg.add_shift(name="mutau_trigger_up", id=86, type="shape")
-    # cfg.add_shift(name="tautauvbf_trigger_down", id=86, type="shape")
-    # add_shift_aliases(cfg, "tautauvbf_trigger", {"tau_trigger_weight": "tau_trigger_weight_tautauvbf_{direction}"})
 
     cfg.add_shift(name="e_up", id=90, type="shape")
     cfg.add_shift(name="e_down", id=91, type="shape")
@@ -1273,6 +1318,34 @@ def add_config(
         },
     )
 
+    cfg.add_shift(name="isr_up", id=150, type="shape")
+    cfg.add_shift(name="isr_down", id=151, type="shape")
+    add_shift_aliases(
+        cfg,
+        "isr",
+        {
+            "isr_weight": "isr_weight_{direction}",
+            "normalized_isr_weight": "normalized_isr_weight_{direction}",
+        },
+    )
+    cfg.add_shift(name="fsr_up", id=155, type="shape")
+    cfg.add_shift(name="fsr_down", id=156, type="shape")
+    add_shift_aliases(
+        cfg,
+        "fsr",
+        {
+            "fsr_weight": "fsr_weight_{direction}",
+            "normalized_fsr_weight": "normalized_fsr_weight_{direction}",
+        },
+    )
+
+    # trigger scale factors
+    trigger_legs = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]
+    for i, leg in enumerate(trigger_legs):
+        cfg.add_shift(name=f"trigger_{leg}_up", id=180 + 2 * i, type="shape")
+        cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape")
+        add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
+
     ################################################################################################
     # external files
     ################################################################################################
@@ -1294,6 +1367,14 @@ def add_config(
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
         json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-a080a5f3"
+        trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
+        campaign_tag = ""
+        for tag in ("preEE", "postEE", "preBPix", "postBPix"):
+            if campaign.has_tag(tag, mode=any):
+                if campaign_tag:
+                    raise ValueError(f"Multiple campaign tags found: {cfg.x.campaign_tag} and {tag}")
+                campaign_tag = tag
+        cclub_eras = f"{year}{campaign_tag}"
     else:
         assert False
 
@@ -1356,6 +1437,7 @@ def add_config(
         add_external("jet_id", (f"{json_mirror}/POG/JME/{json_pog_era}/jetid.json.gz", "v1"))
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
+
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # electron energy correction and smearing
@@ -1367,18 +1449,36 @@ def add_config(
             version="v3",
         ))
         # tau energy correction and scale factors
-        # TODO: remove tag pog mirror once integrated centrally
+        # TODO: remove tau pog mirror once integrated centrally
         json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
         if year == 2022:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
+            tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}EE"
             tau_pog_dir = tau_pog_era
         elif year == 2023:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
+            tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
             tau_pog_dir = str(year)  # yes, it's inconsistent w.r.t. 2022
         add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_dir}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
         add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v2.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v2.json.gz", "v1"))  # noqa: E501
+
+        # trigger scale factors
+        trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
+        add_external("trigger_sf", Ext(
+            f"{trigger_json_mirror}",
+            subpaths=DotDict(
+                muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/temporary_MuHlt_abseta_pt.json",
+                cross_muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/CrossMuTauHlt.json",
+                electron=f"{trigger_sf_internal_subpath}/{cclub_eras}/electronHlt.json",
+                cross_electron=f"{trigger_sf_internal_subpath}/{cclub_eras}/CrossEleTauHlt.json",
+                tau=f"{trigger_sf_internal_subpath}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json",
+                jet=f"{trigger_sf_internal_subpath}/{cclub_eras}/ditaujet_jetleg_SFs_{campaign_tag}.json",
+            ),
+            version="v1",
+        ))
+
     else:
         assert False
 
@@ -1435,20 +1535,22 @@ def add_config(
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
+        "normalized_isr_weight": get_shifts("isr"),
+        "normalized_fsr_weight": get_shifts("fsr"),
         # TODO: enable again once we have btag cuts
         # "normalized_njet_btag_deepjet_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
-        "tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
+        "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in trigger_legs)),
     })
 
     # define per-dataset event weights
-    # for dataset in cfg.datasets:
-    #     if dataset.has_tag("ttbar"):
-    #         dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
-    #     if dataset.has_tag("dy"):
-    #         dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
+    for dataset in cfg.datasets:
+        if dataset.has_tag("ttbar"):
+            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        if dataset.has_tag("dy"):
+            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [
