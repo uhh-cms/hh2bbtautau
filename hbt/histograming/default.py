@@ -8,6 +8,10 @@ from columnflow.histograming import HistProducer
 from columnflow.histograming.default import cf_default
 from columnflow.columnar_util import Route
 from columnflow.util import maybe_import, pattern_matcher
+from columnflow.config_util import get_shifts_from_sources
+
+from hbt.production.default import top_pt_weight
+from hbt.util import IF_DATASET_HAS_TOP
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
@@ -46,6 +50,7 @@ def default_init(self: HistProducer) -> None:
     # collect all possible weight columns and affected shifts
     all_weights = self.config_inst.x.event_weights
     all_weights.update(self.dataset_inst.x("event_weights", {}))
+    self.uses |= set((IF_DATASET_HAS_TOP(top_pt_weight.produces),))
     for weight_name, shift_insts in all_weights.items():
         if not do_keep(weight_name) or do_drop(weight_name):
             continue
@@ -58,6 +63,10 @@ def default_init(self: HistProducer) -> None:
         self.weight_columns.append(weight_name)
         self.uses.add(weight_name)
         self.shifts |= {shift_inst.name for shift_inst in shift_insts}
+    
+    if self.has_dep(top_pt_weight):
+        self.weight_columns.append(top_pt_weight.produces)
+        self.shifts.add(get_shifts_from_sources(self.config_inst, "top_pt"))
 
 
 normalization_inclusive = default.derive("normalization_inclusive", cls_dict={

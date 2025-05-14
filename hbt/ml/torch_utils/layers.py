@@ -101,7 +101,7 @@ if not isinstance(torch, MockModule):
                 tuple([torch.Tensor]): Returns minimum and LookUpTable
             """
             # append placeholder to the array representing the empty category
-            array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1)
+            # array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1)
 
             # shift input by minimum, pushing the categories to the valid indice space
             minimum = array.min(axis=-1).values
@@ -134,7 +134,18 @@ if not isinstance(torch, MockModule):
 
         def forward(self, x):
             # shift input array by their respective minimum and slice translation accordingly
-            return self.map[self.indices, x - self.min]
+            try:
+                output = self.map[self.indices, x - self.min]
+            except Exception as e:
+                print(f"Error in CategoricalTokenizer: {e}")
+                print(f"Input: {x}")
+                print(f"Min: {self.min}")
+                print(f"Indices: {self.indices}")
+                print(f"Map: {self.map}")
+                from IPython import embed
+                embed(header=f"Error in CategoricalTokenizer: {e}")
+                raise e
+            return output
 
         def to(self, *args, **kwargs):
             # make sure to move the translation array to the same device as the input
@@ -179,15 +190,24 @@ if not isinstance(torch, MockModule):
                 embedding_dim,
             )
 
-            self.ndim = embedding_dim * len(categories)
+            self.final_embeddings = torch.nn.Sequential(
+                # self.embeddings,
+                nn.Flatten(),
+                nn.BatchNorm1d(embedding_dim*len(categories)),
+                # nn.Linear(embedding_dim*len(categories), 10),
+                # nn.ReLU(),
+            )
+
+            self.ndim = 10
 
         @property
         def look_up_table(self):
             return self.tokenizer.map
 
-        def forward(self, x):
-            x = self.tokenizer(x)
+        def forward(self, cat_input):
+            x = self.tokenizer(cat_input)
             x = self.embeddings(x)
+            x = self.final_embeddings(x)
             return x.flatten(start_dim=1)
 
         def to(self, *args, **kwargs):
@@ -210,6 +230,8 @@ if not isinstance(torch, MockModule):
             categorical features.
             """
             super().__init__()
+            self.placeholder = placeholder
+            self.ndim = len(continuous_inputs)
             if categorical_inputs is not None and expected_categorical_inputs is not None:
                 self.embedding_layer = CatEmbeddingLayer(
                     embedding_dim=embedding_dim,
@@ -217,21 +239,20 @@ if not isinstance(torch, MockModule):
                     expected_categorical_inputs=expected_categorical_inputs,
                     placeholder=placeholder)
 
-                self.ndim = embedding_dim * len(categorical_inputs)
+                self.ndim += embedding_dim * len(categorical_inputs)
 
-            def forward(self, continuous_inputs, categorical_inputs):
-                x = torch.cat(
-                    [
-                        continuous_inputs,
-                        self.embedding_layer(categorical_inputs),
-                    ],
-                    dim=1,
-                )
-                return x.flatten(start_dim=1)
+        def forward(self, continuous_inputs, categorical_inputs):
+            x = torch.cat(
+                [
+                    continuous_inputs,
+                    self.embedding_layer(categorical_inputs),
+                ],
+                dim=1,
+            )
 
-            def to(self, *args, **kwargs):
-                self.embedding_layer.to(*args, **kwargs)
-                return super().to(*args, **kwargs)
+        def to(self, *args, **kwargs):
+            self.embedding_layer.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
     class ResNetBlock(nn.Module):
         def __init__(

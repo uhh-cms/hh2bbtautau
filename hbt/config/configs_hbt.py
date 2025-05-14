@@ -560,6 +560,22 @@ def add_config(
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
         ],
+        "continuous_inputs": (cont_inputs := [
+            f"{obj}_{var}"
+            for var in ["px", "py", "pz", "energy", "mass"]
+            for obj in ["lepton1", "lepton2", "bjet1", "bjet2", "fatjet", "htt", "hbb", "htthbb"]
+        ]),
+        "categorical_inputs": (cat_inputs := ["pair_type",
+                "decay_mode1",
+                "decay_mode2",
+                "lepton1.charge",
+                "lepton2.charge",
+                "has_fatjet",
+                "has_jet_pair",
+                "year_flag",
+        ]),
+        "ml_inputs": [*cont_inputs, *cat_inputs],
+
     }
 
     # shift groups for conveniently looping over certain shifts
@@ -1428,11 +1444,11 @@ def add_config(
     })
 
     # define per-dataset event weights
-    for dataset in cfg.datasets:
-        if dataset.has_tag("ttbar"):
-            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
-        if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
+    # for dataset in cfg.datasets:
+    #     if dataset.has_tag("ttbar"):
+    #         dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+    #     if dataset.has_tag("dy"):
+    #         dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [

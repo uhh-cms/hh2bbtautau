@@ -39,3 +39,4 @@ data
 .vscode
 .python-version
 .__afs*
+tb_logger

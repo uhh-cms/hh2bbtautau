@@ -27,6 +27,7 @@ embedding_expected_inputs = {
     "has_jet_pair": [0, 1],  # whether two or more jets are present
     # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
     "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
+    "channel_id": [1, 2, 3],
 }
 def get_standardization_parameter(
     data_map: list[ParquetDataset],

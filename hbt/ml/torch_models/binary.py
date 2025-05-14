@@ -382,6 +382,33 @@ if not isinstance(torch, MockModule):
 
             self.embedding_dims = 10
             self.init_layers()
+        
+        def forward(self, x):
+            try:
+                output = super().forward(x)
+            except Exception as e:
+                from IPython import embed
+                embed(header=f"Error in forward pass: {e}")
+            return output
+
+    class WeightedTensorFeedForwardNetWithCatReducedEmbedding1F(WeightedTensorFeedForwardNetWithCatReducedEmbedding):
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.categorical_features = {
+                "pair_type",
+                # "decay_mode1",
+                # "decay_mode2",
+                # "lepton1.charge",
+                # "lepton2.charge",
+                # "has_fatjet",
+                # "has_jet_pair",
+                "channel_id",
+                "year_flag",
+            }
+
+            self.embedding_dims = 10
+            self.init_layers()
 
     class TensorFeedForwardNetAdam(TensorFeedForwardNet):
         def init_optimizer(self, learning_rate=0.001, weight_decay=0.00001):
