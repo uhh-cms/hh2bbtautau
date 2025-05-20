@@ -247,12 +247,6 @@ def jet_selection(
         # check if the pt-leading jet of the two hhbjets is matched for any tautaujet trigger
         # and fold back into hhbjet_mask
         leading_matched = ak.fill_none(ak.firsts(matching_mask[sel_hhbjet_mask][pt_sorting_indices], axis=1), False)
-        sel_hhbjet_mask = sel_hhbjet_mask & leading_matched
-
-        # insert back into the full hhbjet_mask
-        flat_hhbjet_mask = flat_np_view(hhbjet_mask)
-        flat_jet_mask = ak.flatten(full_like(events.Jet.pt, False, dtype=bool) | ttj_mask)
-        flat_hhbjet_mask[flat_jet_mask] = ak.flatten(sel_hhbjet_mask)
 
         # cast full leading matched mask to event mask
         full_leading_matched_all_events = full_like(events.event, False, dtype=bool)
