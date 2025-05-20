@@ -1013,6 +1013,10 @@ def add_hooks(config: od.Config) -> None:
     #     morphing_type="fit",
     # )
 
+    ###############################################################################################################
+    ###############################################################################################################
+    ###############################################################################################################
+
     # all points except SM
     config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5 = partial(
         general_higgs_morphing,
@@ -1559,6 +1563,10 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
+    ###############################################################################################################
+    ###############################################################################################################
+    ###############################################################################################################
+
     # all points
     config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl0_all_points = partial(
         general_higgs_morphing,
@@ -1644,6 +1652,485 @@ def add_hooks(config: od.Config) -> None:
         target_point="kv1_k2v1_kl5",
         morphing_type="average",
     )
+
+    ###############################################################################################################
+    ###############################################################################################################
+    ###############################################################################################################
+
+    # all points except the one to be morphed and kvm2p12_k2v3p87_klm5p96
+    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v0_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v0_kl1",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v0_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v0_kl1",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v0_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v0_kl1",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl2_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v1_kl2",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl2_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v1_kl2",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl2_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v1_kl2",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v2_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v2_kl1",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v2_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v2_kl1",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v2_kl1_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1_k2v2_kl1",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1p74_k2v1p37_kl14p4",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1p74_k2v1p37_kl14p4",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kv1p74_k2v1p37_kl14p4",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p758_k2v1p44_klm19p3",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p758_k2v1p44_klm19p3",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p758_k2v1p44_klm19p3",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p012_k2v0p03_kl10p2",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p012_k2v0p03_kl10p2",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p012_k2v0p03_kl10p2",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p962_k2v0p959_klm1p43",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p962_k2v0p959_klm1p43",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm0p962_k2v0p959_klm1p43",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm1p21_k2v1p94_klm0p94",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm1p21_k2v1p94_klm0p94",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm1p21_k2v1p94_klm0p94",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm1p6_k2v2p72_klm1p36",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm1p6_k2v2p72_klm1p36",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm1p6_k2v2p72_klm1p36",
+        morphing_type="fit",
+    )
+
+    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p83_k2v3p57_klm3p39",
+        morphing_type="average",
+    )
+
+    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p83_k2v3p57_klm3p39",
+        morphing_type="average",
+        weights=True,
+    )
+
+    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p83_k2v3p57_klm3p39",
+        morphing_type="fit",
+    )
+
 
 # Remark on new Process for morphing: single ID for all morphed processes, but different names
 # in order to be able to distinguish them in the plot functions, maybe need to find a way to create

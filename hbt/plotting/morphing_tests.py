@@ -1061,6 +1061,8 @@ def plot_3d_morphing(
             respective_p_values[vbf_point["name"]] = p_value
 
             value_to_plot = np.array([chi2_ndf, 0])  # no error for chi2
+            if vbf_point["name"] == "kvm1p83_k2v3p57_klm3p39":
+                from IPython import embed; embed(header="chi2 value")
         values_to_plot[vbf_point["name"]] = value_to_plot
 
     # plot the values
@@ -1378,4 +1380,42 @@ plot_3d_morphing_2022_pre_ratio_all_morphed = partial(
         {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
     ],
     distance_measure="ratio",
+)
+
+plot_3d_morphing_2022_pre_ratio_all_morphed_test = partial(
+    plot_3d_morphing,
+    function_bin_search=lambda x: 5,
+    points=[
+        {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": "morphed"},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type": "morphed"},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type": "morphed"},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type": "morphed"},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type": "morphed"},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type": "morphed"},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": "morphed"},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
+    ],
+    distance_measure="ratio",
+)
+
+plot_3d_morphing_2022_pre_chi2_all_morphed_test = partial(
+    plot_3d_morphing,
+    function_bin_search=lambda x: 5,
+    points=[
+        {"kv": 1., "k2v": 1., "kl": 1., "name": "kv1_k2v1_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 0., "kl": 1., "name": "kv1_k2v0_kl1", "type": "morphed"},
+        {"kv": 1., "k2v": 1., "kl": 2., "name": "kv1_k2v1_kl2", "type": "morphed"},
+        {"kv": 1., "k2v": 2., "kl": 1., "name": "kv1_k2v2_kl1", "type": "morphed"},
+        {"kv": 1.74, "k2v": 1.37, "kl": 14.4, "name": "kv1p74_k2v1p37_kl14p4", "type": "morphed"},
+        {"kv": -0.758, "k2v": 1.44, "kl": -19.3, "name": "kvm0p758_k2v1p44_klm19p3", "type": "morphed"},
+        {"kv": -0.012, "k2v": 0.03, "kl": 10.2, "name": "kvm0p012_k2v0p03_kl10p2", "type": "morphed"},
+        {"kv": -0.962, "k2v": 0.959, "kl": -1.43, "name": "kvm0p962_k2v0p959_klm1p43", "type": "morphed"},
+        {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": "morphed"},
+        {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
+        {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
+    ],
+    distance_measure="chi2",
 )
