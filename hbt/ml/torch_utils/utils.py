@@ -4,18 +4,19 @@ __all__ = [
     "reorganize_idx", "CustomEarlyStopping", "RelativeEarlyStopping",
 ]
 from collections import defaultdict
+from collections.abc import Iterable
 
 import law
 from columnflow.util import maybe_import, MockModule
 from columnflow.columnar_util import Route, EMPTY_INT, EMPTY_FLOAT
 from columnflow.types import Any
 from copy import deepcopy
-
+from hbt.ml.torch_utils.datasets import ParquetDataset
 
 ignite = maybe_import("ignite")
 torch = maybe_import("torch")
 np = maybe_import("numpy")
-ak = maybe_import("awkward")
+ak = maybe_import("awkward")  # type: ignore
 
 embedding_expected_inputs = {
     "pair_type": [0, 1, 2],  # see mapping below
@@ -29,10 +30,12 @@ embedding_expected_inputs = {
     "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
     "channel_id": [1, 2, 3],
 }
+
+
 def get_standardization_parameter(
     data_map: list[ParquetDataset],
-    columns: list[Route | str] | None = None,
-    ) -> dict[str : ak.Array]:
+    columns: Iterable[Route],
+) -> dict[str, ak.Array]:
     # open parquet files and concatenate to get statistics for whole datasets
     # beware missing values are currently ignored
     all_data = ak.concatenate(list(map(lambda x: x.data, data_map)))
