@@ -22,8 +22,8 @@ embedding_expected_inputs = {
     "pair_type": [0, 1, 2],  # see mapping below
     "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
     "decay_mode2": [0, 1, 10, 11],
-    "lepton1.charge": [-1, 1],
-    "lepton2.charge": [-1, 1],
+    "lepton1.charge": [-1, 1, 0],
+    "lepton2.charge": [-1, 1, 0],
     "has_fatjet": [0, 1],  # whether a selected fatjet is present
     "has_jet_pair": [0, 1],  # whether two or more jets are present
     # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post

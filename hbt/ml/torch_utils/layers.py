@@ -1,4 +1,6 @@
 from __future__ import annotations
+import copy
+
 from columnflow.columnar_util import EMPTY_INT, EMPTY_FLOAT
 from columnflow.util import maybe_import, MockModule
 
@@ -29,12 +31,12 @@ if not isinstance(torch, MockModule):
             self,
             categories: tuple[str],
             expected_categorical_inputs: dict[list[int]],
-            placeholder: int = 15,
+            empty = 15,
         ):
             """
             Initializes tokenizer for given *expected_categorical_inputs*.
             The tokenizer creates a mapping array in the order of given columns defined in *categories*.
-            Empty values are represented as *placeholder*.
+            Empty values are represented as *empty*.
             All given categories will be mapped into a common categorical space and ready to be used by a embedding layer.
 
             Args:
@@ -43,17 +45,18 @@ if not isinstance(torch, MockModule):
                 expected_categorical_inputs (dict[list[int]], optional): Dictionary where keys are category
                     names and values are lists of integers representing the expected values for
                     each category.
-                placeholder (int, optional): Placeholder value for empty categories.
-                    Negative values discouraged, since the tokenizer uses minimal values as shift value.
+                empty (int, optional): Value used to represent missing values in the input tensor.
+                    The empty value must be positive and not already used in the categories.
+                    If not given, no handling of missing values will be done.
                     Defaults to 15.
             """
             super().__init__()
-            self.placeholder = placeholder
+            self.expected_categorical_inputs = copy.deepcopy(expected_categorical_inputs)
+            self.categories = categories
+            self.empty = self._empty(empty)
+
             self.map, self.min = self.LookUpTable(
-                self.prepare_mapping(
-                    categories=categories,
-                    expected_categorical_inputs=expected_categorical_inputs,
-                ), placeholder=self.placeholder)
+                self.pad_to_longest())
 
             self.indices = torch.arange(len(self.min))
 
@@ -61,41 +64,81 @@ if not isinstance(torch, MockModule):
         def num_dim(self):
             return torch.max(self.map) + 1
 
-        def print_mapping(self):
-            """Prints the mapping of the tokenizer."""
-            print("Mapping:")
-            for i, categorie in enumerate(self.map):
-                print(f"{i}: {categorie}")
-            print("Minimum:")
-            print(self.min)
+        def _empty(self, empty):
+            if empty is None:
+                return None
 
-        def prepare_mapping(self, categories, expected_categorical_inputs):
+            if empty < 0:
+                raise ValueError("Empty value must be positive")
+            if empty in set([item for sublist in self.expected_categorical_inputs.values() for item in sublist]):
+                raise ValueError(f"Empty value {empty} is already used in on the categories")
+
+            # add empty to the expected_categorical_inputs
+            for categorie in self.categories:
+                self.expected_categorical_inputs[categorie].append(empty)
+            return empty
+
+        def __repr__(self):
+            # create dummy input from expected_categorical_inputs
+            expected_pad = self.pad_to_longest().transpose(0, 1).to(device=self.map.device)
+            shifted = expected_pad - self.min
+            output_per_feature = self.map[self.indices, shifted].transpose(0, 1)
+            _str = []
+            _str.append("Translation (input : output):")
+            for (categorie, expected_value), mapping in zip(self.expected_categorical_inputs.items(), output_per_feature):
+                num_expected = len(expected_value)
+                _str.append(f"{categorie}: {expected_value} -> {mapping[:num_expected].tolist()}")
+            return "\n".join(_str)
+
+        def check_for_values_outside_range(self, input_tensor):
+            """
+            Helper function checks *input_tensor* for values the tokenizer does not expect but found.
+
+            Args:
+                input_tensor (torch.tensor): Input tensor of categorical features.
+            """
+            from IPython import embed; embed(header="check - 99 in layers.py ")
+            # reshape to have features in the first dimension
+            input_tensor = input_tensor.transpose(0,1)
+            for i, categorie in enumerate(self.categories):
+                uniques = set(torch.unique(input_tensor[i]).to(torch.int32).tolist())
+                expected = set(self.expected_categorical_inputs[categorie])
+                if uniques != expected:
+                    difference = uniques - expected
+                    print(f"{categorie} has values outside the expected range: {difference}")
+
+        def pad_to_longest(self):
+            # helper function to pad the input tensor to the longest category, using the first value of the category as padding value
             local_max = max([
-                len(expected_categorical_inputs[categorie])
-                for categorie in categories
+                len(self.expected_categorical_inputs[categorie])
+                for categorie in self.categories
             ])
-
+            # pad with first value of the category, so we guarantee to not introduce new values
             array = torch.stack(
                 [
-                    # pad to length of longest category, padding value is the first value of the category
                     nn.functional.pad(
-                        torch.tensor(expected_categorical_inputs[categorie]),
-                        (0, local_max - len(expected_categorical_inputs[categorie])),
+                        torch.tensor(self.expected_categorical_inputs[categorie]),
+                        (0, local_max - len(self.expected_categorical_inputs[categorie])),
                         mode="constant",
-                        value=expected_categorical_inputs[categorie][0],
+                        value=self.expected_categorical_inputs[categorie][0],
                     )
-                    for categorie in categories
+                    for categorie in self.categories
                 ],
             )
             return array
 
-        def LookUpTable(self, array: torch.Tensor, EMPTY=EMPTY_INT, placeholder: int = 15):
-            """Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
+        def LookUpTable(self, array: torch.Tensor, padding_value=EMPTY_INT):
+            """
+            Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
             Empty values are replaced with *EMPTY*.
 
             Args:
                 array (torch.Tensor): 2D array of categories.
                 EMPTY (int, optional): Replacement value if empty. Defaults to columnflow EMPTY_INT.
+                same_empty (bool, optional): If True, all missing values will be mapped to the same value.
+                    By default, each category will be mapped to a different value,
+                    making it possible to differentia between missing values in different categories.
+                    Defaults to False.
 
             Returns:
                 tuple([torch.Tensor]): Returns minimum and LookUpTable
@@ -105,22 +148,23 @@ if not isinstance(torch, MockModule):
 
             # shift input by minimum, pushing the categories to the valid indice space
             minimum = array.min(axis=-1).values
+            # shift the input array by their respective minimum
             indice_array = array - minimum.reshape(-1, 1)
+            # biggest shifted value + 1
             upper_bound = torch.max(indice_array) + 1
 
             # warn for big categories
             if upper_bound > 100:
                 print("Be aware that a large number of categories will result in a large sparse lookup array")
 
-            # create mapping placeholder
+            # create mapping empty
             mapping_array = torch.full(
                 size=(len(minimum), upper_bound),
-                fill_value=EMPTY,
+                fill_value=padding_value,
                 dtype=torch.int32,
             )
 
-            # fill placeholder with vocabulary
-
+            # fill empty with vocabulary
             stride = 0
             # transpose from event to feature loop
             for feature_idx, feature in enumerate(indice_array):
@@ -144,6 +188,92 @@ if not isinstance(torch, MockModule):
             self.indices = self.indices.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
+    class OneHotEncodingLayer(nn.Module):
+        def __init__(self, num_classes):
+            """
+            One hot encoding layer for torch models. One hot encodes the input tensor with the given padding value.
+            """
+            super().__init__()
+            self.one_hot = nn.functional.one_hot
+            self.num_classes = num_classes
+
+        def forward(self, x):
+            return self.one_hot(x, num_classes=self.num_classes).int()
+
+        def to(self, *args, **kwargs):
+            self.one_hot = self.one_hot.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
+
+    class InputLayer_OneHot(nn.Module):
+        def __init__(
+            self,
+            num_continuous_inputs: int,
+            num_categorical_values: int,
+        ):
+            """
+            Enables the use of categorical and continous features in a single model.
+            A tokenizer and embedding layer are created  is created using and an embedding layer.
+            The continuous features are passed through a linear layer and then concatenated with the
+            categorical features.
+            """
+            super().__init__()
+            self.one_hot_layer = OneHotEncodingLayer(num_classes=num_categorical_values)
+            self.ndim = num_categorical_values + num_continuous_inputs
+
+        def forward(self, args):
+            categorical_inputs, continuous_inputs = args
+            x = torch.cat(
+                [
+                    continuous_inputs,
+                    self.one_hot_layer(categorical_inputs),
+                ],
+                dim=1,
+            )
+            return x
+
+        def to(self, *args, **kwargs):
+            self.one_hot_layer.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
+
+    class Separate_EmbeddingLayers(nn.Module):
+        def __init__(self, categories: tuple[str], expected_categorical_inputs: dict[list[int]]):
+            # generate for each categorical input a separate embedding layer
+            # and concatenate the output
+
+            pass
+
+        def forward(self, args):
+            categorical_inputs, continuous_inputs = args
+            x = torch.cat(
+                [
+                    continuous_inputs,
+                    categorical_inputs,
+                ],
+                dim=1,
+            )
+            return x
+
+        def to(self, *args, **kwargs):
+            return super().to(*args, **kwargs)
+
+
+    class InputLayer_SeparateEmbedding(nn.Module):
+        def __init__(self):
+            pass
+
+        def forward(self, args):
+            categorical_inputs, continuous_inputs = args
+            x = torch.cat(
+                [
+                    continuous_inputs,
+                    categorical_inputs,
+                ],
+                dim=1,
+            )
+            return x
+
+        def to(self, *args, **kwargs):
+            return super().to(*args, **kwargs)
 
     class CatEmbeddingLayer(nn.Module):
         def __init__(
@@ -159,7 +289,7 @@ if not isinstance(torch, MockModule):
             given *embedding_dim*.
 
             The tokenizer maps given *categories* to values defined in *expected_categorical_inputs*.
-            Missing values are given a *placeholder* value, which
+            Missing values are given a *empty* value, which
             The mapping is defined in .
             The embedding layer then maps this combined feature space into a dense representation.
 
@@ -168,6 +298,7 @@ if not isinstance(torch, MockModule):
                 expected_categorical_inputs (dict[list[int]]): Dictionary where keys are category
                     names and values are lists of integers representing the expected values for
                     each category.
+                empty (int, optional): Value used to represent missing values in the input tensor.
             """
             super().__init__()
             self.tokenizer = None
@@ -191,15 +322,11 @@ if not isinstance(torch, MockModule):
         def look_up_table(self):
             return self.tokenizer.map if self.tokenizer else None
 
-        def check_for_values_outside_range(self, x):
-            # reshape to have features in the first dimension
-            x = x.reshape(x.shape[-1], -1)
-            for i, categorie in enumerate(self.categories):
-                uniques = set(torch.unique(x[i]).to(torch.int32).tolist())
-                expected = set(self.expected_values[categorie])
-                if uniques != expected:
-                    difference = uniques - expected
-                    print(f"{categorie} has values outside the expected range: {difference}")
+        def normalize_embeddings(self):
+            # normalize the embedding layer to have unit length
+            with torch.no_grad():
+                norm = torch.sqrt(torch.sum(self.embeddings.weight**2, dim=-1)).reshape(-1,1)
+                self.embeddings.weight = torch.nn.Parameter(self.embeddings.weight / norm)
 
         def forward(self, cat_input):
             x = cat_input
@@ -255,7 +382,8 @@ if not isinstance(torch, MockModule):
             if self.embedding_layer:
                 self.ndim += self.embedding_layer.ndim
 
-        def forward(self, continuous_inputs, categorical_inputs):
+        def forward(self, args):
+            categorical_inputs, continuous_inputs = args
             x = torch.cat(
                 [
                     continuous_inputs,

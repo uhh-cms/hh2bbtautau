@@ -165,12 +165,16 @@ if not isinstance(torch, MockModule):
 
         @reinit__is_reduced
         def update(self, output: Sequence[torch.Tensor | dict[str, Any]]) -> None:
+            # from IPython import embed; embed(header="weightedloss - 167 in metrics.py ")
             if len(output) == 2:
                 y_pred, y = cast(tuple[torch.Tensor, torch.Tensor], output)
                 kwargs: dict[str, Any] = {}
             else:
                 y_pred, y, kwargs = cast(tuple[torch.Tensor, torch.Tensor, dict], output)
-            average_loss = self._loss_fn(y_pred, y, **kwargs).detach()
+            # from IPython import embed; embed(header="string - 173 in metrics.py ")
+
+            average_loss = torch.nn.functional.binary_cross_entropy(y_pred, y, **kwargs)
+            # average_loss = self._loss_fn(y_pred, y, **kwargs).detach()
 
             if len(average_loss.shape) != 0:
                 raise ValueError("loss_fn did not return the average loss.")
