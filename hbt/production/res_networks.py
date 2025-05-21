@@ -298,7 +298,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         "decay_mode1",
         dm1,
         EMPTY_INT,
-        event_mask=(event_mask & tautau_mask),
+        event_mask=(event_mask & (leptau_mask | tautau_mask)),
     )
     events = set_ak_column_nonull(
         events,
