@@ -304,7 +304,7 @@ def cat_dyc_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Arr
     return events, mask
 
 
-@cat_dy_res1b.init
+@cat_dyc_res1b.init
 def cat_dyc_res1b_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
@@ -335,6 +335,11 @@ def cat_dyc_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Arr
     mask = mask_dyc & mask_res2b
 
     return events, mask
+
+
+@cat_dyc_res2b.init
+def cat_dyc_res2b_init(self: Categorizer) -> None:
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
