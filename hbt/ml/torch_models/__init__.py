@@ -8,6 +8,7 @@ from hbt.ml.torch_models.binary import (
     WeightedTensorFeedForwardNetWithCat,
     WeightedTensorFeedForwardNetWithCatReducedEmbedding,
     WeightedTensorFeedForwardNetWithCatReducedEmbedding1F,
+    WeightedTensorFeedForwardNetWithCatOutsourceTokens,
 )
 from hbt.ml.torch_models.multi_class import (
     FeedForwardMultiCls,
@@ -30,6 +31,7 @@ model_clss["feedforward_tensor_adam"] = TensorFeedForwardNetAdam
 model_clss["feedforward_arrow"] = FeedForwardArrow
 model_clss["weighted_feedforward_tensor"] = WeightedTensorFeedForwardNet
 model_clss["weighted_feedforward_tensor_cat"] = WeightedTensorFeedForwardNetWithCat
+model_clss["weighted_feedforward_tensor_cat_outsource"] = WeightedTensorFeedForwardNetWithCatOutsourceTokens
 model_clss["weighted_feedforward_tensor_cat_reduced_embedding"] = WeightedTensorFeedForwardNetWithCatReducedEmbedding
 model_clss["weighted_feedforward_tensor_cat_reduced_embedding1f"] = WeightedTensorFeedForwardNetWithCatReducedEmbedding1F
 
