@@ -15,7 +15,7 @@ from columnflow.production import Producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
 
-from hbt.util import IF_DATASET_IS_DY, IF_DATASET_IS_W_LNU
+from hbt.util import IF_DATASET_IS_DY, IF_DATASET_IS_W_LNU, IF_DATASET_IS_DY_LO, IF_DATASET_IS_DY_NNLO
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -217,7 +217,7 @@ class stiched_process_ids_1d(stitched_process_ids):
         super().__init__(*args, **kwargs)
 
         # setup during setup
-        self.sorted_stitching_ranges: list[tuple[VarRange,]]
+        self.sorted_stitching_ranges: list[tuple[VarRange, ]]
 
         # check that aux field is present in cross_check_translation_dict
         for field in self.var_aux:
