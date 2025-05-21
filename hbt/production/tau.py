@@ -149,15 +149,19 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         sf_tau_dm0 = sf_nom.copy()
         sf_tau_dm1 = sf_nom.copy()
         sf_tau_dm10 = sf_nom.copy()
+        sf_tau_dm11 = sf_nom.copy()
         tau_dm0_mask = tau_mask & (dm == 0)
         tau_dm1_mask = tau_mask & (dm == 1)
-        tau_dm10_mask = tau_mask & ((dm == 10) | (dm == 11))
+        tau_dm10_mask = tau_mask & (dm == 10)
+        tau_dm11_mask = tau_mask & (dm == 11)
         sf_tau_dm0[tau_dm0_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm0_mask, direction))
         sf_tau_dm1[tau_dm1_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm1_mask, direction))
         sf_tau_dm10[tau_dm10_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm10_mask, direction))
+        sf_tau_dm11[tau_dm11_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm11_mask, direction))
         events = set_ak_column_f32(events, f"tau_weight_jet_dm0_{direction}", reduce_mul(sf_tau_dm0))
         events = set_ak_column_f32(events, f"tau_weight_jet_dm1_{direction}", reduce_mul(sf_tau_dm1))
         events = set_ak_column_f32(events, f"tau_weight_jet_dm10_{direction}", reduce_mul(sf_tau_dm10))
+        events = set_ak_column_f32(events, f"tau_weight_jet_dm11_{direction}", reduce_mul(sf_tau_dm11))
 
         # electron fakes -> split into 2 eta regions
         for region, region_mask in [
@@ -229,24 +233,22 @@ def tau_weights_setup(
 
 @producer(
     uses={
-        "channel_id", "single_triggered", "cross_triggered",
+        "channel_id", "single_triggered", "cross_triggered", "matched_trigger_ids",
         "Tau.{pt,decayMode}",
     },
     produces={
-        "tau_trigger_weight",
-    } | {
-        f"tau_trigger_weight_{ch}_{direction}"
-        for direction in ["up", "down"]
-        for ch in ["etau", "mutau", "tautau"]  # TODO: add tautauvbf when existing
+        "tau_trigger_eff_{data,mc}_{etau,mutau,tautau,tautaujet}",
+        "tau_trigger_eff_{data,mc}_{etau,mutau,tautau,tautaujet}_dm{0,1,10,11}_{up,down}",
     },
     # only run on mc
     mc_only=True,
     # function to determine the correction file
     get_tau_file=(lambda self, external_files: external_files.tau_sf),
+    get_tau_corrector=(lambda self: self.config_inst.x.tau_trigger_corrector),
 )
-def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
-    Producer for trigger scale factors derived by the TAU POG. Requires an external file in the
+    Producer for trigger scale factors derived by the TAU POG at object level. Requires an external file in the
     config under ``tau_sf``:
 
     .. code-block:: python
@@ -267,8 +269,26 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     ch_mutau = self.config_inst.get_channel("mutau")
     ch_tautau = self.config_inst.get_channel("tautau")
 
-    # helper to bring a flat sf array into the shape of taus, and multiply across the tau axis
-    reduce_mul = lambda sf: ak.prod(layout_ak_array(sf, events.Tau.pt), axis=1, mask_identity=False)
+    # find out which tautau triggers are passed
+    tautau_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    tautaujet_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    tautauvbf_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    for trigger in self.config_inst.x.triggers:
+        if trigger.has_tag("cross_tau_tau"):
+            tautau_trigger_passed = (
+                tautau_trigger_passed |
+                np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+            )
+        if trigger.has_tag("cross_tau_tau_jet"):
+            tautaujet_trigger_passed = (
+                tautaujet_trigger_passed |
+                np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+            )
+        if trigger.has_tag("cross_tau_tau_vbf"):
+            tautauvbf_trigger_passed = (
+                tautauvbf_trigger_passed |
+                np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+            )
 
     # the correction tool only supports flat arrays, so convert inputs to flat np view first
     pt = flat_np_view(events.Tau.pt, axis=1)
@@ -280,59 +300,87 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # define channel / trigger dependent masks
     channel_id = events.channel_id
-    single_triggered = events.single_triggered
-    dm_mask = (
-        (events.Tau.decayMode == 0) |
-        (events.Tau.decayMode == 1) |
-        (events.Tau.decayMode == 10) |
-        (events.Tau.decayMode == 11)
+    cross_triggered = events.cross_triggered
+
+    default_tautau_mask = (
+        (channel_id == ch_tautau.id) &
+        ((ak.local_index(events.Tau) == 0) | (ak.local_index(events.Tau) == 1))
     )
-    tautau_mask = flat_np_view(
-        dm_mask & (events.Tau.pt >= 40.0) & (channel_id == ch_tautau.id),
-        axis=1,
-    )
+
+    # TODO: add additional phase space requirements for tautauvbf
+    tautau_mask = default_tautau_mask & tautau_trigger_passed
+    flat_tautau_mask = flat_np_view(tautau_mask, axis=1)
+    tautaujet_mask = default_tautau_mask & tautaujet_trigger_passed
+    flat_tautaujet_mask = flat_np_view(tautaujet_mask, axis=1)
+
     # not existing yet
-    # tautauvbf_mask = flat_np_view(dm_mask & (channel_id == ch_tautau.id), axis=1)
-    etau_mask = flat_np_view(
-        dm_mask & (channel_id == ch_etau.id) & single_triggered & (events.Tau.pt >= 25.0),
-        axis=1,
-    )
-    mutau_mask = flat_np_view(
-        dm_mask & (channel_id == ch_mutau.id) & single_triggered & (events.Tau.pt >= 25.0),
-        axis=1,
-    )
+    # tautauvbf_mask = flat_np_view(default_tautau_mask & tautauvbf_trigger_passed, axis=1)
+    etau_mask = (channel_id == ch_etau.id) & cross_triggered & (ak.local_index(events.Tau) == 0)
+    flat_etau_mask = flat_np_view(etau_mask, axis=1)
+
+    mutau_mask = (channel_id == ch_mutau.id) & cross_triggered & (ak.local_index(events.Tau) == 0)
+    flat_mutau_mask = flat_np_view(mutau_mask, axis=1)
 
     # start with flat ones
-    sf_nom = np.ones_like(pt, dtype=np.float32)
-    wp_config = self.config_inst.x.tau_trigger_working_points
-    eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, "sf", syst)
-    sf_nom[etau_mask] = self.trigger_corrector(*eval_args(etau_mask, "etau", "nom"))
-    sf_nom[mutau_mask] = self.trigger_corrector(*eval_args(mutau_mask, "mutau", "nom"))
-    sf_nom[tautau_mask] = self.trigger_corrector(*eval_args(tautau_mask, "ditau", "nom"))
+    for kind in ["data", "mc"]:
+        wp_config = self.config_inst.x.tau_trigger_working_points
+        eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, f"eff_{kind}", syst)
+        for corr_channel in ["etau", "mutau", "tautau", "tautaujet"]:  # TODO: add tautauvbf
+            if corr_channel == "etau":
+                mask = flat_etau_mask
+                corr_channel_arg = corr_channel
+            elif corr_channel == "mutau":
+                mask = flat_mutau_mask
+                corr_channel_arg = corr_channel
+            elif corr_channel == "tautau":
+                mask = flat_tautau_mask
+                corr_channel_arg = "ditau"
+            elif corr_channel == "tautaujet":
+                mask = flat_tautaujet_mask
+                corr_channel_arg = "ditaujet"
+            else:
+                raise ValueError(f"Unknown channel {corr_channel}")
+            sf_nom = np.ones_like(pt, dtype=np.float32)
+            sf_nom[mask] = self.tau_trig_corrector(*eval_args(mask, corr_channel_arg, "nom"))
+            # create and store weights
+            events = set_ak_column_f32(
+                events,
+                f"tau_trigger_eff_{kind}_{corr_channel}",
+                layout_ak_array(sf_nom, events.Tau.pt),
+            )
 
-    # create and store weights
-    events = set_ak_column_f32(events, "tau_trigger_weight", reduce_mul(sf_nom))
+        #
+        # compute varied trigger weights
+        #
 
-    #
-    # compute varied trigger weights
-    #
-
-    for direction in ["up", "down"]:
         for ch, ch_corr, mask in [
             ("etau", "etau", etau_mask),
             ("mutau", "mutau", mutau_mask),
             ("tautau", "ditau", tautau_mask),
+            ("tautaujet", "ditaujet", tautaujet_mask),
             # ("tautauvbf", "ditauvbf", tautauvbf_mask),
         ]:
-            sf_unc = sf_nom.copy()
-            sf_unc[mask] = self.trigger_corrector(*eval_args(mask, ch_corr, direction))
-            events = set_ak_column_f32(events, f"tau_trigger_weight_{ch}_{direction}", reduce_mul(sf_unc))
+            for decay_mode in [0, 1, 10, 11]:
+                decay_mode_mask = mask & (events.Tau.decayMode == decay_mode)
+                flat_decay_mode_mask = flat_np_view(decay_mode_mask, axis=1)
+                for direction in ["up", "down"]:
+                    # only possible with object-level information
+                    sf_unc = ak.copy(events[f"tau_trigger_eff_{kind}_{ch}"])
+                    sf_unc_flat = flat_np_view(sf_unc, axis=1)
+                    sf_unc_flat[flat_decay_mode_mask] = self.tau_trig_corrector(
+                        *eval_args(flat_decay_mode_mask, ch_corr, direction),
+                    )
+                    events = set_ak_column_f32(
+                        events,
+                        f"tau_trigger_eff_{kind}_{ch}_dm{decay_mode}_{direction}",
+                        sf_unc,
+                    )
 
     return events
 
 
-@trigger_weights.requires
-def trigger_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
+@tau_trigger_efficiencies.requires
+def tau_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     if "external_files" in reqs:
         return
 
@@ -340,8 +388,8 @@ def trigger_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwarg
     reqs["external_files"] = BundleExternalFiles.req(task)
 
 
-@trigger_weights.setup
-def trigger_weights_setup(
+@tau_trigger_efficiencies.setup
+def tau_trigger_efficiencies_setup(
     self: Producer,
     task: law.Task,
     reqs: dict[str, DotDict[str, Any]],
@@ -349,7 +397,8 @@ def trigger_weights_setup(
 ) -> None:
     # create the trigger and id correctors
     tau_file = self.get_tau_file(reqs["external_files"].files)
-    self.trigger_corrector = load_correction_set(tau_file)["tau_trigger"]
+    corrector_name = self.get_tau_corrector()
+    self.tau_trig_corrector = load_correction_set(tau_file)[corrector_name]
 
     # check versions
-    assert self.trigger_corrector.version in [0, 1]
+    assert self.tau_trig_corrector.version in [0, 1]

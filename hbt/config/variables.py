@@ -632,6 +632,92 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Number of jets",
     )
 
+    add_variable(
+        config,
+        name="pair_type",
+        binning=(4, -1.5, 2.5),
+        x_title="Pair type",
+    )
+    add_variable(
+        config,
+        name="decay_mode1",
+        binning=(14, -2.5, 11.5),
+        x_title="Decay mode 1",
+    )
+    add_variable(
+        config,
+        name="decay_mode2",
+        binning=(14, -2.5, 11.5),
+        x_title="Decay mode 2",
+    )
+    add_variable(
+        config,
+        name="lepton1.charge",
+        binning=(4, -2.5, 1.5),
+        x_title="Lepton1 charge",
+    )
+    add_variable(
+        config,
+        name="lepton2.charge",
+        binning=(4, -2.5, 1.5),
+        x_title="Lepton2 charge",
+    )
+    add_variable(
+        config,
+        name="has_fatjet",
+        binning=(3, -1.5, 1.5),
+        x_title="Has fatjet",
+    )
+    add_variable(
+        config,
+        name="has_jet_pair",
+        binning=(3, -1.5, 1.5),
+        x_title="Has jet pair",
+    )
+    add_variable(
+        config,
+        name="year_flag",
+        binning=(9, -1.5, 7.5),
+        x_title="Year flag",
+    )
+
+    for obj in ["lepton1", "lepton2", "bjet1", "bjet2", "fatjet", "htt", "hbb", "htthbb"]:
+        add_variable(
+            config,
+            name=f"{obj}.px",
+            binning=(100, -300, 300),
+            x_title=rf"{obj} $p_{{x}}$",
+            unit="GeV",
+        )
+        add_variable(
+            config,
+            name=f"{obj}.py",
+            binning=(100, -300, 300),
+            x_title=rf"{obj} $p_{{y}}$",
+            unit="GeV",
+        )
+        add_variable(
+            config,
+            name=f"{obj}.pz",
+            binning=(100, -300, 300),
+            x_title=rf"{obj} $p_{{z}}$",
+            unit="GeV",
+        )
+        add_variable(
+            config,
+            name=f"{obj}.energy",
+            binning=(100, 0, 500),
+            x_title=rf"{obj} Energy",
+            unit="GeV",
+        )
+        add_variable(
+            config,
+            name=f"{obj}.mass",
+            binning=(100, 0, 500),
+            x_title=rf"{obj} mass",
+            unit="GeV",
+        )
+
     for proc in ["hh", "tt", "dy"]:
         # outputs of the resonant pDNN at SM-like mass and spin values
         add_variable(

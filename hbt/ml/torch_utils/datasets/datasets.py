@@ -31,6 +31,12 @@ pq = maybe_import("pyarrow.parquet")
 ListDataset = MockModule("ListDataset")  # type: ignore
 ParquetDataset = MockModule("ParquetDataset")  # type: ignore
 FlatParquetDataset = MockModule("FlatParquetDataset")  # type: ignore
+FlatArrowRowGroupParquetDataset = MockModule("FlatArrowRowGroupParquetDataset")  # type: ignore
+FlatRowgroupParquetDataset = MockModule("FlatRowgroupParquetDataset")  # type: ignore
+WeightedFlatRowgroupParquetDataset = MockModule("WeightedFlatRowgroupParquetDataset")  # type: ignore
+TensorParquetDataset = MockModule("TensorParquetDataset")  # type: ignore
+RgTensorParquetDataset = MockModule("RgTensorParquetDataset")  # type: ignore
+WeightedRgTensorParquetDataset = MockModule("WeightedRgTensorParquetDataset")  # type: ignore
 
 if not isinstance(torchdata, MockModule):
     from torch.utils.data import Dataset
@@ -63,6 +69,7 @@ if not isinstance(torchdata, MockModule):
             open_options: dict[str, Any] | None = None,
             batch_transform: Callable | None = None,
             global_transform: Callable | None = None,
+            input_data_transform: Callable | None = None,
             categorical_target_transform: Callable | None = None,
             data_type_transform: Callable | None = None,
             device: str | None = None,
@@ -76,6 +83,7 @@ if not isinstance(torchdata, MockModule):
             self.batch_transform = batch_transform
             self.categorical_target_transform = categorical_target_transform
             self.data_type_transform = data_type_transform
+            self.input_data_transform = input_data_transform
             self.global_transform = global_transform
 
             self.input = input
@@ -136,6 +144,7 @@ if not isinstance(torchdata, MockModule):
             self.categorical_target_transform = first.categorical_target_transform
             self.data_type_transform = first.data_type_transform
             self.global_transform = first.global_transform
+            self.input_data_transform = first.input_data_transform
             # make sure all datasets have the same columns
             def _get_columnset(attr):
                 foo = getattr(first, attr)
@@ -269,6 +278,7 @@ if not isinstance(torchdata, MockModule):
             for t in [
                 self.batch_transform,
                 self.global_transform,
+                self.input_data_transform,
                 self.data_type_transform,
                 self.categorical_target_transform,
             ]:
@@ -342,6 +352,8 @@ if not isinstance(torchdata, MockModule):
         def input_data(self) -> ak.Array:
             if self._input_data is None:
                 self._input_data = self._load_data(columns_to_remove=self.target_columns)
+                if self.input_data_transform:
+                    self._input_data = self.input_data_transform(self._input_data)
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
             return self._input_data
@@ -429,6 +441,8 @@ if not isinstance(torchdata, MockModule):
                     str(r): self._extract_columns(self._input_data, r)
                     for r in self.data_columns
                 }
+                if self.input_data_transform:
+                    self._input_data = self.input_data_transform(self._input_data)
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
             return self._input_data
@@ -492,7 +506,7 @@ if not isinstance(torchdata, MockModule):
 
             In case `cls_weights` are defined, they are appended to `input_data`, i.e. are the last values
             in the list.
-            
+
             :param continuous_features: List, tuple or set of continuous features to load
             :param categorical_features: List, tuple or set of categorical features to load
             :param args: Arguments to pass to upstream classes
@@ -555,6 +569,8 @@ if not isinstance(torchdata, MockModule):
                     cat_features = self._array_set_to_tensor(self.categorical_features)
                     cont_features = self._array_set_to_tensor(self.continuous_features)
                     self._input_data = [cat_features, cont_features]
+                if self.input_data_transform:
+                    self._input_data = self.input_data_transform(self._input_data)
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
             return self._input_data

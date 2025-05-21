@@ -10,6 +10,7 @@ from columnflow.reduction.default import cf_default
 from columnflow.production.cms.dy import gen_dilepton, recoil_corrected_met
 from columnflow.production.cms.top_pt_weight import gen_parton_top as cf_gen_parton_top
 from columnflow.util import maybe_import
+from columnflow.config_util import get_events_from_categories
 
 from hbt.util import IF_DATASET_HAS_TOP, IF_DATASET_IS_DY
 
@@ -48,9 +49,6 @@ def default(self: Reducer, events: ak.Array, selection: ak.Array, **kwargs) -> a
     return events
 
 
-# signal_region_reducer = default.derive("signal_region_reducer")
-
-
 @reducer(
     uses={default, "channel_id"},
     produces={default},
@@ -69,3 +67,15 @@ def signal_region_reducer(self, events, selection, **kwargs):
 
     event_mask = reduce(or_, [channel_id == x for x in signal_ids])
     return events[event_mask]
+
+
+@reducer(
+    uses={signal_region_reducer, "channel_id"},
+    produces={signal_region_reducer},
+)
+def signal_region_os_reducer(self, events, selection, **kwargs):
+    events = self[signal_region_reducer](events, selection, **kwargs)
+
+    events = get_events_from_categories(events=events, categories=["os"], config_inst=self.config_inst)
+
+    return events

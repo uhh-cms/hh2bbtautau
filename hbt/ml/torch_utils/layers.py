@@ -101,7 +101,7 @@ if not isinstance(torch, MockModule):
                 tuple([torch.Tensor]): Returns minimum and LookUpTable
             """
             # append placeholder to the array representing the empty category
-            array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1)
+            # array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1)
 
             # shift input by minimum, pushing the categories to the valid indice space
             minimum = array.min(axis=-1).values
@@ -134,7 +134,8 @@ if not isinstance(torch, MockModule):
 
         def forward(self, x):
             # shift input array by their respective minimum and slice translation accordingly
-            return self.map[self.indices, x - self.min]
+            output = self.map[self.indices, x - self.min]
+            return output
 
         def to(self, *args, **kwargs):
             # make sure to move the translation array to the same device as the input
@@ -149,7 +150,8 @@ if not isinstance(torch, MockModule):
             self,
             embedding_dim: int,
             categories: tuple[str],
-            expected_categorical_inputs: dict[list[int]],
+            expected_categorical_inputs: dict[list[int]] | None = None,
+            category_dims: int | None = None,
             placeholder: int = 15,
         ):
             """
@@ -168,24 +170,26 @@ if not isinstance(torch, MockModule):
                     each category.
             """
             super().__init__()
-            self.categories = categories
-            self.expected_values = expected_categorical_inputs
-
-            self.tokenizer = CategoricalTokenizer(
-                categories=categories,
-                expected_categorical_inputs=self.expected_values,
-                placeholder=placeholder)
+            self.tokenizer = None
+            self.category_dims = category_dims
+            if not self.category_dims and all(x is not None for x in (categories, expected_categorical_inputs)):
+                self.tokenizer = CategoricalTokenizer(
+                    categories=categories,
+                    expected_categorical_inputs=expected_categorical_inputs,
+                    placeholder=placeholder)
+                self.category_dims = self.tokenizer.num_dim
 
             self.embeddings = torch.nn.Embedding(
-                self.tokenizer.num_dim,
+                self.category_dims,
                 embedding_dim,
             )
 
-            self.ndim = embedding_dim * len(categories)
+
+            self.ndim = embedding_dim*len(categories)
 
         @property
         def look_up_table(self):
-            return self.tokenizer.map
+            return self.tokenizer.map if self.tokenizer else None
 
         def check_for_values_outside_range(self, x):
             # reshape to have features in the first dimension
@@ -197,22 +201,29 @@ if not isinstance(torch, MockModule):
                     difference = uniques - expected
                     print(f"{categorie} has values outside the expected range: {difference}")
 
-        def forward(self, x):
+        def forward(self, cat_input):
+            x = cat_input
+
+            if self.tokenizer:
+                x = self.tokenizer(x)
+
             x = self.tokenizer(x)
             x = self.embeddings(x)
             return x.flatten(start_dim=1)
 
         def to(self, *args, **kwargs):
-            self.tokenizer.to(*args, **kwargs)
+            if self.tokenizer:
+                self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
     class InputLayer(nn.Module):
         def __init__(
             self,
             continuous_inputs: tuple[str],
-            categorical_inputs: tuple[str],
             embedding_dim: int,
-            expected_categorical_inputs: dict[list[int]],
+            categorical_inputs: tuple[str] = None,
+            category_dims: int | None = None,
+            expected_categorical_inputs: dict[list[int]] | None = None,
             placeholder: int = 15,
         ):
             """
@@ -222,20 +233,33 @@ if not isinstance(torch, MockModule):
             categorical features.
             """
             super().__init__()
-            if categorical_inputs is not None and expected_categorical_inputs is not None:
-                self.embedding_layer = CatEmbeddingLayer(
-                    embedding_dim=embedding_dim,
-                    categories=categorical_inputs,
-                    expected_categorical_inputs=expected_categorical_inputs,
-                    placeholder=placeholder)
+            self.placeholder = placeholder
+            self.ndim = len(continuous_inputs)
+            self.embedding_layer = None
+            if categorical_inputs is not None:
+                if expected_categorical_inputs is not None:
+                    self.embedding_layer = CatEmbeddingLayer(
+                        embedding_dim=embedding_dim,
+                        categories=categorical_inputs,
+                        expected_categorical_inputs=expected_categorical_inputs,
+                        placeholder=placeholder)
 
-            self.ndim = embedding_dim * len(categorical_inputs) + len(continuous_inputs)
+                elif category_dims:
+                    self.embedding_layer = CatEmbeddingLayer(
+                        embedding_dim=embedding_dim,
+                        category_dims=category_dims,
+                        categories=categorical_inputs,
+                        placeholder=placeholder,
+                    )
+
+            if self.embedding_layer:
+                self.ndim += self.embedding_layer.ndim
 
         def forward(self, continuous_inputs, categorical_inputs):
             x = torch.cat(
                 [
                     continuous_inputs,
-                    self.embedding_layer(categorical_inputs).flatten(start_dim=1),
+                    self.embedding_layer(categorical_inputs),
                 ],
                 dim=1,
             )
@@ -323,6 +347,8 @@ if not isinstance(torch, MockModule):
             self.std = std
 
         def to(self, *args, **kwargs):
-            self.mean = self.mean.to(*args, **kwargs)
-            self.std = self.std.to(*args, **kwargs)
+            if isinstance(self.mean, torch.Tensor):
+                self.mean = self.mean.to(*args, **kwargs)
+            if isinstance(self.std, torch.Tensor):
+                self.std = self.std.to(*args, **kwargs)
             return super().to(*args, **kwargs)

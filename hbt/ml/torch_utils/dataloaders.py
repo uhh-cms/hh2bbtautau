@@ -4,7 +4,7 @@ __all__ = [
     "NodesDataLoader", "CompositeDataLoader",
 ]
 
-from collections import Mapping
+from collections.abc import Iterable, Mapping
 from columnflow.util import MockModule, maybe_import
 from columnflow.types import Any, Callable
 
@@ -80,8 +80,8 @@ if not isinstance(torchdata, MockModule):
 
         def __init__(
                 self,
-                data_map: Mapping[str, Sized] | None = None,
-                weight_dict: Mapping[str, float | Mapping[str, float]] | None = None,
+                data_map: Mapping[str, Sized] | Iterable[Sized] | None = None,
+                weight_dict: Mapping[str, float | Mapping[str, float]] | Iterable[Sized] | None = None,
                 shuffle: bool = True,
                 batch_size: int = 256,
                 num_workers: int = 0,

@@ -121,9 +121,11 @@ if not isinstance(ignite, MockModule):
                 else:
                     fn()
 
-        def _log_timing(self, engine) -> None:
+        def _log_timing(self, engine, round_precision: int = 3) -> None:
             time_per_epoch = engine.state.times[Events.EPOCH_COMPLETED.name] / engine.state.epoch_length
-            self.logger.info(f"Timing of Epoch [{engine.state.epoch}]: {time_per_epoch:0.3f} s/iteration")
+            self.logger.info(
+                f"Timing of Epoch [{engine.state.epoch}]: {time_per_epoch:0.{round_precision}f} s/iteration"
+            )
 
         def init_metrics(self) -> None:
 
@@ -161,9 +163,9 @@ if not isinstance(ignite, MockModule):
                         bins="tensorflow",
                     )
 
-        def print_training_loss(self, engine):
+        def print_training_loss(self, engine, round_precision: int = 3):
             self.logger.info(
-                f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.2f}",
+                f"Epoch[{engine.state.epoch}], Iter[{engine.state.iteration}] Loss: {engine.state.output:.{round_precision}f}",  # noqa: E501
             )
 
         def reset_dataloaders(self, trainer):
@@ -195,17 +197,20 @@ if not isinstance(ignite, MockModule):
             data_loader: tn.ParallelMapper,
             max_epoch_length: int | None = None,
             mode: str = "training",
+            round_precision: int = 3,
         ):
             data_loader.reset()
             evaluator.run(data_loader, epoch_length=max_epoch_length)
             metrics = evaluator.state.metrics
 
-            infos = " | ".join([f"Avg {name}: {np.round(value,2)}" for name, value in metrics.items()])
+            infos = " | ".join([f"Avg {name}: {np.round(value, round_precision)}" for name, value in metrics.items()])
             if self.writer:
                 self._log_attributes(metrics=metrics, trainer=trainer, mode=mode)
 
             time_per_epoch = evaluator.state.times[Events.EPOCH_COMPLETED.name] / evaluator.state.epoch_length
-            self.logger.info(f"Results ({mode}) - Epoch[{trainer.state.epoch}] ({time_per_epoch:.2f} s/iteration) {infos}")
+            self.logger.info(
+                f"Results ({mode}) - Epoch[{trainer.state.epoch}] ({time_per_epoch:.2f} s/iteration) {infos}",
+            )
 
         def start_training(self, run_name: str, max_epochs: int):
             if not self.trainer:

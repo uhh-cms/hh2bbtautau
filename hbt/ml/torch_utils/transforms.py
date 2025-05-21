@@ -5,6 +5,8 @@ from columnflow.util import MockModule, maybe_import
 from columnflow.columnar_util import flat_np_view
 from hbt.production.res_networks import res_net_preprocessing
 
+from hbt.ml.torch_utils.layers import CategoricalTokenizer
+
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
 np = maybe_import("numpy")
@@ -115,6 +117,37 @@ if not isinstance(torch, MockModule):
                 return [self.forward(entry) for entry in X]
             else:
                 raise ValueError(f"Could not convert input {X=}")
+
+    class TokenizeCategories(torch.nn.Module):
+        def __init__(
+            self,
+            categories: tuple[str],
+            expected_categorical_inputs: dict[list[int]],
+            *args,
+            cat_feature_idx: int | None = None,
+            device=None,
+            **kwargs,
+        ):
+            super().__init__()
+            self.device = device
+            self.cat_feature_idx = cat_feature_idx
+
+            # initialize tokenizer
+            self.tokenizer = CategoricalTokenizer(
+                categories=categories,
+                expected_categorical_inputs=expected_categorical_inputs,
+            )
+
+        @property
+        def num_dim(self):
+            return self.tokenizer.num_dim
+
+        def forward(self, x):
+            if isinstance(x, list):
+                x[self.cat_feature_idx] = self.tokenizer(x[self.cat_feature_idx].to(torch.int32))
+            else:
+                x = self.tokenizer(x.to(torch.int32))
+            return x
 
     class AkToTensor(AkToNestedTensor):
         def _transform_input(self, X):
