@@ -47,6 +47,7 @@ class BaseParquetFileHandler(object):
         datasets: Collection[str] | None = None,
         batch_transformations: torch.nn.Module | None = None,
         global_transformations: torch.nn.Module | None = None,
+        input_data_transform: torch.nn.Module | None = None,
         categorical_target_transformation: torch.nn.Module | None = None,
         data_type_transform: torch.nn.Module | None = None,
         preshuffle: bool = True,
@@ -67,6 +68,7 @@ class BaseParquetFileHandler(object):
 
         self.batch_transformations = batch_transformations
         self.global_transformations = global_transformations
+        self.input_data_transform = input_data_transform
         self.categorical_target_transformation = categorical_target_transformation
         self.data_type_transform = data_type_transform
         self.preshuffle = preshuffle
@@ -108,6 +110,7 @@ class BaseParquetFileHandler(object):
             "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
             "categorical_target_transform": self.categorical_target_transformation,
             "data_type_transform": self.data_type_transform,
         }
@@ -359,7 +362,7 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
             **sampler_kwargs,
         )
 
-    def init_datasets(self) -> tuple[CompositeDataLoader, CompositeDataLoader]:
+    def init_datasets(self) -> tuple[CompositeDataLoader, tuple[CompositeDataLoader, CompositeDataLoader]]:
 
         training_data_map, validation_data_map = self._init_training_validation_map()
 
@@ -451,6 +454,7 @@ class RgTensorParquetFileHandler(BaseParquetFileHandler):
             "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
             "categorical_target_transform": self.categorical_target_transformation,
             "data_type_transform": self.data_type_transform,
             "padd_value_float": 0,
@@ -537,6 +541,7 @@ class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHand
             "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
             "categorical_target_transform": self.categorical_target_transformation,
             "data_type_transform": self.data_type_transform,
             "padd_value_float": 0,
@@ -587,6 +592,7 @@ class FlatArrowParquetFileHandler(BaseParquetFileHandler):
             "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
             "categorical_target_transform": self.categorical_target_transformation,
             "data_type_transform": self.data_type_transform,
         }
