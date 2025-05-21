@@ -134,17 +134,7 @@ if not isinstance(torch, MockModule):
 
         def forward(self, x):
             # shift input array by their respective minimum and slice translation accordingly
-            try:
-                output = self.map[self.indices, x - self.min]
-            except Exception as e:
-                print(f"Error in CategoricalTokenizer: {e}")
-                print(f"Input: {x}")
-                print(f"Min: {self.min}")
-                print(f"Indices: {self.indices}")
-                print(f"Map: {self.map}")
-                from IPython import embed
-                embed(header=f"Error in CategoricalTokenizer: {e}")
-                raise e
+            output = self.map[self.indices, x - self.min]
             return output
 
         def to(self, *args, **kwargs):
@@ -160,7 +150,8 @@ if not isinstance(torch, MockModule):
             self,
             embedding_dim: int,
             categories: tuple[str],
-            expected_categorical_inputs: dict[list[int]],
+            expected_categorical_inputs: dict[list[int]] | None = None,
+            category_dims: int | None = None,
             placeholder: int = 15,
         ):
             """
@@ -179,14 +170,17 @@ if not isinstance(torch, MockModule):
                     each category.
             """
             super().__init__()
-
-            self.tokenizer = CategoricalTokenizer(
-                categories=categories,
-                expected_categorical_inputs=expected_categorical_inputs,
-                placeholder=placeholder)
+            self.tokenizer = None
+            self.category_dims = category_dims
+            if not self.category_dims and all(x is not None for x in (categories, expected_categorical_inputs)): 
+                self.tokenizer = CategoricalTokenizer(
+                    categories=categories,
+                    expected_categorical_inputs=expected_categorical_inputs,
+                    placeholder=placeholder)
+                self.category_dims = self.tokenizer.num_dim
 
             self.embeddings = torch.nn.Embedding(
-                self.tokenizer.num_dim,
+                self.category_dims,
                 embedding_dim,
             )
 
@@ -198,29 +192,35 @@ if not isinstance(torch, MockModule):
                 # nn.ReLU(),
             )
 
-            self.ndim = 10
+            self.ndim = embedding_dim*len(categories)
 
         @property
         def look_up_table(self):
-            return self.tokenizer.map
+            return self.tokenizer.map if self.tokenizer else None
 
         def forward(self, cat_input):
-            x = self.tokenizer(cat_input)
+            x = cat_input
+
+            if self.tokenizer:
+                x = self.tokenizer(x)
+
             x = self.embeddings(x)
             x = self.final_embeddings(x)
             return x.flatten(start_dim=1)
 
         def to(self, *args, **kwargs):
-            self.tokenizer.to(*args, **kwargs)
+            if self.tokenizer:
+                self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
     class InputLayer(nn.Module):
         def __init__(
             self,
             continuous_inputs: tuple[str],
-            categorical_inputs: tuple[str],
             embedding_dim: int,
-            expected_categorical_inputs: dict[list[int]],
+            categorical_inputs: tuple[str] = None,
+            category_dims: int | None = None,
+            expected_categorical_inputs: dict[list[int]] | None = None,
             placeholder: int = 15,
         ):
             """
@@ -232,14 +232,25 @@ if not isinstance(torch, MockModule):
             super().__init__()
             self.placeholder = placeholder
             self.ndim = len(continuous_inputs)
-            if categorical_inputs is not None and expected_categorical_inputs is not None:
-                self.embedding_layer = CatEmbeddingLayer(
-                    embedding_dim=embedding_dim,
-                    categories=categorical_inputs,
-                    expected_categorical_inputs=expected_categorical_inputs,
-                    placeholder=placeholder)
-
-                self.ndim += embedding_dim * len(categorical_inputs)
+            self.embedding_layer = None
+            if categorical_inputs is not None:
+                if expected_categorical_inputs is not None:
+                    self.embedding_layer = CatEmbeddingLayer(
+                        embedding_dim=embedding_dim,
+                        categories=categorical_inputs,
+                        expected_categorical_inputs=expected_categorical_inputs,
+                        placeholder=placeholder)
+                    
+                elif category_dims:
+                    self.embedding_layer = CatEmbeddingLayer(
+                        embedding_dim=embedding_dim,
+                        category_dims=category_dims,
+                        categories=categorical_inputs,
+                        placeholder=placeholder,
+                    )
+            
+            if self.embedding_layer:
+                self.ndim += self.embedding_layer.ndim
 
         def forward(self, continuous_inputs, categorical_inputs):
             x = torch.cat(
@@ -249,6 +260,7 @@ if not isinstance(torch, MockModule):
                 ],
                 dim=1,
             )
+            return x
 
         def to(self, *args, **kwargs):
             self.embedding_layer.to(*args, **kwargs)
@@ -332,6 +344,8 @@ if not isinstance(torch, MockModule):
             self.std = std
 
         def to(self, *args, **kwargs):
-            self.mean = self.mean.to(*args, **kwargs)
-            self.std = self.std.to(*args, **kwargs)
+            if isinstance(self.mean, torch.Tensor):
+                self.mean = self.mean.to(*args, **kwargs)
+            if isinstance(self.std, torch.Tensor):
+                self.std = self.std.to(*args, **kwargs)
             return super().to(*args, **kwargs)
