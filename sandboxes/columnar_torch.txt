@@ -1,4 +1,4 @@
-# version 3
+# version 4
 
 -r ../modules/columnflow/sandboxes/columnar.txt
 
@@ -9,3 +9,4 @@ tensorboard
 torchdata~=0.10
 pytorch-ignite~=0.5.1
 scikit-learn~=1.6.1
+shap
