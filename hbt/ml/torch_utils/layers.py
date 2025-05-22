@@ -85,9 +85,9 @@ if not isinstance(torch, MockModule):
             output_per_feature = self.map[self.indices, shifted].transpose(0, 1)
             _str = []
             _str.append("Translation (input : output):")
-            for (categorie, expected_value), mapping in zip(self.expected_categorical_inputs.items(), output_per_feature):
-                num_expected = len(expected_value)
-                _str.append(f"{categorie}: {expected_value} -> {mapping[:num_expected].tolist()}")
+            for ind, categorie in enumerate(self.categories):
+                num_expected = self.expected_categorical_inputs[categorie]
+                _str.append(f"{categorie}: {num_expected} -> {output_per_feature[ind][:len(num_expected)].tolist()}")
             return "\n".join(_str)
 
         def check_for_values_outside_range(self, input_tensor):
@@ -307,7 +307,7 @@ if not isinstance(torch, MockModule):
                 self.tokenizer = CategoricalTokenizer(
                     categories=categories,
                     expected_categorical_inputs=expected_categorical_inputs,
-                    placeholder=placeholder)
+                    empty=placeholder)
                 self.category_dims = self.tokenizer.num_dim
 
             self.embeddings = torch.nn.Embedding(
@@ -334,7 +334,6 @@ if not isinstance(torch, MockModule):
             if self.tokenizer:
                 x = self.tokenizer(x)
 
-            x = self.tokenizer(x)
             x = self.embeddings(x)
             return x.flatten(start_dim=1)
 
