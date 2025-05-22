@@ -481,6 +481,12 @@ def add_config(
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
         "sm_data": ["data"] + sm_group,
+        "ml": [
+            "hh_ggf_hbb_htt_kl1_kt1",
+            "dy",
+            "tt_sl",
+            "tt_dl",
+        ],
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
@@ -575,14 +581,15 @@ def add_config(
             for var in ["px", "py", "pz", "energy", "mass"]
             for obj in ["lepton1", "lepton2", "bjet1", "bjet2", "fatjet", "htt", "hbb", "htthbb"]
         ]),
-        "categorical_inputs": (cat_inputs := ["pair_type",
-                "decay_mode1",
-                "decay_mode2",
-                "lepton1.charge",
-                "lepton2.charge",
-                "has_fatjet",
-                "has_jet_pair",
-                "year_flag",
+        "categorical_inputs": (cat_inputs := [
+            "pair_type",
+            "decay_mode1",
+            "decay_mode2",
+            "lepton1.charge",
+            "lepton2.charge",
+            "has_fatjet",
+            "has_jet_pair",
+            "year_flag",
         ]),
         "ml_inputs": [*cont_inputs, *cat_inputs],
 
