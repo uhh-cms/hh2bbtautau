@@ -21,6 +21,8 @@ from hbt.ml.torch_models.resnet import (
     WeightedResnetNoDropout,
     WeightedResnetTest,
     WeightedResnetTest2,
+)
+from hbt.ml.torch_models.bognet import (
     BogNet,
 )
 
