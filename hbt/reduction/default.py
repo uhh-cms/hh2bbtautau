@@ -79,3 +79,15 @@ def signal_region_os_reducer(self, events, selection, **kwargs):
     events = get_events_from_categories(events=events, categories=["os"], config_inst=self.config_inst)
 
     return events
+
+
+@reducer(
+    uses={signal_region_os_reducer, "channel_id"},
+    produces={signal_region_os_reducer},
+)
+def ml(self, events, selection, **kwargs):
+    events = self[signal_region_os_reducer](events, selection, **kwargs)
+
+    events = get_events_from_categories(events=events, categories=["iso"], config_inst=self.config_inst)
+
+    return events
