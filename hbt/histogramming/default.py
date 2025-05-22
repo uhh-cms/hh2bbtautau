@@ -76,3 +76,12 @@ normalization_inclusive_only = default.derive("normalization_inclusive_only", cl
 no_trigger_weight = default.derive("no_trigger_weight", cls_dict={
     "drop_weights": {"normalization_weight_inclusive", "trigger_weight"},
 })
+
+ml_weights = default.derive("ml_weights", cls_dict={
+    "drop_weights": {
+        "normalization_weight_inclusive",
+        "normalized_fsr_weight",
+        "normalized_isr_weight",
+        "trigger_weight",
+    },
+})
