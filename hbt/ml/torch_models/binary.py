@@ -32,6 +32,7 @@ if not isinstance(torch, MockModule):
         FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler,
         WeightedFlatListRowgroupParquetFileHandler,
         RgTensorParquetFileHandler, WeightedRgTensorParquetFileHandler,
+        WeightedTensorParquetFileHandler,
     )
     from hbt.ml.torch_utils.ignite.metrics import (
         WeightedROC_AUC, WeightedLoss,
@@ -275,7 +276,7 @@ if not isinstance(torch, MockModule):
             device = next(self.parameters()).device
             all_datasets = getattr(task, "resolved_datasets", task.datasets)
 
-            self.dataset_handler = WeightedRgTensorParquetFileHandler(
+            self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
                 continuous_features=getattr(self, "continuous_features", self.inputs),
                 categorical_features=getattr(self, "categorical_features", None),
@@ -379,7 +380,7 @@ if not isinstance(torch, MockModule):
                 expected_categorical_inputs=embedding_expected_inputs,
                 embedding_dim=self.embedding_dims,
             )
-            self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.placeholder, mask_value=EMPTY_INT)
+            self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
             self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
             self.linear_relu_stack = nn.Sequential(
@@ -454,7 +455,7 @@ if not isinstance(torch, MockModule):
                 embedding_dim=self.embedding_dims,
                 category_dims=self.tokenizer.num_dim,
             )
-            self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.placeholder, mask_value=EMPTY_INT)
+            self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
             self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
             self.linear_relu_stack = nn.Sequential(

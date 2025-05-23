@@ -31,7 +31,7 @@ if not isinstance(torch, MockModule):
             self,
             categories: tuple[str],
             expected_categorical_inputs: dict[list[int]],
-            empty = 15,
+            empty: int = 15,
         ):
             """
             Initializes tokenizer for given *expected_categorical_inputs*.
@@ -143,8 +143,8 @@ if not isinstance(torch, MockModule):
             Returns:
                 tuple([torch.Tensor]): Returns minimum and LookUpTable
             """
-            # append placeholder to the array representing the empty category
-            # array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * placeholder], axis=-1)
+            # append empty to the array representing the empty category
+            # array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * empty], axis=-1)
 
             # shift input by minimum, pushing the categories to the valid indice space
             minimum = array.min(axis=-1).values
@@ -282,7 +282,7 @@ if not isinstance(torch, MockModule):
             categories: tuple[str],
             expected_categorical_inputs: dict[list[int]] | None = None,
             category_dims: int | None = None,
-            placeholder: int = 15,
+            empty: int = 15,
         ):
             """
             Initializes the categorical feature interface with a tokenizer and an embedding layer with
@@ -307,7 +307,7 @@ if not isinstance(torch, MockModule):
                 self.tokenizer = CategoricalTokenizer(
                     categories=categories,
                     expected_categorical_inputs=expected_categorical_inputs,
-                    empty=placeholder)
+                    empty=empty)
                 self.category_dims = self.tokenizer.num_dim
 
             self.embeddings = torch.nn.Embedding(
@@ -350,7 +350,7 @@ if not isinstance(torch, MockModule):
             categorical_inputs: tuple[str] = None,
             category_dims: int | None = None,
             expected_categorical_inputs: dict[list[int]] | None = None,
-            placeholder: int = 15,
+            empty: int = 15,
         ):
             """
             Enables the use of categorical and continous features in a single model.
@@ -359,7 +359,7 @@ if not isinstance(torch, MockModule):
             categorical features.
             """
             super().__init__()
-            self.placeholder = placeholder
+            self.empty = empty
             self.ndim = len(continuous_inputs)
             self.embedding_layer = None
             if categorical_inputs is not None:
@@ -368,14 +368,14 @@ if not isinstance(torch, MockModule):
                         embedding_dim=embedding_dim,
                         categories=categorical_inputs,
                         expected_categorical_inputs=expected_categorical_inputs,
-                        placeholder=placeholder)
+                        empty=empty)
 
                 elif category_dims:
                     self.embedding_layer = CatEmbeddingLayer(
                         embedding_dim=embedding_dim,
                         category_dims=category_dims,
                         categories=categorical_inputs,
-                        placeholder=placeholder,
+                        empty=empty,
                     )
 
             if self.embedding_layer:
