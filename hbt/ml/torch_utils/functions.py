@@ -4,6 +4,7 @@ from columnflow.util import MockModule, maybe_import
 torch = maybe_import("torch")
 tqdm = maybe_import("tqdm")
 np = maybe_import("numpy")
+ak = maybe_import("awkward")
 
 if not isinstance(torch, MockModule):
 
@@ -91,8 +92,13 @@ if not isinstance(torch, MockModule):
 
     def get_one_hot(targets, nb_classes):
         # at this point the targets are still ak arrays, so cast to numpy
-        targets = targets.to_numpy()
-        res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
+        if isinstance(targets, ak.Array):
+            targets = targets.to_numpy()
+        elif isinstance(targets, torch.Tensor):
+            targets = targets.numpy()
+
+        indices = np.array(targets, dtype=np.int32).reshape(-1)
+        res = np.eye(nb_classes)[indices]
         return np.astype(res.reshape(list(targets.shape) + [nb_classes]), np.int32)
 
     def preprocess_multiclass_outputs(outputs, **additional_kwargs):
@@ -136,7 +142,7 @@ if not isinstance(torch, MockModule):
                 else:
                     loss = super().forward(input, target)
                 return loss
-            
+
         WeightedLoss.__name__ = f"Weighted{loss_fn.__name__}"
         return WeightedLoss
 
