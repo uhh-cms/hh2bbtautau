@@ -5,12 +5,12 @@ __all__ = [
     "FlatArrowRowGroupParquetDataset", "FlatRowgroupParquetDataset",
     "WeightedFlatRowgroupParquetDataset",
     "TensorParquetDataset", "WeightedRgTensorParquetDataset",
-    "RgTensorParquetDataset",
+    "RgTensorParquetDataset", "WeightedTensorParquetDataset",
 ]
 
-from collections.abc import Iterable, Mapping, Collection, Container
+from collections.abc import Iterable, Mapping, Collection, Container, Sequence
 
-from hbt.ml.torch_utils.datasets.mixins import PaddingMixin, RowgroupMixin, WeightMixin
+from hbt.ml.torch_utils.datasets.mixins import PaddingMixin, RowgroupMixin, RowgroupWeightMixin, WeightMixin
 
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import Any, Callable, Sequence
@@ -72,6 +72,8 @@ if not isinstance(torchdata, MockModule):
             input_data_transform: Callable | None = None,
             categorical_target_transform: Callable | None = None,
             data_type_transform: Callable | None = None,
+            data_loader_func: Callable | None = None,
+            idx: Sequence[int] | None = None,
             device: str | None = None,
         ):
             self.open_options = open_options or {}
@@ -85,6 +87,10 @@ if not isinstance(torchdata, MockModule):
             self.data_type_transform = data_type_transform
             self.input_data_transform = input_data_transform
             self.global_transform = global_transform
+
+            # variables for data loading
+            self.data_loader_func = data_loader_func or ak.from_parquet
+            self.idx: Sequence[int] | None = idx
 
             self.input = input
             self._data: ak.Array | None = None
@@ -336,7 +342,10 @@ if not isinstance(torchdata, MockModule):
         def data(self) -> ak.Array:
             if self._data is None:
                 self.open_options["columns"] = [x.string_column for x in self.all_columns]
-                self._data = ak.from_parquet(self.path, **self.open_options)
+                self._data = self.data_loader_func(self.path, **self.open_options)
+
+                if self.idx:
+                    self._data = self._data[self.idx]
 
                 if self.global_transform:
                     self._data = self.global_transform(self._data)
@@ -370,6 +379,8 @@ if not isinstance(torchdata, MockModule):
             length: int = 0
             if self._data is not None:
                 length = len(self._data)
+            elif self.idx:
+                length = len(self.idx)
             elif self.meta_data and self.meta_data.get("col_counts", None):
                 length = sum(self.meta_data["col_counts"])
             else:
@@ -618,13 +629,10 @@ if not isinstance(torchdata, MockModule):
     class FlatRowgroupParquetDataset(RowgroupMixin, FlatParquetDataset):
         pass
 
-    class WeightedFlatRowgroupParquetDataset(WeightMixin, FlatRowgroupParquetDataset):
+    class WeightedFlatRowgroupParquetDataset(RowgroupWeightMixin, FlatRowgroupParquetDataset):
         pass
 
-    class RgTensorParquetDataset(RowgroupMixin, TensorParquetDataset):
-        pass
-
-    class WeightedRgTensorParquetDataset(WeightMixin, RowgroupMixin, TensorParquetDataset):
+    class WeightedTensorParquetDataset(WeightMixin, TensorParquetDataset):
 
         def _calculate_weights(self, indices: ak.Array) -> ak.Array:
             # calculate the weights for the given indices
@@ -641,6 +649,12 @@ if not isinstance(torchdata, MockModule):
             if self.batch_transform:
                 final_weights = self.batch_transform(final_weights)
             return final_weights
+
+    class RgTensorParquetDataset(RowgroupMixin, TensorParquetDataset):
+        pass
+
+    class WeightedRgTensorParquetDataset(RowgroupMixin, WeightedTensorParquetDataset):
+        pass
 
     class FlatArrowRowGroupParquetDataset(FlatRowgroupParquetDataset):
         def __init__(self, *args, filters: pa._compute.Expression | list[str] | None = None, **kwargs):

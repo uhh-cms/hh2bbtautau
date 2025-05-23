@@ -12,13 +12,15 @@ from hbt.ml.torch_utils.datasets import (
     ParquetDataset, FlatRowgroupParquetDataset, FlatParquetDataset,
     FlatArrowRowGroupParquetDataset, WeightedFlatRowgroupParquetDataset,
     WeightedRgTensorParquetDataset, RgTensorParquetDataset,
+    WeightedTensorParquetDataset,
 )
 from hbt.ml.torch_utils.map_and_collate import (
     NestedListRowgroupMapAndCollate, FlatListRowgroupMapAndCollate,
-    NestedDictMapAndCollate, TensorListRowgroupMapAndCollate, NestedTensorListRowgroupMapAndCollate
+    NestedDictMapAndCollate, TensorListRowgroupMapAndCollate, NestedTensorListRowgroupMapAndCollate,
+    NestedMapAndCollate, FlatMapAndCollate, TensorListMapAndCollate,
 )
 
-from hbt.ml.torch_utils.samplers import ListRowgroupSampler, RowgroupSampler
+from hbt.ml.torch_utils.samplers import ListRowgroupSampler, RowgroupSampler, ListSampler
 
 
 torch = maybe_import("torch")
@@ -349,12 +351,13 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
             if isinstance(weight, dict):
                 # also account for sum of sub weights such that total sum is 1
                 for k, v in weight.items():
-                    total_events = sum(len(x) for x in validation_data_map[k])
+                    data = validation_data_map[k]
+                    total_events = sum(len(x) for x in data) if isinstance(data, (list, tuple, set)) else len(data)
                     weights[k] = v / total_events
             else:
-                total_events = sum(len(x) for x in validation_data_map[key])
-                for d in validation_data_map[key]:
-                    weights[key] = weight / total_events
+                data = validation_data_map[key]
+                total_events = sum(len(x) for x in data) if isinstance(data, (list, tuple, set)) else len(data)
+                weights[key] = weight / total_events
 
         return super()._create_validation_dataloader(
             validation_data_map,
@@ -570,6 +573,118 @@ class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHand
             )
         return training, validation
 
+class WeightedTensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dataset_cls = WeightedTensorParquetDataset
+        # self.validation_dataset_cls = WeightedFlatRowgroupParquetDataset
+        self.training_map_and_collate_cls = NestedMapAndCollate
+        self.validation_map_and_collate_cls = TensorListMapAndCollate
+        self.training_sampler_cls = torch.utils.data.RandomSampler
+        self.validation_sampler_cls = ListSampler
+
+    def split_training_validation(
+        self,
+        target_paths,
+        ratio=0.7,
+        targets: Collection[str | int | Route] | str | Route | int | None = None,
+    ):
+        meta = ak.metadata_from_parquet(target_paths)
+
+        total_rows = meta["num_rows"]
+        indices_func = torch.randperm if self.preshuffle else np.arange
+        total_indices: list[int] = indices_func(total_rows).tolist()
+        max_training_idx = int(total_rows * ratio)
+        training_idx = total_indices[:max_training_idx]
+
+        final_options = self.open_options or dict()
+
+        dataset_kwargs = {
+            "categorical_features": self.categorical_features,
+            "continuous_features": self.continuous_features,
+            "target": targets,
+            "batch_transform": self.batch_transformations,
+            "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
+            "categorical_target_transform": self.categorical_target_transformation,
+            "data_type_transform": self.data_type_transform,
+            "padd_value_float": 0,
+            "padd_value_int": 15,
+        }
+
+        logger.info(f"Constructing training dataset with {max_training_idx} events")
+
+        training = self.dataset_cls(
+            target_paths,
+            open_options=final_options,
+            idx=training_idx,
+            **dataset_kwargs,
+        )
+        validation_idx = total_indices[max_training_idx:]
+        logger.info(f"Constructing validation dataset with {total_rows - max_training_idx} events")
+        validation = self.dataset_cls(
+            target_paths,
+            open_options=final_options,
+            idx=validation_idx,
+            **dataset_kwargs,
+        )
+        return training, validation
+
+    def sampler_factory(
+        self,
+        datasets,
+        cls: Callable = torch.utils.data.Sampler,
+        shuffle_indices=False,
+        shuffle_list=False,
+        **kwargs,
+    ):
+        if issubclass(cls, ListSampler):
+            return cls(datasets, shuffle_indices=shuffle_indices, shuffle_list=shuffle_list)
+        else:
+            return cls(datasets)
+
+    # def _create_validation_dataloader(
+    #     self,
+    #     validation_data_map,
+    #     weights: dict[str, float] | None = None,
+    #     **sampler_kwargs,
+    # ) -> CompositeDataLoader:
+    #     # create merged validation dataset since it's ok to simply evaluate the
+    #     # events one by one
+    #     validation_data: list[ParquetDataset] = list()
+
+    #     for key, x in validation_data_map.items():
+    #         if not isinstance(x, (list, tuple, set)):
+    #             if weights is not None:
+    #                 x.cls_weight = weights[key]
+    #             validation_data.append(x)
+
+    #         else:
+    #             if weights is not None:
+    #                 for sub_x in x:
+    #                     sub_x.cls_weight = weights[key]
+    #             validation_data.extend(x)
+    #     from IPython import embed
+    #     embed(header="in _create_validation_dataloader with flattend validation_data")
+    #     return CompositeDataLoader(
+    #         validation_data,
+    #         batch_sampler_cls=tn.Batcher,
+    #         shuffle=False,
+    #         batch_size=self.batch_size,
+    #         batcher_options={
+    #             "source": tn.SamplerWrapper(
+    #                 self.sampler_factory(
+    #                     validation_data,
+    #                     cls=self.validation_sampler_cls,
+    #                     **sampler_kwargs,
+    #                 ),
+    #             ),
+    #         },
+    #         map_and_collate_cls=self.validation_map_and_collate_cls,
+    #         device=self.device,
+    #         collate_fn=torch.cat,
+    #     )
 
 class FlatArrowParquetFileHandler(BaseParquetFileHandler):
     def __init__(self, *args, **kwargs):

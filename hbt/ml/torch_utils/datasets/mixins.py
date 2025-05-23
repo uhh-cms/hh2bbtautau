@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Collection
+from abc import abstractmethod, abstractproperty
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT, flat_np_view
 from columnflow.util import maybe_import
-from columnflow.types import Any
+from columnflow.types import Any, Callable
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -121,8 +122,11 @@ class PaddingMixin:
     def _extract_columns(self, array: ak.Array, route: Route):
         # first, get super set of column
         super_route = Route(route.string_column)
-        total_array = super_route.apply(array)
-
+        try:
+            total_array = super_route.apply(array)
+        except TypeError as e:
+            from IPython import embed
+            embed(header=f"Error in PaddingMixin._extract_columns: {e}")
         # determine the type of the array values
         view = flat_np_view(total_array)
         val_type = view.dtype.type
@@ -136,7 +140,7 @@ class PaddingMixin:
         return route.apply(array, padding)
 
 
-class WeightMixin:
+class RowgroupWeightMixin(RowgroupMixin):
 
     def __init__(
         self,
@@ -205,3 +209,63 @@ class WeightMixin:
             else:
                 return_data = (self._concat_data(a, b) for a, b in zip(return_data, chunk))
         return return_data
+
+
+class WeightMixin:
+
+    def __init__(
+        self,
+        *args,
+        cls_weight: float | None = None,
+        weight_columns: Collection[str, Route] | None = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.cls_weight = cls_weight
+        self.weight_columns: set[Route] = set()
+        if weight_columns:
+            self.weight_columns = set(Route(x) for x in weight_columns)
+
+        self.all_columns |= self.weight_columns
+
+    def _calculate_weights(self, indices: ak.Array) -> ak.Array:
+        # calculate the weights for the given indices
+        if self.weight_columns:
+            weights = self._get_data(indices, self.data)[self.weight_columns]
+            weights = ak.prod(weights, axis=-1)
+        else:
+            if isinstance(indices, int):
+                indices = [indices]
+            weights = ak.ones_like(indices, dtype=np.float32)
+
+        if self.cls_weight:
+            weights = weights * self.cls_weight
+        if self.data_type_transform:
+            weights = self.data_type_transform(weights)
+
+        if self.batch_transform:
+            weights = self.batch_transform(weights)
+        return weights
+
+    def __getitem__(
+        self,
+        i: Collection[int] | int,
+    ) -> Any | tuple:
+
+        chunk = super().__getitem__(i)
+        if self.weight_columns or self.cls_weight:
+            weights = self._calculate_weights(i)
+            if isinstance(chunk, (tuple, list)) and isinstance(chunk[0], dict):
+                # if the chunk is a tuple, we need to calculate the weights
+                # append the weight array to the tuple
+                chunk[0]["weights"] = weights
+            elif isinstance(chunk, (tuple, list)) and isinstance(chunk[0], (list)):
+                chunk[0].append(weights)
+            elif isinstance(chunk, (tuple, list)) and isinstance(chunk[0], torch.Tensor):
+                chunk = ([chunk[0], weights], chunk[1])
+            elif isinstance(chunk, dict):
+                # if the chunk is a dict, we need to calculate the weights
+                # append the weight array to the dict
+                chunk["weights"] = weights
+
+        return chunk

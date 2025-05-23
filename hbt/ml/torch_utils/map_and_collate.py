@@ -49,7 +49,9 @@ if not isinstance(torch, MockModule):
         collate.
         TODO: make this a standard utility in torchdata.nodes
         """
-        def __call__(self, idx: int):
+        def __call__(self, idx: int | Sequence[int]):
+            if self.weights:
+                self.dataset.cls_weight = self.weights
             batch = self.dataset[idx]
             return self.collate_fn(batch)
 
@@ -234,6 +236,28 @@ if not isinstance(torch, MockModule):
                     else:
                         dataset.cls_weight = None
                     current_batch = dataset[((rowgroup, entry_idx),)]
+                    batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_tensors)
+                except Exception as e:  # noqa: F841
+                    from IPython import embed
+                    embed(header=f"Detected problem in {self.__class__.__name__}")
+
+            return batch
+
+    class TensorListMapAndCollate(TensorListRowgroupMapAndCollate):
+        def _default_collate(self, idx: dict[str, dict[tuple[int, int], Sequence[int]]]) -> Sequence[T]:
+            batch: list[T] = []
+
+            # the indices are dictionaries with multiple entries, so loop
+            idx = reorganize_idx(idx)
+            for (dataset_idx,), entry_idx in idx.items():
+                try:
+                    dataset = self.dataset[dataset_idx]
+                    if self.weights:
+                        weight = self.weights[dataset_idx]
+                        dataset.cls_weight = weight
+                    else:
+                        dataset.cls_weight = None
+                    current_batch = dataset[entry_idx]
                     batch = self._concat_batches(batch=batch, current_batch=current_batch, concat_fn=self._concat_tensors)
                 except Exception as e:  # noqa: F841
                     from IPython import embed
