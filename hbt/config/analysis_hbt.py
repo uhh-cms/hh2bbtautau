@@ -77,6 +77,30 @@ add_binning_hooks(analysis_hbt)
 # define configs
 #
 
+def create_factory(
+    campaign_module: str,
+    campaign_attr: str,
+    config_name: str,
+    config_id: int,
+    config_name_postfix: str = "",
+    limit_dataset_files: int | None = None,
+    **kwargs,
+):
+    def factory(configs: od.UniqueObjectIndex):
+        # import the campaign
+        mod = importlib.import_module(campaign_module)
+        campaign = getattr(mod, campaign_attr)
+        return add_config(
+            analysis_hbt,
+            campaign.copy(),
+            config_name=config_name + config_name_postfix,
+            config_id=config_id,
+            limit_dataset_files=limit_dataset_files,
+            **kwargs,
+        )
+    return factory
+
+
 def add_lazy_config(
     *,
     campaign_module: str,
@@ -88,33 +112,30 @@ def add_lazy_config(
     add_limited: bool = True,
     **kwargs,
 ):
-    def create_factory(
-        config_id: int,
-        config_name_postfix: str = "",
-        limit_dataset_files: int | None = None,
-    ):
-        def factory(configs: od.UniqueObjectIndex):
-            # import the campaign
-            mod = importlib.import_module(campaign_module)
-            campaign = getattr(mod, campaign_attr)
-
-            return add_config(
-                analysis_hbt,
-                campaign.copy(),
-                config_name=config_name + config_name_postfix,
-                config_id=config_id,
-                limit_dataset_files=limit_dataset_files,
-                **kwargs,
-            )
-        return factory
-
-    analysis_hbt.configs.add_lazy_factory(config_name, create_factory(config_id))
+    analysis_hbt.configs.add_lazy_factory(
+        config_name,
+        create_factory(
+            campaign_module=campaign_module,
+            campaign_attr=campaign_attr,
+            config_name=config_name,
+            config_id=config_id,
+            **kwargs,
+        ),
+    )
     if limit_dataset_files and add_limited:
         suffix = "_".join([custom_suffix_for_limit, "limited"]) if custom_suffix_for_limit else "_limited"
 
         analysis_hbt.configs.add_lazy_factory(
             f"{config_name}_{suffix}",
-            create_factory(config_id + 200, f"_{suffix}", limit_dataset_files)
+            create_factory(
+                campaign_module=campaign_module,
+                campaign_attr=campaign_attr,
+                config_name=config_name,
+                config_id=config_id + 200,
+                config_name_postfix=f"_{suffix}",
+                limit_dataset_files=limit_dataset_files,
+                **kwargs,
+            ),
         )
 
 # 2022, preEE
@@ -130,8 +151,17 @@ add_lazy_config(
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
     config_name="22pre_v14",
     config_id=5014,
-    custom_suffix_for_limit="larger",
-    limit_dataset_files=10,
+)
+analysis_hbt.configs.add_lazy_factory(
+    "22pre_v14_larger_limited",
+    create_factory(
+        campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
+        campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
+        config_name="22pre_v14",
+        config_id=5014 + 300,
+        config_name_postfix="_larger_limited",
+        limit_dataset_files=10,
+    ),
 )
 
 # 2022, postEE
@@ -147,8 +177,17 @@ add_lazy_config(
     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
     config_name="22post_v14",
     config_id=6014,
-    custom_suffix_for_limit="larger",
-    limit_dataset_files=10,
+)
+analysis_hbt.configs.add_lazy_factory(
+    "22post_v14_larger_limited",
+    create_factory(
+        campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
+        campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
+        config_name="22post_v14",
+        config_id=6014 + 300,
+        config_name_postfix="_larger_limited",
+        limit_dataset_files=10,
+    ),
 )
 
 # 2023, preBPix
@@ -158,13 +197,16 @@ add_lazy_config(
     config_name="23pre_v14",
     config_id=7014,
 )
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_uhh_v14",
-    campaign_attr="campaign_run3_2023_preBPix_nano_uhh_v14",
-    config_name="23pre_v14",
-    config_id=7016,
-    custom_suffix_for_limit="larger",
-    limit_dataset_files=10,
+analysis_hbt.configs.add_lazy_factory(
+    "23pre_v14_larger_limited",
+    create_factory(
+        campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_uhh_v14",
+        campaign_attr="campaign_run3_2023_preBPix_nano_uhh_v14",
+        config_name="23pre_v14",
+        config_id=7014 + 300,
+        config_name_postfix="_larger_limited",
+        limit_dataset_files=10,
+    ),
 )
 
 # 2023, postBPix
@@ -174,13 +216,16 @@ add_lazy_config(
     config_name="23post_v14",
     config_id=8014,
 )
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_uhh_v14",
-    campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14",
-    config_name="23post_v14",
-    config_id=8016,
-    custom_suffix_for_limit="larger",
-    limit_dataset_files=10,
+analysis_hbt.configs.add_lazy_factory(
+    "23post_v14_larger_limited",
+    create_factory(
+        campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_uhh_v14",
+        campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14",
+        config_name="23post_v14",
+        config_id=8014 + 300,
+        config_name_postfix="_larger_limited",
+        limit_dataset_files=10,
+    ),
 )
 
 #

@@ -3,6 +3,7 @@ from __future__ import annotations
 __all__ = [
     "RowgroupSampler",
     "ListRowgroupSampler",
+    "ListSampler",
 ]
 
 from functools import partial
@@ -161,3 +162,38 @@ if not isinstance(torchdata, MockModule):
                 sampler = self.samplers[dataset_idx]
                 for output in sampler:
                     yield (dataset_idx, *output)
+
+    class ListSampler(Sampler):
+
+        def __init__(
+            self,
+            inputs: Container[ParquetDataset] | Container[RowgroupSampler],
+            shuffle_indices: bool = False,
+            shuffle_list: bool = False,
+            replacement: bool = False,
+            num_samples: int | None = None,
+            generator=None,
+        ):
+
+            self.samplers: list[Sampler] = list()
+            forward_pass_args = {
+                "replacement": replacement,
+                "num_samples": num_samples,
+                "generator": generator,
+            }
+            self.list_idx_sampler_cls = SequentialSampler if not shuffle_list else partial(RandomSampler, **forward_pass_args)
+            self.idx_sampler_cls = SequentialSampler if not shuffle_indices else partial(RandomSampler, **forward_pass_args)
+
+            if all(isinstance(x, ParquetDataset) for x in inputs):
+                self.samplers = [self.idx_sampler_cls(x) for x in inputs]
+            elif all(isinstance(x, Sampler) for x in inputs):
+                self.samplers = list(inputs)
+
+        def __len__(self):
+            return sum(len(x) for x in self.samplers)
+
+        def __iter__(self):
+            for dataset_idx in self.list_idx_sampler_cls(self.samplers):
+                sampler = self.samplers[dataset_idx]
+                for output in sampler:
+                    yield (dataset_idx, output)
