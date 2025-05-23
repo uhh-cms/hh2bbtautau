@@ -164,7 +164,7 @@ if not isinstance(torch, MockModule):
             super().__init__(*args, **kwargs)
             self._loss_fn = generate_weighted_loss(torch.nn.CrossEntropyLoss)()
             self.validation_metrics = {
-                "loss": Loss(self.loss_fn),
+                "loss": WeightedLoss(self.loss_fn),
                 # "roc_auc": ROC_AUC(),
             }
             self.training_epoch_length_cutoff = 2000
@@ -187,7 +187,7 @@ if not isinstance(torch, MockModule):
                     target = target.reshape(-1, 1)
                 return pred, target, {"weight": X["weights"]}
 
-        def init_dataset_handler(self, task: law.Task):
+        def init_dataset_handler(self, task: law.Task, device: str | None = None):
             all_datasets = getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
                 "ttbar": [d for d in all_datasets if d.startswith("tt_")],
@@ -195,12 +195,11 @@ if not isinstance(torch, MockModule):
             }
             device = next(self.parameters()).device
 
-            self.dataset_handler = WeightedFlatListRowgroupParquetFileHandler(
+            self.dataset_handler = WeightedRgTensorParquetFileHandler(
                 task=task,
-                columns=self.inputs,
-                batch_transformations=AkToTensor(device=device),
-                # global_transformations=PreProcessFloatValues(),
-                build_categorical_target_fn=self._build_categorical_target,
+                continuous_features=getattr(self, "continuous_features", self.inputs),
+                categorical_features=getattr(self, "categorical_features", None),
+                batch_transformations=MoveToDevice(device=device),
                 categorical_target_transformation=partial(get_one_hot, nb_classes=3),
                 group_datasets=group_datasets,
                 device=device,
