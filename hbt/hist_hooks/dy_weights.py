@@ -70,7 +70,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # extract all unique category ids and verify that the axis order is exactly
         # "category -> shift -> variable" which is needed to insert values at the end
         CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
-        category_ids = set()
+        category_names = set()
         for proc, h in hists.items():
             # validate axes
             assert len(h.axes) == 3
@@ -78,15 +78,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             assert h.axes[SHIFT_AXIS].name == "shift"
             # get the category axis
             cat_ax = h.axes["category"]
-            for cat_index in range(cat_ax.size):
-                category_ids.add(cat_ax.value(cat_index))
+            category_names.update(list(cat_ax))
 
         # define DY enriched regions
         channel = "mumu"
         kin_region = "incl"
         dy_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
-        for cat_id in category_ids:
-            cat_inst = config_inst.get_category(cat_id)
+        for cat_name in category_names:
+            cat_inst = config_inst.get_category(cat_name)
             # get dy ratio in specific control channel in inclusive region
             if f"{channel}__{kin_region}" in cat_inst.name:
                 if cat_inst.has_tag({"dy"}, mode=all):
@@ -139,11 +138,13 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             # get the corresponding histograms and convert them to number objects, each one storing an array of values
             # with uncertainties
             # shapes: (SHIFT, VAR)
-            get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
+            def get_hist(h: hist.Histogram, region_name: str) -> hist.Histogram:
+                h = ensure_category(h, group[region_name].name)
+                return h[{"category": hist.loc(group[region_name].name)}]
 
             for region in dy_regions:
                 hist_dy = hist_to_num(get_hist(dy_hists, region), region + "_dy")
-                hist_mc = hist_to_num(get_hist(mc_hist, "dy"), "mc")
+                hist_mc = hist_to_num(get_hist(mc_hist, region), region + "mc")
                 hist_data = hist_to_num(get_hist(data_hist, region), region + "_data")
                 # hist_ratio = (hist_data - hist_mc) / hist_dy+
                 hist_diff = hist_data - hist_mc
@@ -155,28 +156,27 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 # dict_hists[region + "_ratio"] = (hist_ratio)
                 dict_hists[region + "_diff"] = (hist_diff)
 
-            # calculate the ratio factor per bin
-            num_region = dict_hists["dy_diff"]
-            den_region = dict_hists["dy_dy"]
+                # calculate the ratio factor per bin
+                num_region = dict_hists["dy_diff"]
+                den_region = dict_hists["dy_dy"]
 
-            # calculate the ratio factor per bin
-            factor = (num_region / den_region)[:, None]
-            factor_values = np.squeeze(np.nan_to_num(factor()), axis=0)
-            factor_variances = factor(sn.UP, sn.ALL, unc=True)**2
+                # calculate the ratio factor per bin
+                factor = (num_region / den_region)[:, None]
+                factor_values = np.squeeze(np.nan_to_num(factor()), axis=0)
+                factor_variances = factor(sn.UP, sn.ALL, unc=True)**2
 
-            # insert per bin ratio of (data-MC)/DY into plotting histogram
-            cat_axis = factor_hist.axes["category"]
-            signal_region = group.dy
-            for cat_index in range(cat_axis.size):
-                if cat_axis.value(cat_index) == signal_region.id:
-                    factor_hist.view().value[cat_index, ...] = factor_values
-                    factor_hist.view().variance[cat_index, ...] = factor_variances
-                    break
-            else:
-                raise RuntimeError(
-                    f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
-                    f"for category {signal_region} enriched region",
-                )
+                # insert per bin ratio of (data-MC)/DY into plotting histogram
+                cat_axis = factor_hist.axes["category"]
+                for cat_index in range(cat_axis.size):
+                    if cat_axis.value(cat_index) == group.region.name:
+                        factor_hist.view().value[cat_index, ...] = factor_values
+                        factor_hist.view().variance[cat_index, ...] = factor_variances
+                        break
+                else:
+                    raise RuntimeError(
+                        f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
+                        f"for category {group.region} enriched region",
+                    )
 
         return hists
 
