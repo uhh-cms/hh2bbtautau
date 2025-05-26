@@ -37,6 +37,7 @@ WeightedFlatRowgroupParquetDataset = MockModule("WeightedFlatRowgroupParquetData
 TensorParquetDataset = MockModule("TensorParquetDataset")  # type: ignore
 RgTensorParquetDataset = MockModule("RgTensorParquetDataset")  # type: ignore
 WeightedRgTensorParquetDataset = MockModule("WeightedRgTensorParquetDataset")  # type: ignore
+WeightedTensorParquetDataset = MockModule("WeightedTensorParquetDataset")
 
 if not isinstance(torchdata, MockModule):
     from torch.utils.data import Dataset

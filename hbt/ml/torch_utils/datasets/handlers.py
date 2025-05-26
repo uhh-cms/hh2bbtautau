@@ -17,7 +17,7 @@ from hbt.ml.torch_utils.datasets import (
 from hbt.ml.torch_utils.map_and_collate import (
     NestedListRowgroupMapAndCollate, FlatListRowgroupMapAndCollate,
     NestedDictMapAndCollate, TensorListRowgroupMapAndCollate, NestedTensorListRowgroupMapAndCollate,
-    NestedMapAndCollate, FlatMapAndCollate, TensorListMapAndCollate,
+    NestedMapAndCollate, FlatMapAndCollate, TensorListMapAndCollate, NestedTensorMapAndCollate,
 )
 
 from hbt.ml.torch_utils.samplers import ListRowgroupSampler, RowgroupSampler, ListSampler
@@ -579,7 +579,7 @@ class WeightedTensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
         super().__init__(*args, **kwargs)
         self.dataset_cls = WeightedTensorParquetDataset
         # self.validation_dataset_cls = WeightedFlatRowgroupParquetDataset
-        self.training_map_and_collate_cls = NestedMapAndCollate
+        self.training_map_and_collate_cls = NestedTensorMapAndCollate
         self.validation_map_and_collate_cls = TensorListMapAndCollate
         self.training_sampler_cls = torch.utils.data.RandomSampler
         self.validation_sampler_cls = ListSampler
