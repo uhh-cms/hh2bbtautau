@@ -375,6 +375,95 @@ if not isinstance(torch, MockModule):
             x = x + skip_connection
             return x
 
+    class DenseBlock(nn.Module):
+        def __init__(
+            self,
+            input_nodes,
+            output_nodes=None,
+            activation_functions="LeakyReLu",
+        ):
+            """
+            DenseBlock is a dense block that consists of a linear layer, batch normalization, and an activation function.
+
+            Args:
+                nodes (int): Number of nodes in the block.
+                activation_functions (str, optional): Name of the pytorch activation function, case insenstive.
+                    Defaults to "LeakyReLu".
+            """
+            super().__init__()
+            self.input_nodes = input_nodes
+            self.output_nodes = output_nodes if input_nodes is None else input_nodes
+
+            self.layers = nn.Sequential(
+                nn.Linear(self.input_nodes, self.output_nodes, bias=False),
+                nn.BatchNorm1d(self.output_nodes),
+                self._get_attr(nn.modules.activation, activation_functions)(),
+            )
+
+        def _get_attr(self, obj, attr):
+            for o in dir(obj):
+                if o.lower() == attr.lower():
+                    return getattr(obj, o)
+            else:
+                raise AttributeError(f"Object has no attribute '{attr}'")
+
+        def forward(self, x):
+            return self.layers(x)
+
+    class ResNetPreactivationBlock(nn.Module):
+        def __init__(
+            self,
+            nodes,
+            activation_functions="LeakyReLu",
+            skip_connection_init=1,
+            freeze_skip_connection=False,
+        ):
+            """
+            ResNetBlock is a residual block that consists of a linear layer, batch normalization, and an activation function.
+            A adjustable skip connection connects input and output of the block.
+            The adjustable skip connection has a learnable parameter, *skip_connection_amplifier*.
+            The dimension of the input and output of the block are defined by *nodes*.
+            If skip_connection_init is set to 0, the skip connection is disabled.
+            This also make if possible to use different in_nodes and out_nodes must can be different.
+            To freeze the skip connection parameter, set *freeze_skip_connection* to True.
+
+            Args:
+                nodes (int): Number of nodes in the block.
+                activation_functions (str, optional): Name of the pytorch activation function, case insenstive.
+                    Defaults to "LeakyReLu".
+                skip_connection_init (int, optional): Start value of the skipconnection. Defaults to 1.
+                freeze_skip_connection (bool, optional): Turn off learning for skipconnection parameter. Defaults to False.
+            """
+            super().__init__()
+            self.nodes = nodes
+            self.act_func = self._get_attr(nn.modules.activation, activation_functions)()
+            self.skip_connection_amplifier = nn.Parameter(torch.ones(1) * skip_connection_init)
+            if freeze_skip_connection:
+                self.skip_connection_amplifier.requires_grad = False
+
+            self.layers = nn.Sequential(
+                nn.Linear(self.nodes, self.nodes, bias=False),
+                nn.BatchNorm1d(self.nodes),
+                self.act_func,
+                nn.Linear(self.nodes, self.nodes, bias=False),
+                nn.BatchNorm1d(self.nodes),
+            )
+            self.last_activation = self.act_func
+
+        def _get_attr(self, obj, attr):
+            for o in dir(obj):
+                if o.lower() == attr.lower():
+                    return getattr(obj, o)
+            else:
+                raise AttributeError(f"Object has no attribute '{attr}'")
+
+        def forward(self, x):
+            skip_connection = self.skip_connection_amplifier * x
+            x = self.layers(x)
+            x = x + skip_connection
+            return self.last_activation(x)
+
+
     class StandardizeLayer(nn.Module):
         def __init__(self, mean: float | int = 0, std: float | int = 1):
             """
