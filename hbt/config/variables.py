@@ -380,6 +380,24 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
 
+    # variables for DY studies
+    add_variable(
+        config,
+        name="gen_dilep_pt",
+        expression="gen_dilep_pt",
+        binning=(40, 0, 200),
+        unit="GeV",
+        x_title=r"$p^{gen}_{T,ll}$",
+    )
+    add_variable(
+        config,
+        name="binned_njets",
+        expression=lambda events: ak.num(events.Jet["pt"], axis=1),
+        aux={"inputs": {"Jet.pt"}},
+        binning=[-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 7.5, 10.5],
+        x_title=r"Number of jets",
+    )
+
     # dilepton variables
     add_variable(
         config,
