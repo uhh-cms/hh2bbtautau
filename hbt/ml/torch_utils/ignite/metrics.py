@@ -171,10 +171,8 @@ if not isinstance(torch, MockModule):
                 kwargs: dict[str, Any] = {}
             else:
                 y_pred, y, kwargs = cast(tuple[torch.Tensor, torch.Tensor, dict], output)
-            # from IPython import embed; embed(header="string - 173 in metrics.py ")
 
-            average_loss = torch.nn.functional.binary_cross_entropy(y_pred, y, **kwargs)
-            # average_loss = self._loss_fn(y_pred, y, **kwargs).detach()
+            average_loss = self._loss_fn(y_pred, y, **kwargs).detach()
 
             if len(average_loss.shape) != 0:
                 raise ValueError("loss_fn did not return the average loss.")
