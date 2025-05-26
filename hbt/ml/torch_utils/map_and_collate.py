@@ -152,6 +152,8 @@ if not isinstance(torch, MockModule):
                 if self.weights:
                     weight = self.weights[key]
                     self.dataset[key].cls_weight = weight
+                else:
+                    self.dataset[key].cls_weight = None
                 try:
                     current_batch = self.dataset[key][indices]
                 except Exception as e:
@@ -240,6 +242,8 @@ if not isinstance(torch, MockModule):
         def __call__(self, idx: int | Sequence[int]):
             if self.weights:
                 self.dataset.cls_weight = self.weights
+            else:
+                self.dataset.cls_weight = None
             batch = self.dataset[idx]
             return self.collate_fn(batch)
 
