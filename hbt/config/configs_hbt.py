@@ -118,6 +118,7 @@ def add_config(
             label=r"$t\bar{t}$ + Multiboson",
             processes=[procs.n.ttv, procs.n.ttvv],
         )
+        """
         cfg.add_process(
             name="dy_nlo",
             id=7995,
@@ -132,6 +133,7 @@ def add_config(
                 procs.n.dy_m50toinf_2j_pt400to600, procs.n.dy_m50toinf_2j_pt600toinf,
             ],
         )
+
         cfg.add_process(
             name="dy_lo",
             id=7994,
@@ -160,15 +162,16 @@ def add_config(
                 procs.n.dy_tautau_m2500to4000, procs.n.dy_tautau_m4000to6000, procs.n.dy_tautau_m6000toinf,
             ],
         )
+        """
 
     # processes we are interested in
     process_names = [
         "data",
         "tt",
         "st",
-        "dy_lo",
-        "dy_nlo",
-        "dy_nnlo",
+        # "dy_lo",
+        "dy",
+        # "dy_nnlo",
         "v",
         "multiboson",
         "tt_multiboson",
@@ -221,12 +224,14 @@ def add_config(
         if re.match(r"^dy(|_.+)$", process_name):
             for _proc, _, _ in proc.walk_processes(include_self=True):
                 _proc.add_tag("dy")
+        """
         if process_name.startswith("dy_") and process_name.endswith("_madgraph"):
             proc.add_tag("dy_lo")
         if process_name.startswith("dy_") and process_name.endswith("_amcatnlo"):
             proc.add_tag("dy_nlo")
         if process_name.startswith("dy_") and process_name.endswith("_powheg"):
             proc.add_tag("dy_nnlo")
+        """
         if re.match(r"^w_lnu(|_.+)$", process_name):
             for _proc, _, _ in proc.walk_processes(include_self=True):
                 _proc.add_tag("w_lnu")
@@ -321,61 +326,6 @@ def add_config(
         "dy_m50toinf_2j_pt200to400_amcatnlo",
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
-
-        *if_era(year=2022, tag="preEE", values=[
-            # TODO: STITCHING ! leave out some datasets for now
-            # dy LO
-            "dy_m4to50_ht40to70_madgraph",
-            "dy_m4to50_ht70to100_madgraph",
-            "dy_m4to50_ht100to400_madgraph",
-            "dy_m4to50_ht400to800_madgraph",
-            "dy_m4to50_ht800to1500_madgraph",
-            "dy_m4to50_ht1500to2500_madgraph",
-            "dy_m4to50_ht2500toinf_madgraph",
-            # "dy_m50toinf_madgraph",
-            "dy_m50toinf_pt40to100_madgraph",
-            "dy_m50toinf_pt100to200_madgraph",
-            "dy_m50toinf_pt200to400_madgraph",
-            "dy_m50toinf_pt400to600_madgraph",
-            "dy_m50toinf_pt600toinf_madgraph",
-            # "dy_m50toinf_1j_madgraph",
-            # "dy_m50toinf_2j_madgraph",
-            # "dy_m50toinf_3j_madgraph",
-            # "dy_m50toinf_4j_madgraph",
-
-            # dy NNLO, split in leptons
-            # "dy_ee_m50toinf_powheg",
-            "dy_ee_m10to50_powheg",
-            "dy_ee_m50to120_powheg",
-            "dy_ee_m120to200_powheg",
-            "dy_ee_m200to400_powheg",
-            "dy_ee_m400to800_powheg",
-            "dy_ee_m800to1500_powheg",
-            "dy_ee_m1500to2500_powheg",
-            "dy_ee_m2500to4000_powheg",
-            "dy_ee_m4000to6000_powheg",
-            "dy_ee_m6000toinf_powheg",
-            "dy_mumu_m10to50_powheg",
-            "dy_mumu_m50to120_powheg",
-            "dy_mumu_m120to200_powheg",
-            "dy_mumu_m200to400_powheg",
-            "dy_mumu_m400to800_powheg",
-            "dy_mumu_m800to1500_powheg",
-            "dy_mumu_m1500to2500_powheg",
-            "dy_mumu_m2500to4000_powheg",
-            "dy_mumu_m4000to6000_powheg",
-            "dy_mumu_m6000toinf_powheg",
-            "dy_tautau_m10to50_powheg",
-            "dy_tautau_m50to120_powheg",
-            "dy_tautau_m120to200_powheg",
-            "dy_tautau_m200to400_powheg",
-            "dy_tautau_m400to800_powheg",
-            "dy_tautau_m800to1500_powheg",
-            "dy_tautau_m1500to2500_powheg",
-            "dy_tautau_m2500to4000_powheg",
-            "dy_tautau_m4000to6000_powheg",
-            "dy_tautau_m6000toinf_powheg",
-        ]),
 
         # w + jets
         "w_lnu_amcatnlo",
@@ -638,7 +588,7 @@ def add_config(
                     # the following processes cover the full inv mass phasespace
                     *(
                         procs.get(f"dy_ee_m{mass}")
-                        for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]
+                        for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]  # noqa: E501
                     ),
                 ],
             },
@@ -1261,23 +1211,24 @@ def add_config(
         """
         for dataset in cfg.datasets:
             if dataset.has_tag("dy_LO"):
+                order = "LO"
                 cfg.x.dy_weight_config = DrellYanConfig(
                     era=dy_era,
                     order="LO",
                     correction="DY_pTll_reweighting",
                     unc_correction="DY_pTll_reweighting_N_uncertainty",
                 )
-            elif dataset.has_tag("dy_NNLO"):
-                cfg.x.dy_weight_config = DrellYanConfig(
-                    era=dy_era,
-                    order="NNLO",
-                    correction="DY_pTll_reweighting",
-                    unc_correction="DY_pTll_reweighting_N_uncertainty",
-                )
-            else:
+            if dataset.has_tag("dy_NLO"):
                 cfg.x.dy_weight_config = DrellYanConfig(
                     era=dy_era,
                     order="NLO",
+                    correction="DY_pTll_reweighting",
+                    unc_correction="DY_pTll_reweighting_N_uncertainty",
+                )
+            if dataset.has_tag("dy_NNLO"):
+                cfg.x.dy_weight_config = DrellYanConfig(
+                    era=dy_era,
+                    order="NNLO",
                     correction="DY_pTll_reweighting",
                     unc_correction="DY_pTll_reweighting_N_uncertainty",
                 )
@@ -1798,6 +1749,27 @@ def add_config(
         add_triggers_2023(cfg)
     else:
         raise False
+
+    ################################################################################################
+    # hist hooks
+    ################################################################################################
+
+    cfg.x.hist_hooks = DotDict()
+
+    # simple blinding
+    cfg.x.hist_hooks.blind = lambda task, hists: {p: h for p, h in hists.items() if not p.is_data}
+
+    # qcd estimation
+    from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
+    add_qcd_hooks(cfg)
+
+    # binning
+    from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
+    add_binning_hooks(cfg)
+
+    # DY weights
+    from hbt.hist_hooks.dy_weights import add_hooks as add_dy_weights_hooks
+    add_dy_weights_hooks(cfg)
 
     ################################################################################################
     # LFN settings
