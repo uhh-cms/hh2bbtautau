@@ -1751,27 +1751,6 @@ def add_config(
         raise False
 
     ################################################################################################
-    # hist hooks
-    ################################################################################################
-
-    cfg.x.hist_hooks = DotDict()
-
-    # simple blinding
-    cfg.x.hist_hooks.blind = lambda task, hists: {p: h for p, h in hists.items() if not p.is_data}
-
-    # qcd estimation
-    from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
-    add_qcd_hooks(cfg)
-
-    # binning
-    from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
-    add_binning_hooks(cfg)
-
-    # DY weights
-    from hbt.hist_hooks.dy_weights import add_hooks as add_dy_weights_hooks
-    add_dy_weights_hooks(cfg)
-
-    ################################################################################################
     # LFN settings
     ################################################################################################
 
