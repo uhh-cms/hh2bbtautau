@@ -327,8 +327,6 @@ if not isinstance(torch, MockModule):
 
             loss = self.loss_fn(pred, target)
             # Backpropagation
-            from IPython import embed
-            embed(header=f"test gradients in class {self.__class__.__name__}")
             loss.backward()
             self.optimizer.step()
 
@@ -397,19 +395,18 @@ if not isinstance(torch, MockModule):
             )
 
         def init_optimizer(self, learning_rate=1e-3, weight_decay=1e-5) -> None:
-            from IPython import embed
-            embed(header=f"check optimizer in class {self.__class__.__name__}")
             self.optimizer = AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
         def forward(self, X):
             # X is a tuple of (input_data, categorical_features)
+
             cat_features, cont_features = X
             cont_features = self.padding_layer_cont(cont_features)
             cont_features = self.std_layer(cont_features.to(torch.float32))
             cat_features = self.padding_layer_cat(cat_features)
 
             # pass through the embedding layer
-            features = self.input_layer(cont_features, cat_features.to(torch.int32))
+            features = self.input_layer((cat_features.to(torch.int32), cont_features))
 
             # concatenate the continuous and categorical features
 
@@ -430,6 +427,7 @@ if not isinstance(torch, MockModule):
                 target = y.to(torch.float32)
                 if target.dim() == 1:
                     target = target.reshape(-1, 1)
+
                 return pred, target, {"weight": weights}
 
         def to(self, *args, **kwargs):
