@@ -15,6 +15,7 @@ from hbt.ml.torch_utils.functions import (
     get_one_hot, generate_weighted_loss, preprocess_multiclass_outputs,
     WeightedCrossEntropySlice,
 )
+from hbt.ml.torch_utils.utils import get_standardization_parameter
 
 torch = maybe_import("torch")
 torchdata = maybe_import("torchdata")
@@ -30,7 +31,7 @@ if not isinstance(torch, MockModule):
     from torch.utils.tensorboard import SummaryWriter
     from ignite.metrics import Loss, ROC_AUC
 
-    from hbt.ml.torch_models.binary import FeedForwardNet, TensorFeedForwardNet
+    from hbt.ml.torch_models.binary import FeedForwardNet, TensorFeedForwardNet, WeightedTensorFeedForwardNetWithCat
     from hbt.ml.torch_utils.ignite.metrics import (
         WeightedROC_AUC, WeightedLoss,
     )
@@ -39,28 +40,28 @@ if not isinstance(torch, MockModule):
         FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler,
         WeightedFlatListRowgroupParquetFileHandler,
         RgTensorParquetFileHandler, WeightedRgTensorParquetFileHandler,
+        WeightedTensorParquetFileHandler, TensorParquetFileHandler
     )
     from hbt.ml.torch_utils.utils import (
         embedding_expected_inputs, LookUpTable, CategoricalTokenizer,
     )
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
-    from hbt.ml.torch_utils.layers import PaddingLayer
+    from hbt.ml.torch_utils.layers import PaddingLayer, StandardizeLayer, InputLayer
 
-    class FeedForwardMultiCls(FeedForwardNet):
+    class FeedForwardMultiCls(TensorFeedForwardNet):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.linear_relu_stack = nn.Sequential(
-                nn.BatchNorm1d(len(self.inputs)),
-                nn.Linear(len(self.inputs), 512),
-                nn.ReLU(),
-                nn.BatchNorm1d(512),
-                nn.Linear(512, 1024),
-                nn.ReLU(),
-                nn.BatchNorm1d(1024),
-                nn.Linear(1024, 512),
-                nn.ReLU(),
-                nn.Linear(512, 3),
-            )
+            self.categorical_features = {
+                "pair_type",
+                "decay_mode1",
+                "decay_mode2",
+                "lepton1.charge",
+                "lepton2.charge",
+                "has_fatjet",
+                "has_jet_pair",
+                "year_flag",
+            }
+            self.continuous_features = self.inputs
             self.categorical_target_map = {
                 "hh": 0,
                 "tt": 1,
@@ -74,22 +75,46 @@ if not isinstance(torch, MockModule):
             self.training_epoch_length_cutoff = 2000
             self.training_weight_cutoff = 0.05
 
-        def validation_step(self, engine, batch):
-            # Set the model to evaluation mode - important for batch normalization and dropout layers
-            self.eval()
-            # if engine.state.iteration > self.max_val_epoch_length * (engine.state.epoch + 1):
-            #     engine.terminate_epoch()
+        def setup_preprocessing(self):
+            # extract dataset std and mean from dataset
+            # extraction happens form no oversampled dataset
+            mean, std = [], []
+            for _input in sorted(self.inputs, key=str):
+                input_statitics = self.dataset_statitics[_input.column]
+                mean.append(torch.from_numpy(input_statitics["mean"]))
+                std.append(torch.from_numpy(input_statitics["std"]))
 
-            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
-            # also serves to reduce unnecessary gradient computations and memory usage for tensors
-            # with requires_grad=True
-            with torch.no_grad():
-                X, y = batch[0], batch[1]
-                pred = self(X)
-                target = y["categorical_target"].to(torch.float32)
-                if target.dim() == 1:
-                    target = target.reshape(-1, 1)
-                return pred, target
+            device = next(self.parameters()).device
+            mean, std = torch.concat(mean).to(device), torch.concat(std).to(device)
+
+            # set up standardization layer
+            self.std_layer.set_mean_std(
+                mean.float(),
+                std.float(),
+            )
+
+        def init_layers(self):
+            self.std_layer = StandardizeLayer()
+            self.input_layer = InputLayer(
+                categorical_inputs=sorted(self.categorical_features, key=str),
+                continuous_inputs=sorted(self.inputs, key=str),
+                expected_categorical_inputs=embedding_expected_inputs,
+                embedding_dim=self.embedding_dims,
+            )
+            self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
+            self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
+
+            self.linear_relu_stack = nn.Sequential(
+                nn.Linear(self.input_layer.ndim, 512),
+                nn.PReLU(),
+                nn.BatchNorm1d(512),
+                nn.Linear(512, 1024),
+                nn.PReLU(),
+                nn.BatchNorm1d(1024),
+                nn.Linear(1024, 512),
+                nn.PReLU(),
+                nn.Linear(512, 3),
+            )
 
         def _build_categorical_target(self, dataset: str):
             for key in self.categorical_target_map.keys():
@@ -147,13 +172,14 @@ if not isinstance(torch, MockModule):
             }
             device = next(self.parameters()).device
 
-            self.dataset_handler = FlatListRowgroupParquetFileHandler(
+            self.dataset_handler = TensorParquetFileHandler(
                 task=task,
-                columns=self.inputs,
-                batch_transformations=AkToTensor(device=device),
+                continuous_features=getattr(self, "continuous_features", self.inputs),
+                categorical_features=getattr(self, "categorical_features", None),
+                batch_transformations=MoveToDevice(device=device),
                 # global_transformations=PreProcessFloatValues(),
                 build_categorical_target_fn=self._build_categorical_target,
-                categorical_target_transformation=partial(get_one_hot, nb_classes=3),
+                categorical_target_transformation=partial(get_one_hot, nb_classes=len(self.categorical_target_map)),
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
@@ -165,6 +191,11 @@ if not isinstance(torch, MockModule):
                 weight_cutoff=self.training_weight_cutoff,
             )
             # self.max_val_epoch_length = self._calculate_max_epoch_length(self.validation_loader)
+
+        def to(self, *args, **kwargs):
+            self.std_layer = self.std_layer.to(*args, **kwargs)
+            self.input_layer = self.input_layer.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
     class WeightedFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
@@ -180,19 +211,19 @@ if not isinstance(torch, MockModule):
         def validation_step(self, engine, batch):
             # Set the model to evaluation mode - important for batch normalization and dropout layers
             self.eval()
-            # if engine.state.iteration > self.max_val_epoch_length * (engine.state.epoch + 1):
-            #     engine.terminate_epoch()
 
             # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
-            # also serves to reduce unnecessary gradient computations and memory usage for tensors with
-            # requires_grad=True
+            # also serves to reduce unnecessary gradient computations and memory usage for tensors
+            # with requires_grad=True
             with torch.no_grad():
                 X, y = batch[0], batch[1]
-                pred = self(X)
-                target = y["categorical_target"].to(torch.float32)
+                input_data, weights = X[:-1], X[-1]
+                pred = self(input_data)
+                target = y.to(torch.float32)
                 if target.dim() == 1:
                     target = target.reshape(-1, 1)
-                return pred, target, {"weight": X["weights"]}
+
+                return pred, target, {"weight": weights}
 
         def init_dataset_handler(self, task: law.Task, device: str | None = None):
             all_datasets = getattr(task, "resolved_datasets", task.datasets)
@@ -202,12 +233,13 @@ if not isinstance(torch, MockModule):
             }
             device = next(self.parameters()).device
 
-            self.dataset_handler = WeightedRgTensorParquetFileHandler(
+            self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
                 continuous_features=getattr(self, "continuous_features", self.inputs),
                 categorical_features=getattr(self, "categorical_features", None),
                 batch_transformations=MoveToDevice(device=device),
-                categorical_target_transformation=partial(get_one_hot, nb_classes=3),
+                build_categorical_target_fn=self._build_categorical_target,
+                categorical_target_transformation=partial(get_one_hot, nb_classes=len(self.categorical_target_map)),
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
@@ -218,17 +250,29 @@ if not isinstance(torch, MockModule):
                 cutoff=self.training_epoch_length_cutoff,
                 weight_cutoff=self.training_weight_cutoff,
             )
-
-            dm = self.validation_loader.data_map
-            batcher = self.validation_loader.batcher
-            self.max_val_epoch_length = np.ceil(sum(map(len, dm)) / batcher.batch_size)
-            if self.val_epoch_length_cutoff is not None and self.max_val_epoch_length > self.val_epoch_length_cutoff:
-                self.logger.info(f"validation epoch length cutoff: {self.val_epoch_length_cutoff}")
-                self.max_val_epoch_length = self.val_epoch_length_cutoff
+            self.dataset_statistics = get_standardization_parameter(self.train_validation_loader.data_map, self.inputs)
 
     class DeepFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+
+            self._loss_fn = nn.CrossEntropyLoss()
+            self.validation_metrics = {
+                "loss": Loss(self.loss_fn),
+                # "roc_auc": ROC_AUC(),
+            }
+
+        def init_layers(self):
+            self.std_layer = StandardizeLayer()
+            self.input_layer = InputLayer(
+                categorical_inputs=sorted(self.categorical_features, key=str),
+                continuous_inputs=sorted(self.inputs, key=str),
+                expected_categorical_inputs=embedding_expected_inputs,
+                embedding_dim=self.embedding_dims,
+            )
+            self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
+            self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
+
             self.linear_relu_stack1 = nn.Sequential(
                 nn.BatchNorm1d(len(self.inputs)),
                 nn.Linear(len(self.inputs), 512),
@@ -252,12 +296,6 @@ if not isinstance(torch, MockModule):
                 nn.ReLU(),
                 nn.Linear(512, 3),
             )
-
-            self._loss_fn = nn.CrossEntropyLoss()
-            self.validation_metrics = {
-                "loss": Loss(self.loss_fn),
-                # "roc_auc": ROC_AUC(),
-            }
 
         def forward(self, x):
             input_data = self._handle_input(x)
