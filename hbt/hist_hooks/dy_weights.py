@@ -80,9 +80,12 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             cat_ax = h.axes["category"]
             category_names.update(list(cat_ax))
 
+        # from IPython import embed
+        # embed(header="--> DY hook ...")
+
         # define DY enriched regions
         channel = "mumu"
-        kin_region = "incl"
+        kin_region = "dy"
         dy_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
         for cat_name in category_names:
             cat_inst = config_inst.get_category(cat_name)
@@ -108,7 +111,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             """
 
         # get complete qcd groups
-        complete_groups = [name for name, cats in dy_groups.items() if len(cats) == 6]
+        complete_groups = [name for name, cats in dy_groups.items() if len(cats) == 1]
         # nothing to do if there are no complete groups
         if not complete_groups:
             return hists
@@ -168,7 +171,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 # insert per bin ratio of (data-MC)/DY into plotting histogram
                 cat_axis = factor_hist.axes["category"]
                 for cat_index in range(cat_axis.size):
-                    if cat_axis.value(cat_index) == group.region.name:
+                    if cat_axis.value(cat_index) == group.get(region).name:
                         factor_hist.view().value[cat_index, ...] = factor_values
                         factor_hist.view().variance[cat_index, ...] = factor_variances
                         break
