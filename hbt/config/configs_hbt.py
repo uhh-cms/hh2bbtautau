@@ -355,6 +355,10 @@ def add_config(
         # "z_qq_2j_pt400to600_amcatnlo",
         # "z_qq_2j_pt600toinf_amcatnlo",
 
+        # vbf w/z production
+        "w_vbf_wlnu_madgraph",
+        "z_vbf_zll_m50toinf_madgraph",
+
         # vv
         "zz_pythia",
         "wz_pythia",
@@ -368,8 +372,10 @@ def add_config(
 
         # single H
         "h_ggf_htt_powheg",
+        "h_ggf_hbb_powheg",
         "h_vbf_htt_powheg",
-        "vh_hnonbb_amcatnlo",
+        "h_vbf_hbb_powheg",
+        # "vh_hnonbb_amcatnlo",  # overlaps with dedicated wh/zh datasets, only kept as a backup!
         "wmh_wlnu_hbb_powheg",
         "wph_wlnu_hbb_powheg",
         "wph_htt_powheg",
@@ -439,7 +445,7 @@ def add_config(
             dataset.add_tag("no_lhe_weights")
         # datasets that are allowed to contain some events with missing lhe infos
         # (known to happen for amcatnlo)
-        if dataset.name.endswith("_amcatnlo"):
+        if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
             dataset.add_tag("partial_lhe_weights")
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
@@ -619,6 +625,7 @@ def add_config(
     cfg.x.dataset_groups = {
         "data": (data_group := [dataset.name for dataset in cfg.datasets if dataset.is_data]),
         "backgrounds": (backgrounds := [
+            # ! this "mindlessly" includes all non-signal MC datasets from above
             dataset.name for dataset in cfg.datasets
             if dataset.is_mc and not dataset.has_tag("signal")
         ]),
@@ -1008,7 +1015,8 @@ def add_config(
         if year == 2022:
             e_tag = {"": "preEE", "EE": "postEE"}[campaign.x.postfix]
         elif year == 2023:
-            e_tag = {"": "preBPix", "BPix": "postBPix"}[campaign.x.postfix]
+            # note the upper-case IX
+            e_tag = {"": "preBPIX", "BPix": "postBPIX"}[campaign.x.postfix]
         else:
             assert False
         cfg.x.eec = EGammaCorrectionConfig(
@@ -1496,10 +1504,7 @@ def add_config(
                 if campaign_tag:
                     raise ValueError(f"Multiple campaign tags found: {cfg.x.campaign_tag} and {tag}")
                 campaign_tag = tag
-        cclub_eras = (
-            f"{year}"
-            f"{campaign_tag}"
-        )
+        cclub_eras = f"{year}{campaign_tag}"
     else:
         assert False
 
@@ -1705,7 +1710,7 @@ def add_config(
             shift_inst.name for shift_inst in get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names))
         ],
         "pdf": [shift_inst.name for shift_inst in get_shifts("pdf")],
-        "murmuf": (shift_inst.name for shift_inst in get_shifts("murmuf")),
+        "murmuf": [shift_inst.name for shift_inst in get_shifts("murmuf")],
         "pu": [shift_inst.name for shift_inst in get_shifts("minbias_xs")],
     }
 

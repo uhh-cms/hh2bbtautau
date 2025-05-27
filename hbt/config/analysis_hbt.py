@@ -9,7 +9,6 @@ from __future__ import annotations
 import importlib
 
 import order as od
-
 from columnflow.util import DotDict
 
 from hbt.config.configs_hbt import add_config
@@ -52,6 +51,42 @@ analysis_hbt.x.config_groups = {}
 
 # named function hooks that can modify store_parts of task outputs if needed
 analysis_hbt.x.store_parts_modifiers = {}
+
+################################################################################################
+# hist hooks
+################################################################################################
+
+analysis_hbt.x.hist_hooks = DotDict()
+
+# simple blinding
+from hbt.hist_hooks.blinding import add_hooks as add_blinding_hooks
+add_blinding_hooks(analysis_hbt)
+
+# qcd estimation
+from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
+add_qcd_hooks(analysis_hbt)
+
+# binning
+from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
+add_binning_hooks(analysis_hbt)
+
+################################################################################################
+# hist hooks
+################################################################################################
+
+analysis_hbt.x.hist_hooks = DotDict()
+
+# simple blinding
+from hbt.hist_hooks.blinding import add_hooks as add_blinding_hooks
+add_blinding_hooks(analysis_hbt)
+
+# qcd estimation
+from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
+add_qcd_hooks(analysis_hbt)
+
+# binning
+from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
+add_binning_hooks(analysis_hbt)
 
 ################################################################################################
 # hist hooks
@@ -114,13 +149,6 @@ def add_lazy_config(
 
 
 # 2022, preEE
-# TODO: remove after move to v14
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v12",
-    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
-    config_name="22pre_v12",
-    config_id=5012,
-)
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
@@ -129,13 +157,6 @@ add_lazy_config(
 )
 
 # 2022, postEE
-# TODO: remove after move to v14
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v12",
-    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v12",
-    config_name="22post_v12",
-    config_id=6012,
-)
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
@@ -199,6 +220,25 @@ add_lazy_config(
     campaign_attr="campaign_run3_2023_postBPix_nano_v13",
     config_name="23post_v13_sync",
     config_id=8113,
+    add_limited=False,
+    sync_mode=True,
+)
+
+# 2022, preEE, v14
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
+    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
+    config_name="22post_v14_sync",
+    config_id=6114,
+    add_limited=False,
+    sync_mode=True,
+)
+
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
+    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
+    config_name="22pre_v14_sync",
+    config_id=5114,
     add_limited=False,
     sync_mode=True,
 )

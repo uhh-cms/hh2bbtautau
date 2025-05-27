@@ -66,7 +66,7 @@ law run cf.ReduceEventsWrapper \
   - [HLT info browser](https://cmshltinfo.app.cern.ch/path/HLT_MediumChargedIsoPFTau180HighPtRelaxedIso_Trk50_eta2p1_v)
   - [HLT config browser](https://cmshltcfg.app.cern.ch/open?db=online&cfg=%2Fcdaq%2Fphysics%2FRun2018%2F2e34%2Fv2.1.5%2FHLT%2FV2)
   - [GrASP](https://cms-pdmv-prod.web.cern.ch/grasp/)
-  - [XSDB](https://xsdb-temp.app.cern.ch)
+  - [XSDB](https://xsecdb-xsdb-official.app.cern.ch/xsdb)
   - [DAS](https://cmsweb.cern.ch/das)
 NanoAOD:
   - [Nano documentation](https://gitlab.cern.ch/cms-nanoAOD/nanoaod-doc)
