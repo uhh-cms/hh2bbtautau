@@ -14,6 +14,7 @@ from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 from hbt.ml.torch_utils.functions import (
     get_one_hot, preprocess_multiclass_outputs,
     WeightedCrossEntropySlice, generate_weighted_loss,
+    preprocess_multiclass_outputs_and_targets,
 )
 
 torch = maybe_import("torch")
@@ -33,7 +34,7 @@ if not isinstance(torch, MockModule):
     from hbt.ml.torch_models.binary import NetworkBase
     from hbt.ml.torch_models.multi_class import WeightedFeedForwardMultiCls, FeedForwardMultiCls
     from hbt.ml.torch_utils.ignite.metrics import (
-        WeightedROC_AUC, WeightedLoss,
+        WeightedROC_AUC, WeightedLoss, WeightedConfusionMatrix,
     )
     from hbt.ml.torch_utils.transforms import AkToTensor, PreProcessFloatValues, MoveToDevice
     from hbt.ml.torch_utils.datasets.handlers import (
@@ -170,37 +171,62 @@ if not isinstance(torch, MockModule):
             self.input_layer = self.input_layer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-    class WeightedResnetNoDropout(WeightedResNet):
+    class WeightedResnetDropout(WeightedResNet):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.floating_inputs = set(self.floating_inputs)
-            self.floating_inputs |= {
-                f"{field}.{prop}"
-                for field in ("htt", "hbb", "htthbb")
-                for prop in ("px", "py", "pz", "energy", "mass")
-            }
-            self.inputs |= self.floating_inputs
-            self.floating_inputs = sorted([str(x) for x in self.floating_inputs])
-
-            self.floating_layer = nn.BatchNorm1d(len(self.floating_inputs))
-            self.linear_relu_stack = nn.Sequential(
-                nn.Linear(len(self.floating_inputs) + len(self.categorical_inputs) * 50, 512),
-                nn.ReLU(),
-                nn.BatchNorm1d(512),
-                nn.Linear(512, 1024),
-                nn.ReLU(),
-                nn.BatchNorm1d(1024),
-                nn.Linear(1024, 512),
-                nn.ReLU(),
-                nn.Linear(512, 256),
-                nn.ReLU(),
-                nn.Linear(256, 3),
-            )
 
             self.training_epoch_length_cutoff = 5000
             self.training_weight_cutoff = 0.1
+        def init_layers(self):
+            self.std_layer = StandardizeLayer()
+            self.input_layer = InputLayer(
+                categorical_inputs=sorted(self.categorical_features, key=str),
+                continuous_inputs=sorted(self.inputs, key=str),
+                expected_categorical_inputs=embedding_expected_inputs,
+                embedding_dim=self.embedding_dims,
+            )
+            self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
+            self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
-    class WeightedResnetTest(WeightedResnetNoDropout):
+            self.linear_relu_stack = nn.Sequential(
+                nn.Linear(self.input_layer.ndim, 512),
+                nn.PReLU(),
+                nn.BatchNorm1d(512),
+                nn.Dropout(p=0.2),
+                nn.Linear(512, 1024),
+                nn.PReLU(),
+                nn.BatchNorm1d(1024),
+                nn.Dropout(p=0.2),
+                nn.Linear(1024, 512),
+                nn.PReLU(),
+                nn.BatchNorm1d(512),
+                nn.Dropout(p=0.2),
+                nn.Linear(512, 64),
+                nn.PReLU(),
+                nn.BatchNorm1d(64),
+                nn.Dropout(p=0.2),
+                nn.Linear(64, 16),
+                nn.PReLU(),
+                nn.BatchNorm1d(16),
+                nn.Dropout(p=0.2),
+                nn.Linear(16, 64),
+                nn.PReLU(),
+                nn.BatchNorm1d(64),
+                nn.Dropout(p=0.2),
+                nn.Linear(64, 512),
+                nn.PReLU(),
+                nn.BatchNorm1d(512),
+                nn.Dropout(p=0.2),
+                nn.Linear(512, 1024),
+                nn.PReLU(),
+                nn.BatchNorm1d(1024),
+                nn.Dropout(p=0.2),
+                nn.Linear(1024, 512),
+                nn.PReLU(),
+                nn.Linear(512, 3),
+            )
+
+    class WeightedResnetTest(WeightedResNet):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.validation_metrics["loss"] = WeightedLoss(self.loss_fn)
@@ -236,36 +262,12 @@ if not isinstance(torch, MockModule):
             self.training_epoch_length_cutoff = 100
             self.training_logger_interval = 1
             # self.val_epoch_length_cutoff = 100
-
-        def init_dataset_handler(self, task):
-            super().init_dataset_handler(task)
-
-            # from IPython import embed
-            # embed(header=f"initialized datasets for class {self.__class__.__name__}")
-
-        def train_step(self, engine, batch):
-            # Set the model to training mode - important for batch normalization and dropout layers
-            self.train()
-            # Compute prediction and loss
-            X, y = batch[0], batch[1]
-            self.optimizer.zero_grad()
-            pred = self(X)
-            target = y["categorical_target"].to(torch.float32)
-            if target.dim() == 1:
-                target = target.reshape(-1, 1)
-
-            loss = self.loss_fn(pred, target)
-            # from IPython import embed
-            # embed(header=f"in training step of class {self.__class__.__name__}")
-            # Backpropagation
-            loss.backward()
-            self.optimizer.step()
-
-            return loss.item()
-
-        def validation_step(self, engine, batch):
-            output = super().validation_step(engine=engine, batch=batch)
-            return output
+            self.validation_nonscalar_metrics = {
+                "confusion_matrix": WeightedConfusionMatrix(
+                    len(self.categorical_target_map),
+                    output_transform=preprocess_multiclass_outputs_and_targets,
+                ),
+            }
 
     class ResNet(
         IgniteEarlyStoppingMixin,
