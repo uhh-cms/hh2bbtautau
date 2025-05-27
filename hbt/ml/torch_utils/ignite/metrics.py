@@ -14,7 +14,8 @@ from typing import cast
 
 if not isinstance(torch, MockModule):
     from ignite.metrics.epoch_metric import EpochMetric, EpochMetricWarning
-    from ignite.metrics.metric import Metric, reinit__is_reduced, sync_all_reduce
+    from ignite.metrics.metric import reinit__is_reduced, sync_all_reduce
+    from ignite.metrics.confusion_matrix import ConfusionMatrix
     from ignite.metrics.loss import Loss
     from ignite.exceptions import NotComputableError
     import ignite.distributed as idist
@@ -125,6 +126,61 @@ if not isinstance(torch, MockModule):
         result = roc_auc_score(y_true, y_pred, **numpy_kwargs)
 
         return result
+
+    class WeightedConfusionMatrix(ConfusionMatrix):
+        @reinit__is_reduced
+        def update(self, output: Sequence[torch.Tensor]) -> None:
+            self._check_shape(output)
+            y_pred, y = output[0].detach(), output[1].detach()
+            kwargs = dict()
+            if len(output) == 3:
+                kwargs = output[2]
+
+            weights = None
+            if "weight" in kwargs:
+                weights = kwargs["weight"]
+                if not isinstance(weights, torch.Tensor):
+                    raise ValueError("Weights must be a torch.Tensor.")
+            self._num_examples += y_pred.shape[0] if weights is None else torch.sum(weights).item()
+
+            # target is (batch_size, ...)
+            y_pred = torch.argmax(y_pred, dim=1).flatten()
+            y = y.flatten()
+
+            target_mask = (y >= 0) & (y < self.num_classes)
+            y = y[target_mask]
+            y_pred = y_pred[target_mask]
+
+            indices = self.num_classes * y + y_pred
+            m = torch.bincount(
+                indices,
+                weights=weights,
+                minlength=self.num_classes**2,
+            ).reshape(self.num_classes, self.num_classes)
+            self.confusion_matrix += m.to(self.confusion_matrix)
+
+    class WeightedConfusionMatrix(WeightedEpochMetric):
+        def __init__(
+            self,
+            output_transform: Callable = lambda x: x,
+            check_compute_fn: bool = False,
+            device: str | torch.device = torch.device("cpu"),
+            skip_unrolling: bool = False,
+            labels: Sequence[str] | None = None,
+        ) -> None:
+            try:
+                from sklearn.metrics import roc_auc_score  # noqa: F401
+            except ImportError:
+                raise ModuleNotFoundError("This contrib module requires scikit-learn to be installed.")
+
+            super().__init__(
+                roc_auc_compute_fn,
+                output_transform=output_transform,
+                check_compute_fn=check_compute_fn,
+                device=device,
+                skip_unrolling=skip_unrolling,
+            )
+            self.target_class_idx = target_class_idx
 
     class WeightedROC_AUC(WeightedEpochMetric):
         def __init__(

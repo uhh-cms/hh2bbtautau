@@ -5,6 +5,7 @@ torch = maybe_import("torch")
 tqdm = maybe_import("tqdm")
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
+sklearn = maybe_import("sklearn")
 
 if not isinstance(torch, MockModule):
 
@@ -118,6 +119,35 @@ if not isinstance(torch, MockModule):
         y_pred = torch.nn.functional.softmax(y_pred)
 
         return y_pred, y_true, kwargs
+
+    def preprocess_multiclass_outputs_and_targets(outputs, **additional_kwargs):
+        kwargs = dict()
+        if len(outputs) == 2:
+            y_pred, y_true = outputs
+        elif len(outputs) == 3:
+            y_pred, y_true, kwargs = outputs
+
+        # fix mismatch in weight naming
+        # if "weight" in kwargs.keys():
+        #     kwargs["sample_weight"] = kwargs.pop("weight")
+
+        kwargs.update(additional_kwargs)
+
+        # first get softmax from predictions
+        y_pred = torch.nn.functional.softmax(y_pred)
+        if y_true.dim() > 1:
+            y_true = torch.argmax(y_true, dim=-1)
+
+        return y_pred, y_true, kwargs
+
+    def plot_confusion_matrix(confusion_matrix, labels=None, sample_weight=None, cmap="Blues", savepath=None):
+
+        disp = sklearn.metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix)
+        disp.plot(cmap=cmap)
+
+        if savepath:
+            disp.figure_.savefig(savepath)
+        return disp.figure_, disp.ax_, confusion_matrix
 
     def generate_weighted_loss(
         loss_fn: torch.nn.Module,
