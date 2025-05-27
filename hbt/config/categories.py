@@ -62,13 +62,18 @@ def add_categories(config: od.Config) -> None:
     def name_fn(categories: dict[str, od.Category]) -> str:
         return "__".join(cat.name for cat in categories.values() if cat)
 
-    def kwargs_fn(categories: dict[str, od.Category], add_qcd_group: bool = True) -> dict[str, Any]:
+    def kwargs_fn(categories: dict[str, od.Category], add_qcd_group: bool = True, add_dy_group: bool = True) -> dict[str, Any]:
         # build auxiliary information
         aux = {}
         if add_qcd_group:
             aux["qcd_group"] = name_fn({
                 name: cat for name, cat in categories.items()
                 if name not in {"sign", "tau2"}
+            })
+        if add_dy_group:
+            aux["dy_group"] = name_fn({
+                name: cat for name, cat in categories.items()
+                if name not in {"kin"}
             })
         # return the desired kwargs
         return {
