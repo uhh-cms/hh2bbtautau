@@ -70,42 +70,6 @@ add_qcd_hooks(analysis_hbt)
 from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
 add_binning_hooks(analysis_hbt)
 
-################################################################################################
-# hist hooks
-################################################################################################
-
-analysis_hbt.x.hist_hooks = DotDict()
-
-# simple blinding
-from hbt.hist_hooks.blinding import add_hooks as add_blinding_hooks
-add_blinding_hooks(analysis_hbt)
-
-# qcd estimation
-from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
-add_qcd_hooks(analysis_hbt)
-
-# binning
-from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
-add_binning_hooks(analysis_hbt)
-
-################################################################################################
-# hist hooks
-################################################################################################
-
-analysis_hbt.x.hist_hooks = DotDict()
-
-# simple blinding
-from hbt.hist_hooks.blinding import add_hooks as add_blinding_hooks
-add_blinding_hooks(analysis_hbt)
-
-# qcd estimation
-from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
-add_qcd_hooks(analysis_hbt)
-
-# binning
-from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
-add_binning_hooks(analysis_hbt)
-
 # dy weights
 from hbt.hist_hooks.dy_weights import add_hooks as add_dy_weights_hooks
 add_dy_weights_hooks(analysis_hbt)
@@ -113,6 +77,7 @@ add_dy_weights_hooks(analysis_hbt)
 #
 # define configs
 #
+
 
 def add_lazy_config(
     *,

@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Histogram hooks for QCD estimation.
+Histogram hooks for DY weights.
 """
 
 from __future__ import annotations
