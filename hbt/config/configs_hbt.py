@@ -512,7 +512,7 @@ def add_config(
             "hh_ggf_hbb_htt_kl5_kt1",
         ],
         "backgrounds": (backgrounds := [
-            # "dy",
+            "dy",
             "tt",
             "qcd",
             "st",
@@ -542,8 +542,8 @@ def add_config(
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
 
-        "sm_nlo_data": ["data", "dy_nlo"] + sm_group,
-        "sm_nlo_data_bkg": ["data", "dy_nlo", *backgrounds],
+        "sm_nlo_data": ["data"] + sm_group,
+        "sm_nlo_data_bkg": ["data", *backgrounds],
 
         # "sm_lo_data": ["data", "dy_lo"] + sm_group,
         # "sm_nnlo_data": ["data", "dy_nnlo"] + sm_group,
