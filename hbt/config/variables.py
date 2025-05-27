@@ -383,8 +383,8 @@ def add_variables(config: od.Config) -> None:
     # variables for DY studies
     add_variable(
         config,
-        name="gen_dilep_pt",
-        expression="gen_dilep_pt",
+        name="gen_dilepton_pt",
+        expression=lambda events: ak.num(events.gen_dilepton_pt, axis=1),
         binning=(40, 0, 200),
         unit="GeV",
         x_title=r"$p^{gen}_{T,ll}$",
