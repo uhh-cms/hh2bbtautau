@@ -256,7 +256,7 @@ def cat_dy_res2b_init(self: Categorizer) -> None:
 
 
 @categorizer(uses={
-    cat_dy_res1b, cat_dy_res2b, di_tau_mass_window, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD,mass,eta}",
+    cat_res1b, cat_res2b, di_tau_mass_window, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD,mass,eta}",
 })
 def cat_dy_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # exclude res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
@@ -274,8 +274,8 @@ def cat_dy_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Ar
         (ak.num(events.FatJet, axis=1) == 1) &
         (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
         (ak.sum(tagged, axis=1) >= 1) &
-        ~self[cat_dy_res1b](events, **kwargs)[1] &
-        ~self[cat_dy_res2b](events, **kwargs)[1] &
+        ~self[cat_res1b](events, **kwargs)[1] &
+        ~self[cat_res2b](events, **kwargs)[1] &
         tau_mass_mask &
         ak.any(events.FatJet.msoftdrop >= 30, axis=1) &
         ak.any(events.FatJet.msoftdrop <= 450, axis=1)
@@ -378,7 +378,7 @@ def cat_dyc_res2b_init(self: Categorizer) -> None:
 
 
 @categorizer(uses={
-    cat_dyc_res1b, cat_dyc_res2b, di_tau_mass_window, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD,mass,eta}",
+    cat_res1b, cat_res2b, di_tau_mass_window, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD,mass,eta}",
 })
 def cat_dyc_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # exclude res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
@@ -397,8 +397,8 @@ def cat_dyc_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.A
         (ak.num(events.FatJet, axis=1) == 1) &
         (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
         (ak.sum(tagged, axis=1) >= 1) &
-        ~self[cat_dy_res1b](events, **kwargs)[1] &
-        ~self[cat_dy_res2b](events, **kwargs)[1] &
+        ~self[cat_res1b](events, **kwargs)[1] &
+        ~self[cat_res2b](events, **kwargs)[1] &
         tau_mass_mask &
         ak.any(events.FatJet.msoftdrop >= 30, axis=1) &
         ak.any(events.FatJet.msoftdrop <= 450, axis=1)
@@ -409,9 +409,10 @@ def cat_dyc_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.A
     return events, mask
 
 
-@cat_dy_boosted.init
-def cat_dy_boosted_init(self: Categorizer) -> None:
+@cat_dyc_boosted.init
+def cat_dyc_boosted_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_tt(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:

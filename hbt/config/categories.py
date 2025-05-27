@@ -43,13 +43,13 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="dy", id=210, selection="cat_dy", label="DY enriched", tags={"dy"})
     _add_category(config, name="dy_res1b", id=211, selection="cat_dy_res1b", label="DY enriched res1b", tags={"dy_res1b"})  # noqa: E501
     _add_category(config, name="dy_res2b", id=212, selection="cat_dy_res2b", label="DY enriched res2b", tags={"dy_res2b"})  # noqa: E501
-    # _add_category(config, name="dy_boosted", id=216, selection="cat_dy_boosted", label="boosted", tags={"dy_boosted"})  # noqa: E501
+    _add_category(config, name="dy_boosted", id=216, selection="cat_dy_boosted", label="boosted", tags={"dy_boosted"})  # noqa: E501
 
     # DY enriched with CCLUB definition
     _add_category(config, name="dyc", id=213, selection="cat_dyc", label="DY enriched (CCLUB)", tags={"dyc"})
     _add_category(config, name="dyc_res1b", id=214, selection="cat_dyc_res1b", label="DY enriched res1b (CCLUB)", tags={"dyc_res1b"})  # noqa: E501
     _add_category(config, name="dyc_res2b", id=215, selection="cat_dyc_res2b", label="DY enriched res2b (CCLUB)", tags={"dyc_res1b"})  # noqa: E501
-    # _add_category(config, name="dyc_boosted", id=217, selection="cat_dyc_boosted", label="boosted", tags={"dyc_boosted"})  # noqa: E501
+    _add_category(config, name="dyc_boosted", id=217, selection="cat_dyc_boosted", label="boosted", tags={"dyc_boosted"})  # noqa: E501
 
     _add_category(config, name="res1b", id=300, selection="cat_res1b", label="res1b")
     _add_category(config, name="res2b", id=301, selection="cat_res2b", label="res2b")
@@ -125,9 +125,11 @@ def add_categories(config: od.Config) -> None:
             config.get_category("dy"),
             config.get_category("dy_res1b"),
             config.get_category("dy_res2b"),
+            config.get_category("dy_boosted"),
             config.get_category("dyc"),
             config.get_category("dyc_res1b"),
             config.get_category("dyc_res2b"),
+            config.get_category("dyc_boosted"),
             config.get_category("tt"),
         ],
         # relative sign last
