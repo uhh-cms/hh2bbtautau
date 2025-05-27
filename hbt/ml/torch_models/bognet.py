@@ -25,35 +25,34 @@ import law
 model_clss: DotDict[str, torch.nn.Module] = DotDict()
 
 if not isinstance(torch, MockModule):
-    from torch import nn
-    from torch.optim import Adam, AdamW
+    import torch
+    import torch.utils.tensorboard as tensorboard
     from torch.utils.tensorboard import SummaryWriter
     from ignite.metrics import Loss, ROC_AUC
+    import matplotlib.pyplot as plt
 
-    from hbt.ml.torch_models.binary import NetworkBase
     from hbt.ml.torch_models.multi_class import WeightedFeedForwardMultiCls, FeedForwardMultiCls
     from hbt.ml.torch_utils.ignite.metrics import (
-        WeightedROC_AUC, WeightedLoss,
+        WeightedROC_AUC, WeightedLoss, WeightedBalanced_Acc
     )
     from hbt.ml.torch_utils.transforms import AkToTensor, PreProcessFloatValues, MoveToDevice
     from hbt.ml.torch_utils.datasets.handlers import (
-        FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler,
-        WeightedFlatListRowgroupParquetFileHandler,
-        RgTensorParquetFileHandler, WeightedRgTensorParquetFileHandler,
+        WeightedTensorParquetFileHandler,
     )
     from hbt.ml.torch_utils.utils import (
-        embedding_expected_inputs, LookUpTable, CategoricalTokenizer, expand_columns, get_standardization_parameter,
+        embedding_expected_inputs, expand_columns, get_standardization_parameter,
     )
-    from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
-    from hbt.ml.torch_utils.layers import PaddingLayer, InputLayer, StandardizeLayer, ResNetBlock
+    from hbt.ml.torch_utils.layers import InputLayer, StandardizeLayer, ResNetBlock, ResNetPreactivationBlock, DenseBlock
+    from hbt.ml.torch_utils.functions import generate_weighted_loss
 
+    import sklearn
 
     class BogNet(WeightedFeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             # inputs
-            # categories
 
+            # categories in fixed order alphabetical
             self.categorical_inputs = sorted({
                 "pair_type",
                 "decay_mode1",
@@ -65,13 +64,7 @@ if not isinstance(torch, MockModule):
                 "year_flag",
             })
 
-            self.categorical_target_map = {
-                "hh": 0,
-                "tt": 1,
-                # "dy": 2,
-            }
-
-            # continuous inputs
+            # continuous
             self.continous_inputs = expand_columns(
                 "lepton1.{px,py,pz,energy,mass}",
                 "lepton2.{px,py,pz,energy,mass}",
@@ -79,77 +72,109 @@ if not isinstance(torch, MockModule):
                 "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
                 "fatjet.{px,py,pz,energy,mass}",
             )
+
             self.inputs = set(self.categorical_inputs) | set(self.continous_inputs)
 
-            self.nodes = kwargs.get("nodes", 256)
-            self.activation_functions = kwargs.get("activation_functions", "LeakyReLu")
-            self.skip_connection_init = kwargs.get("skip_connection_init", 0)
-            self.freeze_skip_connection = kwargs.get("freeze_skip_connection", True)
-
-            self._loss_fn = nn.BCELoss()
-            # self._loss_fn = torch.nn.functional.binary_cross_entropy
-
-            # layer layout
-            self.training_epoch_length_cutoff = 2000
-            self.training_weight_cutoff = 0.05
-            self.placeholder = 15
-            self.std_layer, self.input_layer, self.model = self._build_network()
-            # del linear_relu_stack
-            # loss,
-            # self._loss_fn = nn.CrossEntropyLoss()
-            self.validation_metrics = {
-                # "unweighted_loss": Loss(self.loss_fn),
-                "loss": WeightedLoss(self.loss_fn),
+            # targets
+            self.categorical_target_map = {
+                "hh": 0,
+                "tt": 1,
+                "dy": 2,
             }
 
+            # build network, get commandline arguments
+            self.nodes = kwargs.get("nodes", 256)
+            self.activation_functions = kwargs.get("activation_functions", "LeakyReLu")
+            self.skip_connection_init = kwargs.get("skip_connection_init", 1)
+            self.freeze_skip_connection = kwargs.get("freeze_skip_connection", False)
+            self.empty_value = 15
+
+            self.std_layer, self.input_layer, self.model = self._build_network()
+
+            # loss function and metrics
+            self._loss_fn = generate_weighted_loss(torch.nn.CrossEntropyLoss)()
+
+            self.validation_metrics["loss"] = WeightedLoss(self.loss_fn)
+            self.validation_metrics.update({
+                f"loss_cls_{identifier}": WeightedLoss(
+                    WeightedCrossEntropySlice(cls_index=idx),
+                )
+                for identifier, idx in self.categorical_target_map.items()
+            })
+            self.validation_metrics.update({
+                f"roc_auc_cls_{identifier}": WeightedROC_AUC(
+                    output_transform=partial(
+                        preprocess_multiclass_outputs,
+                        multi_class="ovr",
+                        average=None,
+                    ),
+                    target_class_idx=idx,
+                )
+                for identifier, idx in self.categorical_target_map.items()
+            })
+
+            # self.validation_metrics["balanced_accuracy"] = WeightedBalanced_Acc(
+            #     output_transform=torch.nn.functional.softmax,
+            # )
+
+            # trainings settings
+            self.training_epoch_length_cutoff = 2000
+            self.training_weight_cutoff = 0.05
+
+            # remove layers that comes due to inheritance
+            # TODO clean up, this is only a monkey patch
+            del self.linear_relu_stack
+            # del self.norm_layer
+
+
         def _build_network(self):
+            # helper where all layers are defined
+            # std layers are filled when statitics are known
             std_layer = StandardizeLayer(
                 None,
                 None,
             )
 
             input_layer = InputLayer(
-                self.continous_inputs,
-                self.categorical_inputs,
-                embedding_dim=2,
+                continuous_inputs = self.continous_inputs,
+                categorical_inputs = self.categorical_inputs,
+                embedding_dim=3,
                 expected_categorical_inputs=embedding_expected_inputs,
-                empty_value=self.placeholder,
+                empty=self.empty_value,
             )
 
-            model = nn.Sequential(
+            model = torch.nn.Sequential(
                 input_layer,
-                torch.nn.Linear(input_layer.ndim, self.nodes),
-                torch.nn.BatchNorm1d(self.nodes),
-                torch.nn.LeakyReLU(),
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                # torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
-
-                torch.nn.Linear(self.nodes, 1),
-                torch.nn.Sigmoid(),
+                DenseBlock(input_nodes = input_layer.ndim, output_nodes = self.nodes, activation_functions=self.activation_functions), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
+                # no softmax since this is already part of loss
             )
             return std_layer, input_layer, model
 
         def to(self, *args, **kwargs):
+            # helper to move all customlayers to given device
             self.std_layer = self.std_layer.to(*args, **kwargs)
             self.input_layer = self.input_layer.to(*args, **kwargs)
             self.model = self.model.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
         def train_step(self, engine, batch):
-
-            # Set the model to training mode - important for batch normalization and dropout layers
+            # from IPython import embed; embed(header="string - 149 in bognet.py ")
             self.train()
+
             # Compute prediction and loss
             (categorical_x, continous_x), y = batch
             self.optimizer.zero_grad()
 
+            # replace missing values with empty_fill, convert to expected type
             categorical_x = self._handle_input(
                 categorical_x,
                 self.categorical_inputs,
                 dtype=torch.int32,
-                empty_fill_val=self.placeholder,
+                empty_fill_val=self.empty_value,
                 mask_value=EMPTY_INT,
             )
 
@@ -162,8 +187,7 @@ if not isinstance(torch, MockModule):
                 norm_layer=self.std_layer,
             )
 
-            # from IPython import embed; embed(header="string - 397 in resnet.py ")
-            # from IPython import embed; embed(header="string - 397 in resnet.py ")
+            # extra step normalize embedding vectors to have unit norm of 1, increases stability
             self.input_layer.embedding_layer.normalize_embeddings()
 
             pred = self(categorical_x, continous_x)
@@ -176,63 +200,181 @@ if not isinstance(torch, MockModule):
             loss.backward()
             self.optimizer.step()
 
-            if engine.state.iteration % 100 == 0:
-                # from IPython import embed; embed(header="training_step - 414 in resnet.py ")
-                # for ind, cat in enumerate(self.categorical_inputs):
-                #     plt.clf()
-                #     data = []
-                #     labels = []
-                #     # for dataset, arrays in d.items():
-                #     data.append(arrays[ind])
-                #     plt.hist(data, histtype="barstacked", alpha=0.5, label=labels)
-                #     plt.xlabel(cat)
-                #     plt.legend()
-                #     plt.savefig(f"{cat}_all.png")
+            # plotting routines doing every % iterations
+            iteration_condition = engine.state.iteration % 400 == 0
+            if iteration_condition:
 
+                detach_logit = pred.detach().cpu().numpy()
+                detach_target = target.detach().cpu().numpy()
+                detach_loss = loss.detach().cpu().numpy()
+                prob = torch.nn.functional.softmax(pred).detach().cpu().numpy()
 
-
-            #     # self.produce_shap(cat=categorical_x, cont=continous_x, prediction=pred.detach().cpu().numpy().flatten())
-                detach_pred = pred.detach().cpu().numpy().flatten()
-                detach_target = target.detach().cpu().numpy().flatten()
-                detach_loss = loss.detach().cpu().numpy().flatten()
-                self.plot_2D(
-                    x = detach_target,
-                    y = detach_pred,
-                    bins=10,
-                    xlabel="pred",
-                    ylabel="target",
-                    title=f"iteration {engine.state.iteration}",
-                    savepath=f"2D_pred_target_{engine.state.iteration}.png",
-                )
-
-                self.plot_1D(
-                    (detach_pred, detach_target),
-                    annotation={
-                        "loss": detach_loss,
-                        "pred": detach_pred,
-                        "target": detach_target,
-                        "iteration": engine.state.iteration,
-                    },
-                    bins=20,
-                    label=["pred", "target"],
-                    density=True,
-                    alpha=0.3,
-                    color=["blue", "red"],
-                    histtype="stepfilled",
+                plot_pred_fig, _ = self.plot_prediction(
+                    y_true=detach_target,
+                    y_pred=prob,
+                    target_map=self.categorical_target_map,
                     savepath=f"1D_pred_target_{engine.state.iteration}.png",
                 )
 
-        # @staticmethod
-        # def plot_batch(self, data, input, target, target_map={0:"signal"}):
+                self.writer.add_figure(
+                    "Prediction Probabilities",
+                    plot_pred_fig,
+                    engine.state.iteration,
+                )
 
-        #         # no target_map assumes binary
-        #     for idx_target, target in target_map.items():
+                plot_logit_fig, _ = self.plot_prediction(
+                    y_true=detach_target,
+                    y_pred=detach_logit,
+                    target_map=self.categorical_target_map,
+                    savepath=f"1D_pred_logit_{engine.state.iteration}.png",
+                )
 
-        #         for idx, name in enumerate(input):
-        #             plt.hist()
+                self.writer.add_figure(
+                    "Prediction Logits",
+                    plot_logit_fig,
+                    engine.state.iteration,
+                )
+
+                # self.plot_1D(
+                #     (prob, detach_target),
+                #     annotation={
+                #         "loss": detach_loss,
+                #         "pred": target,
+                #         "target": detach_target,
+                #         "iteration": engine.state.iteration,
+                #     },
+                #     bins=20,
+                #     label=["pred", "target"],
+                #     density=True,
+                #     alpha=0.3,
+                #     color=["blue", "red"],
+                #     histtype="stepfilled",
+                #     savepath=f"1D_pred_target_{engine.state.iteration}.png",
+                # )
+
+                # confusion matrix
+                cm_fig, _, c_matrix = self.plot_confusion_matrix(
+                    np.argmax(detach_target, axis=1),
+                    np.argmax(prob, axis=1),
+                    list(self.categorical_target_map.values()),
+                    cmap="Blues",
+                    savepath=f"confusion_matrix_{engine.state.iteration}.png",
+                    sample_weight=None, # if you want to weight the confusion matrix by the target
+                )
+
+                self.writer.add_figure(
+                    "Confusion Matrix",
+                    cm_fig,
+                    engine.state.iteration,
+                )
+
+
+                # balanced accuracy
+                # from IPython import embed; embed(header="string - 296 in bognet.py ")
+
+
+
+
+
+                # @staticmethod
+                # def plot_batch(self, data, input, target, target_map={0:"signal"}):
+
+                #         # no target_map assumes binary
+                #     for idx_target, target in target_map.items():
+
+                #         for idx, name in enumerate(input):
+                #             plt.hist()
 
 
             return loss.item()
+
+        @staticmethod
+        def plot_prediction(y_true, y_pred, target_map, **kwargs):
+            # swap axes to get (num_samples, cls) shape
+            fig, ax = plt.subplots()
+            save_path = kwargs.pop("savepath", None)
+            ax.set_xlabel(kwargs.pop("xlabel", "score"))
+            ax.set_ylabel(kwargs.pop("ylabel", "frequency"))
+            fig.suptitle(kwargs.pop("title", None))
+
+            # get events that are predicted correctly for each class
+            y_pred_cls, labels = [], []
+            for _cls, idx in target_map.items():
+                # get events of cls
+                correct_cls_mask = y_true[:, idx] == 1
+                # filter predictions for cls
+                y_pred_cls.append(y_pred[correct_cls_mask][:,0])
+                labels.append(f"{_cls}")
+
+            hist = ax.hist(
+                y_pred_cls,
+                bins=kwargs.get("bins", 20),
+                histtype=kwargs.get("histtype", "step"),
+                alpha=kwargs.get("alpha", 0.7),
+                label=labels,
+                **kwargs,
+            )
+
+            fig.legend(title="predicted class")
+
+            if save_path:
+                fig.savefig(save_path)
+
+            return fig, ax
+
+
+        @staticmethod
+        def plot_confusion_matrix(y_true, y_pred, labels=None, sample_weight=None, cmap="Blues", savepath=None):
+            confusion_matrix = sklearn.metrics.confusion_matrix(
+                y_true,
+                y_pred,
+                labels=labels,
+                sample_weight=sample_weight,
+                normalize="all",  # normalize to get probabilities
+            )
+
+            disp = sklearn.metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix)
+            disp.plot(cmap=cmap)
+
+            if savepath:
+                disp.figure_.savefig(savepath)
+            return disp.figure_, disp.ax_, confusion_matrix
+
+
+
+        def plot_batch(self, input, target, loss, iteration, target_map=None, labels=None):
+            input_per_feature = input.to("cpu").transpose(0,1).detach().numpy()
+            input, target = input.to("cpu").detach().numpy(), target.to("cpu").detach().numpy()
+
+
+
+            fig, ax = plt.subplots(1,len(self.categorical_inputs), figsize=(8 * len(self.categorical_inputs), 8))
+            fig.tight_layout()
+
+            for ind, cat in enumerate(self.categorical_inputs):
+                signal_target = target[:, self.categorical_target_map["hh"]]
+                background_mask, signal_mask = signal_target.flatten() == 0, signal_target.flatten() == 1
+                # background_prediction = detach_pred[zero_s_mask]
+                # signal_prediction = detach_pred[zero_s_mask]
+                _input = input_per_feature[ind]
+                background_input = _input[background_mask]
+                signal_input = _input[signal_mask]
+                cax = ax[ind]
+
+                cax.hist(
+                    [background_input, signal_input],
+                    bins=10,
+                    histtype="barstacked",
+                    alpha=0.5,
+                    label=["tt & dy","hh"],
+                    density=True,
+                )
+                cax.set_xlabel(cat)
+                cax.annotate(f"loss: {loss:.2f}", (0.8, 0.60), xycoords="figure fraction")
+                cax.annotate(f"iteration {iteration}", (0.75, 0.55))
+                cax.legend()
+            fig.savefig(f"1d_cats_{iteration}.png")
+
 
         @staticmethod
         def plot_2D(x,y, bins=10, **kwargs):
@@ -278,10 +420,9 @@ if not isinstance(torch, MockModule):
                 num_0s = np.sum(target == 0)
                 num_1s = np.sum(target == 1)
 
-                ax.annotate(f"num: 0s: {num_0s:.2f}", (0.5, 0.70), xycoords="figure fraction")
-                ax.annotate(f"num: 1s: {num_1s:.2f}", (0.5, 0.65), xycoords="figure fraction")
-                ax.annotate(f"loss: {loss:.2f}", (0.5, 0.60), xycoords="figure fraction")
-                ax.annotate(f"loss: {loss:.2f}", (0.5, 0.60), xycoords="figure fraction")
+                ax.annotate(f"num: 0s: {num_0s:.2f}", (0.5, 0.70), xycoords="axes fraction")
+                ax.annotate(f"num: 1s: {num_1s:.2f}", (0.5, 0.65), xycoords="axes fraction")
+                ax.annotate(f"loss: {loss:.2f}", (0.5, 0.60), xycoords="axes fraction")
                 iteration = annotations.get("iteration")
                 ax.annotate(f"iteration {iteration}", (0.5, 0.55))
 
@@ -292,8 +433,8 @@ if not isinstance(torch, MockModule):
                 accuracy = (tp + tn) / (tp + tn + fp + fn)
                 sensitivity = tp / (tp + fn)
 
-                ax.annotate(f"accuracy: {accuracy:.2f}", (0.5, 0.50), xycoords="figure fraction")
-                ax.annotate(f"sensitivity: {sensitivity:.2f}", (0.5, 0.45), xycoords="figure fraction")
+                ax.annotate(f"accuracy: {accuracy:.2f}", (0.5, 0.50), xycoords="axes fraction")
+                ax.annotate(f"sensitivity: {sensitivity:.2f}", (0.5, 0.45), xycoords="axes fraction")
 
             return fig, ax
 
@@ -307,7 +448,6 @@ if not isinstance(torch, MockModule):
             background, test = input_tensor[:samples], input_tensor[samples: samples + 100]
             trans_model = ShapModel(self)
             explainer = shap.DeepExplainer(trans_model, background)
-            from IPython import embed; embed(header="string - 483 in resnet.py ")
             shap_values = explainer.shap_values(test)
 
         def validation_step(self, engine, batch):
@@ -328,7 +468,7 @@ if not isinstance(torch, MockModule):
                     categorical_x,
                     self.categorical_inputs,
                     dtype=torch.int32,
-                    empty_fill_val=self.placeholder,
+                    empty_fill_val=self.empty_value,
                     mask_value=EMPTY_INT,
                 )
 
@@ -346,6 +486,59 @@ if not isinstance(torch, MockModule):
 
                 if y.dim() == 1:
                     y = y.reshape(-1, 1)
+                y = y.to(torch.float32)
+
+                from IPython import embed; embed(header="string - 490 in bognet.py ")
+                iteration_condition = engine.state.iteration % 400 == 0
+                if iteration_condition:
+
+                    detach_logit = pred.detach().cpu().numpy()
+                    detach_target = y.detach().cpu().numpy()
+                    # detach_loss = loss.detach().cpu().numpy()
+                    prob = torch.nn.functional.softmax(pred).detach().cpu().numpy()
+
+                    plot_pred_fig, _ = self.plot_prediction(
+                        y_true=detach_target,
+                        y_pred=prob,
+                        target_map=self.categorical_target_map,
+                        savepath=f"1D_pred_target_{engine.state.iteration}.png",
+                    )
+
+                    self.writer.add_figure(
+                        "Prediction Probabilities Validation",
+                        plot_pred_fig,
+                        engine.state.iteration,
+                    )
+
+                    plot_logit_fig, _ = self.plot_prediction(
+                        y_true=detach_target,
+                        y_pred=detach_logit,
+                        target_map=self.categorical_target_map,
+                        savepath=f"1D_pred_logit_{engine.state.iteration}.png",
+                    )
+
+                    self.writer.add_figure(
+                        "Prediction Logits",
+                        plot_logit_fig,
+                        engine.state.iteration,
+                    )
+
+                    # confusion matrix
+                    cm_fig, _, c_matrix = self.plot_confusion_matrix(
+                        np.argmax(detach_target, axis=1),
+                        np.argmax(prob, axis=1),
+                        list(self.categorical_target_map.values()),
+                        cmap="Blues",
+                        savepath=f"confusion_matrix_{engine.state.iteration}.png",
+                        sample_weight=None, # if you want to weight the confusion matrix by the target
+                    )
+
+                    self.writer.add_figure(
+                        "Confusion Matrix",
+                        cm_fig,
+                        engine.state.iteration,
+                    )
+
                 return pred, y, {"weight": weights.reshape(-1, 1)}
 
 
@@ -389,15 +582,10 @@ if not isinstance(torch, MockModule):
             all_datasets = getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
                 "ttbar": [d for d in all_datasets if d.startswith("tt_")],
-                # "dy": [d for d in all_datasets if d.startswith("dy_")],y
+                "dy": [d for d in all_datasets if d.startswith("dy_")],
             }
 
-            # group_datasets = {
-            #     "ttbar": [d for d in task.datasets if d.startswith("tt_")],
-            # }
-
-
-            self.dataset_handler = WeightedRgTensorParquetFileHandler(
+            self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
                 continuous_features=getattr(self, "continuous_features", self.continous_inputs),
                 categorical_features=getattr(self, "categorical_features", self.categorical_inputs),
@@ -406,23 +594,27 @@ if not isinstance(torch, MockModule):
                 build_categorical_target_fn=self._build_categorical_target,
                 group_datasets=group_datasets,
                 device=device,
-                # categorical_target_transformation=partial(get_one_hot, nb_classes=2),
-                datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
+                categorical_target_transformation=partial(get_one_hot, nb_classes=3),
+                datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
                 # categorical_target_transformation=,
                 # data_type_transformation=AkToTensor,
             )
+
             self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets() #noqa
+
+            # define lenght of training epoch
+            self.max_epoch_length = self._calculate_max_epoch_length(
+                self.training_loader,
+                cutoff=self.training_epoch_length_cutoff,
+                weight_cutoff=self.training_weight_cutoff,
+            )
 
             # get statistics for standardization from training dataset without oversampling
             self.dataset_statitics = get_standardization_parameter(self.train_validation_loader.data_map, self.continous_inputs)
 
-            # delete
-            # all_data = ak.concatenate(list(map(lambda x: x.data, self.train_validation_loader.data_map)))
-
-            # from IPython import embed; embed(header="dataset handling - 496 in resnet.py ")
-
 
         def control_plot_1d(self):
+            import matplotlib.pyplot as plt
             d = {}
             for dataset, file_handler in self.training_loader.data_map.items():
                 d[dataset] = ak.concatenate(list(map(lambda x: x.data, file_handler)))
@@ -440,7 +632,7 @@ if not isinstance(torch, MockModule):
                 plt.savefig(f"{cat}_all.png")
 
         def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
-            self.optimizer = AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            self.optimizer = torch.optim.AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
             self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
 
         def log_graph(self, engine):
@@ -450,7 +642,7 @@ if not isinstance(torch, MockModule):
                 categorical_x,
                 self.categorical_inputs,
                 dtype=torch.int32,
-                empty_fill_val=self.placeholder,
+                empty_fill_val=self.empty_value,
                 mask_value=EMPTY_INT,
             )
 
@@ -469,7 +661,10 @@ if not isinstance(torch, MockModule):
         def forward(self, *inputs):
             return self.model(inputs)
 
+
+
     class ShapModel(torch.nn.Module):
+        # dummy Model class to give interface for single tensor inputs, since SHAP expect this kind of input tensor
         def __init__(self, model):
             super().__init__()
             self.model = model.model
