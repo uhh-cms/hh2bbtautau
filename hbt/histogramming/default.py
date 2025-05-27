@@ -60,6 +60,14 @@ def default_init(self: HistProducer) -> None:
         self.shifts |= {shift_inst.name for shift_inst in shift_insts}
 
 
+no_dy_weight = default.derive("no_dy_weight", cls_dict={
+    "drop_weights": {"normalization_weight_inclusive", "dy_weight"},
+})
+
+normalization_inclusive_no_dy_weight = default.derive("normalization_inclusive_no_dy_weight", cls_dict={
+    "drop_weights": {"normalization_weight", "dy_weight"},
+})
+
 normalization_inclusive = default.derive("normalization_inclusive", cls_dict={
     "drop_weights": {"normalization_weight"},
 })
