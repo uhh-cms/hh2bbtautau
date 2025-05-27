@@ -122,20 +122,24 @@ if not isinstance(ignite, MockModule):
             self.best_model: dict[str, Any] | None = None
             self.min_epochs: int = min_epochs
             self.model = model or self.trainer._process_function.keywords["model"]
+            self.epoch = 0
 
         def __call__(self, engine: Engine) -> None:
             score = self.score_function(engine)
+            self.epoch += 1
 
             if self.best_score is None:
+                self.logger.debug(f"{self.__class__.__name__}: Initializing best score with {score}")
                 self.best_score = score
             elif score <= self.best_score + self.min_delta:
                 if not self.cumulative_delta and score > self.best_score:
                     self.best_score = score
                 self.counter += 1
-                self.logger.debug("EarlyStopping: %i / %i" % (self.counter, self.patience))
-                if engine.state.epoch > self.min_epochs and self.counter >= self.patience:
+                self.logger.info("EarlyStopping: %i / %i" % (self.counter, self.patience))
+
+                if self.epoch > self.min_epochs and self.counter >= self.patience:
                     self.logger.info("EarlyStopping: Stop training")
-                    best_epoch = engine.state.epoch - self.patience
+                    best_epoch = self.epoch - self.patience
                     self.logger.info(f"Resetting model to epoch {getattr(self.trainer, 'best_epoch', best_epoch)}")
                     if self.best_model is not None:
                         self.model.load_state_dict(self.best_model)
@@ -143,6 +147,8 @@ if not isinstance(ignite, MockModule):
                         self.logger.warning("No best model found, skipping load")
                     self.trainer.terminate()
             else:
+                self.logger.debug(f"{self.__class__.__name__}: Previous best score {self.best_score}, {self.min_delta=}")
+                self.logger.debug(f"{self.__class__.__name__}: setting best score to {score}")
                 self.best_score = score
                 self.counter = 0
                 self.best_model = deepcopy(self.model.state_dict())
