@@ -111,13 +111,6 @@ def add_lazy_config(
 
 
 # 2022, preEE
-# TODO: remove after move to v14
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v12",
-    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
-    config_name="22pre_v12",
-    config_id=5012,
-)
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
@@ -126,13 +119,6 @@ add_lazy_config(
 )
 
 # 2022, postEE
-# TODO: remove after move to v14
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v12",
-    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v12",
-    config_name="22post_v12",
-    config_id=6012,
-)
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",

@@ -8,7 +8,7 @@ import functools
 
 import order as od
 
-from columnflow.config_util import add_category, create_category_combinations
+from columnflow.config_util import add_category, create_category_combinations, CategoryGroup
 from columnflow.types import Any
 
 
@@ -79,20 +79,12 @@ def add_categories(config: od.Config) -> None:
     # main analysis categories
     main_categories = {
         # channels first
-        "channel": [
-            config.get_category("etau"), config.get_category("mutau"), config.get_category("tautau"),
-        ],
+        "channel": CategoryGroup(["etau", "mutau", "tautau"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-        "kin": [
-            config.get_category("incl"),
-            config.get_category("2j"),
-            config.get_category("res1b"),
-            config.get_category("res2b"),
-            config.get_category("boosted"),
-        ],
+        "kin": CategoryGroup(["incl", "2j", "res1b", "res2b", "boosted"], is_complete=True, has_overlap=True),
         # qcd regions last
-        "sign": [config.get_category("os"), config.get_category("ss")],
-        "tau2": [config.get_category("iso"), config.get_category("noniso")],
+        "sign": CategoryGroup(["os", "ss"], is_complete=True, has_overlap=False),
+        "tau2": CategoryGroup(["iso", "noniso"], is_complete=True, has_overlap=False),
     }
 
     create_category_combinations(
@@ -105,13 +97,11 @@ def add_categories(config: od.Config) -> None:
     # control categories
     control_categories = {
         # channels first
-        "channel": [
-            config.get_category("ee"), config.get_category("mumu"), config.get_category("emu"),
-        ],
+        "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-        "kin": [config.get_category("incl"), config.get_category("dy"), config.get_category("tt")],
+        "kin": CategoryGroup(["incl", "dy", "tt"], is_complete=True, has_overlap=True),
         # relative sign last
-        "sign": [config.get_category("os")],
+        "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
 
     def skip_fn_ctrl(categories: dict[str, od.Category]) -> bool:
