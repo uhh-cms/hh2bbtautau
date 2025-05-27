@@ -12,7 +12,7 @@ from hbt.ml.torch_utils.datasets import (
     ParquetDataset, FlatRowgroupParquetDataset, FlatParquetDataset,
     FlatArrowRowGroupParquetDataset, WeightedFlatRowgroupParquetDataset,
     WeightedRgTensorParquetDataset, RgTensorParquetDataset,
-    WeightedTensorParquetDataset,
+    WeightedTensorParquetDataset, TensorParquetDataset,
 )
 from hbt.ml.torch_utils.map_and_collate import (
     NestedListRowgroupMapAndCollate, FlatListRowgroupMapAndCollate,
@@ -573,11 +573,11 @@ class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHand
             )
         return training, validation
 
-class WeightedTensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
+class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dataset_cls = WeightedTensorParquetDataset
+        self.dataset_cls = TensorParquetDataset
         # self.validation_dataset_cls = WeightedFlatRowgroupParquetDataset
         self.training_map_and_collate_cls = NestedTensorMapAndCollate
         self.validation_map_and_collate_cls = TensorListMapAndCollate
@@ -685,6 +685,17 @@ class WeightedTensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
     #         device=self.device,
     #         collate_fn=torch.cat,
     #     )
+
+
+class WeightedTensorParquetFileHandler(TensorParquetFileHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dataset_cls = WeightedTensorParquetDataset
+        self.training_map_and_collate_cls = NestedTensorMapAndCollate
+        self.validation_map_and_collate_cls = TensorListMapAndCollate
+        self.training_sampler_cls = torch.utils.data.RandomSampler
+        self.validation_sampler_cls = ListSampler
+
 
 class FlatArrowParquetFileHandler(BaseParquetFileHandler):
     def __init__(self, *args, **kwargs):
