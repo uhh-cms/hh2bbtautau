@@ -379,7 +379,7 @@ if not isinstance(torch, MockModule):
         def __init__(
             self,
             input_nodes,
-            output_nodes=None,
+            output_nodes,
             activation_functions="LeakyReLu",
         ):
             """
@@ -392,7 +392,7 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
             self.input_nodes = input_nodes
-            self.output_nodes = output_nodes if input_nodes is None else input_nodes
+            self.output_nodes = output_nodes
 
             self.layers = nn.Sequential(
                 nn.Linear(self.input_nodes, self.output_nodes, bias=False),
