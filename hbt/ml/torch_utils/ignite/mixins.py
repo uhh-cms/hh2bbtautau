@@ -34,6 +34,7 @@ if not isinstance(ignite, MockModule):
         train_evaluator: Engine
         val_evaluator: Engine
         validation_metrics: dict[str, Metric]
+        validation_nonscalar_metrics: dict[str, Metric]
         writer: SummaryWriter | None
         run_name: str
         logger: object
@@ -133,7 +134,13 @@ if not isinstance(ignite, MockModule):
             for name, metric in self.validation_metrics.items():
                 metric.attach(self.train_evaluator, name)
 
+            for name, metric in self.validation_nonscalar_metrics.items():
+                metric.attach(self.train_evaluator, name)
+
             for name, metric in self.validation_metrics.items():
+                metric.attach(self.val_evaluator, name)
+
+            for name, metric in self.validation_nonscalar_metrics.items():
                 metric.attach(self.val_evaluator, name)
 
         def log_graph(self, engine):
@@ -173,6 +180,10 @@ if not isinstance(ignite, MockModule):
 
         def _log_attributes(self, metrics, trainer, mode="training"):
             for name, value in metrics.items():
+                if name in self.validation_nonscalar_metrics:
+                    # for non-scalar metrics, skip for now
+                    continue
+
                 self.writer.add_scalars(
                     f"{self.run_name}_{name}",
                     {mode: value},
