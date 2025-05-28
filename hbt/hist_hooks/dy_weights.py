@@ -80,38 +80,27 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             cat_ax = h.axes["category"]
             category_names.update(list(cat_ax))
 
-        # from IPython import embed
-        # embed(header="--> DY hook ...")
-
         # define DY enriched regions
-        channel = "mumu"
-        kin_region = "dy"
+        kin_regions = [
+            "dy", "dy_res1b", "dy_res2b", "dy_boosted",
+            "dy_eq0j", "dy_eq1j", "dy_eq2j", "dy_eq3j", "dy_ge4j",
+            "dyc", "dyc_res1b", "dyc_res2b", "dyc_boosted",
+            "dyc_eq0j", "dyc_eq1j", "dyc_eq2j", "dyc_eq3j", "dyc_ge4j",
+        ]
+
         dy_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
+
         for cat_name in category_names:
             cat_inst = config_inst.get_category(cat_name)
             # get dy ratio in specific control channel in inclusive region
-            if f"{channel}__{kin_region}" in cat_inst.name:
-                if cat_inst.has_tag({"dy"}, mode=all):
-                    dy_groups[cat_inst.x.dy_group].dy = cat_inst
-            """
-            elif cat_inst.has_tag({"dy_res1b"}, mode=all):
-                dy_groups[cat_inst.x.dy_group].dy_res1b = cat_inst
-            elif cat_inst.has_tag({"dy_res2b"}, mode=all):
-                dy_groups[cat_inst.x.dy_group].dy_res2b = cat_inst
-            elif cat_inst.has_tag({"dyc"}, mode=all):
-                dy_groups[cat_inst.x.dy_group].dy = cat_inst
-            elif cat_inst.has_tag({"dyc_res1b"}, mode=all):
-                dy_groups[cat_inst.x.dy_group].dy_res1b = cat_inst
-            elif cat_inst.has_tag({"dyc_res2b"}, mode=all):
-                dy_groups[cat_inst.x.dy_group].dy_res2b = cat_inst
-            elif cat_inst.has_tag({"dy_boosted"}, mode=all):
-                dy_groups[cat_inst.x.dy_group].dy_boosted = cat_inst
-            elif cat_inst.has_tag({"dyc_boosted"}, mode=all):
-                dy_groups[cat_inst.x.dy_group].dyc_boosted = cat_inst
-            """
+            for kin_region in kin_regions:
+                if f"mumu__{kin_region}__os" in cat_inst.name:
+                    if cat_inst.has_tag({kin_region}, mode=all):
+                        dy_groups[cat_inst.x.dy_group][kin_region] = cat_inst
 
         # get complete qcd groups
-        complete_groups = [name for name, cats in dy_groups.items() if len(cats) == 1]
+        complete_groups = [name for name, cats in dy_groups.items()]
+
         # nothing to do if there are no complete groups
         if not complete_groups:
             return hists
@@ -123,7 +112,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         if not dy_hists or not mc_hists or not data_hists:
             return hists
 
-        dy_hists = sum(dy_hists[1:], dy_hists[0].copy())
+        dy_hist = sum(dy_hists[1:], dy_hists[0].copy())
         mc_hist = sum(mc_hists[1:], mc_hists[0].copy())
         data_hist = sum(data_hists[1:], data_hists[0].copy())
 
@@ -134,7 +123,6 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # initializing dictionary for later use
         dict_hists = {}
 
-        dy_regions = ["dy"]  # add later if needed: res1b; res2b; boosted + CCLUB catgeories
         for group_name in complete_groups:
             group = dy_groups[group_name]
 
@@ -142,20 +130,20 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             # with uncertainties
             # shapes: (SHIFT, VAR)
             def get_hist(h: hist.Histogram, region_name: str) -> hist.Histogram:
-                h = ensure_category(h, group[region_name].name)
-                return h[{"category": hist.loc(group[region_name].name)}]
+                h = ensure_category(h, cat_name)
+                return h[{"category": hist.loc(cat_name)}]
 
-            for region in dy_regions:
-                hist_dy = hist_to_num(get_hist(dy_hists, region), region + "_dy")
-                hist_mc = hist_to_num(get_hist(mc_hist, region), region + "mc")
-                hist_data = hist_to_num(get_hist(data_hist, region), region + "_data")
-                # hist_ratio = (hist_data - hist_mc) / hist_dy+
+            for region in kin_regions:
+                cat_name = f"mumu__{region}__os"
+                hist_dy = hist_to_num(get_hist(dy_hist, cat_name), region + "_dy")
+                hist_mc = hist_to_num(get_hist(mc_hist, cat_name), region + "_mc")
+                hist_data = hist_to_num(get_hist(data_hist, cat_name), region + "_data")
                 hist_diff = hist_data - hist_mc
 
                 # save hists
+                dict_hists[region + "_dy"] = (hist_dy)
                 dict_hists[region + "_mc"] = (hist_mc)
                 dict_hists[region + "_data"] = (hist_data)
-                dict_hists[region + "_dy"] = (hist_dy)
                 dict_hists[region + "_diff"] = (hist_diff)
 
                 print(dict_hists[region + "_mc"])
@@ -181,15 +169,13 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 # insert per bin ratio of (data-MC)/DY into plotting histogram
                 cat_axis = factor_hist.axes["category"]
                 for cat_index in range(cat_axis.size):
-                    if cat_axis.value(cat_index) == group.get(region).name:
-                        factor_hist.view().value[cat_index, ...] = factor_values
-                        factor_hist.view().variance[cat_index, ...] = factor_variances
-                        break
-                else:
-                    raise RuntimeError(
-                        f"could not find index of bin on 'category' axis of qcd histogram {factor_hist} "
-                        f"for category {group.region} enriched region",
-                    )
+                    if hasattr(group, region):
+                        if cat_axis.value(cat_index) == group.get(region).name:
+                            factor_hist.view().value[cat_index, ...] = factor_values
+                            factor_hist.view().variance[cat_index, ...] = factor_variances
+                            break
+                    else:
+                        continue
 
         return hists
 
