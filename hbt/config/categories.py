@@ -37,23 +37,34 @@ def add_categories(config: od.Config) -> None:
     # kinematic categories
     _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
     _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
+    _add_category(config, name="res1b", id=300, selection="cat_res1b", label="res1b")
+    _add_category(config, name="res2b", id=301, selection="cat_res2b", label="res2b")
+    _add_category(config, name="boosted", id=310, selection="cat_boosted", label="boosted")
     _add_category(config, name="tt", id=220, selection="cat_tt", label=r"$t\bar{t}$ enriched")
 
     # DY enriched with CF definition
     _add_category(config, name="dy", id=210, selection="cat_dy", label="DY enriched", tags={"dy"})
-    _add_category(config, name="dy_res1b", id=211, selection="cat_dy_res1b", label="DY enriched res1b", tags={"dy_res1b"})  # noqa: E501
-    _add_category(config, name="dy_res2b", id=212, selection="cat_dy_res2b", label="DY enriched res2b", tags={"dy_res2b"})  # noqa: E501
-    _add_category(config, name="dy_boosted", id=216, selection="cat_dy_boosted", label="boosted", tags={"dy_boosted"})  # noqa: E501
+    _add_category(config, name="dy_res1b", id=211, selection=["cat_dy", "cat_res1b"], label="DY enriched res1b", tags={"dy_res1b"})  # noqa: E501
+    _add_category(config, name="dy_res2b", id=212, selection=["cat_dy", "cat_res2b"], label="DY enriched res2b", tags={"dy_res2b"})  # noqa: E501
+    _add_category(config, name="dy_boosted", id=216, selection=["cat_dy", "cat_boosted"], label="DY enriched boosted", tags={"dy_boosted"})  # noqa: E501
+
+    _add_category(config, name="dy_eq0j", id=218, selection=["cat_dy", "cat_eq0j"], label="DY enriched 0j", tags={"dy_eq0j"})  # noqa: E501
+    _add_category(config, name="dy_eq1j", id=219, selection=["cat_dy", "cat_eq1j"], label="DY enriched 1j", tags={"dy_eq1j"})  # noqa: E501
+    _add_category(config, name="dy_eq2j", id=221, selection=["cat_dy", "cat_eq2j"], label="DY enriched 2j", tags={"dy_eq2j"})  # noqa: E501
+    _add_category(config, name="dy_eq3j", id=222, selection=["cat_dy", "cat_eq3j"], label="DY enriched 3j", tags={"dy_eq3j"})  # noqa: E501
+    _add_category(config, name="dy_ge4j", id=223, selection=["cat_dy", "cat_ge4j"], label="DY enriched >4j", tags={"dy_ge4j"})  # noqa: E501
 
     # DY enriched with CCLUB definition
     _add_category(config, name="dyc", id=213, selection="cat_dyc", label="DY enriched (CCLUB)", tags={"dyc"})
-    _add_category(config, name="dyc_res1b", id=214, selection="cat_dyc_res1b", label="DY enriched res1b (CCLUB)", tags={"dyc_res1b"})  # noqa: E501
-    _add_category(config, name="dyc_res2b", id=215, selection="cat_dyc_res2b", label="DY enriched res2b (CCLUB)", tags={"dyc_res1b"})  # noqa: E501
-    _add_category(config, name="dyc_boosted", id=217, selection="cat_dyc_boosted", label="boosted", tags={"dyc_boosted"})  # noqa: E501
+    _add_category(config, name="dyc_res1b", id=214, selection=["cat_dyc", "cat_res1b"], label="DY enriched res1b (CCLUB)", tags={"dyc_res1b"})  # noqa: E501
+    _add_category(config, name="dyc_res2b", id=215, selection=["cat_dyc", "cat_res2b"], label="DY enriched res2b (CCLUB)", tags={"dyc_res2b"})  # noqa: E501
+    _add_category(config, name="dyc_boosted", id=217, selection=["cat_dyc", "cat_boosted"], label="DY enriched boosted (CCLUB)", tags={"dyc_boosted"})  # noqa: E501
 
-    _add_category(config, name="res1b", id=300, selection="cat_res1b", label="res1b")
-    _add_category(config, name="res2b", id=301, selection="cat_res2b", label="res2b")
-    _add_category(config, name="boosted", id=310, selection="cat_boosted", label="boosted")
+    _add_category(config, name="dyc_eq0j", id=224, selection=["cat_dyc", "cat_eq0j"], label="DY enriched 0j (CCLUB)", tags={"dyc_eq0j"})  # noqa: E501
+    _add_category(config, name="dyc_eq1j", id=225, selection=["cat_dyc", "cat_eq1j"], label="DY enriched 1j (CCLUB)", tags={"dyc_eq1j"})  # noqa: E501
+    _add_category(config, name="dyc_eq2j", id=226, selection=["cat_dyc", "cat_eq2j"], label="DY enriched 2j (CCLUB)", tags={"dyc_eq2j"})  # noqa: E501
+    _add_category(config, name="dyc_eq3j", id=227, selection=["cat_dyc", "cat_eq3j"], label="DY enriched 3j (CCLUB)", tags={"dyc_eq3j"})  # noqa: E501
+    _add_category(config, name="dyc_ge4j", id=228, selection=["cat_dyc", "cat_ge4j"], label="DY enriched >4j (CCLUB)", tags={"dyc_ge4j"})  # noqa: E501
 
     #
     # build groups
@@ -115,7 +126,14 @@ def add_categories(config: od.Config) -> None:
         # channels first
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-        "kin": CategoryGroup(["incl", "dy", "dy_res1b", "dy_res2b", "dy_boosted", "dyc", "dyc_res1b","dyc_res2b", "dyc_boosted", "tt"], is_complete=True, has_overlap=True),
+        "kin": CategoryGroup([
+            "incl",
+            "dy", "dy_res1b", "dy_res2b", "dy_boosted",
+            "dy_eq0j", "dy_eq1j", "dy_eq2j", "dy_eq3j", "dy_ge4j",
+            "dyc", "dyc_res1b", "dyc_res2b", "dyc_boosted",
+            "dyc_eq0j", "dyc_eq1j", "dyc_eq2j", "dyc_eq3j", "dyc_ge4j",
+            "tt",
+        ], is_complete=True, has_overlap=True),
         # relative sign last
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }

@@ -6,6 +6,7 @@ Exemplary selection methods.
 
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.util import maybe_import
+from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 
 ak = maybe_import("awkward")
 
@@ -91,15 +92,13 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     # fully inclusive selection
     return events, ak.ones_like(events.event) == 1
 
-
 @categorizer(uses={"Jet.{pt,phi}"})
 def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # two or more jets
     return events, ak.num(events.Jet.pt, axis=1) >= 2
-
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
 def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})
     di_bjet_mass = events.HHBJet.sum(axis=1).mass
     mask = (
         (di_bjet_mass >= 40) &
@@ -174,6 +173,9 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, mask
 
 
+# DY ENRICHED WITH CF/CCLUB DEFINITIONS
+
+
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # e/mu driven DY region: mll > 40 and met < 30 (to supress tau decays into e/mu)
@@ -189,108 +191,6 @@ def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
 @cat_dy.init
 def cat_dy_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
-
-
-@categorizer(uses={
-    "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
-    di_bjet_mass_window, di_tau_mass_window,
-    "Jet.{btagPNetB,mass,hhbtag,pt,eta,phi}",
-})
-def cat_dy_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-    # use same values as CCLUB
-    mask_dy = (
-        (leps.sum(axis=1).mass > 40) &
-        (events[self.config_inst.x.met_name].pt < 30)
-    )
-
-    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
-    tagged = events.Jet.btagPNetB > wp
-    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
-    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
-    mask_res1b = (
-        (ak.sum(tagged, axis=1) == 1) &
-        tau_mass_mask &
-        bjet_mass_mask
-    )
-    mask = mask_dy & mask_res1b
-
-    return events, mask
-
-
-@cat_dy_res1b.init
-def cat_dy_res1b_init(self: Categorizer) -> None:
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
-
-
-@categorizer(uses={
-    "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
-    di_bjet_mass_window, di_tau_mass_window,
-    "Jet.{btagPNetB,mass,hhbtag,pt,eta,phi}",
-})
-def cat_dy_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-    # use same values as CCLUB
-    mask_dy = (
-        (leps.sum(axis=1).mass > 40) &
-        (events[self.config_inst.x.met_name].pt < 30)
-    )
-
-    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
-    tagged = events.Jet.btagPNetB > wp
-    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
-    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
-    mask_res2b = (
-        (ak.sum(tagged, axis=1) == 2) &
-        tau_mass_mask &
-        bjet_mass_mask
-    )
-    mask = mask_dy & mask_res2b
-
-    return events, mask
-
-
-@cat_dy_res2b.init
-def cat_dy_res2b_init(self: Categorizer) -> None:
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
-
-
-@categorizer(uses={
-    cat_res1b, cat_res2b, di_tau_mass_window, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD,mass,eta}",
-})
-def cat_dy_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # exclude res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
-    # TODO: run3 wp are not released, falling back to run2
-
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-    mask_dy = (
-        (leps.sum(axis=1).mass > 40) &
-        (events[self.config_inst.x.met_name].pt < 30)
-    )
-    wp = self.config_inst.x.btag_working_points["particleNetMD"]["lp"]
-    tagged = events.FatJet.particleNet_XbbVsQCD > wp
-    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
-    mask_res1b = (
-        (ak.num(events.FatJet, axis=1) == 1) &
-        (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
-        (ak.sum(tagged, axis=1) >= 1) &
-        ~self[cat_res1b](events, **kwargs)[1] &
-        ~self[cat_res2b](events, **kwargs)[1] &
-        tau_mass_mask &
-        ak.any(events.FatJet.msoftdrop >= 30, axis=1) &
-        ak.any(events.FatJet.msoftdrop <= 450, axis=1)
-    )
-
-    mask = mask_dy & mask_res1b
-
-    return events, mask
-
-
-@cat_dy_boosted.init
-def cat_dy_boosted_init(self: Categorizer) -> None:
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
-
-# ALTERNATIVE DY DEFINITION FROM CCLUB
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
@@ -311,107 +211,31 @@ def cat_dyc_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
 
-@categorizer(uses={
-    "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
-    di_bjet_mass_window, di_tau_mass_window,
-    "Jet.{btagPNetB,mass,hhbtag,pt,eta,phi}",
-})
-def cat_dyc_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-    # CCLUB DY enriched region definition
-    mask_dyc = (
-        (leps.sum(axis=1).mass >= 70) &
-        (leps.sum(axis=1).mass <= 110) &
-        (events[self.config_inst.x.met_name].pt < 45)
-    )
+# NJET CATEGORIZERS
 
-    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
-    tagged = events.Jet.btagPNetB > wp
-    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
-    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
-    mask_res1b = (
-        (ak.sum(tagged, axis=1) == 1) &
-        tau_mass_mask &
-        bjet_mass_mask
-    )
-    mask = mask_dyc & mask_res1b
-
-    return events, mask
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_eq0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) == 0
 
 
-@cat_dyc_res1b.init
-def cat_dyc_res1b_init(self: Categorizer) -> None:
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_eq1j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) == 1
 
 
-@categorizer(uses={
-    "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
-    di_bjet_mass_window, di_tau_mass_window,
-    "Jet.{btagPNetB,mass,hhbtag,pt,eta,phi}",
-})
-def cat_dyc_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-    # CCLUB DY enriched region definition
-    mask_dyc = (
-        (leps.sum(axis=1).mass >= 70) &
-        (leps.sum(axis=1).mass <= 110) &
-        (events[self.config_inst.x.met_name].pt < 45)
-    )
-
-    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
-    tagged = events.Jet.btagPNetB > wp
-    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
-    events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
-    mask_res2b = (
-        (ak.sum(tagged, axis=1) == 2) &
-        tau_mass_mask &
-        bjet_mass_mask
-    )
-    mask = mask_dyc & mask_res2b
-
-    return events, mask
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_eq2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) == 2
 
 
-@cat_dyc_res2b.init
-def cat_dyc_res2b_init(self: Categorizer) -> None:
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_eq3j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) == 3
 
 
-@categorizer(uses={
-    cat_res1b, cat_res2b, di_tau_mass_window, "FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD,mass,eta}",
-})
-def cat_dyc_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # exclude res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
-    # TODO: run3 wp are not released, falling back to run2
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-    # CCLUB DY enriched region definition
-    mask_dyc = (
-        (leps.sum(axis=1).mass >= 70) &
-        (leps.sum(axis=1).mass <= 110) &
-        (events[self.config_inst.x.met_name].pt < 45)
-    )
-    wp = self.config_inst.x.btag_working_points["particleNetMD"]["lp"]
-    tagged = events.FatJet.particleNet_XbbVsQCD > wp
-    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
-    mask_res1b = (
-        (ak.num(events.FatJet, axis=1) == 1) &
-        (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
-        (ak.sum(tagged, axis=1) >= 1) &
-        ~self[cat_res1b](events, **kwargs)[1] &
-        ~self[cat_res2b](events, **kwargs)[1] &
-        tau_mass_mask &
-        ak.any(events.FatJet.msoftdrop >= 30, axis=1) &
-        ak.any(events.FatJet.msoftdrop <= 450, axis=1)
-    )
-
-    mask = mask_dyc & mask_res1b
-
-    return events, mask
-
-
-@cat_dyc_boosted.init
-def cat_dyc_boosted_init(self: Categorizer) -> None:
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) >= 4
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
