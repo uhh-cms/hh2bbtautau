@@ -24,7 +24,6 @@ np = maybe_import("numpy")
 )
 def default(self: HistProducer, events: ak.Array, **kwargs) -> ak.Array:
     weight = ak.Array(np.ones(len(events), dtype=np.float32))
-    events = self[category_ids](events, **kwargs)
     # build the full event weight
     if self.dataset_inst.is_mc and len(events):
         for column in self.weight_columns:
