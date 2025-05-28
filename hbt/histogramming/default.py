@@ -8,12 +8,15 @@ from columnflow.histogramming import HistProducer
 from columnflow.histogramming.default import cf_default
 from columnflow.columnar_util import Route
 from columnflow.util import maybe_import, pattern_matcher
+from columnflow.production.categories import category_ids
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
 
 
 @cf_default.hist_producer(
+    uses={category_ids},
+    produces={category_ids},
     # both produced columns and dependent shifts are defined in init below
     # options to keep or drop specific weights
     keep_weights=None,
@@ -21,7 +24,7 @@ np = maybe_import("numpy")
 )
 def default(self: HistProducer, events: ak.Array, **kwargs) -> ak.Array:
     weight = ak.Array(np.ones(len(events), dtype=np.float32))
-
+    events = self[category_ids](events, **kwargs)
     # build the full event weight
     if self.dataset_inst.is_mc and len(events):
         for column in self.weight_columns:
