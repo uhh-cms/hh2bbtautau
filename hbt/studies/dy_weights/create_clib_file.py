@@ -1,80 +1,48 @@
 # coding: utf-8
 
-from __future__ import annotations
+"""
+Toy script to explore the creation of a correctionlib file with multiple, mixed dependencies (categories, bin ranges,
+and formulas) for the DY weight correction in the hh2bbtautau analysis.
+"""
 
-import gzip
+from __future__ import annotations
 
 import correctionlib.schemav2 as cs
 
 
-# constants ############################################################################################################
-
-inf = float("inf")
-ninf = float("-inf")
-
-
-# formula definitions ##################################################################################################
-
-# nested structure of formulas: year -> (min_njet, max_njet) -> syst -> [(lower_bound, upper_bound, formula), ...]
-dy_weight_data = {
-    "2022": {
-        "nominal": {
-            (0, 1): [
-                (0, 50, "1.0"),
-                (50, inf, "1.1"),
-            ],
-            (1, 11): [
-                (0, 50, "1.0"),
-                (50, inf, "1.1"),
-            ],
-        },
-        "up1": {
-            (0, 1): [
-                (0, inf, "1.05"),
-            ],
-            (1, 11): [
-                (0, inf, "1.05"),
-            ],
-        },
-        "down1": {
-            (0, 1): [
-                (0, inf, "0.95"),
-            ],
-            (1, 11): [
-                (0, inf, "0.95"),
-            ],
-        },
-    },
-}
-
-
 # helpers ##############################################################################################################
 
-def step_expr(x: float, up: bool, steepness: float = 1000.0) -> str:
+def step_expr(x: float | int, up: bool, steepness: float | int = 1000) -> str:
     """
     Creates a "step" expression using an error function reach a plateau of 1 at *x*. When *up* is *True*, the step
     increases at *x* (zero-ing all values to the left), otherwise it decreases (zero-ing all values to the right).
     """
     sign = "" if up else "-"
-    shifted_x = f"(x-{x})" if x else "x"
+    if x < 0:
+        shifted_x = f"(x+{-x})"
+    elif x > 0:
+        shifted_x = f"(x-{x})"
+    else:
+        shifted_x = "x"
     return f"0.5*(erf({sign}{steepness}*{shifted_x})+1)"
 
 
-def expr_in_range(expr: str, lower_bound: float, upper_bound: float) -> str:
+def expr_in_range(expr: str, lower_bound: float | int, upper_bound: float | int) -> str:
     """
     Multiplies an expression with step functions so that it evaluates to zero outside a range given by *lower_bound* and
     *upper_bound*.
     """
     assert lower_bound < upper_bound, "Lower bound must be smaller than upper bound."
     # distinguish cases
+    inf = float("inf")
     bounds = (lower_bound, upper_bound)
-    if bounds == (ninf, inf):
+    if bounds == (-inf, inf):
         return expr
-    if bounds == (ninf, 0):
+    if bounds == (-inf, 0):
         return f"({expr})*{step_expr(0, up=False)}"
     if bounds == (0, inf):
         return f"({expr})*{step_expr(0, up=True)}"
-    if lower_bound == ninf:
+    if lower_bound == -inf:
         return f"({expr})*{step_expr(upper_bound, up=False)}"
     if upper_bound == inf:
         return f"({expr})*{step_expr(lower_bound, up=True)}"
@@ -112,7 +80,7 @@ def create_dy_weight_correction(dy_weight_data: dict) -> cs.Correction:
                     expr_in_range(formula, lower_bound, upper_bound)
                     for lower_bound, upper_bound, formula in formulas
                 )
-                # add formula object to binning contnet
+                # add formula object to binning content
                 binning_content.append(
                     cs.Formula(
                         nodetype="formula",
@@ -121,7 +89,7 @@ def create_dy_weight_correction(dy_weight_data: dict) -> cs.Correction:
                         expression=expr,
                     ),
                 )
-            # add a new category item
+            # add a new category item for the jet bins
             njet_edges = sorted(set(sum(map(list, syst_data.keys()), [])))
             era_category_content.append(
                 cs.CategoryItem(
@@ -149,16 +117,51 @@ def create_dy_weight_correction(dy_weight_data: dict) -> cs.Correction:
     return dy_weight_correction
 
 
-# correction set creation ##############################################################################################
+if __name__ == "__main__":
+    import gzip
 
-# create and save the correction set
-cset = cs.CorrectionSet(
-    schema_version=2,
-    description="Corrections derived for the hh2bbtautau analysis.",
-    corrections=[
-        create_dy_weight_correction(dy_weight_data),
-    ],
-)
+    # nested structure of formulas
+    # year -> syst -> (min_njet, max_njet) -> [(lower_bound, upper_bound, formula), ...]
+    inf = float("inf")
+    dy_weight_data = {
+        "2022": {
+            "nominal": {
+                (0, 1): [
+                    (0.0, 50.0, "1.0"),
+                    (50, inf, "1.1"),
+                ],
+                (1, 11): [
+                    (0.0, 50.0, "1.0"),
+                    (50.0, inf, "1.1"),
+                ],
+            },
+            "up1": {
+                (0, 1): [
+                    (0.0, inf, "1.05"),
+                ],
+                (1, 11): [
+                    (0.0, inf, "1.05"),
+                ],
+            },
+            "down1": {
+                (0, 1): [
+                    (0.0, inf, "0.95"),
+                ],
+                (1, 11): [
+                    (0.0, inf, "0.95"),
+                ],
+            },
+        },
+    }
 
-with gzip.open("hbt_corrections.json.gz", "wt") as f:
-    f.write(cset.json(exclude_unset=True))
+    # create and save the correction set
+    cset = cs.CorrectionSet(
+        schema_version=2,
+        description="Corrections derived for the hh2bbtautau analysis.",
+        corrections=[
+            create_dy_weight_correction(dy_weight_data),
+        ],
+    )
+
+    with gzip.open("hbt_corrections.json.gz", "wt") as f:
+        f.write(cset.json(exclude_unset=True))
