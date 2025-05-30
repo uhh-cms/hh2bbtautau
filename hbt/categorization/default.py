@@ -92,9 +92,11 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     # fully inclusive selection
     return events, ak.ones_like(events.event) == 1
 
+
 @categorizer(uses={"Jet.{pt,phi}"})
 def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, ak.num(events.Jet.pt, axis=1) >= 2
+
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
 def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
@@ -234,8 +236,39 @@ def cat_eq3j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 
 
 @categorizer(uses={"Jet.{pt,phi}"})
+def cat_eq4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) == 4
+
+
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_eq5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) == 5
+
+
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_eq6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) == 6
+
+
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_eq7j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) == 7
+
+
+@categorizer(uses={"Jet.{pt,phi}"})
 def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, ak.num(events.Jet.pt, axis=1) >= 4
+
+
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_ge6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) >= 6
+
+
+@categorizer(uses={"Jet.{pt,phi}"})
+def cat_ge7j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet.pt, axis=1) >= 7
+
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})

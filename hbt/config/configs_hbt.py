@@ -663,6 +663,17 @@ def add_config(
         "default": [
             "ee__dy__os", "mumu__dy__os", "emu__tt__os",
         ],
+        "dy_groups": (dy_groups := [
+            f"mumu__{var}_{kin}__os" for var in ["dy", "dyc"]
+            for kin in [
+                # "eq0j", "eq1j", "eq2j", "eq3j", "ge4j",
+                "eq4j", "eq5j", "eq6j", "eq7j", "ge6j", "ge7j",
+            ]
+        ]),
+
+        "default_dy": [
+            *dy_groups,
+        ],
     }
 
     # variable groups for conveniently looping over certain variables
