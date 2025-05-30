@@ -26,7 +26,7 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
 
         > law run hbt.ComuteDYWeights \
             --config 22pre_v14 \
-            --datasets tt_sl_powheg \
+            --processes sm_nlo_data_bkg \
             --version prod8_dy \
             --hist-producer no_dy_weight \
             --categories mumu__dy__os \
@@ -67,7 +67,7 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             h_ = inp.collection[0]["hists"][self.variable].load(formatter="pickle")
 
             # select and sum over leaf categories
-            h_ = h_[{"category": [hist.loc(cat.name) for cat in leaf_category_insts]}]
+            h_ = h_[{"category": [hist.loc(cat.name) for cat in leaf_category_insts if cat.name in h_.axes["category"]]}]
             h_ = h_[{"category": sum}]
 
             # use the nominal shift only
@@ -101,7 +101,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
             config: ComuteDYWeights.req(
                 self,
                 config=config,
-                datasets=("tt_sl_powheg", "tt_dl_powheg"),  # supports groups
+                processes=("sm_nlo_data_bkg",),  # supports groups
                 hist_producer="no_dy_weight",
                 categories=("mumu__dy__os",),
                 variables=("njets-dilep_pt",),
@@ -155,36 +155,118 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     """
     # prepare constants
     inf = float("inf")
+    import numpy as np
+    from scipy import stats, optimize, special
+    from matplotlib import pyplot as plt
     era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
 
-    # dummy values, but this should be where the magic happens
+    # loop over njets bounds
+    h = h[:, hist.loc(1.5):hist.loc(2.5),...][{"njets": sum}]
+    dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
+    data_names = [name for name in h.axes["process"] if name.startswith("data")]
+    mc_names = [name for name in h.axes["process"] if not name.startswith(("dy", "data"))]
+
+    dy_h = h[{"process": list(map(hist.loc, dy_names))}][{"process": sum}]
+    data_h = h[{"process": list(map(hist.loc, data_names))}][{"process": sum}]
+    mc_h = h[{"process": list(map(hist.loc, mc_names))}][{"process": sum}]
+
+    dy_values = dy_h.view().value
+    data_values = data_h.view().value
+    mc_values = mc_h.view().value
+
+    dy_err = dy_h.view().variance**0.5
+    data_err = data_h.view().variance**0.5
+    mc_err = mc_h.view().variance**0.5
+
+    ratio_values = (data_values - mc_values) / dy_values
+    ratio_err = (1 / dy_values) * np.sqrt(data_err**2 + mc_err**2 + (ratio_values * dy_err)**2)
+
+    def window(x, r, s):
+        """
+        x: dependent variable (i.g., dilep_pt)
+        r: regime boundary between two fit functions
+        s: sign of erf function (+1 to active second fit function, -1 to active first fit function)
+        """
+        return 0.5 * (special.erf(s * 1000 * (x - r)) + 1)
+
+    def fit_function(x, c, n, mu, sigma, a, b, r):
+
+        """
+        A fit function.
+        x: dependent variable (i.g., dilep_pt)
+        c: Gaussian offset
+        n: Gaussian normalization
+        mu and sigma: Gaussian parameters
+        a and b: slope parameters
+        r: regime boundary between Guassian and linear fits
+        """
+        # r = 30  # regime boundary between Guassian and linear fits
+
+        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
+        pol = a + b * x
+
+        # return it later as two seperate strings
+        return window(x, r, -1) * gauss + window(x, r, 1) * pol
+
+    bin_centers = dy_h.axes[-1].centers
+
+    # define starting values for c, n, mu, sigma, a, b, r and calculate fitted parameters
+    starting_values = [1, 1, 10, 3, 1, 0, 50]
+    param, _ = optimize.curve_fit(
+        fit_function, bin_centers, ratio_values,
+        p0=starting_values, method="trf",
+        sigma=ratio_err, absolute_sigma=True,
+        bounds=(
+            [0.8, 0, 0, 0, 0, -1, 0],  # lower bounds
+            [1.2, 10, 50, 20, 2, 2, 60],  # upper bounds
+        ),
+    )
+
+    """
+    s = np.linspace(0, 200, 1000)
+    y = [fit_function(v, *param) for v in s]
+
+    fig, ax = plt.subplots()
+    ax.plot(s, y)
+    ax.errorbar(bin_centers, ratio_values, marker="o", yerr=ratio_err)
+    ax.set_xlabel("X values")
+    ax.set_ylabel("DY weight values")
+    ax.set_ylim(0.5, 1.5)
+
+    ax.set_title("Fit function for DY weights")
+    ax.grid(True)
+    fig.savefig("plot14.pdf")
+
+    from IPython import embed
+    embed(header="dy weights")
+    """
+    c, n, mu, sigma, a, b, r = param
+
     return {
         era: {
             "nominal": {
-                (0, 1): [
-                    (0.0, 50.0, "1.0"),
-                    (50, inf, "1.1"),
-                ],
-                (1, 11): [
-                    (0.0, 50.0, "1.0"),
-                    (50.0, inf, "1.1"),
+                (0, 500): [
+                    (0.0, 50.0, f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})**2))"),
+                    (50, inf, f"{a}+{b}*x"),
                 ],
             },
-            "up": {
-                (0, 1): [
-                    (0.0, inf, "1.05"),
-                ],
-                (1, 11): [
-                    (0.0, inf, "1.05"),
-                ],
-            },
-            "down": {
-                (0, 1): [
-                    (0.0, inf, "0.95"),
-                ],
-                (1, 11): [
-                    (0.0, inf, "0.95"),
-                ],
-            },
+            # """
+            # "up": {
+            #     (0, 1): [
+            #         (0.0, inf, "1.05"),
+            #     ],
+            #     (1, 11): [
+            #         (0.0, inf, "1.05"),
+            #     ],
+            # },
+            # "down": {
+            #     (0, 1): [
+            #         (0.0, inf, "0.95"),
+            #     ],
+            #     (1, 11): [
+            #         (0.0, inf, "0.95"),
+            #     ],
+            # },
+            # """
         },
     }

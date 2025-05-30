@@ -146,12 +146,12 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 dict_hists[region + "_data"] = (hist_data)
                 dict_hists[region + "_diff"] = (hist_diff)
 
-                print(dict_hists[region + "_mc"])
-                print(dict_hists[region + "_data"])
-                print("Hist data - non-DY MC:")
-                print(dict_hists[region + "_diff"])
-                print("DY Hist:")
-                print(dict_hists[region + "_dy"])
+                # print(dict_hists[region + "_mc"])
+                # print(dict_hists[region + "_data"])
+                # print("Hist data - non-DY MC:")
+                # print(dict_hists[region + "_diff"])
+                # print("DY Hist:")
+                # print(dict_hists[region + "_dy"])
 
                 # calculate the ratio factor per bin
                 num_region = dict_hists[region + "_diff"]
