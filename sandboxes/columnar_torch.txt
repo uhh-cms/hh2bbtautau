@@ -1,4 +1,4 @@
-# version 4
+# version 5
 
 -r ../modules/columnflow/sandboxes/columnar.txt
 
@@ -10,3 +10,6 @@ torchdata~=0.10
 pytorch-ignite~=0.5.1
 scikit-learn~=1.6.1
 shap
+onnx
+onnxscript
+onnxruntime
