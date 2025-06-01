@@ -178,7 +178,9 @@ if not isinstance(torch, MockModule):
 
         def forward(self, x):
             # shift input array by their respective minimum and slice translation accordingly
-            output = self.map[self.indices, x - self.min]
+            # map to int to be used as indices
+            shifted = (x - self.min).to(torch.int32)
+            output = self.map[self.indices, shifted]
             return output
 
         def to(self, *args, **kwargs):
