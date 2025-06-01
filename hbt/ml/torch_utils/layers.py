@@ -526,7 +526,13 @@ if not isinstance(torch, MockModule):
             return super().to(*args, **kwargs)
 
     class RotatePhiLayer(nn.Module):
-        def __init__(self, columns, ref_phi_columns = None, rotate_columns = None, activate=False):
+        def __init__(
+            self,
+            columns,
+            ref_phi_columns = ["lepton1", "lepton2"],
+            rotate_columns = ["bjet1", "bjet2", "fatjet", "lepton1", "lepton2"],
+            activate=False
+        ):
             """
             Rotate specific given *rotate_columns* to a *ref_phi*.
 
@@ -535,13 +541,13 @@ if not isinstance(torch, MockModule):
             super().__init__()
             self.columns = columns
             # leptons reference is rotated to 0
-            self.rotate_columns = ["bjet1", "bjet2", "fatjet", "lepton1", "lepton2"] if rotate_columns is None else rotate_columns
-            self.ref_phi_columns = ["lepton1", "lepton2"] if ref_phi_columns is None else ref_phi_columns
+            self.columns_to_rotate = rotate_columns
+            self.columns_ref_phi = ref_phi_columns
             self.activate=False
-            # assert (len_ref := len(self.ref_phi_columns == 2)), f"Reference columns needs to have 2, but have {len_ref}"
+            # assert (len_ref := len(self.columns_ref_phi == 2)), f"Reference columns needs to have 2, but have {len_ref}"
 
-            self.ref_indices = self.find_indices_of(self.columns, self.ref_phi_columns, True)
-            self.rotate_indices = self.find_indices_of(self.columns, self.rotate_columns, True)
+            self.ref_indices = self.find_indices_of(self.columns, self.columns_ref_phi, True)
+            self.rotate_indices = self.find_indices_of(self.columns, self.columns_to_rotate, True)
 
         def find_indices_of(self, search_in, search_for, expand=False):
             if expand:
@@ -565,7 +571,7 @@ if not isinstance(torch, MockModule):
             return pt * torch.cos(new_phi), pt * torch.sin(new_phi)
 
         def calc_ref_phi(self, array):
-            (ref1_px, ref1_py), (ref2_px, ref2_py) = self.expand(self.ref_phi_columns[0]), self.expand(self.ref_phi_columns[1])
+            (ref1_px, ref1_py), (ref2_px, ref2_py) = self.expand(self.columns_ref_phi[0]), self.expand(self.columns_ref_phi[1])
 
             slice_ref = self.slicer_factory(self.ref_indices)
 
@@ -583,12 +589,12 @@ if not isinstance(torch, MockModule):
         def rotate_columns(self, array, ref_phi):
             # px, py pairs in fixed order
             slice_rotate = self.slicer_factory(self.rotate_indices)
-            for col in self.rotate_columns:
+            for col in self.columns_to_rotate:
                 px, py = self.expand(col)
                 new_px, new_py = self.rotate_pt_to_phi(
                     px = slice_rotate(array, px),
                     py = slice_rotate(array, py),
-                    ref_phie = ref_phi
+                    ref_phi = ref_phi
                 )
                 # replace inplace
                 array[:, self.rotate_indices[px]] = new_px
