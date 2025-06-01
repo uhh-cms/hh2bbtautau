@@ -281,6 +281,7 @@ if not isinstance(torch, MockModule):
             category_dims: int | None = None,
             expected_categorical_inputs: dict[list[int]] | None = None,
             empty: int = 15,
+            preprocessing_layer = None
         ):
             """
             Enables the use of categorical and continous features in a single model.
@@ -307,6 +308,8 @@ if not isinstance(torch, MockModule):
                         categories=categorical_inputs,
                         empty=empty,
                     )
+
+            self.preprocessing_layer = nn.Identity if preprocessing_layer is None else preprocessing_layer
 
             if self.embedding_layer:
                 self.ndim += self.embedding_layer.ndim
@@ -498,3 +501,78 @@ if not isinstance(torch, MockModule):
             if isinstance(self.std, torch.Tensor):
                 self.std = self.std.to(*args, **kwargs)
             return super().to(*args, **kwargs)
+
+    class RotatePhiLayer(nn.Module):
+        def __init__(self, columns, ref_phi_columns = None, rotate_columns = None, activate=False):
+            """
+            Rotate specific given *rotate_columns* to a *ref_phi*.
+
+            Args:
+            """
+            super().__init__()
+            self.columns = columns
+            self.rotate_columns = ["bjet1", "bjet2", "fatjet"] if rotate_columns is None else rotate_columns
+            self.ref_phi_columns = ["lepton1", "lepton2"] if ref_phi_columns is None else ref_phi_columns
+            self.activate=False
+            # assert (len_ref := len(self.ref_phi_columns == 2)), f"Reference columns needs to have 2, but have {len_ref}"
+
+            self.ref_indices = self.find_indices_of(self.columns, self.ref_phi_columns, True)
+            self.rotate_indices = self.find_indices_of(self.columns, self.rotate_columns, True)
+
+        def find_indices_of(self, search_in, search_for, expand=False):
+            if expand:
+                search_for = self.expand(search_for)
+            return dict(zip(search_for, map(search_in.index, search_for)))
+
+        def expand(self, columns):
+            # adds px, py to columns
+            columns = [columns] if isinstance(columns, str) else columns
+            return [f"{col}.{suffix}" for suffix in ("px", "py") for col in columns]
+
+        def calc_phi(self, x, y):
+            return torch.arctan2(y, x)
+
+        def rotate_pt_to_phi(self, px, py, ref_phi):
+            # rotate px, py relative to ref_phi
+            pt = torch.sqrt(torch.square(px) + torch.square(py))
+            phi = self.calc_phi(py, px)
+            new_phi = phi - ref_phi
+            return pt * torch.cos(new_phi), pt * torch.sin(new_phi)
+
+        def calc_ref_phi(self, array):
+            (ref1_px, ref1_py), (ref2_px, ref2_py) = self.expand(self.ref_phi_columns[0]), self.expand(self.ref_phi_columns[1])
+
+            slice_ref = self.slicer_factory(self.ref_indices)
+
+            ref_phi = self.calc_phi(
+                slice_ref(array, ref2_py) + slice_ref(array, ref1_py),
+                slice_ref(array, ref2_px) + slice_ref(array, ref1_px),
+            )
+            return ref_phi
+
+        def slicer_factory(self, ref_indices):
+            # helper to slice with ref_indices by name
+            return lambda array, name: array[:, ref_indices.get(name)]
+
+        def rotate_columns_inplace(self, array, ref_phi):
+            from IPython import embed; embed(header="iniside rotate - 553 in layers.py ")
+            # px, py pairs in fixed order
+            slice_rotate = self.slicer_factory(self.rotate_indices)
+            for col in self.rotate_columns:
+                px, py = self.expand(col)
+                new_px, new_py = self.rotate_pt_to_phi(
+                    slice_rotate(array, px),
+                    slice_rotate(array, py),
+                    ref_phi
+                )
+
+                # replace inplace
+                array[:, self.rotate_indices[px]] = new_px
+                array[:, self.rotate_indices[py]] = new_py
+
+        def forward(self, x):
+            if self.activate:
+                self.rotate_columns_inplace(x, self.calc_ref_phi(x))
+                return x
+            else:
+                return x
