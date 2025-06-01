@@ -97,7 +97,6 @@ if not isinstance(torch, MockModule):
             Args:
                 input_tensor (torch.tensor): Input tensor of categorical features.
             """
-            from IPython import embed; embed(header="check - 99 in layers.py ")
             # reshape to have features in the first dimension
             input_tensor = input_tensor.transpose(0,1)
             for i, categorie in enumerate(self.categories):
@@ -283,7 +282,9 @@ if not isinstance(torch, MockModule):
             category_dims: int | None = None,
             expected_categorical_inputs: dict[list[int]] | None = None,
             empty: int = 15,
-            preprocessing_layer = None
+            std_layer = None,
+            rotation_layer = None,
+            padding_continous_layer = None,
         ):
             """
             Enables the use of categorical and continous features in a single model.
@@ -310,21 +311,41 @@ if not isinstance(torch, MockModule):
                         categories=categorical_inputs,
                         empty=empty,
                     )
-
-            self.preprocessing_layer = nn.Identity if preprocessing_layer is None else preprocessing_layer
+            # TODO pack in list
 
             if self.embedding_layer:
                 self.ndim += self.embedding_layer.ndim
+
+            self.rotation_layer = self.dummy_identity(rotation_layer)
+            self.std_layer = self.dummy_identity(std_layer)
+            self.padding_continous_layer = self.dummy_identity(padding_continous_layer)
+
+        def dummy_identity(self, layer):
+            if layer is None:
+                return nn.Identity
+            return layer
+
+        def cateogrical_preprocessing_pipeline(self, x):
+            return self.embedding_layer(x)
+
+        def continous_preprocessing_pipeline(self, x):
+            # preprocessing
+            x = x.to(torch.float32)
+            x = self.padding_continous_layer(x)
+            x = self.rotation_layer(x)
+            x = self.std_layer(x)
+            return x
+
 
         def forward(self, args):
             categorical_inputs, continuous_inputs = args
             x = torch.cat(
                 [
-                    continuous_inputs,
-                    self.embedding_layer(categorical_inputs),
+                    self.continous_preprocessing_pipeline(continuous_inputs),
+                    self.cateogrical_preprocessing_pipeline(categorical_inputs)
                 ],
                 dim=1,
-            )
+            ).to(torch.float32)
             return x
 
         def to(self, *args, **kwargs):
