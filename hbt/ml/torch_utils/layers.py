@@ -534,7 +534,8 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
             self.columns = columns
-            self.rotate_columns = ["bjet1", "bjet2", "fatjet"] if rotate_columns is None else rotate_columns
+            # leptons reference is rotated to 0
+            self.rotate_columns = ["bjet1", "bjet2", "fatjet", "lepton1", "lepton2"] if rotate_columns is None else rotate_columns
             self.ref_phi_columns = ["lepton1", "lepton2"] if ref_phi_columns is None else ref_phi_columns
             self.activate=False
             # assert (len_ref := len(self.ref_phi_columns == 2)), f"Reference columns needs to have 2, but have {len_ref}"
@@ -557,9 +558,10 @@ if not isinstance(torch, MockModule):
 
         def rotate_pt_to_phi(self, px, py, ref_phi):
             # rotate px, py relative to ref_phi
+            # returns px, py rotated
             pt = torch.sqrt(torch.square(px) + torch.square(py))
-            phi = self.calc_phi(py, px)
-            new_phi = phi - ref_phi
+            old_phi = self.calc_phi(x=px, y=py)
+            new_phi = old_phi - ref_phi
             return pt * torch.cos(new_phi), pt * torch.sin(new_phi)
 
         def calc_ref_phi(self, array):
@@ -568,8 +570,8 @@ if not isinstance(torch, MockModule):
             slice_ref = self.slicer_factory(self.ref_indices)
 
             ref_phi = self.calc_phi(
-                slice_ref(array, ref2_py) + slice_ref(array, ref1_py),
-                slice_ref(array, ref2_px) + slice_ref(array, ref1_px),
+                x=(slice_ref(array, ref2_px) + slice_ref(array, ref1_px)),
+                y=(slice_ref(array, ref2_py) + slice_ref(array, ref1_py)),
             )
             return ref_phi
 
@@ -577,25 +579,22 @@ if not isinstance(torch, MockModule):
             # helper to slice with ref_indices by name
             return lambda array, name: array[:, ref_indices.get(name)]
 
-        def rotate_columns_inplace(self, array, ref_phi):
-            from IPython import embed; embed(header="iniside rotate - 553 in layers.py ")
+
+        def rotate_columns(self, array, ref_phi):
             # px, py pairs in fixed order
             slice_rotate = self.slicer_factory(self.rotate_indices)
             for col in self.rotate_columns:
                 px, py = self.expand(col)
                 new_px, new_py = self.rotate_pt_to_phi(
-                    slice_rotate(array, px),
-                    slice_rotate(array, py),
-                    ref_phi
+                    px = slice_rotate(array, px),
+                    py = slice_rotate(array, py),
+                    ref_phie = ref_phi
                 )
-
                 # replace inplace
                 array[:, self.rotate_indices[px]] = new_px
                 array[:, self.rotate_indices[py]] = new_py
+            return array
 
         def forward(self, x):
-            if self.activate:
-                self.rotate_columns_inplace(x, self.calc_ref_phi(x))
-                return x
-            else:
-                return x
+            ref_phi = self.calc_ref_phi(x)
+            return self.rotate_columns(x, ref_phi)
