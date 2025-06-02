@@ -110,7 +110,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         }
 
     def output(self):
-        return self.target("hbt_corrections.json.gz")
+        return self.target("hbt_corrections_incl.json.gz")
 
     def run(self):
         import correctionlib.schemav2 as cs
@@ -160,34 +160,14 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     from matplotlib import pyplot as plt
     era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
 
-    # loop over njets bounds
-    h = h[:, hist.loc(1.5):hist.loc(2.5),...][{"njets": sum}]
-    dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
-    data_names = [name for name in h.axes["process"] if name.startswith("data")]
-    mc_names = [name for name in h.axes["process"] if not name.startswith(("dy", "data"))]
-
-    dy_h = h[{"process": list(map(hist.loc, dy_names))}][{"process": sum}]
-    data_h = h[{"process": list(map(hist.loc, data_names))}][{"process": sum}]
-    mc_h = h[{"process": list(map(hist.loc, mc_names))}][{"process": sum}]
-
-    dy_values = dy_h.view().value
-    data_values = data_h.view().value
-    mc_values = mc_h.view().value
-
-    dy_err = dy_h.view().variance**0.5
-    data_err = data_h.view().variance**0.5
-    mc_err = mc_h.view().variance**0.5
-
-    ratio_values = (data_values - mc_values) / dy_values
-    ratio_err = (1 / dy_values) * np.sqrt(data_err**2 + mc_err**2 + (ratio_values * dy_err)**2)
-
     def window(x, r, s):
         """
         x: dependent variable (i.g., dilep_pt)
         r: regime boundary between two fit functions
         s: sign of erf function (+1 to active second fit function, -1 to active first fit function)
         """
-        return 0.5 * (special.erf(s * 1000 * (x - r)) + 1)
+        steepness = 0.1  # steepness of the erf function
+        return 0.5 * (special.erf(s * steepness * (x - r)) + 1)
 
     def fit_function(x, c, n, mu, sigma, a, b, r):
 
@@ -208,46 +188,126 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         # return it later as two seperate strings
         return window(x, r, -1) * gauss + window(x, r, 1) * pol
 
+    # loop over njets bounds
+    # njets = [2,3,4,5,6,7,8,9,10]
+    # for nj in njets:
+    #    jet_tupple = (nj - 0.5, nj + 0.5)
+    #
+
+    # h = h[:, hist.loc(jet_tupple[0]):hist.loc(jet_tupple[1]), ...]
+
+    njet = "incl"
+
+    if njet == "incl":
+        h = h
+    if njet == "2j":
+        h = h[:, hist.loc(1.5):hist.loc(2.5), ...]
+    elif njet == "3j":
+        h = h[:, hist.loc(2.5):hist.loc(3.5), ...]
+    elif njet == ">=4j":
+        h = h[:, hist.loc(3.5):, ...]
+    elif njet == ">=7j":
+        h = h[:, hist.loc(6.5):, ...]
+
+    dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
+    data_names = [name for name in h.axes["process"] if name.startswith("data")]
+    mc_names = [name for name in h.axes["process"] if not name.startswith(("dy", "data"))]
+
+    dy_h = h[{"process": list(map(hist.loc, dy_names))}][{"process": sum}]
+    data_h = h[{"process": list(map(hist.loc, data_names))}][{"process": sum}]
+    mc_h = h[{"process": list(map(hist.loc, mc_names))}][{"process": sum}]
+
+    # get values and errors, and sum over njets bins
+    dy_values = (dy_h.view().value).sum(axis=0)
+    data_values = (data_h.view().value).sum(axis=0)
+    mc_values = (mc_h.view().value).sum(axis=0)
+    dy_err = (dy_h.view().variance**0.5).sum(axis=0)
+    data_err = (data_h.view().variance**0.5).sum(axis=0)
+    mc_err = (mc_h.view().variance**0.5).sum(axis=0)
+
+    # print(dy_values)
+    # print("dy, data and mc statistical ERRORS")
+    # print(dy_err)
+    # print(data_err)
+    # print(mc_err)
+
+    ratio_values = (data_values - mc_values) / dy_values
+    ratio_err = (1 / dy_values) * np.sqrt(data_err**2 + mc_err**2 + (ratio_values * dy_err)**2)
+
+    print("ratio values:")
+    print(ratio_values)
+    # print(ratio_err)
+
+    # fill nans/infs and negative errors with 0
+    ratio_values = np.nan_to_num(ratio_values, nan=0.0)
+    ratio_values = np.where(np.isinf(ratio_values), 0.0, ratio_values)
+    ratio_values = np.where(ratio_values < 0, 0.0, ratio_values)
+    ratio_err = np.nan_to_num(ratio_err, nan=0.0)
+    ratio_err = np.where(np.isinf(ratio_err), 0.0, ratio_err)
+    ratio_err = np.where(ratio_err < 0, 0.0, ratio_err)
+
     bin_centers = dy_h.axes[-1].centers
 
-    # define starting values for c, n, mu, sigma, a, b, r and calculate fitted parameters
+    # define starting values for c, n, mu, sigma, a, b, r with respective bounds
     starting_values = [1, 1, 10, 3, 1, 0, 50]
-    param, _ = optimize.curve_fit(
-        fit_function, bin_centers, ratio_values,
-        p0=starting_values, method="trf",
-        sigma=ratio_err, absolute_sigma=True,
-        bounds=(
-            [0.8, 0, 0, 0, 0, -1, 0],  # lower bounds
-            [1.2, 10, 50, 20, 2, 2, 60],  # upper bounds
-        ),
-    )
+    lower_bounds = [0.8, 0, 0, 0, 0, -1, 0]
+    upper_bounds = [1.2, 10, 50, 20, 2, 2, 60]
 
-    """
+    try:
+        # perform the fit
+        param, _ = optimize.curve_fit(
+            fit_function,
+            bin_centers,
+            ratio_values,
+            p0=starting_values, method="trf",
+            sigma=np.maximum(ratio_err, 1e-5),
+            absolute_sigma=True,
+            bounds=(lower_bounds, upper_bounds),
+        )
+    except:
+        from IPython import embed
+        embed(header="Fit failed ! Start debuging ... ")
+
     s = np.linspace(0, 200, 1000)
     y = [fit_function(v, *param) for v in s]
 
-    fig, ax = plt.subplots()
-    ax.plot(s, y)
-    ax.errorbar(bin_centers, ratio_values, marker="o", yerr=ratio_err)
-    ax.set_xlabel("X values")
-    ax.set_ylabel("DY weight values")
-    ax.set_ylim(0.5, 1.5)
-
-    ax.set_title("Fit function for DY weights")
-    ax.grid(True)
-    fig.savefig("plot14.pdf")
-
-    from IPython import embed
-    embed(header="dy weights")
-    """
     c, n, mu, sigma, a, b, r = param
+
+    # build string expressions for the fit function
+    gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})**2))"
+    pol_str = f"{a}+{b}*x"
+
+    rounded = [round(x, 4) for x in [c, n, mu, sigma, a, b, r]]
+    # for param in rounded:
+        # print(param)
+
+    """
+    fig, ax = plt.subplots()
+    ax.plot(s, y, color="grey")
+    ax.errorbar(
+        bin_centers,
+        ratio_values,
+        yerr=ratio_err,
+        fmt=".",
+        color="black",
+        linestyle="none",
+        ecolor="black",
+        elinewidth=0.5,
+    )
+    ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
+    ax.set_ylabel("Ratio")
+    ax.set_ylim(0.4, 1.5)
+    ax.set_title(f"Fit function for NLO 2022preEE, njets {njet}")
+    ax.grid(True)
+    fig.savefig(f"plot_{njet}.pdf")
+    """
 
     return {
         era: {
             "nominal": {
                 (0, 500): [
-                    (0.0, 50.0, f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})**2))"),
-                    (50, inf, f"{a}+{b}*x"),
+                    (0.0, r, gaussian_str),
+                    (r, inf, pol_str),
                 ],
             },
             # """
