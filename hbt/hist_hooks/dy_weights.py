@@ -146,13 +146,6 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 dict_hists[region + "_data"] = (hist_data)
                 dict_hists[region + "_diff"] = (hist_diff)
 
-                # print(dict_hists[region + "_mc"])
-                # print(dict_hists[region + "_data"])
-                # print("Hist data - non-DY MC:")
-                # print(dict_hists[region + "_diff"])
-                # print("DY Hist:")
-                # print(dict_hists[region + "_dy"])
-
                 # calculate the ratio factor per bin
                 num_region = dict_hists[region + "_diff"]
                 den_region = dict_hists[region + "_dy"]
@@ -161,10 +154,6 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 factor = (num_region / den_region)[:, None]
                 factor_values = np.squeeze(np.nan_to_num(factor()), axis=0)
                 factor_variances = factor(sn.UP, sn.ALL, unc=True)**2
-
-                print("-----------")
-                print(factor)
-                print("-----------")
 
                 # insert per bin ratio of (data-MC)/DY into plotting histogram
                 cat_axis = factor_hist.axes["category"]
