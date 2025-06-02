@@ -1221,12 +1221,15 @@ def add_config(
 
     # dy specific methods
     if run == 3:
-        from columnflow.production.cms.dy import DrellYanConfig
+        from columnflow.production.cms.dy import DrellYanConfig, DrellYanConfigUHH
         dy_era = f"{year}"
+        dy_era_uhh = f"{year}"
         if year == 2022:
             dy_era += "preEE" if campaign.has_tag("preEE") else "postEE"
+            dy_era_uhh += "" if campaign.has_tag("preEE") else "EE"
         elif year == 2023:
             dy_era += "preBPix" if campaign.has_tag("preBPix") else "postBPix"
+            dy_era_uhh += "" if campaign.has_tag("preBPix") else "BPix"
         else:
             assert False
 
@@ -1272,6 +1275,12 @@ def add_config(
             order="NLO",
             correction="Recoil_correction_Rescaling",
             unc_correction="Recoil_correction_Uncertainty",
+        )
+
+        # custom UHH dy reweighting
+        cfg.x.dy_weight_config_uhh = DrellYanConfigUHH(
+            era=dy_era_uhh,
+            syst="nominal",
         )
 
     ################################################################################################
@@ -1605,6 +1614,8 @@ def add_config(
         # dy weight and recoil corrections
         add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v3.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
+        # custum UHH dy reweighting
+        add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod8_dy_v3_jets/hbt_corrections.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
