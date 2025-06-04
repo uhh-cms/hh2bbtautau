@@ -3,21 +3,14 @@
 """
 Custom event and object reducers.
 """
-<<<<<<< HEAD
 from functools import reduce
 from operator import or_
-=======
-
->>>>>>> 1d843c08aec63fcce955d299d6a6ac74f43827e6
 from columnflow.reduction import Reducer, reducer
 from columnflow.reduction.default import cf_default
 from columnflow.production.cms.dy import gen_dilepton, recoil_corrected_met
 from columnflow.production.cms.top_pt_weight import gen_parton_top as cf_gen_parton_top
 from columnflow.util import maybe_import
-<<<<<<< HEAD
 from columnflow.config_util import get_events_from_categories
-=======
->>>>>>> 1d843c08aec63fcce955d299d6a6ac74f43827e6
 
 from hbt.util import IF_DATASET_HAS_TOP, IF_DATASET_IS_DY
 
