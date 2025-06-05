@@ -17,8 +17,7 @@ np = maybe_import("numpy")
 ak = maybe_import("awkward")
 import law
 
-model_clss: DotDict[str, torch.nn.Module] = DotDict()
-
+WeightedTensorFeedForwardNet = MockModule("WeightedTensorFeedForwardNet")
 if not isinstance(torch, MockModule):
     from torch import nn
     from torch.optim import Adam, AdamW

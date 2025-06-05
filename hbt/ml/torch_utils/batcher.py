@@ -16,7 +16,7 @@ torchdata = maybe_import("torchdata")
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
-NodesDataLoader = MockModule("NodesDataLoader")
+BatchedMultiNodeWeightedSampler = MockModule("BatchedMultiNodeWeightedSampler")
 
 if not isinstance(torchdata, MockModule):
     from torchdata.nodes import MultiNodeWeightedSampler

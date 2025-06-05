@@ -159,6 +159,7 @@ if not isinstance(torch, MockModule):
                         if submax > global_max and weight >= weight_cutoff:
                             global_max = submax
                             max_key = subkey
+            
             if cutoff:
                 global_max = np.min([global_max, cutoff])
             self.logger.info(f"epoch dominated by  '{max_key}': expect {global_max} batches/iteration")

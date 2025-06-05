@@ -105,12 +105,14 @@ def reorganize_idx(batch):
         return reorganize_list_idx(batch)
 
 
+CustomEarlyStopping = MockModule("CustomEarlyStopping")  # type: ignore
+
 if not isinstance(ignite, MockModule):
     from ignite.handlers import EarlyStopping
     from ignite.engine import Engine
     import torch
 
-    class CustomEarlyStopping(EarlyStopping):
+    class CustomEarlyStopping(EarlyStopping):  # noqa: F811
         def __init__(
             self,
             *args,

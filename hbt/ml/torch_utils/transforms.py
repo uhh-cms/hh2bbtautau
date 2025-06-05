@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+__all__ = [
+    "AkToNestedTensor",
+    "MoveToDevice",
+    "TokenizeCategories",
+    "AkToTensor",
+]
+
 from collections.abc import Mapping
 from columnflow.util import MockModule, maybe_import
 from columnflow.columnar_util import flat_np_view
@@ -12,11 +19,15 @@ torchdata = maybe_import("torchdata")
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
+AkToNestedTensor = MockModule("AkToNestedTensor")
+MoveToDevice = MockModule("MoveToDevice")
+TokenizeCategories = MockModule("TokenizeCategories")
+AkToTensor = MockModule("AkToTensor")
 
 if not isinstance(torch, MockModule):
     from torch.nested._internal.nested_tensor import NestedTensor
 
-    class AkToNestedTensor(torch.nn.Module):
+    class AkToNestedTensor(torch.nn.Module):  # noqa: F811
 
         def __init__(self, requires_grad=False, device=None, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -103,7 +114,7 @@ if not isinstance(torch, MockModule):
 
             return return_tensor
 
-    class MoveToDevice(torch.nn.Module):
+    class MoveToDevice(torch.nn.Module):  # noqa: F811
         def __init__(self, device=None, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.device = device
@@ -118,7 +129,7 @@ if not isinstance(torch, MockModule):
             else:
                 raise ValueError(f"Could not convert input {X=}")
 
-    class TokenizeCategories(torch.nn.Module):
+    class TokenizeCategories(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
             categories: tuple[str],
@@ -149,7 +160,7 @@ if not isinstance(torch, MockModule):
                 x = self.tokenizer(x.to(torch.int32))
             return x
 
-    class AkToTensor(AkToNestedTensor):
+    class AkToTensor(AkToNestedTensor):  # noqa: F811
         def _transform_input(self, X):
             return_tensor = None
             if isinstance(X, (ak.Array, np.ndarray)):

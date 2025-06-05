@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+__all__ = [
+    "WeightedEpochMetric",
+    "WeightedROC_AUC",
+    "WeightedLoss",
+]
+
 import warnings
 from collections import defaultdict
 
@@ -12,6 +18,10 @@ np = maybe_import("numpy")
 from columnflow.types import Callable, Any, Sequence
 from typing import cast
 
+WeightedEpochMetric = MockModule("WeightedEpochMetric")
+WeightedROC_AUC = MockModule("WeightedROC_AUC")
+WeightedLoss = MockModule("WeightedLoss")
+
 if not isinstance(torch, MockModule):
     from ignite.metrics.epoch_metric import EpochMetric, EpochMetricWarning
     from ignite.metrics.metric import reinit__is_reduced, sync_all_reduce
@@ -20,7 +30,7 @@ if not isinstance(torch, MockModule):
     from ignite.exceptions import NotComputableError
     import ignite.distributed as idist
 
-    class WeightedEpochMetric(EpochMetric):
+    class WeightedEpochMetric(EpochMetric):  # noqa: F811
         _state_dict_all_req_keys = ("_predictions", "_targets")
 
         @reinit__is_reduced
@@ -159,30 +169,7 @@ if not isinstance(torch, MockModule):
             ).reshape(self.num_classes, self.num_classes)
             self.confusion_matrix += m.to(self.confusion_matrix)
 
-    class WeightedConfusionMatrix(WeightedEpochMetric):
-        def __init__(
-            self,
-            output_transform: Callable = lambda x: x,
-            check_compute_fn: bool = False,
-            device: str | torch.device = torch.device("cpu"),
-            skip_unrolling: bool = False,
-            labels: Sequence[str] | None = None,
-        ) -> None:
-            try:
-                from sklearn.metrics import roc_auc_score  # noqa: F401
-            except ImportError:
-                raise ModuleNotFoundError("This contrib module requires scikit-learn to be installed.")
-
-            super().__init__(
-                roc_auc_compute_fn,
-                output_transform=output_transform,
-                check_compute_fn=check_compute_fn,
-                device=device,
-                skip_unrolling=skip_unrolling,
-            )
-            self.target_class_idx = target_class_idx
-
-    class WeightedROC_AUC(WeightedEpochMetric):
+    class WeightedROC_AUC(WeightedEpochMetric):  # noqa: F811
         def __init__(
             self,
             output_transform: Callable = lambda x: x,
@@ -213,7 +200,7 @@ if not isinstance(torch, MockModule):
                 self._result = result[self.target_class_idx]
             return self._result
 
-    class WeightedLoss(Loss):
+    class WeightedLoss(Loss):  # noqa: F811
         @reinit__is_reduced
         def reset(self) -> None:
             self._internal_sum = list()

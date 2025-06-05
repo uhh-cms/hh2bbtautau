@@ -1,4 +1,14 @@
 from __future__ import annotations
+
+__all__ = [
+    "get_one_hot",
+    "preprocess_multiclass_outputs",
+    "plot_confusion_matrix",
+    "generate_weighted_loss",
+    "WeightedCrossEntropyLoss",
+    "WeightedCrossEntropySlice",
+]
+
 from columnflow.util import MockModule, maybe_import
 
 torch = maybe_import("torch")
@@ -6,6 +16,13 @@ tqdm = maybe_import("tqdm")
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 sklearn = maybe_import("sklearn")
+
+get_one_hot = MockModule("get_one_hot")
+preprocess_multiclass_outputs = MockModule("preprocess_multiclass_outputs")
+plot_confusion_matrix = MockModule("plot_confusion_matrix")
+generate_weighted_loss = MockModule("generate_weighted_loss")
+WeightedCrossEntropyLoss = MockModule("WeightedCrossEntropyLoss")
+WeightedCrossEntropySlice = MockModule("WeightedCrossEntropySlice")
 
 if not isinstance(torch, MockModule):
 
@@ -91,7 +108,7 @@ if not isinstance(torch, MockModule):
             target = y["categorical_target"].to(torch.float32).reshape(-1, 1)
             return pred, target
 
-    def get_one_hot(targets, nb_classes):
+    def get_one_hot(targets, nb_classes):  # noqa: F811
         # at this point the targets are still ak arrays, so cast to numpy
         if isinstance(targets, ak.Array):
             targets = targets.to_numpy()
@@ -102,7 +119,7 @@ if not isinstance(torch, MockModule):
         res = np.eye(nb_classes)[indices]
         return np.astype(res.reshape(list(targets.shape) + [nb_classes]), np.int32)
 
-    def preprocess_multiclass_outputs(outputs, **additional_kwargs):
+    def preprocess_multiclass_outputs(outputs, **additional_kwargs):  # noqa: F811
         kwargs = dict()
         if len(outputs) == 2:
             y_pred, y_true = outputs
@@ -120,7 +137,7 @@ if not isinstance(torch, MockModule):
 
         return y_pred, y_true, kwargs
 
-    def preprocess_multiclass_outputs_and_targets(outputs, **additional_kwargs):
+    def preprocess_multiclass_outputs_and_targets(outputs, **additional_kwargs):  # noqa: F811
         kwargs = dict()
         if len(outputs) == 2:
             y_pred, y_true = outputs
@@ -140,7 +157,7 @@ if not isinstance(torch, MockModule):
 
         return y_pred, y_true, kwargs
 
-    def plot_confusion_matrix(confusion_matrix, labels=None, sample_weight=None, cmap="Blues", savepath=None):
+    def plot_confusion_matrix(confusion_matrix, labels=None, sample_weight=None, cmap="Blues", savepath=None):  # noqa: F811
 
         disp = sklearn.metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix)
         disp.plot(cmap=cmap)
@@ -149,7 +166,7 @@ if not isinstance(torch, MockModule):
             disp.figure_.savefig(savepath)
         return disp.figure_, disp.ax_, confusion_matrix
 
-    def generate_weighted_loss(
+    def generate_weighted_loss(  # noqa: F811
         loss_fn: torch.nn.Module,
     ):
 
@@ -178,7 +195,7 @@ if not isinstance(torch, MockModule):
 
     WeightedCrossEntropyLoss = generate_weighted_loss(torch.nn.CrossEntropyLoss)
 
-    class WeightedCrossEntropySlice(WeightedCrossEntropyLoss):
+    class WeightedCrossEntropySlice(WeightedCrossEntropyLoss):  # noqa: F811
         def __init__(self, cls_index: int, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.cls_index = cls_index
