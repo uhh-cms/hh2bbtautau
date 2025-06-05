@@ -103,14 +103,14 @@ class ExportDYWeights(HBTTask, ConfigTask):
                 config=config,
                 processes=("sm_nlo_data_bkg",),  # supports groups
                 hist_producer="no_dy_weight",
-                categories=("mumu__dy_res1b__os",),  # use CCLUB definition
+                categories=("mumu__dyc_eq2j__os",),
                 variables=("njets-dilep_pt",),
             )
             for config in self.configs
         }
 
     def output(self):
-        return self.target("hbt_corrections_nominal_dy_res1b_incl.json.gz")
+        return self.target("hbt_corrections_mumu__dyc_eq2j__os.json.gz")
 
     def run(self):
         import correctionlib.schemav2 as cs
@@ -160,13 +160,40 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     from matplotlib import pyplot as plt
     era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
 
+    def erf(x):
+        import math
+        # Constants in the approximation formula
+        a1 = 0.254829592
+        a2 = -0.284496736
+        a3 = 1.421413741
+        a4 = -1.453152027
+        a5 = 1.061405429
+        p = 0.3275911
+
+        # Save the sign of x
+        sign = 1 if x >= 0 else -1
+        x = abs(x)
+
+        # Abramowitz and Stegun approximation
+        t = 1.0 / (1.0 + p * x)
+        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * math.exp(-x * x)
+
+        return sign * y
+
     def window(x, r, s):
         """
         x: dependent variable (i.g., dilep_pt)
         r: regime boundary between two fit functions
         s: sign of erf function (+1 to active second fit function, -1 to active first fit function)
         """
-        return 0.5 * (special.erf(s * 0.1 * (x - r)) + 1)
+
+        sci_erf = 0.5 * (special.erf(s * 0.1 * (x - r)) + 1)
+        my_erf = 0.5 * (erf(s * 0.1 * (x - r)) + 1)
+        print("scipy.special.erf", sci_erf)
+        print("**************************")
+        print("my erf", my_erf)
+
+        return sci_erf
 
     def fit_function(x, c, n, mu, sigma, a, b, r):
 
@@ -179,7 +206,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         a and b: slope parameters
         r: regime boundary between Guassian and linear fits
         """
-        # r = 30  # regime boundary between Guassian and linear fits
 
         gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
         pol = a + b * x
@@ -197,8 +223,9 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             jet_tupple = (njet - 0.5, 10.5)
 
         # slice the histogram for the selected njets bin
-        # h = h[:, hist.loc(jet_tupple[0]):hist.loc(jet_tupple[1]), ...]
-        h = h[:, :, ...]
+        h = h[:, hist.loc(jet_tupple[0]):hist.loc(jet_tupple[1]), ...]
+        # h = h[:, :, ...]
+        print(h)
 
         # get and sum process histograms
         dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
@@ -237,29 +264,63 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         upper_bounds = [1.2, 10, 50, 20, 2, 2, 60]
 
         # perform the fit
-        try:
-            param, _ = optimize.curve_fit(
-                fit_function,
-                bin_centers,
-                ratio_values,
-                p0=starting_values, method="trf",
-                sigma=np.maximum(ratio_err, 1e-5),
-                absolute_sigma=True,
-                bounds=(lower_bounds, upper_bounds),
-            )
-        except:
-            from IPython import embed
-            embed(header="Fit failed ! Start debuging ... ")
+        param, _ = optimize.curve_fit(
+            fit_function,
+            bin_centers,
+            ratio_values,
+            p0=starting_values, method="trf",
+            sigma=np.maximum(ratio_err, 1e-5),
+            absolute_sigma=True,
+            bounds=(lower_bounds, upper_bounds),
+        )
 
         # read post fit parameters
         c, n, mu, sigma, a, b, r = param
 
-        # rounded = [round(x, 3) for x in [c, n, mu, sigma, a, b, r]]
-        # param_list = ["c", "n","mu", "sigma", "a", "b", "r"]
-        # print(f"Parameters for njets = {njets}:")
-        # print(list(zip(param_list,rounded)))
+        # build full string expression for the fit function
+        gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-({mu}))/{sigma})**2))"
+        pol_str = f"{a}+({b})*x"
+        window_str_pos = f"0.5 * (special.erf(0.1 * (x - {r})) + 1)"  # TODO: replace special.erf with full erf string ...
+        window_str_neg = f"0.5 * (special.erf(-0.1 * (x - {r})) + 1)"  # TODO: replace special.erf with full erf string ...
+        full_fit_str = f"({window_str_pos})*({gaussian_str})+({window_str_neg})*({pol_str})"
 
-        """
+        # -------------------------------
+        # print rounded fit string
+        rounded = [round(x, 2) for x in [c, n, mu, sigma, a, b, r]]
+        c_appr, n_appr, mu_appr, sigma_appr, a_appr, b_appr, r_appr = rounded
+        gaussian_str_appr = f"{c_appr}+({n_appr}*(1/{sigma_appr})*exp(-0.5*((x-({mu_appr}))/{sigma_appr})**2))"
+        pol_str_appr = f"{a_appr}+({b_appr})*x"
+
+        # sketching string representation of erf function
+        x_erf_pos_str = f"abs((0.1*(x-{r_appr})))"
+        x_erf_neg_str = f"abs((-0.1*(x-{r_appr})))"
+
+        # erf function parameters
+        a1 = "0.254829592"
+        a2 = "(-0.284496736)"
+        a3 = "1.421413741"
+        a4 = "(-1.453152027)"
+        a5 = "1.061405429"
+        p = "0.3275911"
+
+        # Save the sign of x
+        sign = "1" if x >= 0 else "(-1)"
+        x = abs(x)
+
+        # Abramowitz and Stegun approximation
+        t_pos = f"1.0/(1.0+{p}*{x_erf_pos_str})"
+        y_pos = f"1.0-((((({a5}*{t_pos}+{a4})*{t_pos})+{a3})*{t_pos}+{a2})*{t_pos}+{a1})*{t_pos}*exp(-({x_erf_pos_str}**2))"  # noqa: E501
+
+        erf_pos_str = f"{sign}*{y_pos}"
+
+        window_str_pos_appr = f"0.5 * ({erf_pos_str} + 1)"
+        window_str_neg_appr = f"0.5 * ({erf_pos_str} + 1)"
+
+        full_fit_str_appr = f"({window_str_pos_appr})*({gaussian_str_appr})+({window_str_neg_appr})*({pol_str_appr})"
+        print("\nRounded fit string:\n", full_fit_str_appr)
+        # -------------------------------
+
+        # plot the fit function‚
         s = np.linspace(0, 200, 1000)
         y = [fit_function(v, *param) for v in s]
         fig, ax = plt.subplots()
@@ -280,14 +341,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         ax.set_title(f"Fit function for NLO 2022preEE, njets {njet}")
         ax.grid(True)
         fig.savefig(f"plot_{njet}.pdf")
-        """
-
-        # build full string expression for the fit function
-        gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})**2))"
-        pol_str = f"{a}+{b}*x"
-        window_str_pos = f"0.5 * (special.erf(0.1 * (x - {r})) + 1)"
-        window_str_neg = f"0.5 * (special.erf(-0.1 * (x - {r})) + 1)"
-        full_fit_str = f"({window_str_pos})*({gaussian_str})+({window_str_neg})*({pol_str})"
+        # -------------------------------
 
         return full_fit_str
 
@@ -303,7 +357,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     for njet in [2]:
         fit_str = get_fit_str(njet, h)
         print("Performing fit for njets:", njet)
-        print("Fit string:", fit_str)
         if njet == 2:
             fit_dict[era]["nominal"][(0, 11)] = [(0.0, inf, fit_str)]
         else:
@@ -311,4 +364,5 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
     print("Final fit dictionary:")
     print(fit_dict)
+
     return fit_dict
