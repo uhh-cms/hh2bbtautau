@@ -6,8 +6,11 @@ from columnflow.util import maybe_import, MockModule
 
 torch = maybe_import("torch")
 
+
 if not isinstance(torch, MockModule):
-    from torch import nn
+    import torch
+    from torch import nn, Tensor
+    from functools import partial
 
     class PaddingLayer(nn.Module):
         def __init__(self, padding_value: float | int = 0, mask_value: float | int = EMPTY_FLOAT):
@@ -322,7 +325,7 @@ if not isinstance(torch, MockModule):
 
         def dummy_identity(self, layer):
             if layer is None:
-                return nn.Identity
+                return nn.Identity()
             return layer
 
         def cateogrical_preprocessing_pipeline(self, x):
@@ -490,40 +493,49 @@ if not isinstance(torch, MockModule):
             return self.last_activation(x)
 
 
-    class StandardizeLayer(nn.Module):
-        def __init__(self, mean: float | int = 0, std: float | int = 1):
-            """
-            Standardize layer for torch models. Standardizes the input tensor with the given mean and std.
+        class StandardizeLayer(nn.Module):
+            def __init__(
+                self,
+                mean: Tensor = torch.tensor(0.),
+                std: Tensor = torch.tensor(1.),
+                ):
+                """
+                Standardizes the input tensor with given *mean* and *std* tensor.
+                If no value is provided, mean and std are set to 0 and 1, resulting in no scaling.
 
-            Args:
-                mean (float, optional): Mean value. Defaults to 0.
-                std (float, optional): Standard deviation value. Defaults to 1.
-            """
-            super().__init__()
-            self.mean = mean
-            self.std = std
+                Args:
+                    mean (torch.tensor, optional): Mean tensor. Defaults to torch.tensor(0.).
+                    std (torch.tensor, optional): Standard tensor. Defaults to torch.tensor(1.).
+                """
+                super().__init__()
+                self._type_check(mean=mean, std=std)
+                self.mean = torch.nn.Parameter(mean, requires_grad=False)
+                self.std = torch.nn.Parameter(std, requires_grad=False)
 
-        def forward(self, x):
-            x = (x - self.mean) / self.std
-            return x
+            def forward(self, x: Tensor):
+                x = (x - self.mean) / self.std
+                return x
 
-        def set_mean_std(self, mean: float | int = 0, std: float | int = 1):
-            """
-            Set the mean and std values for the standardization layer.
+            def _type_check(self, mean, std):
+                if not all([isinstance(value, torch.Tensor) for value in [mean, std]]):
+                    raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
 
-            Args:
-                mean (float, optional): Mean value. Defaults to 0.
-                std (float, optional): Standard deviation value. Defaults to 1.
-            """
-            self.mean = mean
-            self.std = std
+            def set_mean_std(self, mean: float | int = 0, std: float | int = 1):
+                """
+                Set the mean and std parameter.
 
-        def to(self, *args, **kwargs):
-            if isinstance(self.mean, torch.Tensor):
+                Args:
+                    mean (float, optional): Mean value. Defaults to 0.
+                    std (float, optional): Standard deviation value. Defaults to 1.
+                """
+                self._type_check(mean=mean, std=std)
+                self.mean.data = mean.detach()
+                self.std.data = std.detach()
+
+            def to(self, *args, **kwargs):
                 self.mean = self.mean.to(*args, **kwargs)
-            if isinstance(self.std, torch.Tensor):
                 self.std = self.std.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
+                return super().to(*args, **kwargs)
 
     class RotatePhiLayer(nn.Module):
         def __init__(
@@ -545,7 +557,6 @@ if not isinstance(torch, MockModule):
             self.columns_ref_phi = ref_phi_columns
             self.activate=False
             # assert (len_ref := len(self.columns_ref_phi == 2)), f"Reference columns needs to have 2, but have {len_ref}"
-
             self.ref_indices = self.find_indices_of(self.columns, self.columns_ref_phi, True)
             self.rotate_indices = self.find_indices_of(self.columns, self.columns_to_rotate, True)
 
