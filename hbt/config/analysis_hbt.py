@@ -73,9 +73,12 @@ from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
 add_binning_hooks(analysis_hbt)
 
 
+analysis_hbt.x.ml_inputs_producer = "res_net_preprocessing"
+
 #
 # define configs
 #
+
 
 def create_factory(
     campaign_module: str,
