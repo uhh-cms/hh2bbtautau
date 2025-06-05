@@ -9,9 +9,19 @@ import getpass
 
 import law
 from columnflow.util import memoize
+from columnflow.tasks.ml import MLTraining
 
 
 logger = law.logger.get_logger(__name__)
+
+
+@memoize
+def patch_mltraining():
+    from columnflow.tasks.framework.remote import RemoteWorkflow
+
+    # patch the MLTraining output collection
+    MLTraining.output_collection_cls = law.NestedSiblingFileCollection
+    logger.info("patched MLTraining to use NestedSiblingFileCollection")
 
 
 @memoize
@@ -74,6 +84,7 @@ def patch_htcondor_workflow_naf_resources():
 
 @memoize
 def patch_all():
+    patch_mltraining()
     patch_bundle_repo_exclude_files()
     patch_remote_workflow_poll_interval()
     patch_htcondor_workflow_naf_resources()
