@@ -664,21 +664,23 @@ def add_config(
             "ee__dy__os", "mumu__dy__os", "emu__tt__os",
         ],
         "dy_groups": (dy_groups := [
-            f"mumu__{var}_{kin}__os" for var in ["dy", "dyc"]
+            f"{channel}__{var}_{kin}__os"
+            for channel in ["mumu", "ee"]
+            for var in ["dy", "dyc"]
             for kin in [
-                # "eq0j", "eq1j", "eq2j", "eq3j", "ge4j",
-                "eq4j", "eq5j", "eq6j", "eq7j", "ge6j", "ge7j",
+                "res1b", "res2b", "eq2j", "eq3j", "ge4j",
             ]
         ]),
-
         "default_dy": [
             *dy_groups,
+            "mumu__dy__os", "mumu__dyc__os",
+            "ee__dy__os", "ee__dyc__os",
         ],
+
     }
 
     # variable groups for conveniently looping over certain variables
     # (used during plotting)
-    """
     cfg.x.variable_groups = {
         "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
@@ -688,19 +690,6 @@ def add_config(
             "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
-        ],
-    }
-    """
-
-    cfg.x.variable_groups = {
-        "hh": (hh := [f"hh_{var}" for var in ["mass", "pt", "dr"]]),
-        "dilep": (dilep := [f"dilep_{var}" for var in ["mass", "pt"]]),
-        "dibjet": (dibjet := [f"dibjet_{var}" for var in ["mass", "pt"]]),
-        "default": [
-            *dibjet, *dilep, *hh,
-            "e1_pt", "e1_eta", "mu1_pt", "mu1_eta", "tau1_pt", "tau1_eta",
-            "jet1_pt", "jet1_eta", "ht",
-            "nbjets_deepjet", "nbjets_pnet", "njets",
         ],
     }
 
@@ -1614,8 +1603,12 @@ def add_config(
         # dy weight and recoil corrections
         add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v3.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
+
         # custum UHH dy reweighting
-        add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod8_dy_v3_jets/hbt_corrections_incl.json.gz", "v1"))  # noqa: E501
+        # -----------------------------------------------------------------------------
+        # fits derived from CCLUB phase-space
+        add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod8_dy_v3_jets/hbt_corrections_mumu__dyc_eq2j__os.json.gz", "v1"))  # noqa: E501
+        # -----------------------------------------------------------------------------
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
