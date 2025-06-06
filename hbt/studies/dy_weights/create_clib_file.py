@@ -36,17 +36,23 @@ def expr_in_range(expr: str, lower_bound: float | int, upper_bound: float | int)
     # distinguish cases
     inf = float("inf")
     bounds = (lower_bound, upper_bound)
+    # TODO: fix erf string!
     if bounds == (-inf, inf):
         return expr
     if bounds == (-inf, 0):
-        return f"({expr})*{step_expr(0, up=False)}"
+        return expr
+        # return f"({expr})*{step_expr(0, up=False)}"
     if bounds == (0, inf):
-        return f"({expr})*{step_expr(0, up=True)}"
+        return expr
+        # return f"({expr})*{step_expr(0, up=True)}"
     if lower_bound == -inf:
-        return f"({expr})*{step_expr(upper_bound, up=False)}"
+        return expr
+        # return f"({expr})*{step_expr(upper_bound, up=False)}"
     if upper_bound == inf:
-        return f"({expr})*{step_expr(lower_bound, up=True)}"
-    return f"({expr})*{step_expr(lower_bound, up=True)}*{step_expr(upper_bound, up=False)}"
+        return expr
+        # return f"({expr})*{step_expr(lower_bound, up=True)}"
+    return expr
+    # return f"({expr})*{step_expr(lower_bound, up=True)}*{step_expr(upper_bound, up=False)}"
 
 
 def create_dy_weight_correction(dy_weight_data: dict) -> cs.Correction:
