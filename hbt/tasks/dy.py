@@ -156,12 +156,12 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     # prepare constants
     inf = float("inf")
     import numpy as np
-    from scipy import stats, optimize, special
+    from scipy import optimize, special
     from matplotlib import pyplot as plt
     era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
 
     def erf(x):
-        import math
+        x = np.asarray(x)
         # Constants in the approximation formula
         a1 = 0.254829592
         a2 = -0.284496736
@@ -171,12 +171,12 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         p = 0.3275911
 
         # Save the sign of x
-        sign = 1 if x >= 0 else -1
-        x = abs(x)
+        sign = np.sign(x)
+        abs_x = np.abs(x)
 
         # Abramowitz and Stegun approximation
-        t = 1.0 / (1.0 + p * x)
-        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * math.exp(-x * x)
+        t = 1.0 / (1.0 + p * abs_x)
+        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * np.exp(-abs_x * abs_x)
 
         return sign * y
 
@@ -188,10 +188,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         """
 
         sci_erf = 0.5 * (special.erf(s * 0.1 * (x - r)) + 1)
-        my_erf = 0.5 * (erf(s * 0.1 * (x - r)) + 1)
-        print("scipy.special.erf", sci_erf)
-        print("**************************")
-        print("my erf", my_erf)
 
         return sci_erf
 
@@ -210,6 +206,30 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
         pol = a + b * x
 
+        fit_function = window(x, r, -1) * gauss + window(x, r, 1) * pol
+        my_fit_function = (0.5 * (erf(-0.1 * (x - r)) + 1)) * gauss + (0.5 * (erf(0.1 * (x - r)) + 1)) * pol
+
+        print("------------------------")
+        print("fit function with special erf")
+        print(fit_function)
+        print("fit function with my erf")
+        print(my_fit_function)
+
+        """
+        # -------------------------------
+        # plot both erf function‚
+        starting_values_test = [1, 1, 10, 3, 1, 0, 50]
+        s = np.linspace(0, 200, 1000)
+        y = [fit_function(v, *starting_values_test) for v in s]
+        w = [my_fit_function(v, *starting_values_test) for v in s]
+        fig, ax = plt.subplots()
+        ax.plot(s, y, color="grey")
+        ax.plot(s, w, color="black")
+        ax.set_title("special.erf and my_erf comparison")
+        ax.grid(True)
+        fig.savefig("plot_fit_functions.pdf")
+        # -------------------------------
+        """
         return window(x, r, -1) * gauss + window(x, r, 1) * pol
 
     def get_fit_str(njet: int, h: hist.Hist) -> dict:
@@ -280,9 +300,9 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         # build full string expression for the fit function
         gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-({mu}))/{sigma})**2))"
         pol_str = f"{a}+({b})*x"
-        window_str_pos = f"0.5 * (special.erf(0.1 * (x - {r})) + 1)"  # TODO: replace special.erf with full erf string ...
-        window_str_neg = f"0.5 * (special.erf(-0.1 * (x - {r})) + 1)"  # TODO: replace special.erf with full erf string ...
-        full_fit_str = f"({window_str_pos})*({gaussian_str})+({window_str_neg})*({pol_str})"
+        window_str_pos = f"0.5*(special.erf(0.1*(x-{r}))+1)"  # TODO: replace special.erf with full erf string ...
+        window_str_neg = f"0.5*(special.erf(-0.1*(x-{r}))+1)"  # TODO: replace special.erf with full erf string ...
+        full_fit_str = f"({window_str_neg})*({gaussian_str})+({window_str_pos})*({pol_str})"
 
         # -------------------------------
         # print rounded fit string
@@ -291,11 +311,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         gaussian_str_appr = f"{c_appr}+({n_appr}*(1/{sigma_appr})*exp(-0.5*((x-({mu_appr}))/{sigma_appr})**2))"
         pol_str_appr = f"{a_appr}+({b_appr})*x"
 
-        # sketching string representation of erf function
-        x_erf_pos_str = f"abs((0.1*(x-{r_appr})))"
-        x_erf_neg_str = f"abs((-0.1*(x-{r_appr})))"
+        # string representation of erf argument
+        x_pos = f"(0.1*(x-{r_appr}))"
+        x_neg = f"(-0.1*(x-{r_appr}))"
 
-        # erf function parameters
+        # scipy.special.erf function parameters
         a1 = "0.254829592"
         a2 = "(-0.284496736)"
         a3 = "1.421413741"
@@ -303,21 +323,21 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         a5 = "1.061405429"
         p = "0.3275911"
 
-        # Save the sign of x
-        sign = "1" if x >= 0 else "(-1)"
-        x = abs(x)
-
         # Abramowitz and Stegun approximation
-        t_pos = f"1.0/(1.0+{p}*{x_erf_pos_str})"
-        y_pos = f"1.0-((((({a5}*{t_pos}+{a4})*{t_pos})+{a3})*{t_pos}+{a2})*{t_pos}+{a1})*{t_pos}*exp(-({x_erf_pos_str}**2))"  # noqa: E501
+        t_pos = f"(1.0/(1.0+{p}*{x_pos}))"
+        t_neg = f"(1.0/(1.0+{p}*{x_neg}))"
+        y_pos = f"1.0-((((({a5}*{t_pos}+{a4})*{t_pos})+{a3})*{t_pos}+{a2})*{t_pos}+{a1})*{t_pos}*exp(-({x_pos}**2))"  # noqa: E501
+        y_neg = f"1.0-((((({a5}*{t_neg}+{a4})*{t_neg})+{a3})*{t_pos}+{a2})*{t_neg}+{a1})*{t_pos}*exp(-({x_neg}**2))"  # noqa: E501
+        y_pos_str = f"0.5*({y_pos}({x_pos})+1)"
+        y_neg_str = f"0.5*({y_neg}({x_neg})+1)"
 
-        erf_pos_str = f"{sign}*{y_pos}"
+        fit_str_appr = f"({y_neg_str})*({gaussian_str_appr})+({y_pos_str})*({pol_str_appr})"
+        print("\nRounded fit string:\n")
+        print(fit_str_appr)
 
-        window_str_pos_appr = f"0.5 * ({erf_pos_str} + 1)"
-        window_str_neg_appr = f"0.5 * ({erf_pos_str} + 1)"
+        from IPython import embed
+        embed(header="fit function string representation...")
 
-        full_fit_str_appr = f"({window_str_pos_appr})*({gaussian_str_appr})+({window_str_neg_appr})*({pol_str_appr})"
-        print("\nRounded fit string:\n", full_fit_str_appr)
         # -------------------------------
 
         # plot the fit function‚
