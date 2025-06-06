@@ -55,7 +55,7 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             raise ValueError(f"variable must be 'njets-dilep_pt', got {self.variable}")
 
     def output(self):
-        return self.target(f"dy_weight_data__{self.category_inst.name}.pkl")
+        return self.target("dy_weight_data.pkl")
 
     def run(self):
         # prepare categories to sum over
@@ -110,7 +110,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         }
 
     def output(self):
-        return self.target("hbt_corrections_mumu__dyc_eq2j__os.json.gz")
+        return self.target("hbt_corrections.json.gz")
 
     def run(self):
         import correctionlib.schemav2 as cs
@@ -121,6 +121,8 @@ class ExportDYWeights(HBTTask, ConfigTask):
             inp.load(formatter="pickle") for inp in self.input().values()
         ))
 
+        print(dy_weight_data)
+
         # create and save the correction set
         cset = cs.CorrectionSet(
             schema_version=2,
@@ -130,7 +132,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         with self.output().localize("w") as outp:
             outp.path += ".json.gz"
             with gzip.open(outp.abspath, "wt") as f:
-                f.write(cset.json(exclude_unset=True))
+                f.write(cset.model_dump_json(exclude_unset=True))
 
             # validate the content
             law.util.interruptable_popen(f"correction summary {outp.abspath}", shell=True)
@@ -215,22 +217,28 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         print("fit function with my erf")
         print(my_fit_function)
 
+        # return window(x, r, -1) * gauss + window(x, r, 1) * pol
+        return fit_function
+
+    def my_fit_function(x, c, n, mu, sigma, a, b, r):
+
         """
-        # -------------------------------
-        # plot both erf function‚
-        starting_values_test = [1, 1, 10, 3, 1, 0, 50]
-        s = np.linspace(0, 200, 1000)
-        y = [fit_function(v, *starting_values_test) for v in s]
-        w = [my_fit_function(v, *starting_values_test) for v in s]
-        fig, ax = plt.subplots()
-        ax.plot(s, y, color="grey")
-        ax.plot(s, w, color="black")
-        ax.set_title("special.erf and my_erf comparison")
-        ax.grid(True)
-        fig.savefig("plot_fit_functions.pdf")
-        # -------------------------------
+        A fit function.
+        x: dependent variable (i.g., dilep_pt)
+        c: Gaussian offset
+        n: Gaussian normalization
+        mu and sigma: Gaussian parameters
+        a and b: slope parameters
+        r: regime boundary between Guassian and linear fits
         """
-        return window(x, r, -1) * gauss + window(x, r, 1) * pol
+
+        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
+        pol = a + b * x
+
+        my_fit_function = (0.5 * (erf(-0.1 * (x - r)) + 1)) * gauss + (0.5 * (erf(0.1 * (x - r)) + 1)) * pol
+
+        # return window(x, r, -1) * gauss + window(x, r, 1) * pol
+        return my_fit_function
 
     def get_fit_str(njet: int, h: hist.Hist) -> dict:
         if njet not in [2, 3, 4]:
@@ -244,8 +252,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
         # slice the histogram for the selected njets bin
         h = h[:, hist.loc(jet_tupple[0]):hist.loc(jet_tupple[1]), ...]
-        # h = h[:, :, ...]
-        print(h)
 
         # get and sum process histograms
         dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
@@ -283,8 +289,8 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         lower_bounds = [0.8, 0, 0, 0, 0, -1, 0]
         upper_bounds = [1.2, 10, 50, 20, 2, 2, 60]
 
-        # perform the fit
-        param, _ = optimize.curve_fit(
+        # perform the fit with both functions
+        param_fit, _ = optimize.curve_fit(
             fit_function,
             bin_centers,
             ratio_values,
@@ -293,29 +299,22 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             absolute_sigma=True,
             bounds=(lower_bounds, upper_bounds),
         )
+        param_my_fit, _ = optimize.curve_fit(
+            my_fit_function,
+            bin_centers,
+            ratio_values,
+            p0=starting_values, method="trf",
+            sigma=np.maximum(ratio_err, 1e-5),
+            absolute_sigma=True,
+            bounds=(lower_bounds, upper_bounds),
+        )
 
-        # read post fit parameters
-        c, n, mu, sigma, a, b, r = param
-
-        # build full string expression for the fit function
+        # build guassian and linear polinomial strings with post fit parameters
+        c, n, mu, sigma, a, b, r = param_fit
         gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-({mu}))/{sigma})**2))"
         pol_str = f"{a}+({b})*x"
-        window_str_pos = f"0.5*(special.erf(0.1*(x-{r}))+1)"  # TODO: replace special.erf with full erf string ...
-        window_str_neg = f"0.5*(special.erf(-0.1*(x-{r}))+1)"  # TODO: replace special.erf with full erf string ...
-        full_fit_str = f"({window_str_neg})*({gaussian_str})+({window_str_pos})*({pol_str})"
 
-        # -------------------------------
-        # print rounded fit string
-        rounded = [round(x, 2) for x in [c, n, mu, sigma, a, b, r]]
-        c_appr, n_appr, mu_appr, sigma_appr, a_appr, b_appr, r_appr = rounded
-        gaussian_str_appr = f"{c_appr}+({n_appr}*(1/{sigma_appr})*exp(-0.5*((x-({mu_appr}))/{sigma_appr})**2))"
-        pol_str_appr = f"{a_appr}+({b_appr})*x"
-
-        # string representation of erf argument
-        x_pos = f"(0.1*(x-{r_appr}))"
-        x_neg = f"(-0.1*(x-{r_appr}))"
-
-        # scipy.special.erf function parameters
+        # parameter strings for scipy.special.erf function
         a1 = "0.254829592"
         a2 = "(-0.284496736)"
         a3 = "1.421413741"
@@ -323,28 +322,31 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         a5 = "1.061405429"
         p = "0.3275911"
 
-        # Abramowitz and Stegun approximation
-        t_pos = f"(1.0/(1.0+{p}*{x_pos}))"
-        t_neg = f"(1.0/(1.0+{p}*{x_neg}))"
-        y_pos = f"1.0-((((({a5}*{t_pos}+{a4})*{t_pos})+{a3})*{t_pos}+{a2})*{t_pos}+{a1})*{t_pos}*exp(-({x_pos}**2))"  # noqa: E501
-        y_neg = f"1.0-((((({a5}*{t_neg}+{a4})*{t_neg})+{a3})*{t_pos}+{a2})*{t_neg}+{a1})*{t_pos}*exp(-({x_neg}**2))"  # noqa: E501
-        y_pos_str = f"0.5*({y_pos}({x_pos})+1)"
-        y_neg_str = f"0.5*({y_neg}({x_neg})+1)"
+        # define our x argument string
+        x_str = f"(0.1*(x-{r}))"
+        t = f"(1.0/(1.0+{p}*abs({x_str})))"
+        poli_str = f"((((({a5}*{t}+{a4})*{t})+{a3})*{t}+{a2})*{t}+{a1})*{t}"
 
-        fit_str_appr = f"({y_neg_str})*({gaussian_str_appr})+({y_pos_str})*({pol_str_appr})"
-        print("\nRounded fit string:\n")
-        print(fit_str_appr)
+        # full string of scipy.special.erf function
+        y = f"(1.0-{poli_str}*exp(-abs({x_str})*abs({x_str})))"  # noqa: E501
+        erf_str_pos = f"0.5*({y}+1)"
+        erf_str_neg = f"0.5*(((-1)*{y})+1)"
 
-        from IPython import embed
-        embed(header="fit function string representation...")
+        # build full fit string
+        full_fit_str = f"(({erf_str_neg})*({gaussian_str})+({erf_str_pos})*({pol_str}))"
 
+        print("\nfull_fit_str to save in json dict is:\n")
+        print(full_fit_str)
+
+        """
         # -------------------------------
-
         # plot the fit function‚
         s = np.linspace(0, 200, 1000)
-        y = [fit_function(v, *param) for v in s]
+        y = [fit_function(v, *param_fit) for v in s]
+        w = [my_fit_function(v, *param_my_fit) for v in s]
         fig, ax = plt.subplots()
-        ax.plot(s, y, color="grey")
+        ax.plot(s, y, color="grey", label="special.erf")
+        ax.plot(s, w, color="red", linestyle="--", label="erf")
         ax.errorbar(
             bin_centers,
             ratio_values,
@@ -360,9 +362,9 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         ax.set_ylim(0.4, 1.5)
         ax.set_title(f"Fit function for NLO 2022preEE, njets {njet}")
         ax.grid(True)
-        fig.savefig(f"plot_{njet}.pdf")
+        fig.savefig(f"plot_fit_functions.pdf")
         # -------------------------------
-
+        """
         return full_fit_str
 
     # initialize fit dictionary
@@ -376,13 +378,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
     for njet in [2]:
         fit_str = get_fit_str(njet, h)
-        print("Performing fit for njets:", njet)
+        # TODO: if first 2 elements in tupple are not -inf, inf the fit_str will be multiplied
+        # by a step function scipy.special.erf with parameter 1000
         if njet == 2:
-            fit_dict[era]["nominal"][(0, 11)] = [(0.0, inf, fit_str)]
+            fit_dict[era]["nominal"][(0, 11)] = [(-inf, inf, fit_str)]
         else:
-            fit_dict[era]["nominal"][(njet, njet + 1)] = [(0.0, inf, fit_str)]
-
-    print("Final fit dictionary:")
-    print(fit_dict)
+            fit_dict[era]["nominal"][(njet, njet + 1)] = [(-inf, inf, fit_str)]
 
     return fit_dict
