@@ -80,8 +80,30 @@ class BaseParquetFileHandler(object):
         self.dataset_cls = FlatParquetDataset
         self.device = device
 
+        self.default_dataset_kwargs = {
+            "columns": self.columns,
+            "batch_transform": self.batch_transformations,
+            "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
+            "categorical_target_transform": self.categorical_target_transformation,
+            "data_type_transform": self.data_type_transform,
+        }
+
     def _default_build_categorical_target_fn(self, dataset: str) -> int:
         return int(1) if dataset.startswith("hh") else int(0)
+
+    def create_dataset(
+        self,
+        path: str | ak.Array,
+        open_options: dict[str, Any] | None = None,
+        **dataset_kwargs
+    ):
+
+        return self.dataset_cls(
+            path,
+            open_options=open_options,
+            **dataset_kwargs,
+        )
 
     def _split_pq_dataset_per_path(
         self,
@@ -107,22 +129,13 @@ class BaseParquetFileHandler(object):
         final_options = self.open_options or dict()
         final_options.update({"row_groups": training_row_groups})
 
-        dataset_kwargs = {
-            "columns": self.columns,
-            "target": targets,
-            "batch_transform": self.batch_transformations,
-            "global_transform": self.global_transformations,
-            "input_data_transform": self.input_data_transform,
-            "categorical_target_transform": self.categorical_target_transformation,
-            "data_type_transform": self.data_type_transform,
-        }
-
         logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
 
-        training = self.dataset_cls(
+        training = self.create_dataset(
             target_path,
             open_options=final_options,
-            **dataset_kwargs,
+            targets=targets,
+            **self.default_dataset_kwargs,
         )
 
         validation = None
@@ -132,10 +145,11 @@ class BaseParquetFileHandler(object):
             validation_row_groups = rowgroup_indices[max_training_group:]
             final_options.update({"row_groups": validation_row_groups})
             logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
-            validation = self.dataset_cls(
+            validation = self.create_dataset(
                 target_path,
                 open_options=final_options,
-                **dataset_kwargs,
+                targets=targets,
+                **self.default_dataset_kwargs,
             )
         return training, validation
 
@@ -427,34 +441,9 @@ class RgTensorParquetFileHandler(BaseParquetFileHandler):
         self.training_sampler_cls = ListRowgroupSampler
         self.validation_sampler_cls = ListRowgroupSampler
 
-    def _split_pq_dataset_per_path(
-        self,
-        target_path,
-        ratio=0.7,
-        targets: Collection[str | int | Route] | str | Route | int | None = None,
-    ):
-        meta = ak.metadata_from_parquet(target_path)
-
-        total_row_groups = meta["num_row_groups"]
-        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
-        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
-        max_training_group = int(total_row_groups * ratio)
-        training_row_groups = None
-        if max_training_group == 0:
-            logger.warning(
-                "Could not split into training and validation data"
-                f" number of row groups for '{target_path}' is  {total_row_groups}",
-            )
-        else:
-            training_row_groups = rowgroup_indices[:max_training_group]
-
-        final_options = self.open_options or dict()
-        final_options.update({"row_groups": training_row_groups})
-
-        dataset_kwargs = {
+        self.default_dataset_kwargs = {
             "categorical_features": self.categorical_features,
             "continuous_features": self.continuous_features,
-            "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
             "input_data_transform": self.input_data_transform,
@@ -463,28 +452,6 @@ class RgTensorParquetFileHandler(BaseParquetFileHandler):
             "padd_value_float": 0,
             "padd_value_int": 15,
         }
-
-        logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
-
-        training = self.dataset_cls(
-            target_path,
-            open_options=final_options,
-            **dataset_kwargs,
-        )
-
-        validation = None
-        if training_row_groups is None:
-            validation = training
-        else:
-            validation_row_groups = rowgroup_indices[max_training_group:]
-            final_options.update({"row_groups": validation_row_groups})
-            logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
-            validation = self.dataset_cls(
-                target_path,
-                open_options=final_options,
-                **dataset_kwargs,
-            )
-        return training, validation
 
 
 class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHandler):
@@ -513,35 +480,9 @@ class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHand
         self.validation_map_and_collate_cls = TensorListRowgroupMapAndCollate
         self.training_sampler_cls = ListRowgroupSampler
         self.validation_sampler_cls = ListRowgroupSampler
-
-    def _split_pq_dataset_per_path(
-        self,
-        target_path,
-        ratio=0.7,
-        targets: Collection[str | int | Route] | str | Route | int | None = None,
-    ):
-        meta = ak.metadata_from_parquet(target_path)
-
-        total_row_groups = meta["num_row_groups"]
-        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
-        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
-        max_training_group = int(total_row_groups * ratio)
-        training_row_groups = None
-        if max_training_group == 0:
-            logger.warning(
-                "Could not split into training and validation data"
-                f" number of row groups for '{target_path}' is  {total_row_groups}",
-            )
-        else:
-            training_row_groups = rowgroup_indices[:max_training_group]
-
-        final_options = self.open_options or dict()
-        final_options.update({"row_groups": training_row_groups})
-
-        dataset_kwargs = {
+        self.default_dataset_kwargs = {
             "categorical_features": self.categorical_features,
             "continuous_features": self.continuous_features,
-            "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
             "input_data_transform": self.input_data_transform,
@@ -551,27 +492,6 @@ class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHand
             "padd_value_int": 15,
         }
 
-        logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
-
-        training = self.dataset_cls(
-            target_path,
-            open_options=final_options,
-            **dataset_kwargs,
-        )
-
-        validation = None
-        if training_row_groups is None:
-            validation = training
-        else:
-            validation_row_groups = rowgroup_indices[max_training_group:]
-            final_options.update({"row_groups": validation_row_groups})
-            logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
-            validation = self.dataset_cls(
-                target_path,
-                open_options=final_options,
-                **dataset_kwargs,
-            )
-        return training, validation
 
 class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
 
@@ -583,6 +503,17 @@ class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
         self.validation_map_and_collate_cls = TensorListMapAndCollate
         self.training_sampler_cls = torch.utils.data.RandomSampler
         self.validation_sampler_cls = ListSampler
+        self.default_dataset_kwargs = {
+            "categorical_features": self.categorical_features,
+            "continuous_features": self.continuous_features,
+            "batch_transform": self.batch_transformations,
+            "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
+            "categorical_target_transform": self.categorical_target_transformation,
+            "data_type_transform": self.data_type_transform,
+            "padd_value_float": 0,
+            "padd_value_int": 15,
+        }
 
     def split_training_validation(
         self,
@@ -600,34 +531,23 @@ class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
 
         final_options = self.open_options or dict()
 
-        dataset_kwargs = {
-            "categorical_features": self.categorical_features,
-            "continuous_features": self.continuous_features,
-            "target": targets,
-            "batch_transform": self.batch_transformations,
-            "global_transform": self.global_transformations,
-            "input_data_transform": self.input_data_transform,
-            "categorical_target_transform": self.categorical_target_transformation,
-            "data_type_transform": self.data_type_transform,
-            "padd_value_float": 0,
-            "padd_value_int": 15,
-        }
-
         logger.info(f"Constructing training dataset with {max_training_idx} events")
 
-        training = self.dataset_cls(
+        training = self.create_dataset(
             target_paths,
-            open_options=final_options,
             idx=training_idx,
-            **dataset_kwargs,
+            targets=targets,
+            open_options=final_options,
+            **self.default_dataset_kwargs,
         )
         validation_idx = total_indices[max_training_idx:]
         logger.info(f"Constructing validation dataset with {total_rows - max_training_idx} events")
-        validation = self.dataset_cls(
+        validation = self.create_dataset(
             target_paths,
-            open_options=final_options,
             idx=validation_idx,
-            **dataset_kwargs,
+            targets=targets,
+            open_options=final_options,
+            **self.default_dataset_kwargs,
         )
         return training, validation
 
@@ -706,58 +626,15 @@ class FlatArrowParquetFileHandler(BaseParquetFileHandler):
         self.training_sampler_cls = RowgroupSampler
         self.validation_sampler_cls = ListRowgroupSampler
 
-    def split_training_validation(
-        self,
-        target_paths,
-        ratio=0.7,
-        targets: Collection[str | int | Route] | str | Route | int | None = None,
-    ):
-
-        dataset_kwargs = {
+        self.default_dataset_kwargs = {
             "columns": self.columns,
-            "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
             "input_data_transform": self.input_data_transform,
             "categorical_target_transform": self.categorical_target_transformation,
             "data_type_transform": self.data_type_transform,
         }
-        final_options = self.open_options or dict()
-
-        training = self.dataset_cls(
-            target_paths,
-            open_options=final_options,
-            **dataset_kwargs,
-        )
-
-        total_row_groups = training.meta_data["num_row_groups"]
-        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
-        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
-        max_training_group = int(total_row_groups * ratio)
-        training_row_groups = None
-        if max_training_group == 0:
-            logger.warning(
-                "Could not split into training and validation data"
-                f" number of row groups for training is  {total_row_groups}",
-            )
-        else:
-            training_row_groups = rowgroup_indices[:max_training_group]
-
-        training._allowed_rowgroups = set(training_row_groups)
-        logger.info(f"Constructing training dataset with row_groups {training_row_groups}")
-
-        validation = None
-        if training_row_groups is None:
-            validation = training
-        else:
-            validation_row_groups = rowgroup_indices[max_training_group:]
-            final_options.update({"row_groups": validation_row_groups})
-            logger.info(f"Constructing validation dataset with row_groups {validation_row_groups}")
-            validation = deepcopy(training)
-            validation._allowed_rowgroups = set(validation_row_groups)
-        return training, validation
-
-
+    
 class DatasetHandlerMixin:
     parameters: dict[str, torch.Tensor]
     dataset_handler: BaseParquetFileHandler
