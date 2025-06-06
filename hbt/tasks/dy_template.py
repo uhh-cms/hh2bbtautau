@@ -159,15 +159,18 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     from scipy import optimize, special
     era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
 
+    # define transition function
     def window(x, r, s):
         """
         x: dependent variable (i.g., dilep_pt)
         r: boundary value to switch between Guassian and linear fit
         s: sign of erf function (-1 to active low pT fit function, +1 to active high pT fit function)
         """
-
+        # the parameter 0.1 is a scaling factor to control the steepness in the transition region
+        # adjust as needed dependending on the range of variable x
         return 0.5 * (special.erf(s * 0.1 * (x - r)) + 1)
 
+    # define the fit function
     def fit_function(x, c, n, mu, sigma, a, b, r):
 
         """
@@ -180,11 +183,14 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         r: boundary value to switch between Guassian and linear fit
         """
 
+        # we choose to use a Gaussian function for low pT and a linear function for high pT
         gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
         pol = a + b * x
 
+        # window function defines a smooth transition between the two functions at point r, which is also left floating
         return window(x, r, -1) * gauss + window(x, r, 1) * pol
 
+    # perform the fit and save the fit function expression as a string
     def get_fit_str(njet: int, h: hist.Hist) -> dict:
         if not isinstance(njet, int):
             raise ValueError("Invalid njets value, expected int.")
@@ -248,11 +254,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
         # build full string expression for the fit function
         # note: no spaces are allowed in the string. some functions are accepted like exp
-        # but special.erf is not accepted
+        # but other function are not accepted like special.erf
         gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-({mu}))/{sigma})**2))"
         pol_str = f"{a}+({b})*x"
-        window_str_pos = f"0.5*(special.erf(0.1*(x-{r}))+1)"  # TODO: replace special.erf with full erf string ...
-        window_str_neg = f"0.5*(special.erf(-0.1*(x-{r}))+1)"  # TODO: replace special.erf with full erf string ...
+        window_str_pos = f"0.5*(special.erf(0.1*(x-{r}))+1)"  # TODO: replace special.erf string ...
+        window_str_neg = f"0.5*(special.erf(-0.1*(x-{r}))+1)"  # TODO: replace special.erf string ...
         full_fit_str = f"({window_str_neg})*({gaussian_str})+({window_str_pos})*({pol_str})"
 
         # return function string to be passed to the json file
