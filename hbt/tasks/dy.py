@@ -311,7 +311,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
         # build guassian and linear polinomial strings with post fit parameters
         c, n, mu, sigma, a, b, r = param_fit
-        gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-({mu}))/{sigma})**2))"
+        gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-({mu}))/{sigma})^2))"
         pol_str = f"{a}+({b})*x"
 
         # parameter strings for scipy.special.erf function
