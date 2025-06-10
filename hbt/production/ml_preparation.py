@@ -11,6 +11,7 @@ from operator import or_
 import law
 
 from columnflow.production import Producer, producer
+from columnflow.production.categories import category_ids
 from columnflow.production.normalization import stitched_normalization_weights
 from columnflow.util import maybe_import
 from columnflow.ml import MLModel
@@ -52,12 +53,11 @@ def del_sub_proc_stats(
 @producer(
     uses={
         "channel_id",
-        "category_ids",
+        category_ids,
         increment_stats,
         "process_id",
         "fold_indices",
         stitched_normalization_weights.PRODUCES,
-        default_hist_producer,
     },
     produces={IF_MC("event_weight")},
 )
@@ -73,6 +73,8 @@ def ml_preparation(
     """
     Producer that is run as part of PrepareMLEvents to collect relevant stats
     """
+    # recalculate category ids to be sure
+    events = self[category_ids](events, **kwargs)
     if task.task_family == "cf.PrepareMLEvents":
         # pass category mask to only use events that belong to the main "signal region"
         # NOTE: we could also just require the pre_ml_cats Producer here
@@ -92,7 +94,11 @@ def ml_preparation(
         events = get_events_from_categories(events=events, categories=["os"], config_inst=self.config_inst)
         events = get_events_from_categories(events=events, categories=["iso"], config_inst=self.config_inst)
 
+
         logger.info(f"Select {len(events)} from {n_events} events for MLTraining using")
+        if len(events) == 0:
+            from IPython import embed
+            embed(header=f"Found no events for dataset {self.dataset_inst.name}, this is highly unlikely!")
 
     weight_map = {
         "num_events": Ellipsis,  # all events
