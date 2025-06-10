@@ -9,7 +9,7 @@ specificly Mathis Frahm and Lara Markus.
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any
+from functools import partial
 import yaml
 
 import law
@@ -20,6 +20,7 @@ from columnflow.ml import MLModel
 from columnflow.util import maybe_import, dev_sandbox, DotDict, DerivableMeta
 from columnflow.columnar_util import Route, set_ak_column, EMPTY_FLOAT, EMPTY_INT
 from columnflow.config_util import get_datasets_from_process
+from columnflow.types import Any
 
 from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
 from hbt.ml.torch_utils.ignite.metrics import (
@@ -66,15 +67,13 @@ class MLClassifierBase(MLModel):
         "hh": 1,
     }
 
-    input_features: set = {"Jet.pt[0]", "Jet.pt[1]"}
-
     # identifier of the PrepareMLEvents and MergeMLEvents outputs. Needs to be changed when producing new input features
     store_name: str = "inputs_base"
 
     # Class for data loading and it's dependencies.
     data_loader = None
     # NOTE: we might want to use the data_loader.hyperparameter_deps instead
-    preml_params: set[str] = {"data_loader", "input_features", "train_val_test_split"}
+    preml_params: set[str] = {"data_loader","categorical_features", "continuous_features", "train_val_test_split"}
 
     # NOTE: we split each fold into train, val, test + do k-folding, so we have a 4-way split in total
     # TODO: test whether setting "test" to 0 is working
@@ -92,11 +91,11 @@ class MLClassifierBase(MLModel):
     _default__early_stopping_patience: int = 10
     _default__early_stopping_min_epochs: int = 4
     _default__early_stopping_min_diff: float = 0.0
-    _default__deterministic_seed: int | None = None
+    _default__deterministic_seeds: list[int] | int | None = None
 
     # parameters to add into the `parameters` attribute to determine the 'parameters_repr' and to store in a yaml file
     bookkeep_params: set[str] = {
-        "data_loader", "input_features", "train_val_test_split",
+        "data_loader", "categorical_features", "continuous_features", "train_val_test_split",
         "processes", "categorical_target_map", "class_factors", "sub_process_class_factors",
         "negative_weights", "epochs", "batchsize", "folds",
         "learning_rate",
@@ -104,7 +103,7 @@ class MLClassifierBase(MLModel):
         "early_stopping_patience",
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
-        "deterministic_seed",
+        "deterministic_seeds",
     }
 
     # parameters that can be overwritten via command line
@@ -116,7 +115,7 @@ class MLClassifierBase(MLModel):
         "early_stopping_patience",
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
-        "deterministic_seed",
+        "deterministic_seeds",
     }
 
     @classmethod
@@ -220,7 +219,6 @@ class MLClassifierBase(MLModel):
         Resolve the values of the parameters that are used in the MLModel
         """
         self.processes = tuple(self.processes)
-        self.input_features = set(self.input_features)
         self.train_val_test_split = tuple(self.train_val_test_split)
         if not isinstance(self.sub_process_class_factors, dict):
             # cast tuple to dict
@@ -400,13 +398,6 @@ class MLClassifierBase(MLModel):
     def evaluation_producers(self, analysis_inst: od.Analysis, requested_producers: Sequence[str]) -> list[str]:
         return self.training_producers(analysis_inst, requested_producers)
 
-    def requires(self, task: law.Task) -> dict[str, Any]:
-        # Custom requirements (none currently)
-        reqs = {}
-
-        # reqs["preml"] = MLPreTraining.req_different_branching(task, branch=-1)
-        return reqs
-
     def sandbox(self, task: law.Task) -> str:
         # venv_ml_tf sandbox but with scikit-learn and restricted to tf 2.11.0
         return dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_torch.sh")
@@ -447,14 +438,19 @@ class MLClassifierBase(MLModel):
 
         return used_datasets
 
+    @property
+    @abstractmethod
+    def continuous_features(self):
+        pass
+
+    @property
+    @abstractmethod
+    def categorical_features(self):
+        pass
+
     def uses(self, config_inst: od.Config) -> set[Route | str]:
-        columns = {
-            "lepton1.{px,py,pz,energy,mass}",
-            "lepton2.{px,py,pz,energy,mass}",
-            "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            "fatjet.{px,py,pz,energy,mass}",
-        }
+        columns = self.categorical_features | self.continuous_features
+
         # TODO: switch to full event weight
         # TODO: this might not work with data, to be checked
         columns.add("process_id")
@@ -471,19 +467,32 @@ class MLClassifierBase(MLModel):
         return produced
 
     def output(self, task: law.Task) -> dict[str, law.FileSystemTarget]:
-        target = task.target(f"mlmodel_f{task.branch}of{self.folds}", dir=True)
+        branch_data = task.branch_data
+        fold = None
+        if isinstance(branch_data, dict) and (seed := branch_data.get("deterministic_seed", None)):
+            fold = branch_data.get("fold")
+            suffix = f"_seed_{seed}"
+        else:
+            fold = task.branch
+
+        target = task.target(f"mlmodel_f{fold}of{self.folds}", dir=True)
         # declare the main target
+        suffix = ""
+        
+        # from IPython import embed
+        # embed(header=f"in {self.__class__.__name__}.output")
+        ml_name = self.__class__.__name__
         output = {
-            "model": target.child(f"torch_model_{task.branch_data}_f{task.branch}of{self.folds}.pt", type="f"),
+            "model": target.child(f"torch_model_{ml_name}_f{fold}of{self.folds}{suffix}.pt", type="f"),
             "tensorboard": task.local_target(
-                f"tb_logger_{task.branch_data}_f{task.branch}of{self.folds}",
+                f"tb_logger_{ml_name}_f{fold}of{self.folds}{suffix}",
                 dir=True,
                 optional=True,
             ),
         }
         output["aux_files"] = {
             ".".join(fname.split(".")[:-1]): target.child(fname, type="f")
-            for fname in ("parameter_summary.yaml", "input_features.pkl")
+            for fname in (f"parameter_summary{suffix}.yaml", "input_features.pkl")
         }
         return DotDict.wrap(output)
 
@@ -491,13 +500,34 @@ class MLClassifierBase(MLModel):
         self,
         task: law.Task,
         input: Any,
-        output: law.LocalDirectoryTarget,
+        output: DotDict[str, law.LocalDirectoryTarget],
+        device: torch.device | str = "cpu",
     ):
-        from IPython import embed
-        embed(header=f"in load_data of {self.__class__.__name__}")
+        datasets = set(x.name for config in self.used_datasets for x in self.used_datasets[config])
 
+        # the task is expected to know a couple of details of data loading, so add this information
+        task.batch_size = self.batchsize
+        task.load_parallel_cores = 0
+
+        extract_probabilities_fn = partial(
+            self.extract_probabilities,
+            input=input,
+        )
+
+        self.model.init_dataset_handler(
+            task=task,
+            extract_dataset_paths_fn=self.extract_dataset_paths_fn,
+            datasets=list(datasets),
+            extract_probability_fn=extract_probabilities_fn,
+            device=device,
+        )
+
+        def sort_set(set_name: str, key=str) -> list[str]:
+            return sorted(getattr(self, set_name, set()), key=key)
+
+        out_dict = {k: sort_set(k) for k in ("continuous_features", "categorical_features")}
         # store input features as an output
-        output["mlmodel"].child("input_features.pkl", type="f").dump(self.input_features_ordered, formatter="pickle")
+        output.aux_files.input_features.dump(out_dict, formatter="pickle")
 
     @property
     def model(self) -> torch.nn.Module:
@@ -513,7 +543,7 @@ class MLClassifierBase(MLModel):
         self,
         task: law.Task,
         input: Any,
-        output: law.LocalDirectoryTarget,
+        output: DotDict[str, law.LocalDirectoryTarget],
     ) -> ak.Array:
         """ Training function that is called during the MLTraining task """
         import torch
@@ -521,18 +551,30 @@ class MLClassifierBase(MLModel):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         logger.info(f"Running pytorch on {device}")
-        if self.deterministic_seed and self.deterministic_seed >= 0:
+        # deterministic seed may be part of the branch data of the task,
+        # so look for it
+        branch_data = task.branch_data
+        deterministic_seed = None
+        if isinstance(branch_data, dict):
+            deterministic_seed = branch_data.get("deterministic_seed", None)
+
+        if deterministic_seed and deterministic_seed >= 0:
             # set seed for reproducibility
-            torch.manual_seed(self.deterministic_seed)
+            self.parameters["deterministic_seed"] = deterministic_seed
+            torch.manual_seed(deterministic_seed)
             if torch.cuda.is_available():
-                torch.cuda.manual_seed(self.deterministic_seed)
-                torch.cuda.manual_seed_all(self.deterministic_seed)
-            np.random.seed(self.deterministic_seed)
+                torch.cuda.manual_seed(deterministic_seed)
+                torch.cuda.manual_seed_all(deterministic_seed)
+            np.random.seed(deterministic_seed)
             import random
-            random.seed(self.deterministic_seed)
+            random.seed(deterministic_seed)
             torch.use_deterministic_algorithms(True)
         # input preparation
-        self.load_data(task, input, output)
+        self.model = self.prepare_ml_model(task)
+        self.model = self.model.to(device)
+        self.load_data(task, input, output, device=device)
+
+        self.model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
 
         # hyperparameter bookkeeping
         output.aux_files.parameter_summary.dump(dict(self.parameters), formatter="yaml")
@@ -541,18 +583,15 @@ class MLClassifierBase(MLModel):
         # model preparation
         #
 
-        self.model = self.prepare_ml_model(task)
-
-        run_name = f"{self._parameter_repr}_{self.version}"
+        run_name = f"{self.parameters_repr}_{task.version}"
 
         # How many batches to wait before logging training status
 
         # run only when datastitics exists
         # set statitical modes for preprocessing
-        if hasattr(self.model, "dataset_statitics"):
+        if hasattr(self.model, "dataset_statistics"):
             self.model.setup_preprocessing()
         # move all model parameters to device
-        self.model = self.model.to(device)
 
         self.model.start_training(run_name=run_name, max_epochs=self.epochs)
 
@@ -574,6 +613,24 @@ class MLClassifierBase(MLModel):
     ) -> None:
         """ Function to run the ml training loop. Needs to be implemented in daughter class """
         return
+
+    def requires(self, task: law.Task) -> dict[str, Any]:
+        """
+        Requirements for the MLModel. This is used to determine the dependencies of the MLModel.
+        """
+        reqs = dict()
+        reqs["stats"] = {
+            config_inst.name: {
+                dataset_inst.name: task.reqs.MergeMLStats.req_different_branching(
+                    task,
+                    config=config_inst.name,
+                    dataset=dataset_inst.name,
+                )
+                for dataset_inst in dataset_insts
+            }
+            for config_inst, dataset_insts in self.used_datasets.items()
+        }
+        return reqs
 
     def evaluate(
         self,
@@ -660,12 +717,52 @@ class MLClassifierBase(MLModel):
 
         return events
 
+    def extract_dataset_paths_fn(self, input, dataset):
+        events = input["events"]
+        return [x["mlevents"].abspath for c in events for x in events[c][dataset]]
+
+    def extract_probabilities(self, dataset, input=None, keyword="sum_norm_weights_per_process"):
+        input = DotDict.wrap(input)
+        stats = input.model.stats
+        allowed_process_ids = [
+            x[0].id
+            for proc in self.process_insts
+            for x in proc.walk_processes(include_self=True)
+        ]
+        expected_events = list()
+        for config in self.config_insts:
+            lumi = config.x.luminosity.nominal
+            target = stats[config.name][dataset]["stats"]
+            dataset_stats = target.load(formatter="json")
+            sel_stats = dataset_stats.get(keyword, dict())
+            allowed = list(filter(lambda x: int(x) in allowed_process_ids, sel_stats.keys()))
+            xs = sum([val for x, val in sel_stats.items() if x in allowed])
+            expected_events.append(xs * lumi)
+        return sum(expected_events)
+
 
 class BinaryMLBase(MLClassifierBase):
     """ Example class how to implement a DNN from the MLClassifierBase """
 
     # optionally overwrite input parameters
     _default__epochs: int = 10
+
+    @property
+    def continuous_features(self) -> set[Route | str]:
+        columns = {
+            "lepton1.{px,py,pz,energy,mass}",
+            "lepton2.{px,py,pz,energy,mass}",
+            "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+            "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+            "fatjet.{px,py,pz,energy,mass}",
+        }
+        final_set = set()
+        final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+        return final_set
+
+    @property
+    def categorical_features(self) -> set[Route | str]:
+        return set()
 
     def prepare_ml_model(
         self,
@@ -675,9 +772,10 @@ class BinaryMLBase(MLClassifierBase):
         Minimal implementation of a ML model
         """
         from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
-        model = WeightedTensorFeedForwardNet()
-
-        model.init_optimizer()
+        logger_path = self.output(task)["tensorboard"].abspath
+        model = WeightedTensorFeedForwardNet(tensorboard_path=logger_path, logger=logger, task=task)
+        model.continuous_features = self.continuous_features
+        model.categorical_features = self.categorical_features
 
         return model
 
