@@ -18,13 +18,13 @@ from hbt.ml.torch_models.multi_class import (
 from hbt.ml.torch_models.resnet import (
     ResNet,
     WeightedResNet,
-    WeightedResnetNoDropout,
+    WeightedResnetDropout,
     WeightedResnetTest,
     WeightedResnetTest2,
 )
-from hbt.ml.torch_models.bognet import (
-    BogNet,
-)
+# from hbt.ml.torch_models.bognet import (
+#     BogNet,
+# )
 
 model_clss = {}
 model_clss["feedforward"] = FeedForwardNet
@@ -47,7 +47,7 @@ model_clss["feedforward_dropout"] = DropoutFeedForwardNet
 # resnet networks
 model_clss["resnet"] = ResNet
 model_clss["weighted_resnet"] = WeightedResNet
-model_clss["weighted_resnet_nodroupout"] = WeightedResnetNoDropout
+model_clss["weighted_resnet_droupout"] = WeightedResnetDropout
 model_clss["weighted_resnet_test"] = WeightedResnetTest
 model_clss["weighted_resnet_test2"] = WeightedResnetTest2
-model_clss["bognet"] = BogNet
+# model_clss["bognet"] = BogNet

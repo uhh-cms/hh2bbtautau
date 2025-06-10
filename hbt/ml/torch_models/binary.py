@@ -4,7 +4,7 @@ __all__ = [
 ]
 
 from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import Any
+from columnflow.types import Any, Callable
 from collections.abc import Container
 
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
@@ -146,12 +146,20 @@ if not isinstance(torch, MockModule):
                     target = target.reshape(-1, 1)
                 return pred, target
 
-        def init_dataset_handler(self, task: law.Task, *args, **kwargs):
+        def init_dataset_handler(
+            self,
+            task: law.Task,
+            *args,
+            datasets: list[str] | None = None,
+            extract_dataset_paths_fn: Callable | None = None,
+            extract_probability_fn: Callable | None = None,
+            **kwargs,
+        ):
+            all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
-                "ttbar": [d for d in task.datasets if d.startswith("tt_")],
+                "ttbar": [d for d in all_datasets if d.startswith("tt_")],
             }
             device = next(self.parameters()).device
-            all_datasets = getattr(task, "resolved_datasets", task.datasets)
 
             self.dataset_handler = FlatListRowgroupParquetFileHandler(
                 task=task,
@@ -162,6 +170,8 @@ if not isinstance(torch, MockModule):
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
+                extract_dataset_paths_fn=extract_dataset_paths_fn,
+                extract_probability_fn=extract_probability_fn,
             )
             self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
 
@@ -199,22 +209,32 @@ if not isinstance(torch, MockModule):
             return logits
 
     class TensorFeedForwardNet(FeedForwardNet):
-        def init_dataset_handler(self, task: law.Task, *args, **kwargs):
+        def init_dataset_handler(
+            self,
+            task: law.Task,
+            *args,
+            datasets: list[str] | None = None,
+            extract_dataset_paths_fn: Callable | None = None,
+            extract_probability_fn: Callable | None = None,
+            **kwargs,
+        ):
+            all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
-                "ttbar": [d for d in task.datasets if d.startswith("tt_")],
+                "ttbar": [d for d in all_datasets if d.startswith("tt_")],
             }
             device = next(self.parameters()).device
-            all_datasets = getattr(task, "resolved_datasets", task.datasets)
 
             self.dataset_handler = RgTensorParquetFileHandler(
                 task=task,
-                continuous_features=self.inputs,
+                continuous_features=getattr(self, "continuous_features", self.inputs),
                 batch_transformations=MoveToDevice(device=device),
                 # global_transformations=PreProcessFloatValues(),
                 build_categorical_target_fn=self._build_categorical_target,
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
+                extract_dataset_paths_fn=extract_dataset_paths_fn,
+                extract_probability_fn=extract_probability_fn,
             )
             self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
 
@@ -268,12 +288,20 @@ if not isinstance(torch, MockModule):
                 "roc_auc": WeightedROC_AUC(),
             }
 
-        def init_dataset_handler(self, task: law.Task, *args, **kwargs):
+        def init_dataset_handler(
+            self,
+            task: law.Task,
+            *args,
+            datasets: list[str] | None = None,
+            extract_dataset_paths_fn: Callable | None = None,
+            extract_probability_fn: Callable | None = None,
+            **kwargs,
+        ):
+            all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
-                "ttbar": [d for d in task.datasets if d.startswith("tt_")],
+                "ttbar": [d for d in all_datasets if d.startswith("tt_")],
             }
             device = next(self.parameters()).device
-            all_datasets = getattr(task, "resolved_datasets", task.datasets)
 
             self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
@@ -285,6 +313,8 @@ if not isinstance(torch, MockModule):
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
+                extract_dataset_paths_fn=extract_dataset_paths_fn,
+                extract_probability_fn=extract_probability_fn,
             )
             self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets()  # noqa
 
@@ -299,7 +329,7 @@ if not isinstance(torch, MockModule):
             # extraction happens form no oversampled dataset
             mean, std = [], []
             for _input in sorted(self.inputs, key=str):
-                input_statitics = self.dataset_statitics[_input.column]
+                input_statitics = self.dataset_statistics[_input.column]
                 mean.append(torch.from_numpy(input_statitics["mean"]))
                 std.append(torch.from_numpy(input_statitics["std"]))
 
@@ -468,12 +498,20 @@ if not isinstance(torch, MockModule):
                 nn.Sigmoid(),
             )
 
-        def init_dataset_handler(self, task: law.Task, *args, **kwargs):
+        def init_dataset_handler(
+            self,
+            task: law.Task,
+            *args,
+            datasets: list[str] | None = None,
+            extract_dataset_paths_fn: Callable | None = None,
+            extract_probability_fn: Callable | None = None,
+            **kwargs,
+        ):
+            all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
-                "ttbar": [d for d in task.datasets if d.startswith("tt_")],
+                "ttbar": [d for d in all_datasets if d.startswith("tt_")],
             }
             device = next(self.parameters()).device
-            all_datasets = getattr(task, "resolved_datasets", task.datasets)
 
             self.dataset_handler = WeightedRgTensorParquetFileHandler(
                 task=task,
@@ -485,6 +523,8 @@ if not isinstance(torch, MockModule):
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
+                extract_dataset_paths_fn=extract_dataset_paths_fn,
+                extract_probability_fn=extract_probability_fn,
             )
             self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets() # noqa
             self.dataset_statistics = get_standardization_parameter(self.train_validation_loader.data_map, self.inputs)
@@ -598,9 +638,18 @@ if not isinstance(torch, MockModule):
             )
 
     class FeedForwardArrow(FeedForwardNet):
-        def init_dataset_handler(self, task: law.Task, *args, **kwargs):
+        def init_dataset_handler(
+            self,
+            task: law.Task,
+            *args,
+            datasets: list[str] | None = None,
+            extract_dataset_paths_fn: Callable | None = None,
+            extract_probability_fn: Callable | None = None,
+            **kwargs,
+        ):
+            all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
-                "ttbar": [d for d in task.datasets if d.startswith("tt_")],
+                "ttbar": [d for d in all_datasets if d.startswith("tt_")],
             }
             device = next(self.parameters()).device
             self.dataset_handler = FlatArrowParquetFileHandler(
@@ -611,4 +660,6 @@ if not isinstance(torch, MockModule):
                 build_categorical_target_fn=self._build_categorical_target,
                 group_datasets=group_datasets,
                 device=device,
+                extract_dataset_paths_fn=extract_dataset_paths_fn,
+                extract_probability_fn=extract_probability_fn,
             )

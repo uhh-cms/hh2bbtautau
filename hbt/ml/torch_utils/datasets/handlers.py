@@ -56,6 +56,8 @@ class BaseParquetFileHandler(object):
         build_categorical_target_fn: Callable | None = None,
         group_datasets: dict[str, list[str]] | None = None,
         device: str | None = None,
+        extract_dataset_paths_fn: Callable | None = None,
+        extract_probability_fn: Callable | None = None,
         **kwargs,
     ):
         self.open_options = open_options or dict()
@@ -79,6 +81,9 @@ class BaseParquetFileHandler(object):
         self.group_datasets = group_datasets or dict()
         self.dataset_cls = FlatParquetDataset
         self.device = device
+
+        self.extract_dataset_paths: Callable = extract_dataset_paths_fn or self._default_extract_dataset_paths
+        self._extract_probability: Callable = extract_probability_fn or self._default_extract_probability
 
         self.default_dataset_kwargs = {
             "columns": self.columns,
@@ -134,7 +139,7 @@ class BaseParquetFileHandler(object):
         training = self.create_dataset(
             target_path,
             open_options=final_options,
-            targets=targets,
+            target=targets,
             **self.default_dataset_kwargs,
         )
 
@@ -148,7 +153,7 @@ class BaseParquetFileHandler(object):
             validation = self.create_dataset(
                 target_path,
                 open_options=final_options,
-                targets=targets,
+                target=targets,
                 **self.default_dataset_kwargs,
             )
         return training, validation
@@ -171,7 +176,7 @@ class BaseParquetFileHandler(object):
             validation_ds.append(validation)
         return training_ds, validation_ds
 
-    def _extract_probability(
+    def _default_extract_probability(
         self,
         dataset: str, keyword: str = "sum_mc_weight_selected",
     ):
@@ -221,6 +226,15 @@ class BaseParquetFileHandler(object):
                 d: val / prob_sum for d, val in subspace_probs.items()
             }
 
+    def _default_extract_dataset_paths(self, inputs, dataset):
+        targets = [inputs.events[dataset][c]["collection"] for c in sorted(self.configs)]
+        return [
+            t.abspath
+            for collections in targets
+            for targets in collections.targets.values()
+            for t in targets.values()
+        ]
+
     def _init_training_validation_map(self) -> tuple[dict[str, list[ParquetDataset]], dict[str, list[ParquetDataset]]]:
         # construct datamap
         training_data_map: dict[str, list[ParquetDataset]] = dict()
@@ -228,13 +242,7 @@ class BaseParquetFileHandler(object):
 
         for dataset in sorted(self.datasets):
             # following code is used for SiblingFileCollections
-            targets = [self.inputs.events[dataset][c]["collection"] for c in sorted(self.configs)]
-            target_paths = [
-                t.abspath
-                for collections in targets
-                for targets in collections.targets.values()
-                for t in targets.values()
-            ]
+            target_paths = self.extract_dataset_paths(self.inputs, dataset)
 
             # following code is used for LocalFileTargets
             # from IPython import embed
@@ -536,7 +544,7 @@ class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
         training = self.create_dataset(
             target_paths,
             idx=training_idx,
-            targets=targets,
+            target=targets,
             open_options=final_options,
             **self.default_dataset_kwargs,
         )
@@ -545,7 +553,7 @@ class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
         validation = self.create_dataset(
             target_paths,
             idx=validation_idx,
-            targets=targets,
+            target=targets,
             open_options=final_options,
             **self.default_dataset_kwargs,
         )

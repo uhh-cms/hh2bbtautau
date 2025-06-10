@@ -6,7 +6,7 @@ __all__ = [
 from functools import partial
 
 from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import Any
+from columnflow.types import Callable
 from collections.abc import Container
 
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
@@ -165,8 +165,17 @@ if not isinstance(torch, MockModule):
             self.logger.info(f"epoch dominated by  '{max_key}': expect {global_max} batches/iteration")
             return global_max
 
-        def init_dataset_handler(self, task: law.Task):
-            all_datasets = getattr(task, "resolved_datasets", task.datasets)
+        def init_dataset_handler(
+            self,
+            task: law.Task,
+            *args,
+            device: str | None = None,
+            datasets: list[str] | None = None,
+            extract_dataset_paths_fn: Callable | None = None,
+            extract_probability_fn: Callable | None = None,
+            **kwargs,
+        ):
+            all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
                 "ttbar": [d for d in all_datasets if d.startswith("tt_")],
                 "dy": [d for d in all_datasets if d.startswith("dy_")],
@@ -184,6 +193,8 @@ if not isinstance(torch, MockModule):
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
+                extract_dataset_paths_fn=extract_dataset_paths_fn,
+                extract_probability_fn=extract_probability_fn,
             )
             self.training_loader, self.validation_loader = self.dataset_handler.init_datasets()
             self.max_epoch_length = self._calculate_max_epoch_length(
@@ -226,8 +237,17 @@ if not isinstance(torch, MockModule):
 
                 return pred, target, {"weight": weights}
 
-        def init_dataset_handler(self, task: law.Task, device: str | None = None):
-            all_datasets = getattr(task, "resolved_datasets", task.datasets)
+        def init_dataset_handler(
+            self,
+            task: law.Task,
+            device: str | None = None,
+            *args,
+            datasets: list[str] | None = None,
+            extract_dataset_paths_fn: Callable | None = None,
+            extract_probability_fn: Callable | None = None,
+            **kwargs,
+        ):
+            all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
                 "ttbar": [d for d in all_datasets if d.startswith("tt_")],
                 "dy": [d for d in all_datasets if d.startswith("dy_")],
@@ -244,6 +264,8 @@ if not isinstance(torch, MockModule):
                 group_datasets=group_datasets,
                 device=device,
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
+                extract_dataset_paths_fn=extract_dataset_paths_fn,
+                extract_probability_fn=extract_probability_fn,
             )
             self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets()  # noqa
             self.max_epoch_length = self._calculate_max_epoch_length(
