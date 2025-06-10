@@ -55,6 +55,8 @@ if not isinstance(ignite, MockModule):
             self.max_val_epoch_length = None
             self.training_logger_interval = 20
             self.training_printout_interval = 100
+            self.validation_nonscalar_metrics = getattr(self, "validation_nonscalar_metrics", dict())
+            self.validation_metrics = getattr(self, "validation_metrics", dict())
 
         @abc.abstractmethod
         def train_step(self, engine: Engine, batch: tuple) -> tuple:
