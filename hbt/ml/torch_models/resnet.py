@@ -177,6 +177,7 @@ if not isinstance(torch, MockModule):
 
             self.training_epoch_length_cutoff = 5000
             self.training_weight_cutoff = 0.1
+
         def init_layers(self):
             self.std_layer = StandardizeLayer()
             self.input_layer = InputLayer(

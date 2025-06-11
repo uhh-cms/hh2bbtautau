@@ -478,7 +478,7 @@ class MLClassifierBase(MLModel):
         target = task.target(f"mlmodel_f{fold}of{self.folds}", dir=True)
         # declare the main target
         suffix = ""
-        
+
         # from IPython import embed
         # embed(header=f"in {self.__class__.__name__}.output")
         ml_name = self.__class__.__name__
@@ -746,6 +746,7 @@ class BinaryMLBase(MLClassifierBase):
 
     # optionally overwrite input parameters
     _default__epochs: int = 10
+    ml_cls = None
 
     @property
     def continuous_features(self) -> set[Route | str]:
@@ -772,8 +773,77 @@ class BinaryMLBase(MLClassifierBase):
         Minimal implementation of a ML model
         """
         from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
+
         logger_path = self.output(task)["tensorboard"].abspath
         model = WeightedTensorFeedForwardNet(tensorboard_path=logger_path, logger=logger, task=task)
+        model.categorical_target_map = self.categorical_target_map
+        model.continuous_features = self.continuous_features
+        model.categorical_features = self.categorical_features
+
+        return model
+
+    def open_model(self, task, *args, **kwargs):
+        model = self.prepare_ml_model(task)
+
+        from IPython import embed
+        embed(header=f"in {self.__class__.__name__}.open_model")
+
+    def start_training(self, run_name, max_epochs) -> None:
+        return self.model.start_training(run_name, max_epochs)
+
+
+class MultiClsMLBase(MLClassifierBase):
+    _default__epochs: int = 10
+    ml_cls = None
+
+    _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1", "dy")
+    categorical_target_map: dict[str, int] = {
+        "hh": 0,
+        "tt": 1,
+        "dy": 2,
+    }
+
+    @property
+    def continuous_features(self) -> set[Route | str]:
+        columns = {
+            "lepton1.{px,py,pz,energy,mass}",
+            "lepton2.{px,py,pz,energy,mass}",
+            "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+            "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+            "fatjet.{px,py,pz,energy,mass}",
+        }
+        final_set = set()
+        final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+        return final_set
+
+    @property
+    def categorical_features(self) -> set[Route | str]:
+        columns = {
+            "pair_type",
+            "decay_mode1",
+            "decay_mode2",
+            "lepton1.charge",
+            "lepton2.charge",
+            "has_fatjet",
+            "has_jet_pair",
+            "year_flag",
+        }
+        final_set = set()
+        final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+        return final_set
+    
+    def prepare_ml_model(
+        self,
+        task: law.Task,
+    ):
+        """
+        Minimal implementation of a ML model
+        """
+        logger_path = self.output(task)["tensorboard"].abspath
+        from hbt.ml.torch_models.resnet import WeightedResnetTest
+
+        model = WeightedResnetTest(tensorboard_path=logger_path, logger=logger, task=task)
+        model.categorical_target_map = self.categorical_target_map
         model.continuous_features = self.continuous_features
         model.categorical_features = self.categorical_features
 
@@ -790,7 +860,16 @@ class BinaryMLBase(MLClassifierBase):
 
 
 # dervive another model from the ExampleDNN class with different class attributes
-example_test = BinaryMLBase.derive("example_test", cls_dict={"epochs": 5})
+# from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
+example_test = BinaryMLBase.derive("example_test", cls_dict={
+    "epochs": 5,
+    # "ml_cls": WeightedTensorFeedForwardNet,
+})
+
+resnet_test = MultiClsMLBase.derive("resnet_test", cls_dict={
+    "epochs": 10,
+    # "ml_cls": WeightedResnetTest,
+})
 
 
 # load all ml modules here
