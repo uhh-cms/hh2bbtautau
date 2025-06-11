@@ -19,16 +19,16 @@ from columnflow.columnar_util import EMPTY_INT, EMPTY_FLOAT
 from columnflow.util import maybe_import, MockModule
 
 torch = maybe_import("torch")
-PaddingLayer = MockModule("PaddingLayer")
-CategoricalTokenizer = MockModule("CategoricalTokenizer")
-OneHotEncodingLayer = MockModule("OneHotEncodingLayer")
-CatEmbeddingLayer = MockModule("CatEmbeddingLayer")
-InputLayer = MockModule("InputLayer")
-ResNetBlock = MockModule("ResNetBlock")
-DenseBlock = MockModule("DenseBlock")
-ResNetPreactivationBlock = MockModule("ResNetPreactivationBlock")
-StandardizeLayer = MockModule("StandardizeLayer")
-RotatePhiLayer = MockModule("RotatePhiLayer")
+PaddingLayer = MockModule("PaddingLayer")  # type: ignore[assignment]
+CategoricalTokenizer = MockModule("CategoricalTokenizer")  # type: ignore[assignment]
+OneHotEncodingLayer = MockModule("OneHotEncodingLayer")  # type: ignore[assignment]
+CatEmbeddingLayer = MockModule("CatEmbeddingLayer")  # type: ignore[assignment]
+InputLayer = MockModule("InputLayer")  # type: ignore[assignment]
+ResNetBlock = MockModule("ResNetBlock")  # type: ignore[assignment]
+DenseBlock = MockModule("DenseBlock")  # type: ignore[assignment]
+ResNetPreactivationBlock = MockModule("ResNetPreactivationBlock")  # type: ignore[assignment]
+StandardizeLayer = MockModule("StandardizeLayer")  # type: ignore[assignment]
+RotatePhiLayer = MockModule("RotatePhiLayer")  # type: ignore[assignment]
 
 if not isinstance(torch, MockModule):
     from torch import nn
@@ -54,7 +54,7 @@ if not isinstance(torch, MockModule):
         def __init__(
             self,
             categories: tuple[str],
-            expected_categorical_inputs: dict[list[int]],
+            expected_categorical_inputs: dict[str, list[int]],
             empty: int = 15,
         ):
             """
@@ -234,7 +234,7 @@ if not isinstance(torch, MockModule):
             self,
             embedding_dim: int,
             categories: tuple[str],
-            expected_categorical_inputs: dict[list[int]] | None = None,
+            expected_categorical_inputs: dict[str, list[int]] | None = None,
             category_dims: int | None = None,
             empty: int = 15,
         ):
@@ -301,13 +301,13 @@ if not isinstance(torch, MockModule):
             self,
             continuous_inputs: tuple[str],
             embedding_dim: int,
-            categorical_inputs: tuple[str] = None,
+            categorical_inputs: tuple[str] | None = None,
             category_dims: int | None = None,
-            expected_categorical_inputs: dict[list[int]] | None = None,
+            expected_categorical_inputs: dict[str, list[int]] | None = None,
             empty: int = 15,
-            std_layer = None,
-            rotation_layer = None,
-            padding_continous_layer = None,
+            std_layer: torch.nn.Module | None = None,
+            rotation_layer: torch.nn.Module | None = None,
+            padding_continous_layer: torch.nn.Module | None = None,
         ):
             """
             Enables the use of categorical and continous features in a single model.
@@ -345,7 +345,7 @@ if not isinstance(torch, MockModule):
 
         def dummy_identity(self, layer):
             if layer is None:
-                return nn.Identity
+                return nn.Identity()
             return layer
 
         def cateogrical_preprocessing_pipeline(self, x):
@@ -359,13 +359,12 @@ if not isinstance(torch, MockModule):
             x = self.std_layer(x)
             return x
 
-
         def forward(self, args):
             categorical_inputs, continuous_inputs = args
             x = torch.cat(
                 [
                     self.continous_preprocessing_pipeline(continuous_inputs),
-                    self.cateogrical_preprocessing_pipeline(categorical_inputs)
+                    self.cateogrical_preprocessing_pipeline(categorical_inputs),
                 ],
                 dim=1,
             ).to(torch.float32)
