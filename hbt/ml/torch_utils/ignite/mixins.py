@@ -1,4 +1,9 @@
 from __future__ import annotations
+
+__all__ = [
+    "IgniteTrainingMixin",
+    "IgniteEarlyStoppingMixin",
+]
 import abc
 
 from functools import partial
@@ -9,6 +14,9 @@ from hbt.ml.torch_utils.utils import CustomEarlyStopping as EarlyStopping
 
 
 ignite = maybe_import("ignite")
+
+IgniteTrainingMixin = MockModule("IgniteTrainingMixin")
+IgniteEarlyStoppingMixin = MockModule("IgniteEarlyStoppingMixin")
 
 if not isinstance(ignite, MockModule):
     from ignite.engine import Engine, Events
@@ -29,7 +37,7 @@ if not isinstance(ignite, MockModule):
             self.run_name = getattr(self, "run_name", None)
             self.writer = getattr(self, "writer", None)
 
-    class IgniteTrainingMixin(DatasetHandlerMixin, IgniteMixinBase):
+    class IgniteTrainingMixin(DatasetHandlerMixin, IgniteMixinBase):  # noqa: F811
         trainer: Engine
         train_evaluator: Engine
         val_evaluator: Engine
@@ -47,6 +55,8 @@ if not isinstance(ignite, MockModule):
             self.max_val_epoch_length = None
             self.training_logger_interval = 20
             self.training_printout_interval = 100
+            self.validation_nonscalar_metrics = getattr(self, "validation_nonscalar_metrics", dict())
+            self.validation_metrics = getattr(self, "validation_metrics", dict())
 
         @abc.abstractmethod
         def train_step(self, engine: Engine, batch: tuple) -> tuple:
@@ -231,7 +241,7 @@ if not isinstance(ignite, MockModule):
             if self.writer:
                 self.writer.close()
 
-    class IgniteEarlyStoppingMixin(IgniteMixinBase):
+    class IgniteEarlyStoppingMixin(IgniteMixinBase):  # noqa: F811
         early_stopping_patience: int
         early_stopping_min_epochs: int
         early_stopping_min_diff: float

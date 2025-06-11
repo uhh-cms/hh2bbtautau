@@ -20,6 +20,8 @@ torchdata = maybe_import("torchdata")
 np = maybe_import("numpy")
 
 RowgroupSampler = MockModule("RowgroupSampler")  # type: ignore
+ListRowgroupSampler = MockModule("ListRowgroupSampler")  # type: ignore
+ListSampler = MockModule("ListSampler")
 
 
 if not isinstance(torchdata, MockModule):
@@ -120,7 +122,7 @@ if not isinstance(torchdata, MockModule):
                 for data_idx in size_sampler:
                     yield (tuple(rowgroups.tolist()), data_idx)
 
-    class ListRowgroupSampler(Sampler):
+    class ListRowgroupSampler(Sampler):  # noqa: F811
 
         def __init__(
             self,
@@ -163,7 +165,7 @@ if not isinstance(torchdata, MockModule):
                 for output in sampler:
                     yield (dataset_idx, *output)
 
-    class ListSampler(Sampler):
+    class ListSampler(Sampler):  # noqa: F811
 
         def __init__(
             self,

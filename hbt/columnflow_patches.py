@@ -9,9 +9,43 @@ import getpass
 
 import law
 from columnflow.util import memoize
+from columnflow.tasks.ml import MLTraining
 
 
 logger = law.logger.get_logger(__name__)
+
+
+@memoize
+def patch_mltraining():
+    # patch the MLTraining output collection
+    MLTraining.output_collection_cls = law.NestedSiblingFileCollection
+    logger.info("patched MLTraining to use NestedSiblingFileCollection")
+    def create_branch_map(self) -> list[dict[str, int]]:
+        """Patched branch map for MLTraining that is ensemble-aware
+
+        :return: branch map of with nfolds x nrandom seeds branches
+        """
+        nfolds = self.ml_model_inst.folds
+        random_seeds = self.ml_model_inst.deterministic_seeds
+        # make sure random seeds have the correct format
+        if isinstance(random_seeds, int) or random_seeds is None:
+            random_seeds = [random_seeds]
+        elif isinstance(random_seeds, list):
+            random_seeds = [int(seed) for seed in random_seeds]
+        elif isinstance(random_seeds, str):
+            random_seeds = [int(seed) for seed in random_seeds.split(",")]
+        else:
+            raise TypeError(
+                f"random_seeds must be int, list or comma-separated str, got {type(random_seeds)}",
+            )
+        branch_map = [
+            {"fold": fold, "deterministic_seed": seed}
+            for fold in range(nfolds)
+            for seed in random_seeds
+        ]
+        return branch_map
+    MLTraining.create_branch_map = create_branch_map
+    logger.debug(f"patched create_branch_map of MLTraining task")
 
 
 @memoize
@@ -74,6 +108,7 @@ def patch_htcondor_workflow_naf_resources():
 
 @memoize
 def patch_all():
+    patch_mltraining()
     patch_bundle_repo_exclude_files()
     patch_remote_workflow_poll_interval()
     patch_htcondor_workflow_naf_resources()

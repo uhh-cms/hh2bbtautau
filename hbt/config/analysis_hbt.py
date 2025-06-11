@@ -73,9 +73,12 @@ from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
 add_binning_hooks(analysis_hbt)
 
 
+analysis_hbt.x.ml_inputs_producer = "res_net_preprocessing"
+
 #
 # define configs
 #
+
 
 def create_factory(
     campaign_module: str,
@@ -139,13 +142,6 @@ def add_lazy_config(
         )
 
 # 2022, preEE
-# TODO: remove after move to v14
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v12",
-    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
-    config_name="22pre_v12",
-    config_id=5012,
-)
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
@@ -165,13 +161,6 @@ analysis_hbt.configs.add_lazy_factory(
 )
 
 # 2022, postEE
-# TODO: remove after move to v14
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v12",
-    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v12",
-    config_name="22post_v12",
-    config_id=6012,
-)
 add_lazy_config(
     campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
     campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",

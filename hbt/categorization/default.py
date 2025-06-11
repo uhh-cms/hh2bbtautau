@@ -106,12 +106,12 @@ def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[
         type_name="Jet",
     )
     di_bjet_mass = hhbjets.sum(axis=1).mass
+
     mask = (
         (di_bjet_mass >= 40) &
         (di_bjet_mass <= 270)
     )
     return events, mask
-
 
 @categorizer(uses={"{Electron,Muon,Tau}.{mass,pt,eta,phi,charge}"})
 def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:

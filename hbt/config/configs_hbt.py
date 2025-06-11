@@ -1587,7 +1587,7 @@ def add_config(
             shift_inst.name for shift_inst in get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names))
         ],
         "pdf": [shift_inst.name for shift_inst in get_shifts("pdf")],
-        "murmuf": (shift_inst.name for shift_inst in get_shifts("murmuf")),
+        "murmuf": [shift_inst.name for shift_inst in get_shifts("murmuf")],
         "pu": [shift_inst.name for shift_inst in get_shifts("minbias_xs")],
     }
 

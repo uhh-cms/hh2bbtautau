@@ -1,17 +1,41 @@
 from __future__ import annotations
+
+__all__ = [
+    "PaddingLayer",
+    "CategoricalTokenizer",
+    "OneHotEncodingLayer",
+    "CatEmbeddingLayer",
+    "InputLayer",
+    "ResNetBlock",
+    "DenseBlock",
+    "ResNetPreactivationBlock",
+    "StandardizeLayer",
+    "RotatePhiLayer",
+]
+
 import copy
 
 from columnflow.columnar_util import EMPTY_INT, EMPTY_FLOAT
 from columnflow.util import maybe_import, MockModule
 
 torch = maybe_import("torch")
+PaddingLayer = MockModule("PaddingLayer")
+CategoricalTokenizer = MockModule("CategoricalTokenizer")
+OneHotEncodingLayer = MockModule("OneHotEncodingLayer")
+CatEmbeddingLayer = MockModule("CatEmbeddingLayer")
+InputLayer = MockModule("InputLayer")
+ResNetBlock = MockModule("ResNetBlock")
+DenseBlock = MockModule("DenseBlock")
+ResNetPreactivationBlock = MockModule("ResNetPreactivationBlock")
+StandardizeLayer = MockModule("StandardizeLayer")
+RotatePhiLayer = MockModule("RotatePhiLayer")
 
 
 if not isinstance(torch, MockModule):
     import torch
     from torch import nn, Tensor
 
-    class PaddingLayer(nn.Module):
+    class PaddingLayer(nn.Module):  # noqa: F811
         def __init__(self, padding_value: float | int = 0, mask_value: float | int = EMPTY_FLOAT):
             """
             Padding layer for torch models. Pads the input tensor with the given padding value.
@@ -28,7 +52,7 @@ if not isinstance(torch, MockModule):
             x[mask] = self.padding_value
             return x
 
-    class CategoricalTokenizer(nn.Module):
+    class CategoricalTokenizer(nn.Module):  # noqa: F811
         def __init__(
             self,
             categories: tuple[str],
@@ -192,7 +216,8 @@ if not isinstance(torch, MockModule):
             self.indices = self.indices.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-    class CatEmbeddingLayer(nn.Module):
+
+    class CatEmbeddingLayer(nn.Module):  # noqa: F811
         def __init__(
             self,
             embedding_dim: int,
@@ -258,7 +283,7 @@ if not isinstance(torch, MockModule):
                 self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-    class InputLayer(nn.Module):
+    class InputLayer(nn.Module):  # noqa: F811
         def __init__(
             self,
             continuous_inputs: tuple[str],
@@ -336,7 +361,7 @@ if not isinstance(torch, MockModule):
             self.embedding_layer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-    class ResNetBlock(nn.Module):
+    class ResNetBlock(nn.Module):  # noqa: F811
         def __init__(
             self,
             nodes,
@@ -385,7 +410,7 @@ if not isinstance(torch, MockModule):
             x = x + skip_connection
             return x
 
-    class DenseBlock(nn.Module):
+    class DenseBlock(nn.Module):  # noqa: F811
         def __init__(
             self,
             input_nodes,
@@ -420,7 +445,7 @@ if not isinstance(torch, MockModule):
         def forward(self, x):
             return self.layers(x)
 
-    class ResNetPreactivationBlock(nn.Module):
+    class ResNetPreactivationBlock(nn.Module):  # noqa: F811
         def __init__(
             self,
             nodes,
@@ -517,7 +542,7 @@ if not isinstance(torch, MockModule):
                 self.std = self.std.to(*args, **kwargs)
                 return super().to(*args, **kwargs)
 
-    class RotatePhiLayer(nn.Module):
+    class RotatePhiLayer(nn.Module):  # noqa: F811
         def __init__(
             self,
             columns,

@@ -7,6 +7,10 @@ __all__ = [
     "NestedDictMapAndCollate",
     "FlatListRowgroupMapAndCollate",
     "NestedListRowgroupMapAndCollate",
+    "TensorListRowgroupMapAndCollate",
+    "TensorListMapAndCollate",
+    "NestedTensorListRowgroupMapAndCollate",
+    "NestedTensorMapAndCollate",
 ]
 
 from collections.abc import Collection, Mapping
@@ -22,6 +26,12 @@ MapAndCollate = MockModule("MapAndCollate")  # type: ignore
 FlatMapAndCollate = MockModule("FlatMapAndCollate")  # type: ignore
 NestedMapAndCollate = MockModule("NestedMapAndCollate")  # type: ignore
 NestedDictMapAndCollate = MockModule("NestedDictMapAndCollate")  # type: ignore
+FlatListRowgroupMapAndCollate = MockModule("FlatListRowgroupMapAndCollate")  # type: ignore
+NestedListRowgroupMapAndCollate = MockModule("NestedListRowgroupMapAndCollate")  # type: ignore
+TensorListRowgroupMapAndCollate = MockModule("TensorListRowgroupMapAndCollate")  # type: ignore
+TensorListMapAndCollate = MockModule("TensorListMapAndCollate")  # type: ignore
+NestedTensorListRowgroupMapAndCollate = MockModule("NestedTensorListRowgroupMapAndCollate")  # type: ignore
+NestedTensorMapAndCollate = MockModule("NestedTensorMapAndCollate")  # type: ignore
 
 if not isinstance(torch, MockModule):
     from hbt.ml.torch_utils.datasets import FlatRowgroupParquetDataset
@@ -275,7 +285,7 @@ if not isinstance(torch, MockModule):
             super().__init__(*args, **kwargs)
             self._unit_collate_fn = self._concat_dicts
 
-    class FlatListRowgroupMapAndCollate(DictMixin, FlatRowgroupBackendMixin):
+    class FlatListRowgroupMapAndCollate(DictMixin, FlatRowgroupBackendMixin):  # noqa: F811
         """A simple transform that takes a batch of indices, maps with dataset, and then applies
         collate.
         TODO: make this a standard utility in torchdata.nodes
@@ -285,7 +295,7 @@ if not isinstance(torch, MockModule):
             super().__init__(*args, **kwargs)
             self._unit_collate_fn = self._concat_dicts
 
-    class NestedListRowgroupMapAndCollate(DictMixin, NestedRowgroupBackendMixin):
+    class NestedListRowgroupMapAndCollate(DictMixin, NestedRowgroupBackendMixin):  # noqa: F811
         dataset: dict[str, Sequence[FlatRowgroupParquetDataset]]
 
         def __init__(self, *args, **kwargs):
@@ -293,7 +303,7 @@ if not isinstance(torch, MockModule):
             self.all_datasets = self.dataset
             self._unit_collate_fn = self._concat_dicts
 
-    class TensorListRowgroupMapAndCollate(TensorMixin, FlatRowgroupBackendMixin):
+    class TensorListRowgroupMapAndCollate(TensorMixin, FlatRowgroupBackendMixin):  # noqa: F811
         """A simple transform that takes a batch of indices, maps with dataset, and then applies
         collate.
         TODO: make this a standard utility in torchdata.nodes
@@ -302,12 +312,12 @@ if not isinstance(torch, MockModule):
             super().__init__(*args, **kwargs)
             self._unit_collate_fn = self._concat_tensors
 
-    class TensorListMapAndCollate(TensorMixin, ListBackendMixin):
+    class TensorListMapAndCollate(TensorMixin, ListBackendMixin):  # noqa: F811
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self._unit_collate_fn = self._concat_tensors
 
-    class NestedTensorListRowgroupMapAndCollate(TensorMixin, NestedRowgroupBackendMixin):
+    class NestedTensorListRowgroupMapAndCollate(TensorMixin, NestedRowgroupBackendMixin):  # noqa: F811
         dataset: dict[str, Sequence[FlatRowgroupParquetDataset]]
 
         def __init__(self, *args, **kwargs):
@@ -315,7 +325,7 @@ if not isinstance(torch, MockModule):
             self.all_datasets = self.dataset
             self._unit_collate_fn = self._concat_tensors
 
-    class NestedTensorMapAndCollate(TensorMixin, NestedBackendMixin):
+    class NestedTensorMapAndCollate(TensorMixin, NestedBackendMixin):  # noqa: F811
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self._unit_collate_fn = self._concat_tensors
