@@ -80,7 +80,7 @@ if not isinstance(torch, MockModule):
             # extraction happens form no oversampled dataset
             mean, std = [], []
             for _input in sorted(self.inputs, key=str):
-                input_statitics = self.dataset_statitics[_input.column]
+                input_statitics = self.dataset_statistics[_input.column]
                 mean.append(torch.from_numpy(input_statitics["mean"]))
                 std.append(torch.from_numpy(input_statitics["std"]))
 
@@ -202,6 +202,8 @@ if not isinstance(torch, MockModule):
                 cutoff=self.training_epoch_length_cutoff,
                 weight_cutoff=self.training_weight_cutoff,
             )
+            self.dataset_statistics = get_standardization_parameter(self.train_validation_loader.data_map, self.inputs)
+
             # self.max_val_epoch_length = self._calculate_max_epoch_length(self.validation_loader)
 
         def to(self, *args, **kwargs):
