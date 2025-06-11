@@ -76,13 +76,6 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     for channel_id, pair_type_id in self.channel_id_to_pair_type.items():
         pair_type[events.channel_id == channel_id] = pair_type_id
 
-    if ak.any(
-        (events.channel_id != self.config_inst.channels.n.tautau.id) &
-        (events.channel_id != self.config_inst.channels.n.etau.id) &
-        (events.channel_id != self.config_inst.channels.n.mutau.id)
-    ):
-        from IPython import embed
-        embed(header="found offensive channel id!")
     # first extract Leptons
     leptons: ak.Array = attach_behavior(
         ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
@@ -130,9 +123,9 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         # (has_jet_pair | has_fatjet) &
         (self.year_flag in self.embedding_expected_inputs["year_flag"])
     )
-    if ak.any(~np.isfinite(event_mask) | ~event_mask):
-        from IPython import embed
-        embed(header="found NaN in event_mask")
+    # if ak.any(~np.isfinite(event_mask) | ~event_mask):
+    #     from IPython import embed
+    #     embed(header="found NaN in event_mask")
     pair_type = ak.mask(pair_type, event_mask)
     leptons = ak.mask(leptons, event_mask)
     lep1, lep2 = leptons[:, 0], leptons[:, 1]
