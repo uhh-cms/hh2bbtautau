@@ -162,6 +162,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     from matplotlib import pyplot as plt
     era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
 
+    # hardcode erf function definition
     def erf(x):
         x = np.asarray(x)
         # Constants in the approximation formula
@@ -182,6 +183,26 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
         return sign * y
 
+    def my_fit_function(x, c, n, mu, sigma, a, b, r):
+
+        """
+        A fit function.
+        x: dependent variable (i.g., dilep_pt)
+        c: Gaussian offset
+        n: Gaussian normalization
+        mu and sigma: Gaussian parameters
+        a and b: slope parameters
+        r: regime boundary between Guassian and linear fits
+        """
+
+        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
+        pol = a + b * x
+
+        my_fit_function = (0.5 * (erf(-0.1 * (x - r)) + 1)) * gauss + (0.5 * (erf(0.1 * (x - r)) + 1)) * pol
+
+        return my_fit_function
+
+    # use scipy erf function definition
     def window(x, r, s):
         """
         x: dependent variable (i.g., dilep_pt)
@@ -209,37 +230,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         pol = a + b * x
 
         fit_function = window(x, r, -1) * gauss + window(x, r, 1) * pol
-        my_fit_function = (0.5 * (erf(-0.1 * (x - r)) + 1)) * gauss + (0.5 * (erf(0.1 * (x - r)) + 1)) * pol
-
-        print("------------------------")
-        print("fit function with special erf")
-        print(fit_function)
-        print("fit function with my erf")
-        print(my_fit_function)
 
         # return window(x, r, -1) * gauss + window(x, r, 1) * pol
         return fit_function
 
-    def my_fit_function(x, c, n, mu, sigma, a, b, r):
-
-        """
-        A fit function.
-        x: dependent variable (i.g., dilep_pt)
-        c: Gaussian offset
-        n: Gaussian normalization
-        mu and sigma: Gaussian parameters
-        a and b: slope parameters
-        r: regime boundary between Guassian and linear fits
-        """
-
-        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
-        pol = a + b * x
-
-        my_fit_function = (0.5 * (erf(-0.1 * (x - r)) + 1)) * gauss + (0.5 * (erf(0.1 * (x - r)) + 1)) * pol
-
-        # return window(x, r, -1) * gauss + window(x, r, 1) * pol
-        return my_fit_function
-
+    # build fit function string
     def get_fit_str(njet: int, h: hist.Hist) -> dict:
         if njet not in [2, 3, 4]:
             raise ValueError(f"Invalid njets value {njet}, expected 2, 3, or 4.")
@@ -309,12 +304,22 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             bounds=(lower_bounds, upper_bounds),
         )
 
-        # build guassian and linear polinomial strings with post fit parameters
+        # get post fit parameter and convert to strings
         c, n, mu, sigma, a, b, r = param_fit
-        gaussian_str = f"{c}+({n}*(1/{sigma})*exp(-0.5*((x-({mu}))/{sigma})^2))"
-        pol_str = f"{a}+({b})*x"
 
-        # parameter strings for scipy.special.erf function
+        c = f"{c:.9f}"
+        n = f"{n:.9f}"
+        mu = f"{mu:.9f}"
+        sigma = f"{sigma:.9f}"
+        a = f"{a:.9f}"
+        b = f"{b:.9f}"
+        r = f"{r:.9f}"
+
+        # create Gaussian and polinomial strings
+        gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})**2)))"
+        pol = f"(({a})+({b})*x)"
+
+        # constant parameters of the erf function
         a1 = "0.254829592"
         a2 = "(-0.284496736)"
         a3 = "1.421413741"
@@ -322,50 +327,24 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         a5 = "1.061405429"
         p = "0.3275911"
 
-        # define our x argument string
-        x_str = f"(0.1*(x-{r}))"
-        t = f"(1.0/(1.0+{p}*abs({x_str})))"
-        poli_str = f"((((({a5}*{t}+{a4})*{t})+{a3})*{t}+{a2})*{t}+{a1})*{t}"
+        # argument string for the erf function
+        x_neg = f"(-0.1*(x-({r})))"
+        x_pos = f"(0.1*(x-({r})))"
+        abs_x_neg = f"abs({x_neg})"
+        abs_x_pos = f"abs({x_pos})"
+        sign_x_neg = f"sign({x_neg})"
+        sign_x_pos = f"sign({x_pos})"
 
-        # full string of scipy.special.erf function
-        y = f"(1.0-{poli_str}*exp(-abs({x_str})*abs({x_str})))"  # noqa: E501
-        erf_str_pos = f"0.5*({y}+1)"
-        erf_str_neg = f"0.5*(((-1)*{y})+1)"
+        # different strings for the positive and negative parts of erf function
+        t_pos = f"(1.0/(1.0+{p}*{abs_x_pos}))"
+        t_neg = f"(1.0/(1.0+{p}*{abs_x_neg}))"
+        y_pos = f"({sign_x_pos}*(1.0-((((({a5}*{t_pos}+{a4})*{t_pos})+{a3})*{t_pos}+{a2})*{t_pos}+{a1})*{t_pos}*exp(-{abs_x_pos}*{abs_x_pos})))"
+        y_neg = f"({sign_x_neg}*(1.0-((((({a5}*{t_neg}+{a4})*{t_neg})+{a3})*{t_neg}+{a2})*{t_neg}+{a1})*{t_neg}*exp(-{abs_x_neg}*{abs_x_neg})))"
 
-        # build full fit string
-        full_fit_str = f"(({erf_str_neg})*({gaussian_str})+({erf_str_pos})*({pol_str}))"
+        # full fit function string
+        fit_string = f"(0.5*({y_neg}+1))*{gauss}+(0.5*({y_pos}+1))*{pol}"
 
-        print("\nfull_fit_str to save in json dict is:\n")
-        print(full_fit_str)
-
-        """
-        # -------------------------------
-        # plot the fit function‚
-        s = np.linspace(0, 200, 1000)
-        y = [fit_function(v, *param_fit) for v in s]
-        w = [my_fit_function(v, *param_my_fit) for v in s]
-        fig, ax = plt.subplots()
-        ax.plot(s, y, color="grey", label="special.erf")
-        ax.plot(s, w, color="red", linestyle="--", label="erf")
-        ax.errorbar(
-            bin_centers,
-            ratio_values,
-            yerr=ratio_err,
-            fmt=".",
-            color="black",
-            linestyle="none",
-            ecolor="black",
-            elinewidth=0.5,
-        )
-        ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
-        ax.set_ylabel("Ratio")
-        ax.set_ylim(0.4, 1.5)
-        ax.set_title(f"Fit function for NLO 2022preEE, njets {njet}")
-        ax.grid(True)
-        fig.savefig(f"plot_fit_functions.pdf")
-        # -------------------------------
-        """
-        return full_fit_str
+        return fit_string
 
     # initialize fit dictionary
     fit_dict = {
@@ -378,11 +357,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
     for njet in [2]:
         fit_str = get_fit_str(njet, h)
+
         # TODO: if first 2 elements in tupple are not -inf, inf the fit_str will be multiplied
         # by a step function scipy.special.erf with parameter 1000
-        if njet == 2:
-            fit_dict[era]["nominal"][(0, 11)] = [(-inf, inf, fit_str)]
-        else:
-            fit_dict[era]["nominal"][(njet, njet + 1)] = [(-inf, inf, fit_str)]
+
+        # temporarily use the same fit function for all njets up to 11
+        fit_dict[era]["nominal"][(0, 11)] = [(-inf, inf, fit_str)]
 
     return fit_dict
