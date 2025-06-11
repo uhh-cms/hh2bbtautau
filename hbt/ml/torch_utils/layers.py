@@ -321,7 +321,6 @@ if not isinstance(torch, MockModule):
                         categories=categorical_inputs,
                         empty=empty,
                     )
-            # TODO pack in list
 
             if self.embedding_layer:
                 self.ndim += self.embedding_layer.ndim
@@ -449,7 +448,7 @@ if not isinstance(torch, MockModule):
         def __init__(
             self,
             nodes,
-            activation_functions="LeakyReLu",
+            activation_functions="PReLu",
             skip_connection_init=1,
             freeze_skip_connection=False,
         ):
@@ -461,6 +460,8 @@ if not isinstance(torch, MockModule):
             If skip_connection_init is set to 0, the skip connection is disabled.
             This also make if possible to use different in_nodes and out_nodes must can be different.
             To freeze the skip connection parameter, set *freeze_skip_connection* to True.
+
+            More information can be found in the original paper: https://arxiv.org/abs/1603.05027
 
             Args:
                 nodes (int): Number of nodes in the block.
@@ -545,14 +546,12 @@ if not isinstance(torch, MockModule):
     class RotatePhiLayer(nn.Module):  # noqa: F811
         def __init__(
             self,
-            columns,
-            ref_phi_columns=["lepton1", "lepton2"],
-            rotate_columns=["bjet1", "bjet2", "fatjet", "lepton1", "lepton2"],
+            columns: tuple[str],
+            ref_phi_columns: tuple[str]=("lepton1", "lepton2"),
+            rotate_columns: tuple[str]=("bjet1", "bjet2", "fatjet", "lepton1", "lepton2"),
         ):
             """
-            Rotate specific given *rotate_columns* to a *ref_phi*.
-
-            Args:
+            Rotate specific *columns* given in *rotate_columns* relative to reference in *ref_phi_columns*.
             """
             super().__init__()
             self.columns = columns
@@ -574,6 +573,10 @@ if not isinstance(torch, MockModule):
             return [f"{col}.{suffix}" for suffix in ("px", "py") for col in columns]
 
         def calc_phi(self, x, y):
+            # when converting arctan to onnx in older versions arctan is used as replacement
+            # arctan2 introduced a safeguard if second value is 0, simulate this safe guard
+            if x == 0:
+                return 0
             return torch.arctan2(y, x)
 
         def rotate_pt_to_phi(self, px, py, ref_phi):

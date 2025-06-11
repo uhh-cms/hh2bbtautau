@@ -133,6 +133,7 @@ if not isinstance(torch, MockModule):
             max_key = None
             weight_cutoff = weight_cutoff or 0.
             batch_comp = getattr(composite_loader.batcher, "_batch_composition", None)
+            # composition_length = {}
             if not batch_comp:
                 batch_comp = {key: 1. for key in composite_loader.data_map.keys()}
             for key, batchsize in batch_comp.items():
@@ -147,6 +148,7 @@ if not isinstance(torch, MockModule):
                     if local_max > global_max:
                         max_key = key
                         global_max = local_max
+                    # composition_length[key] = local_max
 
                 elif isinstance(weights, dict):
                     for subkey, weight in weights.items():
@@ -156,10 +158,11 @@ if not isinstance(torch, MockModule):
                         else:
                             total_length = len(data)
                         submax = np.ceil(total_length / batchsize / weight)
+                        # filter out datasets with small weight contribution
                         if submax > global_max and weight >= weight_cutoff:
                             global_max = submax
                             max_key = subkey
-            
+
             if cutoff:
                 global_max = np.min([global_max, cutoff])
             self.logger.info(f"epoch dominated by  '{max_key}': expect {global_max} batches/iteration")
