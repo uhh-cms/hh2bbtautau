@@ -267,14 +267,22 @@ class MLClassifierBase(MLModel):
         """
         if not self.parameters:
             return ""
-        parameters_repr = law.util.create_hash(sorted(self.parameters.items()))
-        if hasattr(self, "_parameters_repr") and self._parameters_repr != parameters_repr:
+        internal_parameters_repr = law.util.create_hash(sorted([
+            (name, val) for name, val in self.parameters.items()
+            # deterministic seed might be part of branch data of task, so exclude it from
+            # the representation
+            if not name == "deterministic_seed"
+        ]))
+        # vice versa, create a hash that contains all current parameters
+        # THIS IS DIFFERENT FROM THE INTERNAL STATE!
+        full_parameters_repr = law.util.create_hash(sorted(self.parameters.items()))
+        if hasattr(self, "_parameters_repr") and self._parameters_repr != internal_parameters_repr:
             raise Exception(
-                f"parameters_repr changed from {self._parameters_repr} to {parameters_repr};"
+                f"parameters_repr changed from {self._parameters_repr} to {internal_parameters_repr};"
                 "this should not happen",
             )
-        self._parameters_repr = parameters_repr
-        return self._parameters_repr
+        self._parameters_repr = internal_parameters_repr
+        return full_parameters_repr
 
     def valid_ml_id_sanity_check(self):
         """
@@ -559,8 +567,9 @@ class MLClassifierBase(MLModel):
         if isinstance(branch_data, dict):
             deterministic_seed = branch_data.get("deterministic_seed", None)
 
-        if deterministic_seed and deterministic_seed >= 0:
+        if deterministic_seed is not None and deterministic_seed >= 0:
             # set seed for reproducibility
+            logger.info(f"Setting deterministic seed to {deterministic_seed}")
             self.parameters["deterministic_seed"] = deterministic_seed
             torch.manual_seed(deterministic_seed)
             if torch.cuda.is_available():
@@ -947,6 +956,12 @@ resnet_test = MultiClsMLBase.derive("resnet_test", cls_dict={
 
 bognet_test = BogNetBase.derive("bognet_test", cls_dict={
     "epochs": 10,
+    # "ml_cls": UpdatedBogNet,
+})
+
+bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
+    "epochs": 10,
+    "deterministic_seeds": [0]
     # "ml_cls": UpdatedBogNet,
 })
 
