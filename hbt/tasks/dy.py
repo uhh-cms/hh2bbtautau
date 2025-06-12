@@ -294,15 +294,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             absolute_sigma=True,
             bounds=(lower_bounds, upper_bounds),
         )
-        param_my_fit, _ = optimize.curve_fit(
-            my_fit_function,
-            bin_centers,
-            ratio_values,
-            p0=starting_values, method="trf",
-            sigma=np.maximum(ratio_err, 1e-5),
-            absolute_sigma=True,
-            bounds=(lower_bounds, upper_bounds),
-        )
 
         # get post fit parameter and convert to strings
         c, n, mu, sigma, a, b, r = param_fit
@@ -316,33 +307,9 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         r = f"{r:.9f}"
 
         # create Gaussian and polinomial strings
-        gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})**2)))"
+        gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})^2)))"
         pol = f"(({a})+({b})*x)"
-
-        # constant parameters of the erf function
-        a1 = "0.254829592"
-        a2 = "(-0.284496736)"
-        a3 = "1.421413741"
-        a4 = "(-1.453152027)"
-        a5 = "1.061405429"
-        p = "0.3275911"
-
-        # argument string for the erf function
-        x_neg = f"(-0.1*(x-({r})))"
-        x_pos = f"(0.1*(x-({r})))"
-        abs_x_neg = f"abs({x_neg})"
-        abs_x_pos = f"abs({x_pos})"
-        sign_x_neg = f"sign({x_neg})"
-        sign_x_pos = f"sign({x_pos})"
-
-        # different strings for the positive and negative parts of erf function
-        t_pos = f"(1.0/(1.0+{p}*{abs_x_pos}))"
-        t_neg = f"(1.0/(1.0+{p}*{abs_x_neg}))"
-        y_pos = f"({sign_x_pos}*(1.0-((((({a5}*{t_pos}+{a4})*{t_pos})+{a3})*{t_pos}+{a2})*{t_pos}+{a1})*{t_pos}*exp(-{abs_x_pos}*{abs_x_pos})))"
-        y_neg = f"({sign_x_neg}*(1.0-((((({a5}*{t_neg}+{a4})*{t_neg})+{a3})*{t_neg}+{a2})*{t_neg}+{a1})*{t_neg}*exp(-{abs_x_neg}*{abs_x_neg})))"
-
-        # full fit function string
-        fit_string = f"(0.5*({y_neg}+1))*{gauss}+(0.5*({y_pos}+1))*{pol}"
+        fit_string = f"(0.5*(erf(-0.1*(x-{r}))+1))*{gauss}+(0.5*(erf(0.1*(x-{r}))+1))*{pol}"
 
         return fit_string
 
