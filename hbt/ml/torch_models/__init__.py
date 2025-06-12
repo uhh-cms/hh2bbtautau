@@ -22,9 +22,6 @@ from hbt.ml.torch_models.resnet import (
     WeightedResnetTest,
     WeightedResnetTest2,
 )
-# from hbt.ml.torch_models.bognet import (
-#     BogNet,
-# )
 
 model_clss = {}
 model_clss["feedforward"] = FeedForwardNet

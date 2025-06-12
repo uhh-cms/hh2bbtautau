@@ -30,8 +30,10 @@ ResNetPreactivationBlock = MockModule("ResNetPreactivationBlock")  # type: ignor
 StandardizeLayer = MockModule("StandardizeLayer")  # type: ignore[assignment]
 RotatePhiLayer = MockModule("RotatePhiLayer")  # type: ignore[assignment]
 
+
 if not isinstance(torch, MockModule):
-    from torch import nn
+    import torch
+    from torch import nn, Tensor
 
     class PaddingLayer(nn.Module):  # noqa: F811
         def __init__(self, padding_value: float | int = 0, mask_value: float | int = EMPTY_FLOAT):
@@ -61,11 +63,11 @@ if not isinstance(torch, MockModule):
             Initializes tokenizer for given *expected_categorical_inputs*.
             The tokenizer creates a mapping array in the order of given columns defined in *categories*.
             Empty values are represented as *empty*.
-            All given categories will be mapped into a common categorical space and ready to be used by a embedding layer.
+            All categories will be mapped into a common categorical space and ready to be used by a embedding layer.
 
             Args:
-                categories (tuple[str]): Names of the categories as strings. Sorting of the entries must correspond to the
-                    order of columns in input tensor!
+                categories (tuple[str]): Names of the categories as strings.
+                Sorting of the entries must correspond to the order of columns in input tensor!
                 expected_categorical_inputs (dict[list[int]], optional): Dictionary where keys are category
                     names and values are lists of integers representing the expected values for
                     each category.
@@ -122,7 +124,7 @@ if not isinstance(torch, MockModule):
                 input_tensor (torch.tensor): Input tensor of categorical features.
             """
             # reshape to have features in the first dimension
-            input_tensor = input_tensor.transpose(0,1)
+            input_tensor = input_tensor.transpose(0, 1)
             for i, categorie in enumerate(self.categories):
                 uniques = set(torch.unique(input_tensor[i]).to(torch.int32).tolist())
                 expected = set(self.expected_categorical_inputs[categorie])
@@ -131,7 +133,8 @@ if not isinstance(torch, MockModule):
                     print(f"{categorie} has values outside the expected range: {difference}")
 
         def pad_to_longest(self):
-            # helper function to pad the input tensor to the longest category, using the first value of the category as padding value
+            # helper function to pad the input tensor to the longest category
+            # first value of the category is used as padding value
             local_max = max([
                 len(self.expected_categorical_inputs[categorie])
                 for categorie in self.categories
@@ -213,21 +216,6 @@ if not isinstance(torch, MockModule):
             self.indices = self.indices.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-    class OneHotEncodingLayer(nn.Module):  # noqa: F811
-        def __init__(self, num_classes):
-            """
-            One hot encoding layer for torch models. One hot encodes the input tensor with the given padding value.
-            """
-            super().__init__()
-            self.one_hot = nn.functional.one_hot
-            self.num_classes = num_classes
-
-        def forward(self, x):
-            return self.one_hot(x, num_classes=self.num_classes).int()
-
-        def to(self, *args, **kwargs):
-            self.one_hot = self.one_hot.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
 
     class CatEmbeddingLayer(nn.Module):  # noqa: F811
         def __init__(
@@ -269,8 +257,7 @@ if not isinstance(torch, MockModule):
                 embedding_dim,
             )
 
-
-            self.ndim = embedding_dim*len(categories)
+            self.ndim = embedding_dim * len(categories)
 
         @property
         def look_up_table(self):
@@ -279,7 +266,7 @@ if not isinstance(torch, MockModule):
         def normalize_embeddings(self):
             # normalize the embedding layer to have unit length
             with torch.no_grad():
-                norm = torch.sqrt(torch.sum(self.embeddings.weight**2, dim=-1)).reshape(-1,1)
+                norm = torch.sqrt(torch.sum(self.embeddings.weight**2, dim=-1)).reshape(-1, 1)
                 self.embeddings.weight = torch.nn.Parameter(self.embeddings.weight / norm)
 
         def forward(self, cat_input):
@@ -305,10 +292,10 @@ if not isinstance(torch, MockModule):
             category_dims: int | None = None,
             expected_categorical_inputs: dict[str, list[int]] | None = None,
             empty: int = 15,
-            std_layer: torch.nn.Module | None = None,
-            rotation_layer: torch.nn.Module | None = None,
-            padding_continous_layer: torch.nn.Module | None = None,
-            padding_categorical_layer: torch.nn.Module | None = None,
+            std_layer: nn.Module | None = None,
+            rotation_layer: nn.Module | None = None,
+            padding_continous_layer: nn.Module | None = None,
+            padding_categorical_layer: nn.Module | None = None,
         ):
             """
             Enables the use of categorical and continous features in a single model.
@@ -335,7 +322,6 @@ if not isinstance(torch, MockModule):
                         categories=categorical_inputs,
                         empty=empty,
                     )
-            # TODO pack in list
 
             if self.embedding_layer:
                 self.ndim += self.embedding_layer.ndim
@@ -386,7 +372,7 @@ if not isinstance(torch, MockModule):
             freeze_skip_connection=False,
         ):
             """
-            ResNetBlock is a residual block that consists of a linear layer, batch normalization, and an activation function.
+            ResNetBlock consisting of a linear layer, batch normalization, and an activation function.
             A adjustable skip connection connects input and output of the block.
             The adjustable skip connection has a learnable parameter, *skip_connection_amplifier*.
             The dimension of the input and output of the block are defined by *nodes*.
@@ -399,7 +385,7 @@ if not isinstance(torch, MockModule):
                 activation_functions (str, optional): Name of the pytorch activation function, case insenstive.
                     Defaults to "LeakyReLu".
                 skip_connection_init (int, optional): Start value of the skipconnection. Defaults to 1.
-                freeze_skip_connection (bool, optional): Turn off learning for skipconnection parameter. Defaults to False.
+                freeze_skip_connection (bool, optional): Freeze leanable skipconnection parameter. Defaults to False.
             """
             super().__init__()
             self.nodes = nodes
@@ -465,12 +451,12 @@ if not isinstance(torch, MockModule):
         def __init__(
             self,
             nodes,
-            activation_functions="LeakyReLu",
+            activation_functions="PReLu",
             skip_connection_init=1,
             freeze_skip_connection=False,
         ):
             """
-            ResNetBlock is a residual block that consists of a linear layer, batch normalization, and an activation function.
+            Residual block that consists of a linear layer, batch normalization, and an activation function.
             A adjustable skip connection connects input and output of the block.
             The adjustable skip connection has a learnable parameter, *skip_connection_amplifier*.
             The dimension of the input and output of the block are defined by *nodes*.
@@ -478,12 +464,14 @@ if not isinstance(torch, MockModule):
             This also make if possible to use different in_nodes and out_nodes must can be different.
             To freeze the skip connection parameter, set *freeze_skip_connection* to True.
 
+            More information can be found in the original paper: https://arxiv.org/abs/1603.05027
+
             Args:
                 nodes (int): Number of nodes in the block.
                 activation_functions (str, optional): Name of the pytorch activation function, case insenstive.
                     Defaults to "LeakyReLu".
                 skip_connection_init (int, optional): Start value of the skipconnection. Defaults to 1.
-                freeze_skip_connection (bool, optional): Turn off learning for skipconnection parameter. Defaults to False.
+                freeze_skip_connection (bool, optional): Freeze skipconnection parameter. Defaults to False.
             """
             super().__init__()
             self.nodes = nodes
@@ -514,40 +502,49 @@ if not isinstance(torch, MockModule):
             x = x + skip_connection
             return self.last_activation(x)
 
-    class StandardizeLayer(nn.Module):  # noqa: F811
-        def __init__(self, mean: float | int = 0, std: float | int = 1):
-            """
-            Standardize layer for torch models. Standardizes the input tensor with the given mean and std.
+        class StandardizeLayer(nn.Module):
+            def __init__(
+                self,
+                mean: Tensor = torch.tensor(0.),
+                std: Tensor = torch.tensor(1.),
+            ):
+                """
+                Standardizes the input tensor with given *mean* and *std* tensor.
+                If no value is provided, mean and std are set to 0 and 1, resulting in no scaling.
 
-            Args:
-                mean (float, optional): Mean value. Defaults to 0.
-                std (float, optional): Standard deviation value. Defaults to 1.
-            """
-            super().__init__()
-            self.mean = mean
-            self.std = std
+                Args:
+                    mean (torch.tensor, optional): Mean tensor. Defaults to torch.tensor(0.).
+                    std (torch.tensor, optional): Standard tensor. Defaults to torch.tensor(1.).
+                """
+                super().__init__()
+                self._type_check(mean=mean, std=std)
+                self.mean = torch.nn.Parameter(mean, requires_grad=False)
+                self.std = torch.nn.Parameter(std, requires_grad=False)
 
-        def forward(self, x):
-            x = (x - self.mean) / self.std
-            return x
+            def forward(self, x: Tensor):
+                x = (x - self.mean) / self.std
+                return x
 
-        def set_mean_std(self, mean: float | int = 0, std: float | int = 1):
-            """
-            Set the mean and std values for the standardization layer.
+            def _type_check(self, mean, std):
+                if not all([isinstance(value, torch.Tensor) for value in [mean, std]]):
+                    raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
 
-            Args:
-                mean (float, optional): Mean value. Defaults to 0.
-                std (float, optional): Standard deviation value. Defaults to 1.
-            """
-            self.mean = mean
-            self.std = std
+            def set_mean_std(self, mean: float | int = 0, std: float | int = 1):
+                """
+                Set the mean and std parameter.
 
-        def to(self, *args, **kwargs):
-            if isinstance(self.mean, torch.Tensor):
+                Args:
+                    mean (float, optional): Mean value. Defaults to 0.
+                    std (float, optional): Standard deviation value. Defaults to 1.
+                """
+                self._type_check(mean=mean, std=std)
+                self.mean.data = mean.detach()
+                self.std.data = std.detach()
+
+            def to(self, *args, **kwargs):
                 self.mean = self.mean.to(*args, **kwargs)
-            if isinstance(self.std, torch.Tensor):
                 self.std = self.std.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
+                return super().to(*args, **kwargs)
 
     class RotatePhiLayer(nn.Module):  # noqa: F811
         def __init__(
@@ -558,9 +555,7 @@ if not isinstance(torch, MockModule):
             activate=False,
         ):
             """
-            Rotate specific given *rotate_columns* to a *ref_phi*.
-
-            Args:
+            Rotate specific *columns* given in *rotate_columns* relative to reference in *ref_phi_columns*.
             """
             super().__init__()
             self.columns = columns
@@ -584,6 +579,10 @@ if not isinstance(torch, MockModule):
             return [f"{col}.{suffix}" for suffix in ("px", "py") for col in columns]
 
         def calc_phi(self, x, y):
+            # when converting arctan to onnx in older versions arctan is used as replacement
+            # arctan2 introduced a safeguard if second value is 0, simulate this safe guard
+            if x == 0:
+                return 0
             return torch.arctan2(y, x)
 
         def rotate_pt_to_phi(self, px: torch.Tensor, py: torch.Tensor, ref_phi: torch.Tensor):
@@ -595,7 +594,8 @@ if not isinstance(torch, MockModule):
             return pt * torch.cos(new_phi), pt * torch.sin(new_phi)
 
         def calc_ref_phi(self, array):
-            (ref1_px, ref1_py), (ref2_px, ref2_py) = self.expand(self.columns_ref_phi[0]), self.expand(self.columns_ref_phi[1])
+            (ref1_px, ref1_py) = self.expand(self.columns_ref_phi[0])
+            (ref2_px, ref2_py) = self.expand(self.columns_ref_phi[1])
 
             slice_ref = self.slicer_factory(self.ref_indices)
 

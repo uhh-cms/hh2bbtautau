@@ -157,6 +157,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field: str,
         additional_targets: Collection[str] | None = None,
         placeholder: float | int = EMPTY_FLOAT,
+        rotation_angle=0.0,
     ) -> ak.Array:
 
         px, py = array.px, array.py
@@ -187,13 +188,16 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field="lepton1",
         additional_targets=(default_4momenta_cols | {"charge"}),
         event_mask=(event_mask & has_lepton_pair),
+        rotation_angle=0.0,
     )
+
     events = save_rotated_momentum(
         events,
         lep2,
         target_field="lepton2",
         additional_targets=(default_4momenta_cols | {"charge"}),
         event_mask=(event_mask & has_lepton_pair),
+        rotation_angle=0.0,
     )
 
     # there might be less than two jets or no fatjet, so pad them
@@ -209,6 +213,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field="bjet1",
         additional_targets=jet_columns,
         event_mask=(event_mask & has_jet_pair),
+        rotation_angle=0.0,
     )
     events = save_rotated_momentum(
         events,
@@ -216,6 +221,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field="bjet2",
         additional_targets=jet_columns,
         event_mask=(event_mask & has_jet_pair),
+        rotation_angle=0.0,
     )
     fatjet_events = ak.mask(events, has_fatjet)
     # fatjet variables
@@ -225,6 +231,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field="fatjet",
         additional_targets=default_4momenta_cols,
         event_mask=(event_mask & has_fatjet),
+        rotation_angle=0.0,
     )
 
     # combine daus
@@ -234,6 +241,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field="htt",
         additional_targets=default_4momenta_cols,
         event_mask=(event_mask & has_lepton_pair),
+        rotation_angle=0.0,
     )
     # combine bjets
     events = save_rotated_momentum(
@@ -242,6 +250,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field="hbb",
         additional_targets=default_4momenta_cols,
         event_mask=(event_mask & has_jet_pair),
+        rotation_angle=0.0,
     )
 
     # htt + hbb
@@ -251,6 +260,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field="htthbb",
         additional_targets=default_4momenta_cols,
         event_mask=(event_mask & has_lepton_pair & has_jet_pair),
+        rotation_angle=0.0,
     )
     # MET variables
     met_name = self.config_inst.x.met_name
@@ -262,6 +272,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field=f"rotated_{met_name}",
         additional_targets={"covXX", "covXY", "covYY"},
         event_mask=event_mask,
+        rotation_angle=0.0,
     )
 
     events = save_rotated_momentum(
@@ -270,6 +281,7 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         target_field=f"{met_name}",
         additional_targets={"covXX", "covXY", "covYY"},
         event_mask=event_mask,
+        rotation_angle=0.0,
     )
 
     events = set_ak_column_nonull(
@@ -357,7 +369,7 @@ def res_net_preprocessing_setup(
 @res_net_preprocessing.init
 def res_net_preprocessing_init(self: Producer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
-    self.produces.add(f"rotated_{self.config_inst.x.met_name}.{{px,py,covXX,covXY,covYY}}")
+    self.produces.add(f"{self.config_inst.x.met_name}.{{px,py,covXX,covXY,covYY}}")
 
 
 res_net_preprocessing_no_rotation = res_net_preprocessing.derive(
