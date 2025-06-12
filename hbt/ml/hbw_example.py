@@ -961,7 +961,7 @@ bognet_test = BogNetBase.derive("bognet_test", cls_dict={
 
 bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
     "epochs": 10,
-    "deterministic_seeds": [0]
+    "deterministic_seeds": [0],
     # "ml_cls": UpdatedBogNet,
 })
 
