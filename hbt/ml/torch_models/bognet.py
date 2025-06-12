@@ -12,7 +12,7 @@ from collections.abc import Container
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 
 from hbt.ml.torch_utils.functions import (
-    get_one_hot, preprocess_multiclass_outputs,
+    get_one_hot, preprocess_multiclass_outputs, WeightedCrossEntropySlice,
 )
 
 torch = maybe_import("torch")
@@ -97,19 +97,19 @@ if not isinstance(torch, MockModule):
             # loss function and metrics
             self.label_smoothing_coefficient = 0.05
             self._loss_fn = generate_weighted_loss(
-                torch.nn.CrossEntropyLoss, label_smoothing=self.label_smoothing_coefficient,
-            )()
+                torch.nn.CrossEntropyLoss,
+            )(label_smoothing=self.label_smoothing_coefficient)
 
             self.validation_metrics["loss"] = WeightedLoss(self.loss_fn)
             self.mode_switch = 0
             self.output_path = "/data/dust/user/wiedersb/"
 
-            # self.validation_metrics.update({
-            #     f"loss_cls_{identifier}": WeightedLoss(
-            #         WeightedCrossEntropySlice(cls_index=idx),
-            #     )
-            #     for identifier, idx in self.categorical_target_map.items()
-            # })
+            self.validation_metrics.update({
+                f"loss_cls_{identifier}": WeightedLoss(
+                    WeightedCrossEntropySlice(cls_index=idx, label_smoothing=self.label_smoothing_coefficient),
+                )
+                for identifier, idx in self.categorical_target_map.items()
+            })
 
             self.validation_metrics.update({
                 f"roc_auc_cls_{identifier}": WeightedROC_AUC(
@@ -707,14 +707,11 @@ if not isinstance(torch, MockModule):
         def init_layers(self):
             # helper where all layers are defined
             # std layers are filled when statitics are known
-            std_layer = StandardizeLayer(
-                None,
-                None,
-            )
+            std_layer = StandardizeLayer()
 
             continuous_padding = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
             categorical_padding = PaddingLayer(padding_value=self.empty_value, mask_value=EMPTY_INT)
-            rotation_layer = RotatePhiLayer(columns=self.continuous_inputs)
+            rotation_layer = RotatePhiLayer(columns=list(map(str, self.continuous_inputs)))
 
             input_layer = InputLayer(
                 continuous_inputs=self.continuous_inputs,
@@ -737,7 +734,7 @@ if not isinstance(torch, MockModule):
                 torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
                 # no softmax since this is already part of loss
             )
-            return std_layer, input_layer, model
+            return continuous_padding, rotation_layer, std_layer, input_layer, model
 
         def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
             self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
