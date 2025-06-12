@@ -58,6 +58,8 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "rotated_PuppiMET.*",
 
     }),
+    # variable to configure whether to rotate continuous features against lepton system
+    do_rotation=True,
 )
 def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     # ensure coffea behavior
@@ -156,7 +158,11 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         additional_targets: Collection[str] | None = None,
         placeholder: float | int = EMPTY_FLOAT,
     ) -> ak.Array:
-        px, py = rotate_to_phi(phi_lep, array.px, array.py)
+
+        px, py = array.px, array.py
+        if self.do_rotation:
+            px, py = rotate_to_phi(phi_lep, array.px, array.py)
+
         # save px and py
         events = set_ak_column_nonull(events, f"{target_field}.px", px, placeholder=placeholder, event_mask=event_mask)
         events = set_ak_column_nonull(events, f"{target_field}.py", py, placeholder=placeholder, event_mask=event_mask)
@@ -266,7 +272,6 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
         event_mask=event_mask,
     )
 
-
     events = set_ak_column_nonull(
         events,
         "year_flag",
@@ -353,6 +358,13 @@ def res_net_preprocessing_setup(
 def res_net_preprocessing_init(self: Producer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
     self.produces.add(f"rotated_{self.config_inst.x.met_name}.{{px,py,covXX,covXY,covYY}}")
+
+
+res_net_preprocessing_no_rotation = res_net_preprocessing.derive(
+    "res_net_preprocessing_no_rotation", cls_dict={
+        "do_rotation": False,
+    },
+)
 
 
 @producer(
