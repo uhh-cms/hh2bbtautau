@@ -73,7 +73,7 @@ class MLClassifierBase(MLModel):
     # Class for data loading and it's dependencies.
     data_loader = None
     # NOTE: we might want to use the data_loader.hyperparameter_deps instead
-    preml_params: set[str] = {"data_loader","categorical_features", "continuous_features", "train_val_test_split"}
+    preml_params: set[str] = {"data_loader", "categorical_features", "continuous_features", "train_val_test_split"}
 
     # NOTE: we split each fold into train, val, test + do k-folding, so we have a 4-way split in total
     # TODO: test whether setting "test" to 0 is working
@@ -117,6 +117,8 @@ class MLClassifierBase(MLModel):
         "early_stopping_min_diff",
         "deterministic_seeds",
     }
+
+    _model = None
 
     @classmethod
     def derive(
@@ -211,7 +213,6 @@ class MLClassifierBase(MLModel):
         self.parameters = DotDict(sorted(self.parameters.items()))
 
         self._model = None
-
         # sanity check: for each process in "train_nodes", we need to have 1 process with "ml_id" in config
 
     def cast_ml_param_values(self):
@@ -594,6 +595,8 @@ class MLClassifierBase(MLModel):
         # move all model parameters to device
 
         self.model.start_training(run_name=run_name, max_epochs=self.epochs)
+        logger.info(f"Saving model to {output['model'].abspath}")
+        torch.save(self.model.state_dict(), output["model"].abspath)
 
         return
 
@@ -749,17 +752,19 @@ class BinaryMLBase(MLClassifierBase):
     ml_cls = None
 
     @property
-    def continuous_features(self) -> set[Route | str]:
-        columns = {
-            "lepton1.{px,py,pz,energy,mass}",
-            "lepton2.{px,py,pz,energy,mass}",
-            "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            "fatjet.{px,py,pz,energy,mass}",
-        }
-        final_set = set()
-        final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
-        return final_set
+    def continuous_features(self) -> list[Route | str]:
+        if not self._continuous_features:
+            columns = {
+                "lepton1.{px,py,pz,energy,mass}",
+                "lepton2.{px,py,pz,energy,mass}",
+                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+                "fatjet.{px,py,pz,energy,mass}",
+            }
+            self._continuous_features = set()
+            self._continuous_features.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+            self._continuous_features = sorted(self._continuous_features, key=str)
+        return self._continuous_features
 
     @property
     def categorical_features(self) -> set[Route | str]:
@@ -813,11 +818,11 @@ class MultiClsMLBase(MLClassifierBase):
             "fatjet.{px,py,pz,energy,mass}",
         }
         final_set = set()
-        final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+        final_set.update(*list(map(str, law.util.brace_expand(obj)) for obj in columns))
         return final_set
 
     @property
-    def categorical_features(self) -> set[Route | str]:
+    def categorical_features(self) -> list[Route | str]:
         columns = {
             "pair_type",
             "decay_mode1",
@@ -828,10 +833,11 @@ class MultiClsMLBase(MLClassifierBase):
             "has_jet_pair",
             "year_flag",
         }
-        final_set = set()
-        final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
-        return final_set
-    
+        self._categorical_features = set()
+        self._categorical_features.update(*list(map(str, law.util.brace_expand(obj)) for obj in columns))
+        self._categorical_features = sorted(self._categorical_features, key=str)
+        return self._categorical_features
+
     def prepare_ml_model(
         self,
         task: law.Task,
@@ -859,6 +865,74 @@ class MultiClsMLBase(MLClassifierBase):
         return self.model.start_training(run_name, max_epochs)
 
 
+class BogNetBase(MultiClsMLBase):
+
+    def training_producers(self, analysis_inst: od.Analysis, requested_producers: Sequence[str]) -> list[str]:
+        # fix MLTraining Phase Space
+        # NOTE: might be nice to keep the "pre_ml_cats" for consistency, but running two
+        # categorization Producers in the same workflow is messy, so we skip it for now
+        # return requested_producers or ["event_weights", "pre_ml_cats", analysis_inst.x.ml_inputs_producer]
+        # return requested_producers or ["event_weights", analysis_inst.x.ml_inputs_producer]
+        return ["default", f"{analysis_inst.x.ml_inputs_producer}_no_rotation"]
+
+    def prepare_ml_model(self, task: law.Task):
+        from hbt.ml.torch_models.bognet import UpdatedBogNet
+
+        logger_path = self.output(task)["tensorboard"].abspath
+        model = UpdatedBogNet(tensorboard_path=logger_path, logger=logger, task=task)
+        model.categorical_target_map = self.categorical_target_map
+        # check if input feature set is set consistently
+        def compare_features(feature_set_name):
+            ml_inst_set = sorted(map(str, self.continuous_features), key=str)
+            model_inst_set = sorted(map(str, model.continuous_features), key=str)
+            if not all(x == y for x, y in zip(ml_inst_set, model_inst_set)):
+                raise ValueError(
+                    f"Input feature set {feature_set_name} is not consistent between MLModel and BogNet model. "
+                    f"{self.__class__.__name__}: {ml_inst_set}, {model.__class__.__name__}: {model_inst_set}",
+                )
+
+        compare_features("continuous_features")
+        compare_features("categorical_features")
+
+        return model
+
+    def _process_columns(self, columns: Container[str]) -> list[str]:
+        final_set = set()
+        final_set.update(*list(map(str, law.util.brace_expand(obj)) for obj in columns))
+        return sorted(final_set, key=str)
+
+    @property
+    def categorical_features(self) -> list[str]:
+        columns = {
+            "pair_type",
+            "decay_mode1",
+            "decay_mode2",
+            "lepton1.charge",
+            "lepton2.charge",
+            "has_fatjet",
+            "has_jet_pair",
+            "year_flag",
+        }
+        return self._process_columns(columns)
+
+    @property
+    def continuous_features(self) -> list[str]:
+        columns = {
+            "lepton1.{px,py,pz,energy,mass}",
+            "lepton2.{px,py,pz,energy,mass}",
+            "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+            "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+            "fatjet.{px,py,pz,energy,mass}",
+        }
+        return self._process_columns(columns)
+
+    # @property
+    # def model(self):
+    #     if not self._model:
+    #         self.model = self.prepare_ml_model(self.task)
+    #     return self._model
+
+
 # dervive another model from the ExampleDNN class with different class attributes
 # from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
 example_test = BinaryMLBase.derive("example_test", cls_dict={
@@ -871,6 +945,10 @@ resnet_test = MultiClsMLBase.derive("resnet_test", cls_dict={
     # "ml_cls": WeightedResnetTest,
 })
 
+bognet_test = BogNetBase.derive("bognet_test", cls_dict={
+    "epochs": 10,
+    # "ml_cls": UpdatedBogNet,
+})
 
 # load all ml modules here
 if law.config.has_option("analysis", "ml_modules"):

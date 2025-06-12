@@ -19,7 +19,7 @@ logger = law.logger.get_logger(__name__)
 def patch_mltraining():
     # patch the MLTraining output collection
     MLTraining.output_collection_cls = law.NestedSiblingFileCollection
-    logger.info("patched MLTraining to use NestedSiblingFileCollection")
+    logger.debug("patched MLTraining to use NestedSiblingFileCollection")
     def create_branch_map(self) -> list[dict[str, int]]:
         """Patched branch map for MLTraining that is ensemble-aware
 

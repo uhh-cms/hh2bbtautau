@@ -5,8 +5,8 @@ __all__ = [
 
 from functools import partial
 
-from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import Any
+from columnflow.util import MockModule, maybe_import, DotDict, classproperty
+from columnflow.types import Callable
 from collections.abc import Container
 
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
@@ -33,8 +33,10 @@ if not isinstance(torch, MockModule):
 
     from hbt.ml.torch_models.multi_class import WeightedFeedForwardMultiCls, FeedForwardMultiCls
     from hbt.ml.torch_utils.ignite.metrics import (
-        WeightedROC_AUC, WeightedLoss, WeightedBalanced_Acc
+        WeightedROC_AUC, WeightedLoss,
+        # WeightedBalanced_Acc,
     )
+    from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin
     from hbt.ml.torch_utils.transforms import AkToTensor, PreProcessFloatValues, MoveToDevice
     from hbt.ml.torch_utils.datasets.handlers import (
         WeightedTensorParquetFileHandler,
@@ -42,7 +44,10 @@ if not isinstance(torch, MockModule):
     from hbt.ml.torch_utils.utils import (
         embedding_expected_inputs, expand_columns, get_standardization_parameter,
     )
-    from hbt.ml.torch_utils.layers import InputLayer, StandardizeLayer, ResNetBlock, ResNetPreactivationBlock, DenseBlock
+    from hbt.ml.torch_utils.layers import (
+        InputLayer, StandardizeLayer, ResNetBlock, ResNetPreactivationBlock, DenseBlock,
+        PaddingLayer, RotatePhiLayer,
+    )
     from hbt.ml.torch_utils.functions import generate_weighted_loss
 
     import sklearn
@@ -53,27 +58,27 @@ if not isinstance(torch, MockModule):
             # inputs
 
             # categories in fixed order alphabetical
-            self.categorical_inputs = sorted({
-                "pair_type",
-                "decay_mode1",
-                "decay_mode2",
-                "lepton1.charge",
-                "lepton2.charge",
-                "has_fatjet",
-                "has_jet_pair",
-                "year_flag",
-            })
+            # self.categorical_inputs = sorted({
+            #     "pair_type",
+            #     "decay_mode1",
+            #     "decay_mode2",
+            #     "lepton1.charge",
+            #     "lepton2.charge",
+            #     "has_fatjet",
+            #     "has_jet_pair",
+            #     "year_flag",
+            # })
 
-            # continuous
-            self.continous_inputs = expand_columns(
-                "lepton1.{px,py,pz,energy,mass}",
-                "lepton2.{px,py,pz,energy,mass}",
-                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "fatjet.{px,py,pz,energy,mass}",
-            )
+            # # continuous
+            # self.continuous_inputs = expand_columns(
+            #     "lepton1.{px,py,pz,energy,mass}",
+            #     "lepton2.{px,py,pz,energy,mass}",
+            #     "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+            #     "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+            #     "fatjet.{px,py,pz,energy,mass}",
+            # )
 
-            self.inputs = set(self.categorical_inputs) | set(self.continous_inputs)
+            self.inputs = set(self.categorical_inputs) | set(self.continuous_inputs)
 
             # targets
             self.categorical_target_map = {
@@ -123,9 +128,49 @@ if not isinstance(torch, MockModule):
 
             # remove layers that comes due to inheritance
             # TODO clean up, this is only a monkey patch
-            del self.linear_relu_stack
+            if hasattr(self, "linear_relu_stack"):
+                del self.linear_relu_stack
             # del self.norm_layer
 
+        @classmethod
+        def _process_columns(cls, columns: Container[str]) -> list[Route]:
+            final_set = set()
+            final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+            return sorted(final_set, key=str)
+
+        @classproperty
+        def categorical_inputs(cls) -> list[str]:
+            columns = {
+                "pair_type",
+                "decay_mode1",
+                "decay_mode2",
+                "lepton1.charge",
+                "lepton2.charge",
+                "has_fatjet",
+                "has_jet_pair",
+                "year_flag",
+            }
+            return cls._process_columns(columns)
+
+        @classproperty
+        def continuous_inputs(cls) -> list[str]:
+            columns = {
+                "lepton1.{px,py,pz,energy,mass}",
+                "lepton2.{px,py,pz,energy,mass}",
+                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
+                "fatjet.{px,py,pz,energy,mass}",
+            }
+            return cls._process_columns(columns)
+
+        def init_layers(self):
+            return None
+
+        def state_dict(self, *args, **kwargs):
+            return self.model.state_dict(*args, **kwargs)
+
+        def load_state_dict(self, *args, **kwargs):
+            return self.model.load_state_dict(*args, **kwargs)
 
         def _build_network(self):
             # helper where all layers are defined
@@ -136,8 +181,8 @@ if not isinstance(torch, MockModule):
             )
 
             input_layer = InputLayer(
-                continuous_inputs = self.continous_inputs,
-                categorical_inputs = self.categorical_inputs,
+                continuous_inputs=self.continuous_inputs,
+                categorical_inputs=self.categorical_inputs,
                 embedding_dim=3,
                 expected_categorical_inputs=embedding_expected_inputs,
                 empty=self.empty_value,
@@ -180,7 +225,7 @@ if not isinstance(torch, MockModule):
 
             continous_x = self._handle_input(
                 continous_x,
-                self.continous_inputs,
+                self.continuous_inputs,
                 dtype=torch.float32,
                 empty_fill_val=-10,
                 mask_value=EMPTY_FLOAT,
@@ -474,7 +519,7 @@ if not isinstance(torch, MockModule):
 
                 continous_x = self._handle_input(
                     continous_x,
-                    self.continous_inputs,
+                    self.continuous_inputs,
                     dtype=torch.float32,
                     empty_fill_val=-10,
                     mask_value=EMPTY_FLOAT,
@@ -541,12 +586,11 @@ if not isinstance(torch, MockModule):
 
                 return pred, y, {"weight": weights.reshape(-1, 1)}
 
-
         def setup_preprocessing(self):
             # extract dataset std and mean from dataset
             # extraction happens form no oversampled dataset
             mean, std = [], []
-            for _input in self.continous_inputs:
+            for _input in self.continuous_inputs:
                 input_statitics = self.dataset_statitics[_input.column]
                 mean.append(torch.from_numpy(input_statitics["mean"]))
                 std.append(torch.from_numpy(input_statitics["std"]))
@@ -587,7 +631,7 @@ if not isinstance(torch, MockModule):
 
             self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
-                continuous_features=getattr(self, "continuous_features", self.continous_inputs),
+                continuous_features=getattr(self, "continuous_features", self.continuous_inputs),
                 categorical_features=getattr(self, "categorical_features", self.categorical_inputs),
                 batch_transformations=MoveToDevice(device=device),
                 # global_transformations=PreProcessFloatValues(),
@@ -610,8 +654,7 @@ if not isinstance(torch, MockModule):
             )
 
             # get statistics for standardization from training dataset without oversampling
-            self.dataset_statitics = get_standardization_parameter(self.train_validation_loader.data_map, self.continous_inputs)
-
+            self.dataset_statitics = get_standardization_parameter(self.train_validation_loader.data_map, self.continuous_inputs)
 
         def control_plot_1d(self):
             import matplotlib.pyplot as plt
@@ -648,7 +691,7 @@ if not isinstance(torch, MockModule):
 
             continous_x = self._handle_input(
                 continous_x,
-                self.continous_inputs,
+                self.continuous_inputs,
                 dtype=torch.float32,
                 empty_fill_val=-10,
                 mask_value=EMPTY_FLOAT,
@@ -657,18 +700,178 @@ if not isinstance(torch, MockModule):
 
             self.writer.add_graph(self, (categorical_x, continous_x))
 
-
         def forward(self, *inputs):
             return self.model(inputs)
 
+    class UpdatedBogNet(BogNet):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.custom_hooks.append("perform_scheduler_step")
 
+        def log_graph(self, engine):
+            input_data = engine.state.batch[0]
+            self.writer.add_graph(self, input_data)
+
+        def perform_scheduler_step(self):
+            if hasattr(self, "scheduler") and self.scheduler:
+                def do_step(engine, logger=self.logger):
+                    self.scheduler.step()
+                    logger.info(f"Performing scheduler step, last lr: {self.scheduler.get_last_lr()}")
+
+                self.train_evaluator.add_event_handler(
+                    event_name="EPOCH_COMPLETED",
+                    handler=do_step,
+                )
+
+        def _build_network(self):
+            # helper where all layers are defined
+            # std layers are filled when statitics are known
+            std_layer = StandardizeLayer(
+                None,
+                None,
+            )
+
+            continuous_padding = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
+            categorical_padding = PaddingLayer(padding_value=self.empty_value, mask_value=EMPTY_INT)
+            rotation_layer = RotatePhiLayer(columns=self.continuous_inputs)
+
+            input_layer = InputLayer(
+                continuous_inputs=self.continuous_inputs,
+                categorical_inputs=self.categorical_inputs,
+                embedding_dim=3,
+                expected_categorical_inputs=embedding_expected_inputs,
+                empty=self.empty_value,
+                std_layer=std_layer,
+                rotation_layer=rotation_layer,
+                padding_categorical_layer=categorical_padding,
+                padding_continous_layer=continuous_padding,
+            )
+
+            model = torch.nn.Sequential(
+                input_layer,
+                DenseBlock(input_nodes = input_layer.ndim, output_nodes = self.nodes, activation_functions=self.activation_functions), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
+                # no softmax since this is already part of loss
+            )
+            return std_layer, input_layer, model
+
+        def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
+
+        def init_dataset_handler(
+            self,
+            task: law.Task,
+            *args,            
+            device: str | None = None,
+            datasets: list[str] | None = None,
+            extract_dataset_paths_fn: Callable | None = None,
+            extract_probability_fn: Callable | None = None,
+            **kwargs,
+        ) -> None:
+            all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
+            group_datasets = {
+                "ttbar": [d for d in all_datasets if d.startswith("tt_")],
+                "dy": [d for d in all_datasets if d.startswith("dy_")],
+            }
+
+            self.dataset_handler = WeightedTensorParquetFileHandler(
+                task=task,
+                continuous_features=getattr(self, "continuous_features", self.continuous_inputs),
+                categorical_features=getattr(self, "categorical_features", self.categorical_inputs),
+                batch_transformations=MoveToDevice(device=device),
+                # global_transformations=PreProcessFloatValues(),
+                build_categorical_target_fn=self._build_categorical_target,
+                group_datasets=group_datasets,
+                device=device,
+                categorical_target_transformation=partial(get_one_hot, nb_classes=3),
+                datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
+                extract_dataset_paths_fn=extract_dataset_paths_fn,
+                extract_probability_fn=extract_probability_fn,
+                # categorical_target_transformation=,
+                # data_type_transformation=AkToTensor,
+            )
+
+            self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets()  # noqa
+
+            # define lenght of training epoch
+            self.max_epoch_length = self._calculate_max_epoch_length(
+                self.training_loader,
+                cutoff=self.training_epoch_length_cutoff,
+                weight_cutoff=self.training_weight_cutoff,
+            )
+
+            # get statistics for standardization from training dataset without oversampling
+            self.dataset_statistics = get_standardization_parameter(self.train_validation_loader.data_map, self.continuous_inputs)
+
+        def setup_preprocessing(self):
+            # extract dataset std and mean from dataset
+            # extraction happens form no oversampled dataset
+            mean, std = [], []
+            for _input in self.continuous_inputs:
+                input_statistics = self.dataset_statistics[_input.column]
+                mean.append(torch.from_numpy(input_statistics["mean"]))
+                std.append(torch.from_numpy(input_statistics["std"]))
+
+            mean, std = torch.concat(mean), torch.concat(std)
+            # set up standardization layer
+            self.std_layer.set_mean_std(
+                mean.float(),
+                std.float(),
+            )
+
+        def validation_step(self, engine, batch):
+            self.eval()
+            # Set the model to evaluation mode - important for batch normalization and dropout layers
+
+            # if engine.state.iteration > self.max_val_epoch_length * (engine.state.epoch + 1):
+            #     engine.terminate_epoch()
+
+            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
+            # also serves to reduce unnecessary gradient computations and memory usage for tensors with
+            # requires_grad=True
+            with torch.no_grad():
+                (categorical_x, continous_x, weights), y = batch
+
+                pred = self(categorical_x, continous_x)
+
+                if y.dim() == 1:
+                    y = y.reshape(-1, 1)
+                y = y.to(torch.float32)
+
+                return pred, y, {"weight": weights}
+
+        def train_step(self, engine, batch):
+            # from IPython import embed; embed(header="string - 149 in bognet.py ")
+            self.train()
+
+            # Compute prediction and loss
+            (categorical_x, continous_x), y = batch
+            self.optimizer.zero_grad()
+
+            # replace missing values with empty_fill, convert to expected type
+
+            pred = self(categorical_x, continous_x)
+            target = y.to(torch.float32)
+            if target.dim() == 1:
+                target = target.reshape(-1, 1)
+
+            loss = self.loss_fn(pred, target)
+            # Backpropagation
+            loss.backward()
+            self.optimizer.step()
+
+            return loss.item()
 
     class ShapModel(torch.nn.Module):
         # dummy Model class to give interface for single tensor inputs, since SHAP expect this kind of input tensor
         def __init__(self, model):
             super().__init__()
             self.model = model.model
-            self.num_cont = len(model.continous_inputs)
+            self.num_cont = len(model.continuous_inputs)
             self.num_cat = len(model.categorical_inputs)
 
         def forward(self, x):
