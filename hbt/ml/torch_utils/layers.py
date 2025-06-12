@@ -578,10 +578,16 @@ if not isinstance(torch, MockModule):
             columns = [columns] if isinstance(columns, str) else columns
             return [f"{col}.{suffix}" for suffix in ("px", "py") for col in columns]
 
-        def calc_phi(self, x: Tensor, y: Tensor):
-            # when converting arctan to onnx in older versions arctan is used as replacement
-            # arctan2 introduced a safeguard if second value is 0, simulate this safe guard
-            return torch.where(x == 0, 0, torch.arctan2(y, x))
+        def calc_phi(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def arctan2(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+                # calculate arctan2 using arctan, since onnx does not have support for arctan2
+                # arctan2 is catches special cases for x,y combinations (quadrants)
+                phi_shift = torch.zeros_like(x)
+                phi_shift = torch.where(torch.logical_and(x < 0, y < 0), -torch.pi, phi_shift)
+                phi_shift = torch.where(torch.logical_and(x < 0, y >= 0), torch.pi, phi_shift)
+                phis = torch.where(x == 0, 0, torch.arctan(y / x)) + phi_shift
+                return phis
+            return arctan2(x=x, y=y)
 
         def rotate_pt_to_phi(self, px: torch.Tensor, py: torch.Tensor, ref_phi: torch.Tensor):
             # rotate px, py relative to ref_phi
