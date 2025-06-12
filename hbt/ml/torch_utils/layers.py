@@ -15,7 +15,7 @@ __all__ = [
 
 import copy
 
-from columnflow.columnar_util import EMPTY_INT, EMPTY_FLOAT
+from columnflow.columnar_util import EMPTY_INT, EMPTY_FLOAT, Route
 from columnflow.util import maybe_import, MockModule
 
 torch = maybe_import("torch")
@@ -53,7 +53,7 @@ if not isinstance(torch, MockModule):
     class CategoricalTokenizer(nn.Module):  # noqa: F811
         def __init__(
             self,
-            categories: tuple[str],
+            categories: tuple[Route | str],
             expected_categorical_inputs: dict[str, list[int]],
             empty: int = 15,
         ):
@@ -76,7 +76,7 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
             self.expected_categorical_inputs = copy.deepcopy(expected_categorical_inputs)
-            self.categories = categories
+            self.categories = tuple(map(str, categories))
             self.empty = self._empty(empty)
 
             self.map, self.min = self.LookUpTable(
@@ -308,6 +308,7 @@ if not isinstance(torch, MockModule):
             std_layer: torch.nn.Module | None = None,
             rotation_layer: torch.nn.Module | None = None,
             padding_continous_layer: torch.nn.Module | None = None,
+            padding_categorical_layer: torch.nn.Module | None = None,
         ):
             """
             Enables the use of categorical and continous features in a single model.
@@ -342,6 +343,7 @@ if not isinstance(torch, MockModule):
             self.rotation_layer = self.dummy_identity(rotation_layer)
             self.std_layer = self.dummy_identity(std_layer)
             self.padding_continous_layer = self.dummy_identity(padding_continous_layer)
+            self.padding_categorical_layer = self.dummy_identity(padding_categorical_layer)
 
         def dummy_identity(self, layer):
             if layer is None:
@@ -349,6 +351,7 @@ if not isinstance(torch, MockModule):
             return layer
 
         def cateogrical_preprocessing_pipeline(self, x):
+            x = self.padding_categorical_layer(x)
             return self.embedding_layer(x)
 
         def continous_preprocessing_pipeline(self, x):
@@ -549,10 +552,10 @@ if not isinstance(torch, MockModule):
     class RotatePhiLayer(nn.Module):  # noqa: F811
         def __init__(
             self,
-            columns,
-            ref_phi_columns = ["lepton1", "lepton2"],
-            rotate_columns = ["bjet1", "bjet2", "fatjet", "lepton1", "lepton2"],
-            activate=False
+            columns: list[str],
+            ref_phi_columns: list[str] | None = None,
+            rotate_columns: list[str] | None = None,
+            activate=False,
         ):
             """
             Rotate specific given *rotate_columns* to a *ref_phi*.
@@ -562,8 +565,8 @@ if not isinstance(torch, MockModule):
             super().__init__()
             self.columns = columns
             # leptons reference is rotated to 0
-            self.columns_to_rotate = rotate_columns
-            self.columns_ref_phi = ref_phi_columns
+            self.columns_to_rotate = rotate_columns or ["bjet1", "bjet2", "fatjet", "lepton1", "lepton2"]
+            self.columns_ref_phi = ref_phi_columns or ["lepton1", "lepton2"]
             self.activate=False
             # assert (len_ref := len(self.columns_ref_phi == 2)), f"Reference columns needs to have 2, but have {len_ref}"
 
@@ -583,7 +586,7 @@ if not isinstance(torch, MockModule):
         def calc_phi(self, x, y):
             return torch.arctan2(y, x)
 
-        def rotate_pt_to_phi(self, px, py, ref_phi):
+        def rotate_pt_to_phi(self, px: torch.Tensor, py: torch.Tensor, ref_phi: torch.Tensor):
             # rotate px, py relative to ref_phi
             # returns px, py rotated
             pt = torch.sqrt(torch.square(px) + torch.square(py))
@@ -606,16 +609,15 @@ if not isinstance(torch, MockModule):
             # helper to slice with ref_indices by name
             return lambda array, name: array[:, ref_indices.get(name)]
 
-
         def rotate_columns(self, array, ref_phi):
             # px, py pairs in fixed order
             slice_rotate = self.slicer_factory(self.rotate_indices)
             for col in self.columns_to_rotate:
                 px, py = self.expand(col)
                 new_px, new_py = self.rotate_pt_to_phi(
-                    px = slice_rotate(array, px),
-                    py = slice_rotate(array, py),
-                    ref_phi = ref_phi
+                    px=slice_rotate(array, px),
+                    py=slice_rotate(array, py),
+                    ref_phi=ref_phi,
                 )
                 # replace inplace
                 array[:, self.rotate_indices[px]] = new_px
