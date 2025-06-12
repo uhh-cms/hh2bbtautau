@@ -411,6 +411,12 @@ def add_config(
                 dataset.add_tag("dy_nnlo")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("dy_stitched")
+        if (
+            "dy_ee_m50toinf_powheg" in cfg.datasets and
+            re.match(r"^dy_ee_m.*_powheg$", dataset.name) and
+            dataset.name not in {"dy_ee_m50toinf_powheg", "dy_ee_m10to50_powheg"}
+        ):
+            dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):
             dataset.add_tag("w_lnu")
         if re.match(r"^w_lnu_\dj_(|pt.+_)amcatnlo$", dataset.name):
@@ -524,22 +530,37 @@ def add_config(
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
-        # drell-yan
-        cfg.x.dy_stitching = {
-            "m50toinf": {
-                "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-                "leaf_processes": [
-                    # the following processes cover the full njet and pt phasespace
-                    procs.n.dy_m50toinf_0j,
-                    *(
-                        procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
-                        for nj in [1, 2]
-                        for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                    ),
-                    procs.n.dy_m50toinf_ge3j,
-                ],
-            },
-        }
+        # drell-yan, nlo
+        if "dy_m50toinf_amcatnlo" in cfg.datasets:
+            cfg.x.dy_nlo_stitching = {
+                "m50toinf": {
+                    "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                    "leaf_processes": [
+                        # the following processes cover the full njet and pt phasespace
+                        procs.n.dy_m50toinf_0j,
+                        *(
+                            procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
+                            for nj in [1, 2]
+                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                        ),
+                        procs.n.dy_m50toinf_ge3j,
+                    ],
+                },
+            }
+        # drell-yan, nnlo
+        if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
+            cfg.x.dy_nnlo_stitching = {
+                "ee_m50toinf": {
+                    "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
+                    "leaf_processes": [
+                        # the following processes cover the full inv mass phasespace
+                        *(
+                            procs.get(f"dy_ee_m{mass}")
+                            for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]  # noqa: E501
+                        ),
+                    ],
+                },
+            }
         # w+jets
         cfg.x.w_lnu_stitching = {
             "incl": {

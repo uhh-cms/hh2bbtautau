@@ -190,8 +190,10 @@ def default(
             )
 
     # create process ids
-    if self.process_ids_dy is not None:
-        events = self[self.process_ids_dy](events, **kwargs)
+    if self.process_ids_dy_nlo is not None:
+        events = self[self.process_ids_dy_nlo](events, **kwargs)
+    elif self.process_ids_dy_nnlo is not None:
+        events = self[self.process_ids_dy_nnlo](events, **kwargs)
     elif self.process_ids_w_lnu is not None:
         events = self[self.process_ids_w_lnu](events, **kwargs)
     else:
@@ -242,15 +244,17 @@ def default(
 @default.init
 def default_init(self: Selector, **kwargs) -> None:
     # build and store derived process id producers
-    for tag in ("dy", "w_lnu"):
+    for tag in {"dy_nlo", "dy_nnlo", "w_lnu"}:
         prod_name = f"process_ids_{tag}"
         setattr(self, prod_name, None)
         if not self.dataset_inst.has_tag(tag):
             continue
+        if not (stitching_cfg := self.config_inst.x(f"{tag}_stitching", None)):
+            continue
         # check if the producer was already created and saved in the config
         if (prod := self.config_inst.x(prod_name, None)) is None:
             # check if this dataset is covered by any dy id producer
-            for stitch_name, cfg in self.config_inst.x(f"{tag}_stitching").items():
+            for stitch_name, cfg in stitching_cfg.items():
                 incl_dataset_inst = cfg["inclusive_dataset"]
                 # the dataset is "covered" if its process is a subprocess of that of the dy dataset
                 if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
@@ -381,8 +385,10 @@ def empty_call(
             )
 
     # create process ids
-    if self.process_ids_dy is not None:
-        events = self[self.process_ids_dy](events, **kwargs)
+    if self.process_ids_dy_nlo is not None:
+        events = self[self.process_ids_dy_nlo](events, **kwargs)
+    elif self.process_ids_dy_nnlo is not None:
+        events = self[self.process_ids_dy_nnlo](events, **kwargs)
     elif self.process_ids_w_lnu is not None:
         events = self[self.process_ids_w_lnu](events, **kwargs)
     else:
