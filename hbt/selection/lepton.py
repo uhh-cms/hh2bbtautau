@@ -543,7 +543,7 @@ def lepton_selection(
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
                 tau_base_mask &
-                (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vloose) &
+                (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vvloose) &
                 (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.tight)
             )
 
