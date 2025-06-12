@@ -542,8 +542,8 @@ if not isinstance(torch, MockModule):
             self.std.data = std.detach()
 
         def to(self, *args, **kwargs):
-            self.mean = self.mean.to(*args, **kwargs)
-            self.std = self.std.to(*args, **kwargs)
+            self.mean.data = self.mean.data.to(*args, **kwargs)
+            self.std.data = self.std.data.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
     class RotatePhiLayer(nn.Module):  # noqa: F811

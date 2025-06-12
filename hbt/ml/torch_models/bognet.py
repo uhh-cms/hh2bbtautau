@@ -743,7 +743,7 @@ if not isinstance(torch, MockModule):
         def init_dataset_handler(
             self,
             task: law.Task,
-            *args,            
+            *args,
             device: str | None = None,
             datasets: list[str] | None = None,
             extract_dataset_paths_fn: Callable | None = None,
@@ -785,16 +785,18 @@ if not isinstance(torch, MockModule):
             # get statistics for standardization from training dataset without oversampling
             self.dataset_statistics = get_standardization_parameter(self.train_validation_loader.data_map, self.continuous_inputs)
 
-        def setup_preprocessing(self):
+        def setup_preprocessing(self, device: str | None = None):
             # extract dataset std and mean from dataset
             # extraction happens form no oversampled dataset
             mean, std = [], []
+            if not device:
+                device = next(self.model.parameters()).device
             for _input in self.continuous_inputs:
                 input_statistics = self.dataset_statistics[_input.column]
                 mean.append(torch.from_numpy(input_statistics["mean"]))
                 std.append(torch.from_numpy(input_statistics["std"]))
 
-            mean, std = torch.concat(mean), torch.concat(std)
+            mean, std = torch.concat(mean).to(device), torch.concat(std).to(device)
             # set up standardization layer
             self.std_layer.set_mean_std(
                 mean.float(),
