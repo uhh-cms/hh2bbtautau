@@ -254,7 +254,7 @@ def add_config(
         ]),
         "ttzz_madgraph",
 
-        # dy
+        # dy, nlo
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
         "dy_m50toinf_amcatnlo",
@@ -271,6 +271,39 @@ def add_config(
         "dy_m50toinf_2j_pt200to400_amcatnlo",
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
+
+        # dy, nnlo
+        # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
+        # "dy_ee_m10to50_powheg",
+        # "dy_ee_m50to120_powheg",
+        # "dy_ee_m120to200_powheg",
+        # "dy_ee_m200to400_powheg",
+        # "dy_ee_m400to800_powheg",
+        # "dy_ee_m800to1500_powheg",
+        # "dy_ee_m1500to2500_powheg",
+        # "dy_ee_m2500to4000_powheg",
+        # "dy_ee_m4000to6000_powheg",
+        # "dy_ee_m6000toinf_powheg",
+        # "dy_mumu_m10to50_powheg",
+        # "dy_mumu_m50to120_powheg",
+        # "dy_mumu_m120to200_powheg",
+        # "dy_mumu_m200to400_powheg",
+        # "dy_mumu_m400to800_powheg",
+        # "dy_mumu_m800to1500_powheg",
+        # "dy_mumu_m1500to2500_powheg",
+        # "dy_mumu_m2500to4000_powheg",
+        # "dy_mumu_m4000to6000_powheg",
+        # "dy_mumu_m6000toinf_powheg",
+        # "dy_tautau_m10to50_powheg",
+        # "dy_tautau_m50to120_powheg",
+        # "dy_tautau_m120to200_powheg",
+        # "dy_tautau_m200to400_powheg",
+        # "dy_tautau_m400to800_powheg",
+        # "dy_tautau_m800to1500_powheg",
+        # "dy_tautau_m1500to2500_powheg",
+        # "dy_tautau_m2500to4000_powheg",
+        # "dy_tautau_m4000to6000_powheg",
+        # "dy_tautau_m6000toinf_powheg",
 
         # w + jets
         "w_lnu_amcatnlo",
