@@ -502,49 +502,49 @@ if not isinstance(torch, MockModule):
             x = x + skip_connection
             return self.last_activation(x)
 
-        class StandardizeLayer(nn.Module):
-            def __init__(
-                self,
-                mean: Tensor = torch.tensor(0.),
-                std: Tensor = torch.tensor(1.),
-            ):
-                """
-                Standardizes the input tensor with given *mean* and *std* tensor.
-                If no value is provided, mean and std are set to 0 and 1, resulting in no scaling.
+    class StandardizeLayer(nn.Module):  # noqa: F811
+        def __init__(
+            self,
+            mean: Tensor = torch.tensor(0.),
+            std: Tensor = torch.tensor(1.),
+        ):
+            """
+            Standardizes the input tensor with given *mean* and *std* tensor.
+            If no value is provided, mean and std are set to 0 and 1, resulting in no scaling.
 
-                Args:
-                    mean (torch.tensor, optional): Mean tensor. Defaults to torch.tensor(0.).
-                    std (torch.tensor, optional): Standard tensor. Defaults to torch.tensor(1.).
-                """
-                super().__init__()
-                self._type_check(mean=mean, std=std)
-                self.mean = torch.nn.Parameter(mean, requires_grad=False)
-                self.std = torch.nn.Parameter(std, requires_grad=False)
+            Args:
+                mean (torch.tensor, optional): Mean tensor. Defaults to torch.tensor(0.).
+                std (torch.tensor, optional): Standard tensor. Defaults to torch.tensor(1.).
+            """
+            super().__init__()
+            self._type_check(mean=mean, std=std)
+            self.mean = torch.nn.Parameter(mean, requires_grad=False)
+            self.std = torch.nn.Parameter(std, requires_grad=False)
 
-            def forward(self, x: Tensor):
-                x = (x - self.mean) / self.std
-                return x
+        def forward(self, x: Tensor):
+            x = (x - self.mean) / self.std
+            return x
 
-            def _type_check(self, mean, std):
-                if not all([isinstance(value, torch.Tensor) for value in [mean, std]]):
-                    raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
+        def _type_check(self, mean, std):
+            if not all([isinstance(value, torch.Tensor) for value in [mean, std]]):
+                raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
 
-            def set_mean_std(self, mean: float | int = 0, std: float | int = 1):
-                """
-                Set the mean and std parameter.
+        def set_mean_std(self, mean: float | int = 0, std: float | int = 1):
+            """
+            Set the mean and std parameter.
 
-                Args:
-                    mean (float, optional): Mean value. Defaults to 0.
-                    std (float, optional): Standard deviation value. Defaults to 1.
-                """
-                self._type_check(mean=mean, std=std)
-                self.mean.data = mean.detach()
-                self.std.data = std.detach()
+            Args:
+                mean (float, optional): Mean value. Defaults to 0.
+                std (float, optional): Standard deviation value. Defaults to 1.
+            """
+            self._type_check(mean=mean, std=std)
+            self.mean.data = mean.detach()
+            self.std.data = std.detach()
 
-            def to(self, *args, **kwargs):
-                self.mean = self.mean.to(*args, **kwargs)
-                self.std = self.std.to(*args, **kwargs)
-                return super().to(*args, **kwargs)
+        def to(self, *args, **kwargs):
+            self.mean = self.mean.to(*args, **kwargs)
+            self.std = self.std.to(*args, **kwargs)
+            return super().to(*args, **kwargs)
 
     class RotatePhiLayer(nn.Module):  # noqa: F811
         def __init__(
@@ -578,12 +578,10 @@ if not isinstance(torch, MockModule):
             columns = [columns] if isinstance(columns, str) else columns
             return [f"{col}.{suffix}" for suffix in ("px", "py") for col in columns]
 
-        def calc_phi(self, x, y):
+        def calc_phi(self, x: Tensor, y: Tensor):
             # when converting arctan to onnx in older versions arctan is used as replacement
             # arctan2 introduced a safeguard if second value is 0, simulate this safe guard
-            if x == 0:
-                return 0
-            return torch.arctan2(y, x)
+            return torch.where(x == 0, 0, torch.arctan2(y, x))
 
         def rotate_pt_to_phi(self, px: torch.Tensor, py: torch.Tensor, ref_phi: torch.Tensor):
             # rotate px, py relative to ref_phi
