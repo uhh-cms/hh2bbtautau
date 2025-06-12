@@ -34,11 +34,13 @@ embedding_expected_inputs = {
 
 def get_standardization_parameter(
     data_map: list[ParquetDataset],
-    columns: Iterable[Route],
+    columns: Iterable[Route | str],
 ) -> dict[str, ak.Array]:
     # open parquet files and concatenate to get statistics for whole datasets
     # beware missing values are currently ignored
     all_data = ak.concatenate(list(map(lambda x: x.data, data_map)))
+    # make sure columns are Routes
+    columns = list(map(Route, columns))
 
     statistics = {}
     for _route in columns:
