@@ -14,5 +14,9 @@ action() {
     export CF_VENV_REQUIREMENTS="${this_dir}/columnar_torch.txt"
 
     source "${CF_BASE}/sandboxes/_setup_venv.sh" "$@"
+
+    # set additional variables to enable deterministic behavior on gpus
+    export CUDA_LAUNCH_BLOCKING=1
+    export CUBLAS_WORKSPACE_CONFIG=:4096:8
 }
 action "$@"
