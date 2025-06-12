@@ -129,6 +129,7 @@ if __name__ == "__main__":
     # nested structure of formulas
     # year -> syst -> (min_njet, max_njet) -> [(lower_bound, upper_bound, formula), ...]
     inf = float("inf")
+    """
     dy_weight_data = {
         "2022": {
             "nominal": {
@@ -159,7 +160,7 @@ if __name__ == "__main__":
             },
         },
     }
-
+    """
     # create and save the correction set
     cset = cs.CorrectionSet(
         schema_version=2,
@@ -170,4 +171,4 @@ if __name__ == "__main__":
     )
 
     with gzip.open("hbt_corrections.json.gz", "wt") as f:
-        f.write(cset.json(exclude_unset=True))
+        f.write(cset.model_dump_json(exclude_unset=True))

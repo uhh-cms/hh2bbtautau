@@ -309,6 +309,7 @@ def add_config(
         ]),
         "ttzz_madgraph",
 
+        # RECOOMENDATION: do not use LO/NLO DY
         # dy
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
@@ -326,6 +327,42 @@ def add_config(
         "dy_m50toinf_2j_pt200to400_amcatnlo",
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
+
+        # TODO: switch to 2022
+        *if_era(year=2023, tag="preEE", values=[
+            # dy NNLO, split in leptons
+            "dy_ee_m50toinf_powheg",
+            "dy_ee_m10to50_powheg",
+            "dy_ee_m50to120_powheg",
+            "dy_ee_m120to200_powheg",
+            "dy_ee_m200to400_powheg",
+            "dy_ee_m400to800_powheg",
+            "dy_ee_m800to1500_powheg",
+            "dy_ee_m1500to2500_powheg",
+            "dy_ee_m2500to4000_powheg",
+            "dy_ee_m4000to6000_powheg",
+            "dy_ee_m6000toinf_powheg",
+            "dy_mumu_m10to50_powheg",
+            "dy_mumu_m50to120_powheg",
+            "dy_mumu_m120to200_powheg",
+            "dy_mumu_m200to400_powheg",
+            "dy_mumu_m400to800_powheg",
+            "dy_mumu_m800to1500_powheg",
+            "dy_mumu_m1500to2500_powheg",
+            "dy_mumu_m2500to4000_powheg",
+            "dy_mumu_m4000to6000_powheg",
+            "dy_mumu_m6000toinf_powheg",
+            "dy_tautau_m10to50_powheg",
+            "dy_tautau_m50to120_powheg",
+            "dy_tautau_m120to200_powheg",
+            "dy_tautau_m200to400_powheg",
+            "dy_tautau_m400to800_powheg",
+            "dy_tautau_m800to1500_powheg",
+            "dy_tautau_m1500to2500_powheg",
+            "dy_tautau_m2500to4000_powheg",
+            "dy_tautau_m4000to6000_powheg",
+            "dy_tautau_m6000toinf_powheg",
+        ]),
 
         # w + jets
         "w_lnu_amcatnlo",
@@ -513,6 +550,7 @@ def add_config(
         ],
         "backgrounds": (backgrounds := [
             "dy",
+            # "dy_nnlo",
             "tt",
             "qcd",
             "st",
@@ -522,6 +560,7 @@ def add_config(
             "h",
             "ewk",
         ]),
+        """
         "dy_split": [
             "dy_m4to10", "dy_m10to50",
             "dy_m50toinf_0j",
@@ -538,6 +577,7 @@ def add_config(
             "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
             "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
         ],
+        """
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
@@ -546,7 +586,7 @@ def add_config(
         "sm_nlo_data_bkg": ["data", *backgrounds],
 
         # "sm_lo_data": ["data", "dy_lo"] + sm_group,
-        # "sm_nnlo_data": ["data", "dy_nnlo"] + sm_group,
+        # "sm_nnlo_data_bkg": ["data", "dy_nnlo"] + sm_group,
         # "sm_lo_data_bkg": ["data", "dy_lo", *backgrounds],
         # "sm_nnlo_data_bkg": ["data", "dy_nnlo", *backgrounds],
     }
@@ -554,55 +594,20 @@ def add_config(
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
         # drell-yan
-        cfg.x.dy_stitching = {
-            "m50toinf": {
-                "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-                "leaf_processes": [
-                    # the following processes cover the full njet and pt phasespace
-                    procs.n.dy_m50toinf_0j,
-                    *(
-                        procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
-                        for nj in [1, 2]
-                        for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                    ),
-                    procs.n.dy_m50toinf_ge3j,
-                ],
-            },
-        }
-        """
-        cfg.x.dy_lo_stitching = {
-            "m50toinf": {
-                "inclusive_dataset": cfg.datasets.n.dy_m50toinf_madgraph,
-                "leaf_processes": [
-                    # the following processes cover the full pt phasespace
-                    *(
-                        procs.get(f"dy_m50toinf_pt{pt}")
-                        for pt in ["40to100", "100to200", "200to400", "400to600", "600toinf"]
-                    ),
-                "leaf_processes_nj": [
-                    # the following processes cover the full njet phasespace
-                    *(
-                        procs.get(f"dy_m50toinf_{nj}j")
-                        for nj in [1,2,3,4]
-                    ),
-                ],
-            },
-        }
+        if year == 2022:
+            cfg.x.dy_stitching = {
+                "ee_m50toinf": {
+                    "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
+                    "leaf_processes": [
+                        # the following processes cover the full inv mass phasespace
+                        *(
+                            procs.get(f"dy_ee_m{mass}")
+                            for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]  # noqa: E501
+                        ),
+                    ],
+                },
+            }
 
-        cfg.x.dy_nnlo_stitching = {
-            "ee_m50toinf": {
-                "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
-                "leaf_processes": [
-                    # the following processes cover the full inv mass phasespace
-                    *(
-                        procs.get(f"dy_ee_m{mass}")
-                        for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]  # noqa: E501
-                    ),
-                ],
-            },
-        }
-
-        """
         # w+jets
         cfg.x.w_lnu_stitching = {
             "incl": {
@@ -685,8 +690,9 @@ def add_config(
         "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
-        "default": [
+        "default_dy": [
             *dijet, *dilep, *hh,
+            "njets",
             "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
@@ -1607,7 +1613,7 @@ def add_config(
         # custum UHH dy reweighting
         # -----------------------------------------------------------------------------
         # fits derived from CCLUB phase-space
-        add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod8_dy_v3_jets/hbt_corrections_mumu__dyc_eq2j__os.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod8_dy_v3_jets/hbt_corrections.json.gz", "v1"))  # noqa: E501
         # -----------------------------------------------------------------------------
 
         # trigger scale factors
@@ -1696,7 +1702,7 @@ def add_config(
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
+            dataset.x.event_weights = {"dy_weight_uhh": []}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [
