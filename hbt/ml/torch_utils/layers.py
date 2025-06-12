@@ -581,12 +581,22 @@ if not isinstance(torch, MockModule):
         def calc_phi(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
             def arctan2(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
                 # calculate arctan2 using arctan, since onnx does not have support for arctan2
-                # arctan2 is catches special cases for x,y combinations (quadrants)
+                # torch constants are not tensors for some reason
+                pi = torch.tensor(torch.pi)
+
+                # handle special cases
+                # quadrant handling: (x < 0,y >= 0) -> arctan + pi, (x < 0,y < 0) -> arctan - pi
                 phi_shift = torch.zeros_like(x)
-                phi_shift = torch.where(torch.logical_and(x < 0, y < 0), -torch.pi, phi_shift)
-                phi_shift = torch.where(torch.logical_and(x < 0, y >= 0), torch.pi, phi_shift)
-                phis = torch.where(x == 0, 0, torch.arctan(y / x)) + phi_shift
-                return phis
+                torch.where(torch.logical_and(x < 0, y < 0), -pi, phi_shift, out=phi_shift)
+                torch.where(torch.logical_and(x < 0, y >= 0), pi, phi_shift, out=phi_shift)
+
+                # edges  with x == 0
+                phis = torch.arctan(y / x)
+                # right edge -> pi/2, left edge -> -pi/2, both 0 -> 0
+                torch.where(torch.logical_and(x == 0, y > 0), (pi / 2), phis, out=phis)
+                torch.where(torch.logical_and(x == 0, y < 0), -(pi / 2), phis, out=phis)
+                torch.where(torch.logical_and(x == 0, y == 0), torch.tensor(0), phis, out=phis)
+                return phis + phi_shift
             return arctan2(x=x, y=y)
 
         def rotate_pt_to_phi(self, px: torch.Tensor, py: torch.Tensor, ref_phi: torch.Tensor):
