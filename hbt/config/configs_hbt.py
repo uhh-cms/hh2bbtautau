@@ -403,6 +403,12 @@ def add_config(
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
+            if dataset.name.endswith("_madgraph"):
+                dataset.add_tag("dy_lo")
+            elif dataset.name.endswith("_amcatnlo"):
+                dataset.add_tag("dy_nlo")
+            elif dataset.name.endswith("_powheg"):
+                dataset.add_tag("dy_nnlo")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):

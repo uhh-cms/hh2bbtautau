@@ -5,6 +5,7 @@ Exemplary selection methods.
 """
 
 from columnflow.categorization import Categorizer, categorizer
+from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 from columnflow.util import maybe_import
 
 ak = maybe_import("awkward")
@@ -100,6 +101,7 @@ def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
 def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})
     di_bjet_mass = events.HHBJet.sum(axis=1).mass
     mask = (
         (di_bjet_mass >= 40) &
