@@ -103,14 +103,14 @@ class ExportDYWeights(HBTTask, ConfigTask):
                 config=config,
                 processes=("sm_nlo_data_bkg",),  # supports groups
                 hist_producer="no_dy_weight",
-                categories=("mumu__dyc_eq2j__os",),
+                categories=("ee__dy_eq2j__os",),
                 variables=("njets-dilep_pt",),
             )
             for config in self.configs
         }
 
     def output(self):
-        return self.target("hbt_corrections.json.gz")
+        return self.target("hbt_corrections_ee__dy_eq2j.json.gz")
 
     def run(self):
         import correctionlib.schemav2 as cs
@@ -316,47 +316,17 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})^2)))"
         pol = f"(({a})+({b})*x)"
 
-        # constant parameters of the erf function
-        a1 = "0.254829592"
-        a2 = "(-0.284496736)"
-        a3 = "1.421413741"
-        a4 = "(-1.453152027)"
-        a5 = "1.061405429"
-        p = "0.3275911"
-
-        # argument string for the erf function
-        x_neg = f"(-0.1*(x-({r})))"
-        x_pos = f"(0.1*(x-({r})))"
-        abs_x_neg = f"abs({x_neg})"
-        abs_x_pos = f"abs({x_pos})"
-        sign_x_neg = f"sign({x_neg})"
-        sign_x_pos = f"sign({x_pos})"
-
-        # different strings for the positive and negative parts of erf function
-        t_pos = f"(1.0/(1.0+{p}*{abs_x_pos}))"
-        t_neg = f"(1.0/(1.0+{p}*{abs_x_neg}))"
-        y_pos = f"({sign_x_pos}*(1.0-((((({a5}*{t_pos}+{a4})*{t_pos})+{a3})*{t_pos}+{a2})*{t_pos}+{a1})*{t_pos}*exp(-{abs_x_pos}*{abs_x_pos})))"
-        y_neg = f"({sign_x_neg}*(1.0-((((({a5}*{t_neg}+{a4})*{t_neg})+{a3})*{t_neg}+{a2})*{t_neg}+{a1})*{t_neg}*exp(-{abs_x_neg}*{abs_x_neg})))"
-
-
-        # fit_string = f"(0.5*({y_neg}+1))*{gauss}+(0.5*({y_pos}+1))*{pol}"
         # full fit function string
         fit_string = f"(0.5*(erf(-0.1*(x-{r}))+1))*{gauss}+(0.5*(erf(0.1*(x-{r}))+1))*{pol}"
 
-
-        def str_function(x):
-            str_function = (0.5*(special.erf(-0.1*(x-43.456161646))+1))*((0.928946055)+((0.668872996)*(1/5.107680973)*np.exp(-0.5*((x-13.506052707)/5.107680973)**2)))+(0.5*(special.erf(0.1*(x-43.456161646))+1))*((0.960061512)+(-0.000314006)*x)
-            return str_function
         # -------------------------------
         #  plot the fit function‚
         s = np.linspace(0, 200, 1000)
         y = [fit_function(v, *param_fit) for v in s]
         w = [my_fit_function(v, *param_my_fit) for v in s]
-        z = [str_function(v) for v in s]
         fig, ax = plt.subplots()
         ax.plot(s, y, color="grey", label="special.erf")
         ax.plot(s, w, color="red", linestyle="--", label="erf")
-        ax.plot(s, z, color="black", linestyle="--", label="str_function")
         ax.errorbar(
             bin_centers,
             ratio_values,
@@ -371,9 +341,9 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
         ax.set_ylabel("Ratio")
         ax.set_ylim(0.4, 1.5)
-        ax.set_title(f"Fit function for NLO 2022preEE, njets {njet}")
+        ax.set_title(f"Fit function for NNLO 2022preEE, njets {njet}")
         ax.grid(True)
-        fig.savefig(f"plot_debug.pdf")
+        fig.savefig(f"plot_NNLO_eq2j.pdf")
         # -------------------------------
         print(fit_string)
 
