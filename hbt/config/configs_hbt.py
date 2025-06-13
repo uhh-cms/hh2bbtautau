@@ -1276,7 +1276,7 @@ def add_config(
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
-            order="NLO",
+            order="NNLO",
             correction="DY_pTll_reweighting",
             unc_correction="DY_pTll_reweighting_N_uncertainty",
         )
@@ -1285,7 +1285,7 @@ def add_config(
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
         cfg.x.dy_recoil_config = DrellYanConfig(
             era=dy_era,
-            order="NLO",
+            order="NNLO",
             correction="Recoil_correction_Rescaling",
             unc_correction="Recoil_correction_Uncertainty",
         )

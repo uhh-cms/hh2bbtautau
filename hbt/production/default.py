@@ -98,8 +98,8 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
         # dy weights
         if self.has_dep(dy_weights_uhh):
-            events = self[dy_weights_uhh](events, **kwargs)
-            # events = self[dy_weights](events, **kwargs)
+            # events = self[dy_weights_uhh](events, **kwargs)
+            events = self[dy_weights](events, **kwargs)
 
     return events
 
@@ -111,8 +111,8 @@ def default_init(self: Producer, **kwargs) -> None:
         if self.dataset_inst.has_tag("ttbar"):
             weight_producers.add(top_pt_weight)
         if self.dataset_inst.has_tag("dy"):
-            weight_producers.add(dy_weights_uhh)
-            # weight_producers.add(dy_weights)
+            # weight_producers.add(dy_weights_uhh)
+            weight_producers.add(dy_weights)
 
         self.uses |= weight_producers
         self.produces |= weight_producers
