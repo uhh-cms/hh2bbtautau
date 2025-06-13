@@ -1247,32 +1247,6 @@ def add_config(
         else:
             assert False
 
-        """
-        for dataset in cfg.datasets:
-            if dataset.has_tag("dy_LO"):
-                order = "LO"
-                cfg.x.dy_weight_config = DrellYanConfig(
-                    era=dy_era,
-                    order="LO",
-                    correction="DY_pTll_reweighting",
-                    unc_correction="DY_pTll_reweighting_N_uncertainty",
-                )
-            if dataset.has_tag("dy_NLO"):
-                cfg.x.dy_weight_config = DrellYanConfig(
-                    era=dy_era,
-                    order="NLO",
-                    correction="DY_pTll_reweighting",
-                    unc_correction="DY_pTll_reweighting_N_uncertainty",
-                )
-            if dataset.has_tag("dy_NNLO"):
-                cfg.x.dy_weight_config = DrellYanConfig(
-                    era=dy_era,
-                    order="NNLO",
-                    correction="DY_pTll_reweighting",
-                    unc_correction="DY_pTll_reweighting_N_uncertainty",
-                )
-        """
-
         # dy reweighting
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
         cfg.x.dy_weight_config = DrellYanConfig(
