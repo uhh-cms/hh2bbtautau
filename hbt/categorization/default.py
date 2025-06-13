@@ -271,6 +271,20 @@ def cat_ge7j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, ak.num(events.Jet.pt, axis=1) >= 7
 
 
+@categorizer(uses={"HHBJet.pt"})
+def cat_eq0bj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.HHBJet.pt, axis=1) == 0
+
+
+@categorizer(uses={"HHBJet.pt"})
+def cat_eq1bj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.HHBJet.pt, axis=1) == 1
+
+
+@categorizer(uses={"HHBJet.pt"})
+def cat_eq2bj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.HHBJet.pt, axis=1) == 2
+
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_tt(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
