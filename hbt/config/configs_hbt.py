@@ -677,6 +677,7 @@ def add_config(
         "sm_bkg": data_group + [*backgrounds],
         "sm_data_unstitched": data_group + sm_group_unstitched,
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
+        "dy_nnlo": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy_nnlo")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
     }
 
