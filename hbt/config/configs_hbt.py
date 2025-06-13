@@ -328,7 +328,7 @@ def add_config(
         # "dy_m50toinf_2j_pt600toinf_amcatnlo",
 
         # dy, nnlo
-        # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
+        *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
         "dy_ee_m10to50_powheg",
         "dy_ee_m50to120_powheg",
         "dy_ee_m120to200_powheg",
