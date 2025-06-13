@@ -62,6 +62,8 @@ class MLClassifierBase(MLModel):
     # set some defaults, can be overwritten by subclasses or via cls_dict
     # NOTE: the order of processes is crucial! Do not change after training
     _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1")
+    # configs_to_use: tuple[str] = ("22pre_v14_larger_limited", "22post_v14_larger_limited")
+    # configs_to_use: tuple[str] = ("22{pre,post}_v14_larger_limited",)
     categorical_target_map: dict[str, int] = {
         "tt": 0,
         "hh": 1,
@@ -103,7 +105,8 @@ class MLClassifierBase(MLModel):
         "early_stopping_patience",
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
-        "deterministic_seeds",
+        # "deterministic_seeds",
+        # "configs_to_use",
     }
 
     # parameters that can be overwritten via command line
@@ -117,6 +120,8 @@ class MLClassifierBase(MLModel):
         "early_stopping_min_diff",
         "deterministic_seeds",
     }
+
+    settings_list_delimiter = ":"
 
     _model = None
 
@@ -159,14 +164,17 @@ class MLClassifierBase(MLModel):
         Similarly, a parameter starting with "_default__" must be part of the `settings_parameters`.
         """
         super().__init__(*args, **kwargs)
-        # logger.warning("Running MLModel init")
 
+        # logger.warning("Running MLModel init")
         # checks
         if diff := self.settings_parameters.difference(self.bookkeep_params):
-            raise Exception(
-                f"settings_parameters {diff} not in bookkeep_params; all customizable settings should"
-                "be bookkept in the parameters.yaml file and the self.parameters_repr to ensure reproducibility",
-            )
+            if any(x != "deterministic_seeds" for x in diff):
+                # deterministic_seeds is a special case, so we allow it to be in settings_parameters
+                # but not in bookkeep_params
+                raise Exception(
+                    f"settings_parameters {diff} not in bookkeep_params; all customizable settings should"
+                    "be bookkept in the parameters.yaml file and the self.parameters_repr to ensure reproducibility",
+                )
         if diff := self.preml_params.difference(self.bookkeep_params):
             raise Exception(
                 f"preml_params {diff} not in bookkeep_params; all parameters that change the preml_store_name"
@@ -188,7 +196,14 @@ class MLClassifierBase(MLModel):
                 )
             # set to requested value, fallback on "__default_{param}"
             value = self.parameters.get(param, getattr(self, f"_default__{param}"))
+            if isinstance(value, str) and self.settings_list_delimiter in value:
+                value = value.split(self.settings_list_delimiter)
             setattr(self, param, value)
+
+        # special case for deterministic_seeds: shouldn't be part of the parameters,
+        # so remove the when necessary
+        if "deterministic_seeds" in self.parameters:
+            del self.parameters["deterministic_seeds"]
 
         # check that all _default__ attributes are taken care of
         for attr in dir(self):
@@ -214,6 +229,16 @@ class MLClassifierBase(MLModel):
 
         self._model = None
         # sanity check: for each process in "train_nodes", we need to have 1 process with "ml_id" in config
+
+    # @property
+    # def config_insts(self):
+    #     return [f"22{suffix}_v14_larger_limited" for suffix in ("pre", "post")]
+    def _setup_configs(self, configs: list[str | od.Config]):
+        # call setup for specific set, overriding the configs provided by the
+        # task instance
+        configs_to_use = getattr(self, "configs_to_use", configs)
+
+        return super()._setup_configs(configs_to_use)
 
     def cast_ml_param_values(self):
         """
@@ -271,18 +296,16 @@ class MLClassifierBase(MLModel):
             (name, val) for name, val in self.parameters.items()
             # deterministic seed might be part of branch data of task, so exclude it from
             # the representation
-            if not name == "deterministic_seed"
+            if not any(name == x for x in ("deterministic_seed", "deterministic_seeds"))
         ]))
-        # vice versa, create a hash that contains all current parameters
-        # THIS IS DIFFERENT FROM THE INTERNAL STATE!
-        full_parameters_repr = law.util.create_hash(sorted(self.parameters.items()))
+
         if hasattr(self, "_parameters_repr") and self._parameters_repr != internal_parameters_repr:
             raise Exception(
                 f"parameters_repr changed from {self._parameters_repr} to {internal_parameters_repr};"
                 "this should not happen",
             )
         self._parameters_repr = internal_parameters_repr
-        return full_parameters_repr
+        return self._parameters_repr
 
     def valid_ml_id_sanity_check(self):
         """
@@ -478,7 +501,9 @@ class MLClassifierBase(MLModel):
     def output(self, task: law.Task) -> dict[str, law.FileSystemTarget]:
         branch_data = task.branch_data
         fold = None
-        if isinstance(branch_data, dict) and (seed := branch_data.get("deterministic_seed", None)):
+        suffix = ""
+
+        if isinstance(branch_data, dict) and (seed := branch_data.get("deterministic_seed", None)) is not None:
             fold = branch_data.get("fold")
             suffix = f"_seed_{seed}"
         else:
@@ -486,11 +511,12 @@ class MLClassifierBase(MLModel):
 
         target = task.target(f"mlmodel_f{fold}of{self.folds}", dir=True)
         # declare the main target
-        suffix = ""
 
         # from IPython import embed
         # embed(header=f"in {self.__class__.__name__}.output")
         ml_name = self.__class__.__name__
+        # from IPython import embed
+        # embed(header=f"check output path for local_target")
         output = {
             "model": target.child(f"torch_model_{ml_name}_f{fold}of{self.folds}{suffix}.pt", type="f"),
             "tensorboard": task.local_target(
@@ -500,8 +526,8 @@ class MLClassifierBase(MLModel):
             ),
         }
         output["aux_files"] = {
-            ".".join(fname.split(".")[:-1]): target.child(fname, type="f")
-            for fname in (f"parameter_summary{suffix}.yaml", "input_features.pkl")
+            "input_features": target.child("input_features.pkl", type="f"),
+            "parameter_summary": target.child(f"parameter_summary{suffix}.yaml", type="f"),
         }
         return DotDict.wrap(output)
 
@@ -570,7 +596,7 @@ class MLClassifierBase(MLModel):
         if deterministic_seed is not None and deterministic_seed >= 0:
             # set seed for reproducibility
             logger.info(f"Setting deterministic seed to {deterministic_seed}")
-            self.parameters["deterministic_seed"] = deterministic_seed
+            # self.parameters["deterministic_seed"] = deterministic_seed
             torch.manual_seed(deterministic_seed)
             if torch.cuda.is_available():
                 torch.cuda.manual_seed(deterministic_seed)
