@@ -97,7 +97,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             events = self[top_pt_weight](events, **kwargs)
 
         # dy weights
-        if self.has_dep(dy_weights_uhh):
+        if self.has_dep(dy_weights):
             # events = self[dy_weights_uhh](events, **kwargs)
             events = self[dy_weights](events, **kwargs)
 
