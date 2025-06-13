@@ -552,7 +552,6 @@ def add_config(
         ],
         "backgrounds": (backgrounds := [
             "dy",
-            # "dy_nnlo",
             "tt",
             "qcd",
             "st",
@@ -709,12 +708,13 @@ def add_config(
         "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
-        "default_dy": [
-            *dijet, *dilep, *hh,
-            "njets",
-            "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
-            "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
-            "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
+        "dibjet": (dibjet := [f"dibjet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "nbjets": (nbjets := [f"nbjets_{var}" for var in ["deepjet", "pnet"]]),
+        "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1", "tau1"] for var in ["pt", "eta"]]),
+        "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
+        "dy_variables": [
+            *dijet, *dibjet, *dilep, *hh, *nbjets, *lep, *jet,
+            "njets", "ht",
         ],
     }
 
@@ -1604,7 +1604,7 @@ def add_config(
         # custum UHH dy reweighting
         # -----------------------------------------------------------------------------
         # fits derived from CCLUB phase-space
-        add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod8_dy_v3_jets/hbt_corrections.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod9_dy2/hbt_corrections_ee__dy_eq2j.json.gz", "v1"))  # noqa: E501
         # -----------------------------------------------------------------------------
 
         # trigger scale factors
