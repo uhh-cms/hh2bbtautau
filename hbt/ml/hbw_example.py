@@ -738,11 +738,9 @@ class MLClassifierBase(MLModel):
     ):
         from hbt.ml.torch_utils.utils import MLEnsembleWrapper
         eval_wrapper = MLEnsembleWrapper(models, final_activation=self.eval_activation)
-        
+
         with torch.no_grad():
-            from IPython import embed
-            embed(header=f"in {self.__class__.__name__}.evaluate_orthogonal_events")
-            output_mean, output_std = eval_wrapper(data)
+            output_mean, output_std = eval_wrapper(data[:])
 
         outputs_view[:] = ak.flatten(output_mean)
         outputs_std_view[:] = ak.flatten(output_std)
