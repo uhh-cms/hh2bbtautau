@@ -42,8 +42,8 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
         if len(self.categories) != 1:
             raise ValueError(f"{self.task_family} requires exactly one category, got {self.categories}")
         # ensure that the category matches a specific pattern: starting with "ee"/"mumu" and ending in "os"
-        if not re.match(r"^(ee|mumu)__.*__os$", self.categories[0]):
-            raise ValueError(f"category must start with '{{ee,mumu}}__' and end in '__os', got {self.categories[0]}")
+        if not re.match(r"^(ee|mumu|tautau)__.*__os.*$", self.categories[0]):
+            raise ValueError(f"category must start with '{{ee,mumu,tautau}}__' and contain '__os', got {self.categories[0]}")
         self.category_inst = self.config_inst.get_category(self.categories[0])
 
         # only one variable is allowed
@@ -51,11 +51,11 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             raise ValueError(f"{self.task_family} requires exactly one variable, got {self.variables}")
         self.variable = self.variables[0]
         # for now, variable must be "njets-dilep_pt"
-        if self.variable != "njets-dilep_pt":
-            raise ValueError(f"variable must be 'njets-dilep_pt', got {self.variable}")
+        if self.variable not in ["njets-dilep_pt", "njets-gen_dilepton_pt"]:
+            raise ValueError(f"variable must be 'njets-dilep_pt' or 'njets-gen_dilepton_pt', got {self.variable}")
 
     def output(self):
-        return self.target("dy_weight_data.pkl")
+        return self.target(f"dy_weight_data_{self.categories[0]}_{self.variables[0]}.pkl")
 
     def run(self):
         # prepare categories to sum over
@@ -96,6 +96,9 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
     single_config = False
 
+    category = "tautau__dyc__os__noniso"
+    variable = "njets-dilep_pt"
+
     def requires(self):
         return {
             config: ComuteDYWeights.req(
@@ -103,14 +106,14 @@ class ExportDYWeights(HBTTask, ConfigTask):
                 config=config,
                 processes=("sm_nlo_data_bkg",),  # supports groups
                 hist_producer="no_dy_weight",
-                categories=("ee__dy_eq2j__os",),
-                variables=("njets-dilep_pt",),
+                categories=(self.category,),
+                variables=(self.variable,),
             )
             for config in self.configs
         }
 
     def output(self):
-        return self.target("hbt_corrections_ee__dy_eq2j.json.gz")
+        return self.target(f"hbt_corrections_{self.category}_{self.variable}.json.gz")
 
     def run(self):
         import correctionlib.schemav2 as cs
@@ -237,10 +240,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             raise ValueError(f"Invalid njets value {njet}, expected 2, 3, or 4.")
 
         # slice the histogram for the current njets bin
-        if njet != 4:
-            jet_tupple = (njet - 0.5, njet + 0.5)
-        elif njet == 4:
-            jet_tupple = (njet - 0.5, 10.5)
+        jet_tupple = (njet - 0.5, njet + 0.5)
 
         # slice the histogram for the selected njets bin
         h = h[:, hist.loc(jet_tupple[0]):hist.loc(jet_tupple[1]), ...]
@@ -281,18 +281,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         lower_bounds = [0.8, 0, 0, 0, 0, -1, 0]
         upper_bounds = [1.2, 10, 50, 20, 2, 2, 60]
 
+        from IPython import embed; embed(header="dy fit ...")
+
         # perform the fit with both functions
         param_fit, _ = optimize.curve_fit(
             fit_function,
-            bin_centers,
-            ratio_values,
-            p0=starting_values, method="trf",
-            sigma=np.maximum(ratio_err, 1e-5),
-            absolute_sigma=True,
-            bounds=(lower_bounds, upper_bounds),
-        )
-        param_my_fit, _ = optimize.curve_fit(
-            my_fit_function,
             bin_centers,
             ratio_values,
             p0=starting_values, method="trf",
@@ -318,15 +311,13 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
         # full fit function string
         fit_string = f"(0.5*(erf(-0.1*(x-{r}))+1))*{gauss}+(0.5*(erf(0.1*(x-{r}))+1))*{pol}"
-
+        print(fit_string)
         # -------------------------------
         #  plot the fit function‚
         s = np.linspace(0, 200, 1000)
         y = [fit_function(v, *param_fit) for v in s]
-        w = [my_fit_function(v, *param_my_fit) for v in s]
         fig, ax = plt.subplots()
-        ax.plot(s, y, color="grey", label="special.erf")
-        ax.plot(s, w, color="red", linestyle="--", label="erf")
+        ax.plot(s, y, color="grey", label="fit")
         ax.errorbar(
             bin_centers,
             ratio_values,
@@ -339,11 +330,10 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         )
         ax.legend(loc="upper right")
         ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
-        ax.set_ylabel("Ratio")
-        ax.set_ylim(0.4, 1.5)
-        ax.set_title(f"Fit function for NNLO 2022preEE, njets {njet}")
+        ax.set_ylabel("Ratio (data-non DY MC)/DY")
+        ax.set_title("NNLO 2022preEE, mumu__dy_eq2j_eq0b")
         ax.grid(True)
-        fig.savefig(f"plot_NNLO_eq2j.pdf")
+        fig.savefig("plot_NNLO_mumu__dy_eq2j_eq0b.pdf")
         # -------------------------------
         print(fit_string)
 
@@ -364,7 +354,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         # TODO: if first 2 elements in tupple are not -inf, inf the fit_str will be multiplied
         # by a step function scipy.special.erf with parameter 1000
 
-        # temporarily use the same fit function for all njets up to 11
+        # temporarily use the same fit function for all njets
         fit_dict[era]["nominal"][(0, 500)] = [(-inf, inf, fit_str)]
 
     return fit_dict
