@@ -61,9 +61,9 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="dy_ge6j", id=230, selection=["cat_dy", "cat_ge6j"], label="DY enriched >6j", tags={"dy_ge6j"})  # noqa: E501
     _add_category(config, name="dy_ge7j", id=231, selection=["cat_dy", "cat_ge7j"], label="DY enriched >7j", tags={"dy_ge7j"})  # noqa: E501
 
-    _add_category(config, name="dy_eq2j_eq0bj", id=241, selection=["cat_dy", "cat_eq2j", "cat_eq0bj"], label="DY enriched eq2j 0bj", tags={"dy_eq2j_eq0bj"})  # noqa: E501
-    _add_category(config, name="dy_eq2j_eq1bj", id=242, selection=["cat_dy", "cat_eq2j", "cat_eq1bj"], label="DY enriched eq2j 1bj", tags={"dy_eq2j_eq1bj"})  # noqa: E501
-    _add_category(config, name="dy_eq2j_eq2bj", id=243, selection=["cat_dy", "cat_eq2j", "cat_eq2bj"], label="DY enriched eq2j 2bj", tags={"dy_eq2j_eq2bj"})  # noqa: E501
+    _add_category(config, name="dy_eq2j_eq0b", id=241, selection=["cat_dy", "cat_eq2j", "cat_eq0b"], label="DY enriched eq2j 0b", tags={"dy_eq2j_eq0b"})  # noqa: E501
+    _add_category(config, name="dy_eq2j_eq1b", id=242, selection=["cat_dy", "cat_eq2j", "cat_eq1b"], label="DY enriched eq2j 1b", tags={"dy_eq2j_eq1b"})  # noqa: E501
+    _add_category(config, name="dy_eq2j_eq2b", id=243, selection=["cat_dy", "cat_eq2j", "cat_eq2b"], label="DY enriched eq2j 2bss", tags={"dy_eq2j_eq2b"})  # noqa: E501
 
     # DY enriched with CCLUB definition
     _add_category(config, name="dyc", id=213, selection="cat_dyc", label="DY enriched (CCLUB)", tags={"dyc"})
@@ -84,9 +84,9 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="dyc_ge6j", id=239, selection=["cat_dyc", "cat_ge6j"], label="DY enriched >6j (CCLUB)", tags={"dyc_ge6j"})  # noqa: E501
     _add_category(config, name="dyc_ge7j", id=240, selection=["cat_dyc", "cat_ge7j"], label="DY enriched >7j (CCLUB)", tags={"dyc_ge7j"})  # noqa: E501
 
-    _add_category(config, name="dyc_eq2j_eq0bj", id=244, selection=["cat_dyc", "cat_eq2j", "cat_eq0bj"], label="DY enriched eq2j 0bj (CCLUB)", tags={"dyc_eq2j_eq0bj"})  # noqa: E501
-    _add_category(config, name="dyc_eq2j_eq1bj", id=245, selection=["cat_dyc", "cat_eq2j", "cat_eq1bj"], label="DY enriched eq2j 1bj (CCLUB)", tags={"dyc_eq2j_eq1bj"})  # noqa: E501
-    _add_category(config, name="dyc_eq2j_eq2bj", id=246, selection=["cat_dyc", "cat_eq2j", "cat_eq2bj"], label="DY enriched eq2j 2bj (CCLUB)", tags={"dyc_eq2j_eq2bj"})  # noqa: E501
+    _add_category(config, name="dyc_eq2j_eq0b", id=244, selection=["cat_dyc", "cat_eq2j", "cat_eq0b"], label="DY enriched eq2j 0b (CCLUB)", tags={"dyc_eq2j_eq0b"})  # noqa: E501
+    _add_category(config, name="dyc_eq2j_eq1b", id=245, selection=["cat_dyc", "cat_eq2j", "cat_eq1b"], label="DY enriched eq2j 1b (CCLUB)", tags={"dyc_eq2j_eq1b"})  # noqa: E501
+    _add_category(config, name="dyc_eq2j_eq2b", id=246, selection=["cat_dyc", "cat_eq2j", "cat_eq2b"], label="DY enriched eq2j 2b (CCLUB)", tags={"dyc_eq2j_eq2b"})  # noqa: E501
 
     #
     # build groups
@@ -130,7 +130,13 @@ def add_categories(config: od.Config) -> None:
         # channels first
         "channel": CategoryGroup(["etau", "mutau", "tautau"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-        "kin": CategoryGroup(["incl", "2j", "res1b", "res2b", "boosted"], is_complete=True, has_overlap=True),
+        "kin": CategoryGroup([
+            "incl", "2j", "res1b", "res2b", "boosted",
+            "dyc", "dyc_res1b", "dyc_res2b", "dyc_boosted",
+            "dyc_eq0j", "dyc_eq1j", "dyc_eq2j", "dyc_eq3j", "dyc_eq4j",
+            "dyc_eq5j", "dyc_eq6j", "dyc_eq7j", "dyc_ge4j", "dyc_ge6j", "dyc_ge7j",
+            "dyc_eq2j_eq0b", "dyc_eq2j_eq1b", "dyc_eq2j_eq2b",
+        ], is_complete=True, has_overlap=True),
         # qcd regions last
         "sign": CategoryGroup(["os", "ss"], is_complete=True, has_overlap=False),
         "tau2": CategoryGroup(["iso", "noniso"], is_complete=True, has_overlap=False),
@@ -153,11 +159,11 @@ def add_categories(config: od.Config) -> None:
             "dy", "dy_res1b", "dy_res2b", "dy_boosted",
             "dy_eq0j", "dy_eq1j", "dy_eq2j", "dy_eq3j", "dy_eq4j",
             "dy_eq5j", "dy_eq6j", "dy_eq7j", "dy_ge4j", "dy_ge6j", "dy_ge7j",
-            "dy_eq2j_eq0bj", "dy_eq2j_eq1bj", "dy_eq2j_eq2bj",
+            "dy_eq2j_eq0b", "dy_eq2j_eq1b", "dy_eq2j_eq2b",
             "dyc", "dyc_res1b", "dyc_res2b", "dyc_boosted",
             "dyc_eq0j", "dyc_eq1j", "dyc_eq2j", "dyc_eq3j", "dyc_eq4j",
             "dyc_eq5j", "dyc_eq6j", "dyc_eq7j", "dyc_ge4j", "dyc_ge6j", "dyc_ge7j",
-            "dyc_eq2j_eq0bj", "dyc_eq2j_eq1bj", "dyc_eq2j_eq2bj",
+            "dyc_eq2j_eq0b", "dyc_eq2j_eq1b", "dyc_eq2j_eq2b",
             "tt",
         ], is_complete=True, has_overlap=True),
         # relative sign last
