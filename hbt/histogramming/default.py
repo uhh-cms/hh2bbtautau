@@ -85,3 +85,7 @@ ml_weights = default.derive("ml_weights", cls_dict={
         "trigger_weight",
     },
 })
+
+no_tau_weight = default.derive("no_tau_weight", cls_dict={
+    "drop_weights": {"normalization_weight_inclusive", "tau_weight"},
+})

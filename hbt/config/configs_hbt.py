@@ -254,7 +254,7 @@ def add_config(
         ]),
         "ttzz_madgraph",
 
-        # dy
+        # dy, nlo
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
         "dy_m50toinf_amcatnlo",
@@ -271,6 +271,39 @@ def add_config(
         "dy_m50toinf_2j_pt200to400_amcatnlo",
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
+
+        # dy, nnlo
+        # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
+        # "dy_ee_m10to50_powheg",
+        # "dy_ee_m50to120_powheg",
+        # "dy_ee_m120to200_powheg",
+        # "dy_ee_m200to400_powheg",
+        # "dy_ee_m400to800_powheg",
+        # "dy_ee_m800to1500_powheg",
+        # "dy_ee_m1500to2500_powheg",
+        # "dy_ee_m2500to4000_powheg",
+        # "dy_ee_m4000to6000_powheg",
+        # "dy_ee_m6000toinf_powheg",
+        # "dy_mumu_m10to50_powheg",
+        # "dy_mumu_m50to120_powheg",
+        # "dy_mumu_m120to200_powheg",
+        # "dy_mumu_m200to400_powheg",
+        # "dy_mumu_m400to800_powheg",
+        # "dy_mumu_m800to1500_powheg",
+        # "dy_mumu_m1500to2500_powheg",
+        # "dy_mumu_m2500to4000_powheg",
+        # "dy_mumu_m4000to6000_powheg",
+        # "dy_mumu_m6000toinf_powheg",
+        # "dy_tautau_m10to50_powheg",
+        # "dy_tautau_m50to120_powheg",
+        # "dy_tautau_m120to200_powheg",
+        # "dy_tautau_m200to400_powheg",
+        # "dy_tautau_m400to800_powheg",
+        # "dy_tautau_m800to1500_powheg",
+        # "dy_tautau_m1500to2500_powheg",
+        # "dy_tautau_m2500to4000_powheg",
+        # "dy_tautau_m4000to6000_powheg",
+        # "dy_tautau_m6000toinf_powheg",
 
         # w + jets
         "w_lnu_amcatnlo",
@@ -370,7 +403,19 @@ def add_config(
             dataset.add_tag({"has_top", "single_top", "st"})
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
+            if dataset.name.endswith("_madgraph"):
+                dataset.add_tag("dy_lo")
+            elif dataset.name.endswith("_amcatnlo"):
+                dataset.add_tag("dy_nlo")
+            elif dataset.name.endswith("_powheg"):
+                dataset.add_tag("dy_nnlo")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
+            dataset.add_tag("dy_stitched")
+        if (
+            "dy_ee_m50toinf_powheg" in cfg.datasets and
+            re.match(r"^dy_ee_m.*_powheg$", dataset.name) and
+            dataset.name not in {"dy_ee_m50toinf_powheg", "dy_ee_m10to50_powheg"}
+        ):
             dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):
             dataset.add_tag("w_lnu")
@@ -491,22 +536,37 @@ def add_config(
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
-        # drell-yan
-        cfg.x.dy_stitching = {
-            "m50toinf": {
-                "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-                "leaf_processes": [
-                    # the following processes cover the full njet and pt phasespace
-                    procs.n.dy_m50toinf_0j,
-                    *(
-                        procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
-                        for nj in [1, 2]
-                        for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                    ),
-                    procs.n.dy_m50toinf_ge3j,
-                ],
-            },
-        }
+        # drell-yan, nlo
+        if "dy_m50toinf_amcatnlo" in cfg.datasets:
+            cfg.x.dy_nlo_stitching = {
+                "m50toinf": {
+                    "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                    "leaf_processes": [
+                        # the following processes cover the full njet and pt phasespace
+                        procs.n.dy_m50toinf_0j,
+                        *(
+                            procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
+                            for nj in [1, 2]
+                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                        ),
+                        procs.n.dy_m50toinf_ge3j,
+                    ],
+                },
+            }
+        # drell-yan, nnlo
+        if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
+            cfg.x.dy_nnlo_stitching = {
+                "ee_m50toinf": {
+                    "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
+                    "leaf_processes": [
+                        # the following processes cover the full inv mass phasespace
+                        *(
+                            procs.get(f"dy_ee_m{mass}")
+                            for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]  # noqa: E501
+                        ),
+                    ],
+                },
+            }
         # w+jets
         cfg.x.w_lnu_stitching = {
             "incl": {
@@ -1370,10 +1430,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-a080a5f3"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c9422789"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-a080a5f3"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c9422789"
         trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
@@ -1456,20 +1516,18 @@ def add_config(
             version="v3",
         ))
         # tau energy correction and scale factors
-        # TODO: remove tau pog mirror once integrated centrally
-        json_mirror_tau_pog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
         if year == 2022:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
             tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}EE"
-            tau_pog_dir = tau_pog_era
         elif year == 2023:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
             tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
-            tau_pog_dir = str(year)  # yes, it's inconsistent w.r.t. 2022
-        add_external("tau_sf", (f"{json_mirror_tau_pog}/POG/TAU/{tau_pog_dir}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+        else:
+            assert False
+        add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v2.json.gz", "v1"))  # noqa: E501
-        add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v2.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v3.json.gz", "v1"))  # noqa: E501
+        add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"

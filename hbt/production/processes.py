@@ -15,7 +15,7 @@ from columnflow.production import Producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
 
-from hbt.util import IF_DATASET_IS_DY, IF_DATASET_IS_W_LNU
+from hbt.util import IF_DATASET_IS_DY_NLO, IF_DATASET_IS_DY_NNLO, IF_DATASET_IS_W_LNU
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -27,6 +27,7 @@ logger = law.logger.get_logger(__name__)
 
 NJetsRange = tuple[int, int]
 PtRange = tuple[float, float]
+MRange = tuple[int, int]
 
 
 class stitched_process_ids(Producer):
@@ -60,7 +61,7 @@ class stitched_process_ids(Producer):
     def init_func(self, **kwargs) -> None:
         # if there is a include_condition set, apply it to both used and produced columns
         cond = lambda args: {self.include_condition(*args)} if self.include_condition else {*args}
-        self.uses |= cond(self.stitching_columns or [])
+        self.uses |= cond(self.stitching_columns or [])  # TODO: breaks for us
         self.produces |= cond(["process_id"])
 
     def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
@@ -97,7 +98,7 @@ class stitched_process_ids(Producer):
         return events
 
     def stitching_range_cross_check(
-        self: Producer,
+        self,
         process_inst: order.Process,
         stitching_values: list[ak.Array],
     ) -> None:
@@ -200,10 +201,132 @@ class stiched_process_ids_nj_pt(stitched_process_ids):
         return (nj_bins[0], pt_bins[0]) if single else (nj_bins, pt_bins)
 
 
-process_ids_dy = stiched_process_ids_nj_pt.derive("process_ids_dy", cls_dict={
+class stiched_process_ids_m(stitched_process_ids):
+    """
+    Process identifier for subprocesses spanned by the mll mass.
+    """
+
+    # id table is set during setup, create a non-abstract class member in the meantime
+    id_table = None
+
+    # required aux fields
+    var_aux = "mll"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # setup during setup
+        self.sorted_stitching_ranges: list[tuple[MRange]]
+
+        # check that aux field is present in cross_check_translation_dict
+        for field in (self.var_aux,):
+            if field not in self.cross_check_translation_dict.values():
+                raise ValueError(f"field {field} must be present in cross_check_translation_dict")
+
+    @abc.abstractproperty
+    def leaf_processes(self) -> list[order.Process]:
+        # must be overwritten by inheriting classes
+        ...
+
+    def init_func(self, **kwargs) -> None:
+        # if there is a include_condition set, apply it to both used and produced columns
+        cond = lambda args: {self.include_condition(*args)} if self.include_condition else {*args}
+        self.uses |= cond(["LHEPart.{pt,eta,mass,phi,status,pdgId}"])
+        self.produces |= cond(["process_id"])
+
+    def setup_func(self, task: law.Task, **kwargs) -> None:
+        # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
+        stitching_ranges = [
+            proc.x(self.var_aux)
+            for proc in self.leaf_processes
+        ]
+
+        # sort by the first element of the range
+        self.sorted_stitching_ranges = sorted(stitching_ranges, key=lambda mll_range: mll_range[0])
+
+        # define the lookup table
+        max_var_bin = len(self.sorted_stitching_ranges)
+        self.id_table = sp.sparse.lil_matrix((max_var_bin + 1, 1), dtype=np.int64)
+
+        # fill it
+        for proc in self.leaf_processes:
+            key = self.key_func(proc.x(self.var_aux)[0])
+            self.id_table[key] = proc.id
+
+    def key_func(
+        self,
+        mll: int | float | np.ndarray,
+    ) -> tuple[int] | tuple[np.ndarray]:
+        # potentially convert single values into arrays
+        single = False
+        if isinstance(mll, (int, float)):
+            mll = np.array([mll], dtype=(np.int32))
+            single = True
+
+        # map into bins (index 0 means no binning)
+        mll_bins = np.zeros(len(mll), dtype=np.int32)
+        for mll_bin, (mll_min, mll_max) in enumerate(self.sorted_stitching_ranges, 1):
+            mll_mask = (mll_min <= mll) & (mll < mll_max)
+            mll_bins[mll_mask] = mll_bin
+
+        return (mll_bins[0],) if single else (mll_bins,)
+
+    def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
+        # produce the mass variable and save it as LHEmll, then call the super class
+        abs_pdg_id = abs(events.LHEPart.pdgId)
+        leps = events.LHEPart[(abs_pdg_id >= 11) & (abs_pdg_id <= 16) & (events.LHEPart.status == 1)]
+        if ak.any((num_leps := ak.num(leps)) != 2):
+            raise ValueError(f"expected exactly two leptons in the event, but found {set(num_leps)}")
+        mll = leps.sum(axis=-1).mass
+        events = set_ak_column(events, "LHEmll", mll, value_type=np.float32)
+
+        return super().call_func(events, **kwargs)
+
+    def stitching_range_cross_check(
+        self,
+        process_inst: order.Process,
+        stitching_values: list[ak.Array],
+    ) -> None:
+        # TODO: this is a copy of the code above (with outlier recovery), we could factorize this a bit :)
+        for i, (column, values) in enumerate(zip(self.stitching_columns, stitching_values)):
+            aux_name = self.cross_check_translation_dict[str(column)]
+            if not process_inst.has_aux(aux_name):
+                continue
+            aux_min, aux_max = process_inst.x(aux_name)
+            min_outlier = values < aux_min
+            max_outlier = values >= aux_max
+            outliers = min_outlier | max_outlier
+            if ak.any(outliers):
+                logger.warning(
+                    f"dataset {self.dataset_inst.name} is meant to contain {aux_name} values in "
+                    f"the range [{aux_min}, {aux_max}), but found {ak.sum(outliers)} events "
+                    "outside this range",
+                )
+                # cap values if they are within an acceptable range
+                if ak.any(min_outlier):
+                    recover_mask = (aux_min - values[min_outlier]) < 1.0
+                    # in case not all outliers can be recovered, do not deal with these cases but raise an error
+                    if not ak.all(recover_mask):
+                        raise ValueError(
+                            f"dataset {self.dataset_inst.name} has {ak.sum(min_outlier)} events "
+                            "with values below the minimum, but not all of them can be recovered",
+                        )
+                    stitching_values[i] = ak.where(min_outlier, aux_min, values)
+                if ak.any(max_outlier):
+                    recover_mask = (values[max_outlier] - aux_max) < 1.0
+                    # in case not all outliers can be recovered, do not deal with these cases but raise an error
+                    if not ak.all(recover_mask):
+                        raise ValueError(
+                            f"dataset {self.dataset_inst.name} has {ak.sum(max_outlier)} events "
+                            "with values below the maximum, but not all of them can be recovered",
+                        )
+                    stitching_values[i] = ak.where(max_outlier, aux_max - 1e-5, values)
+
+
+process_ids_dy_nlo = stiched_process_ids_nj_pt.derive("process_ids_dy_nlo", cls_dict={
     "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
     "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
-    "include_condition": IF_DATASET_IS_DY,
+    "include_condition": IF_DATASET_IS_DY_NLO,
     # still misses leaf_processes, must be set dynamically
 })
 
@@ -211,5 +334,12 @@ process_ids_w_lnu = stiched_process_ids_nj_pt.derive("process_ids_w_lnu", cls_di
     "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
     "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
     "include_condition": IF_DATASET_IS_W_LNU,
+    # still misses leaf_processes, must be set dynamically
+})
+
+process_ids_dy_nnlo = stiched_process_ids_m.derive("process_ids_dy_nnlo", cls_dict={
+    "stitching_columns": ["LHEmll"],
+    "cross_check_translation_dict": {"LHEmll": "mll"},
+    "include_condition": IF_DATASET_IS_DY_NNLO,
     # still misses leaf_processes, must be set dynamically
 })
