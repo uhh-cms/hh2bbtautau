@@ -36,6 +36,7 @@ from hbt.ml.torch_utils.datasets.handlers import (
     WeightedTensorParquetFileHandler,
 )
 from hbt.ml.torch_utils.transforms import MoveToDevice
+from hbt.ml.torch_utils.datasets import ParquetDataset
 
 
 # from hbw.util import log_memory
@@ -233,14 +234,20 @@ class MLClassifierBase(MLModel):
         self._model = None
         # sanity check: for each process in "train_nodes", we need to have 1 process with "ml_id" in config
 
-    @property
-    def used_datasets(self) -> dict[od.Config, set[od.Dataset]]:
-        configs_to_use = getattr(self, "configs_to_use", self.config_insts)
-        # expand braces
+    # @property
+    # def used_datasets(self) -> dict[od.Config, set[od.Dataset]]:
+    #     configs_to_use = getattr(self, "configs_to_use", self.config_insts)
+    #     # expand braces
+    #     configs_to_use = law.util.flatten(list(map(law.util.brace_expand, configs_to_use)))
+    #     config_insts = list(map(self.analysis_inst.get_config, configs_to_use))
+    #     used_datasets = DotDict.wrap({config: self.datasets(config) for config in config_insts})
+    #     return used_datasets
+
+    def training_configs(self, requested_configs: Sequence[str]) -> list[str]:
+        configs_to_use = getattr(self, "configs_to_use", requested_configs)
+    #     # expand braces
         configs_to_use = law.util.flatten(list(map(law.util.brace_expand, configs_to_use)))
-        config_insts = list(map(self.analysis_inst.get_config, configs_to_use))
-        used_datasets = DotDict.wrap({config: self.datasets(config) for config in config_insts})
-        return used_datasets
+        return configs_to_use
 
     # @property
     # def config_insts(self) -> list[od.Config]:
@@ -691,33 +698,17 @@ class MLClassifierBase(MLModel):
     def eval_activation(self) -> Callable | str:
         pass
 
-    def evaluate(
+    def evaluate_training_events(
         self,
-        task: law.Task,
-        events: ak.Array,
-        models: list(torch.nn.Module),
+        models: list[torch.nn.Module],
         fold_indices: ak.Array,
-        events_used_in_training: bool = True,
-    ) -> None:
-        """
-        Evaluation function that is run as part of the MLEvaluation task
-        """
-        from hbt.ml.torch_utils.datasets import TensorParquetDataset
+        data: ParquetDataset,
+        outputs_view: np.ndarray,
+        outputs_std_view: np.ndarray,
+        template: ak.Array,
+    ):
         from hbt.ml.torch_utils.utils import MLEnsembleWrapper
-        n_classes = len(self.categorical_target_map)
-        template = np.array([EMPTY_FLOAT] * n_classes, ndmin=2)
-        outputs: ak.Array = ak.broadcast_arrays(fold_indices[..., None], template)[1]
-        outputs_std: ak.Array = ak.broadcast_arrays(fold_indices[..., None], template)[1]
 
-        # create view for outputs for later filling
-        outputs_view = flat_np_view(outputs)
-        outputs_std_view = flat_np_view(outputs_std)
-
-        data = TensorParquetDataset(
-            categorical_features=self.categorical_features,
-            continuous_features=self.continuous_features,
-            input=events,
-        )
         step_size = 1
         deterministic_seeds = getattr(self, "deterministic_seeds", None)
         if isinstance(deterministic_seeds, list):
@@ -730,12 +721,78 @@ class MLClassifierBase(MLModel):
             fold_mask = fold_indices == fold_idx
             flat_bc_mask = ak.flatten(ak.broadcast_arrays(fold_mask[..., None], template)[0])
             fold_data = data[fold_mask]
+
             with torch.no_grad():
                 output_mean, output_std = eval_wrapper(fold_data)
 
             outputs_view[flat_bc_mask] = ak.flatten(output_mean)
             if step_size > 1:
                 outputs_std_view[flat_bc_mask] = ak.flatten(output_std)
+
+    def evaluate_orthogonal_events(
+        self,
+        models: list[torch.nn.Module],
+        data: ParquetDataset,
+        outputs_view: np.ndarray,
+        outputs_std_view: np.ndarray,
+    ):
+        from hbt.ml.torch_utils.utils import MLEnsembleWrapper
+        eval_wrapper = MLEnsembleWrapper(models, final_activation=self.eval_activation)
+        
+        with torch.no_grad():
+            from IPython import embed
+            embed(header=f"in {self.__class__.__name__}.evaluate_orthogonal_events")
+            output_mean, output_std = eval_wrapper(data)
+
+        outputs_view[:] = ak.flatten(output_mean)
+        outputs_std_view[:] = ak.flatten(output_std)
+
+    def evaluate(
+        self,
+        task: law.Task,
+        events: ak.Array,
+        models: list(torch.nn.Module),
+        fold_indices: ak.Array,
+        events_used_in_training: bool = True,
+    ) -> None:
+        """
+        Evaluation function that is run as part of the MLEvaluation task
+        """
+        from hbt.ml.torch_utils.datasets import TensorParquetDataset
+
+        # create place holders for the mean and std of the model predictions
+        n_classes = len(self.categorical_target_map)
+        template = np.array([EMPTY_FLOAT] * n_classes, ndmin=2)
+
+        outputs: ak.Array = ak.broadcast_arrays(fold_indices[..., None], template)[1]
+        outputs_std: ak.Array = ak.broadcast_arrays(fold_indices[..., None], template)[1]
+
+        # create view for outputs for later filling
+        outputs_view = flat_np_view(outputs)
+        outputs_std_view = flat_np_view(outputs_std)
+
+        data = TensorParquetDataset(
+            categorical_features=self.categorical_features,
+            continuous_features=self.continuous_features,
+            input=events,
+        )
+
+        if events_used_in_training:
+            self.evaluate_training_events(
+                models=models,
+                fold_indices=fold_indices,
+                data=data,
+                outputs_view=outputs_view,
+                outputs_std_view=outputs_std_view,
+                template=template,
+            )
+        else:
+            self.evaluate_orthogonal_events(
+                models=models,
+                data=data,
+                outputs_view=outputs_view,
+                outputs_std_view=outputs_std_view,
+            )
 
         pred_cls = ak.argmax(outputs, axis=-1)
         for proc, proc_idx in self.categorical_target_map.items():
