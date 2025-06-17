@@ -511,7 +511,6 @@ class MLClassifierBase(MLModel):
 
     def produces(self, config_inst: od.Config) -> set[Route | str]:
         produced = set()
-        deterministic_seeds = getattr(self, "deterministic_seeds", None)
 
         for proc in self.categorical_target_map.keys():
             produced.add(f"mlscore.{proc}")
@@ -574,6 +573,7 @@ class MLClassifierBase(MLModel):
 
         self.model.init_dataset_handler(
             task=task,
+            inputs=input,
             extract_dataset_paths_fn=self.extract_dataset_paths_fn,
             datasets=list(datasets),
             extract_probability_fn=extract_probabilities_fn,
@@ -631,30 +631,33 @@ class MLClassifierBase(MLModel):
         # input preparation
         self.model = self.prepare_ml_model(task)
         self.model = self.model.to(device)
-        self.load_data(task, input, output, device=device)
 
-        self.model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
+        with law.localize_file_targets(input, mode="r") as inp:
 
-        # hyperparameter bookkeeping
-        output.aux_files.parameter_summary.dump(dict(self.parameters), formatter="yaml")
-        logger.info(f"Training will be run with the following parameters: \n{self.parameters}")
-        #
-        # model preparation
-        #
+            self.load_data(task, inp, output, device=device)
 
-        run_name = f"{self.parameters_repr}_{task.version}"
+            self.model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
 
-        # How many batches to wait before logging training status
+            # hyperparameter bookkeeping
+            output.aux_files.parameter_summary.dump(dict(self.parameters), formatter="yaml")
+            logger.info(f"Training will be run with the following parameters: \n{self.parameters}")
+            #
+            # model preparation
+            #
 
-        # run only when datastitics exists
-        # set statitical modes for preprocessing
-        if hasattr(self.model, "dataset_statistics"):
-            self.model.setup_preprocessing()
-        # move all model parameters to device
+            run_name = f"{self.parameters_repr}_{task.version}"
 
-        self.model.start_training(run_name=run_name, max_epochs=self.epochs)
-        logger.info(f"Saving model to {output['model'].abspath}")
-        torch.save(self.model.state_dict(), output["model"].abspath)
+            # How many batches to wait before logging training status
+
+            # run only when datastitics exists
+            # set statitical modes for preprocessing
+            if hasattr(self.model, "dataset_statistics"):
+                self.model.setup_preprocessing()
+            # move all model parameters to device
+
+            self.model.start_training(run_name=run_name, max_epochs=self.epochs)
+            logger.info(f"Saving model to {output['model'].abspath}")
+            torch.save(self.model.state_dict(), output["model"].abspath)
 
         return
 
