@@ -27,17 +27,21 @@ def patch_mltraining():
         """
         nfolds = self.ml_model_inst.folds
         random_seeds = self.ml_model_inst.deterministic_seeds
+        separator = getattr(self.ml_model_inst, "settings_list_delimiter", ",")
+
         # make sure random seeds have the correct format
         if isinstance(random_seeds, int) or random_seeds is None:
             random_seeds = [random_seeds]
         elif isinstance(random_seeds, list):
             random_seeds = [int(seed) for seed in random_seeds]
         elif isinstance(random_seeds, str):
-            random_seeds = [int(seed) for seed in random_seeds.split(",")]
+            random_seeds = [int(seed) for seed in random_seeds.split(separator)]
         else:
             raise TypeError(
-                f"random_seeds must be int, list or comma-separated str, got {type(random_seeds)}",
+                f"random_seeds must be int, list or '{separator}'-separated str, got {type(random_seeds)}",
             )
+
+        logger.debug(f"updating MLTraining.branch_map to account for {nfolds} folds x {len(random_seeds)} seeds")
         branch_map = [
             {"fold": fold, "deterministic_seed": seed}
             for fold in range(nfolds)
@@ -45,7 +49,7 @@ def patch_mltraining():
         ]
         return branch_map
     MLTraining.create_branch_map = create_branch_map
-    logger.debug(f"patched create_branch_map of MLTraining task")
+    logger.debug("patched create_branch_map of MLTraining task")
 
 
 @memoize
