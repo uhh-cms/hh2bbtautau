@@ -53,27 +53,6 @@ if not isinstance(torch, MockModule):
 
     class BogNet(WeightedFeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
-            # inputs
-            # categories in fixed order alphabetical
-            # self.categorical_inputs = sorted({
-            #     "pair_type",
-            #     "decay_mode1",
-            #     "decay_mode2",
-            #     "lepton1.charge",
-            #     "lepton2.charge",
-            #     "has_fatjet",
-            #     "has_jet_pair",
-            #     "year_flag",
-            # })
-
-            # # continuous
-            # self.continuous_inputs = expand_columns(
-            #     "lepton1.{px,py,pz,energy,mass}",
-            #     "lepton2.{px,py,pz,energy,mass}",
-            #     "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            #     "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            #     "fatjet.{px,py,pz,energy,mass}",
-            # )
 
             self.inputs = set(self.categorical_inputs) | set(self.continuous_inputs)
 
@@ -124,14 +103,9 @@ if not isinstance(torch, MockModule):
             })
 
             # trainings settings
-            self.training_epoch_length_cutoff = 15000
+            self.training_epoch_length_cutoff = 200
             self.training_weight_cutoff = 0.05
 
-            self.trainings_met = {"prediction": [], "target": []}
-            self.validation_met = {"prediction": [], "target": []}
-
-            self.train_valid_iteration_counter = 0
-            self.valid_iteration_counter = 0
             # remove layers that comes due to inheritance
             # TODO clean up, this is only a monkey patch
             if hasattr(self, "linear_relu_stack"):
@@ -268,48 +242,10 @@ if not isinstance(torch, MockModule):
             if target.dim() == 1:
                 target = target.reshape(-1, 1)
 
-            self.trainings_met["prediction"].append(pred)
-            self.trainings_met["target"].append(target)
             loss = self.loss_fn(pred, target)
             # Backpropagation
             loss.backward()
             self.optimizer.step()
-
-            # plotting routines doing every % iterations
-            iteration_condition = engine.state.iteration % self.max_epoch_length == 0
-            if iteration_condition:
-
-                detach_logit = pred.detach().cpu().numpy()
-                detach_target = target.detach().cpu().numpy()
-                prob = torch.nn.functional.softmax(pred).detach().cpu().numpy()
-
-                plot_pred_fig, _ = self.plot_prediction(
-                    y_true=detach_target,
-                    y_pred=prob,
-                    target_map=self.categorical_target_map,
-                    savepath=f"1D_pred_target_{engine.state.iteration}.png",
-                )
-
-                self.writer.add_figure(
-                    "Prediction Probabilities",
-                    plot_pred_fig,
-                    engine.state.iteration,
-                )
-
-                plot_logit_fig, _ = self.plot_prediction(
-                    y_true=detach_target,
-                    y_pred=detach_logit,
-                    target_map=self.categorical_target_map,
-                    savepath=f"1D_pred_logit_{engine.state.iteration}.png",
-                )
-
-                self.writer.add_figure(
-                    "Prediction Logits",
-                    plot_logit_fig,
-                    engine.state.iteration,
-                )
-
-                self.reset_metrics("training")
 
             return loss.item()
 
@@ -330,238 +266,7 @@ if not isinstance(torch, MockModule):
                 if y.dim() == 1:
                     y = y.reshape(-1, 1)
                 y = y.to(torch.float32)
-
-                self.validation_met["prediction"].append(pred)
-                self.validation_met["target"].append(y)
-
-                if self.mode_switch == 0:
-                    iteration_length = 6653
-                    self.train_valid_iteration_counter += 1
-
-                else:
-                    iteration_length = 2851
-                    self.valid_iteration_counter += 1
-
-                iteration_condition = engine.state.iteration % iteration_length == 0
-                if iteration_condition:
-                    # save model in the dumbest way possible
-                    torch.save(self.model, f"/data/dust/user/wiedersb/model_epoch{self.valid_iteration_counter}.pt")
-                    if self.mode_switch == 0:
-                        print("Doing Train Validation and switching to 1")
-                        self.mode_switch = 1
-                        name = "training"
-                        iter_counter = self.train_valid_iteration_counter
-                    else:
-                        self.mode_switch = 0
-                        print("Doing Train Validation and switchting to 0")
-                        name = "validation"
-                        iter_counter = self.valid_iteration_counter
-
-                    # unpack validation gathering
-                    prediction = torch.cat(self.validation_met["prediction"])
-                    target = torch.cat(self.validation_met["target"])
-
-                    detach_logit = prediction.detach().cpu().numpy()
-                    detach_target = target.detach().cpu().numpy()
-                    prob = torch.nn.functional.softmax(prediction).detach().cpu().numpy()
-
-                    plot_pred_fig, _ = self.plot_prediction(
-                        y_true=detach_target,
-                        y_pred=prob,
-                        target_map=self.categorical_target_map,
-                        savepath=f"1D_pred_target_{name}_{iter_counter}.png",
-                    )
-
-                    self.writer.add_figure(
-                        f"Prediction Probabilities {name}",
-                        plot_pred_fig,
-                        iter_counter,
-                    )
-
-                    plot_logit_fig, _ = self.plot_prediction(
-                        y_true=detach_target,
-                        y_pred=detach_logit,
-                        target_map=self.categorical_target_map,
-                    )
-
-                    self.writer.add_figure(
-                        f"Prediction Logits {name}",
-                        plot_logit_fig,
-                        iter_counter,
-                    )
-
-                    # confusion matrix
-                    cm_fig, _, c_matrix = self.plot_confusion_matrix(
-                        np.argmax(detach_target, axis=1),
-                        np.argmax(prob, axis=1),
-                        list(self.categorical_target_map.values()),
-                        cmap="Blues",
-                        sample_weight=None,
-                        # if you want to weight the confusion matrix by the target
-                    )
-
-                    self.writer.add_figure(
-                        f"Confusion Matrix {name}",
-                        cm_fig,
-                        iter_counter,
-                    )
-
-                    self.reset_metrics("validation")
                 return pred, y, {"weight": weights.reshape(-1, 1)}
-
-        def reset_metrics(self, kind):
-            if kind == "training":
-                self.trainings_met = {"prediction": [], "target": []}
-            elif kind == "validation":
-                self.validation_met = {"prediction": [], "target": []}
-            else:
-                raise "unknown kind of metric"
-
-        @staticmethod
-        def plot_prediction(y_true, y_pred, target_map, **kwargs):
-            # swap axes to get (num_samples, cls) shape
-            fig, ax = plt.subplots()
-            save_path = kwargs.pop("savepath", None)
-            ax.set_xlabel(kwargs.pop("xlabel", "score"))
-            ax.set_ylabel(kwargs.pop("ylabel", "frequency"))
-            fig.suptitle(kwargs.pop("title", None))
-
-            # get events that are predicted correctly for each class
-            y_pred_cls, labels = [], []
-            for _cls, idx in target_map.items():
-                # get events of cls
-                correct_cls_mask = y_true[:, idx] == 1
-                # filter predictions for cls
-                y_pred_cls.append(y_pred[correct_cls_mask][:, 0])
-                labels.append(f"{_cls}")
-
-            _ = ax.hist(
-                y_pred_cls,
-                bins=kwargs.get("bins", 20),
-                histtype=kwargs.get("histtype", "step"),
-                alpha=kwargs.get("alpha", 0.7),
-                label=labels,
-                **kwargs,
-            )
-
-            fig.legend(title="predicted class")
-
-            if save_path:
-                fig.savefig(save_path)
-
-            return fig, ax
-
-        @staticmethod
-        def plot_confusion_matrix(y_true, y_pred, labels=None, sample_weight=None, cmap="Blues", savepath=None):
-            confusion_matrix = sklearn.metrics.confusion_matrix(
-                y_true,
-                y_pred,
-                labels=labels,
-                sample_weight=sample_weight,
-                normalize="true",  # normalize to get probabilities
-            )
-
-            disp = sklearn.metrics.ConfusionMatrixDisplay(
-                confusion_matrix=confusion_matrix, display_labels=("hh", "tt", "dy"),
-            )
-            disp.plot(cmap=cmap)
-
-            if savepath:
-                disp.figure_.savefig(savepath)
-            return disp.figure_, disp.ax_, confusion_matrix
-
-        def plot_batch(self, input, target, loss, iteration, target_map=None, labels=None):
-            input_per_feature = input.to("cpu").transpose(0, 1).detach().numpy()
-            input, target = input.to("cpu").detach().numpy(), target.to("cpu").detach().numpy()
-
-            fig, ax = plt.subplots(1, len(self.categorical_inputs), figsize=(8 * len(self.categorical_inputs), 8))
-            fig.tight_layout()
-
-            for ind, cat in enumerate(self.categorical_inputs):
-                signal_target = target[:, self.categorical_target_map["hh"]]
-
-                background_mask, signal_mask = signal_target.flatten() == 0, signal_target.flatten() == 1
-                # background_prediction = detach_pred[zero_s_mask]
-                # signal_prediction = detach_pred[zero_s_mask]
-                _input = input_per_feature[ind]
-                background_input = _input[background_mask]
-                signal_input = _input[signal_mask]
-                cax = ax[ind]
-
-                cax.hist(
-                    [background_input, signal_input],
-                    bins=10,
-                    histtype="barstacked",
-                    alpha=0.5,
-                    label=["tt & dy", "hh"],
-                    density=True,
-                )
-                cax.set_xlabel(cat)
-                cax.annotate(f"loss: {loss:.2f}", (0.8, 0.60), xycoords="figure fraction")
-                cax.annotate(f"iteration {iteration}", (0.75, 0.55))
-                cax.legend()
-            fig.savefig(f"1d_cats_{iteration}.png")
-
-        @staticmethod
-        def plot_2D(x, y, bins=10, **kwargs):
-            fig, ax = plt.subplots()
-            hist = ax.hist2d(
-                x,
-                y,
-                bins=bins,
-                cmap=kwargs.get("cmap"),
-            )
-            ax.set_xlabel(kwargs.get("xlabel"))
-            ax.set_xlabel(kwargs.get("ylabel"))
-            fig.colorbar(hist[3], ax=ax)
-            ax.set_title(kwargs.get("title"))
-            if kwargs.get("savepath"):
-                fig.savefig(kwargs.get("savepath"))
-            return fig, ax
-
-        @staticmethod
-        def plot_1D(x, annotations=None, **kwargs):
-            fig, ax = plt.subplots()
-            _ = ax.hist(
-                x,
-                bins=kwargs.get("bins"),
-                histtype="stepfilled",
-                alpha=0.7,
-                color=kwargs.get("color"),
-                label=kwargs.get("label"),
-                density=kwargs.get("density"),
-            )
-            ax.set_xlabel(kwargs.get("xlabel"))
-            ax.set_xlabel(kwargs.get("ylabel"))
-            ax.set_title(kwargs.get("title"))
-            if kwargs.get("savepath"):
-                fig.savefig(kwargs.get("savepath"))
-            ax.legend()
-
-            if annotations:
-                loss = annotations.get("loss")
-                target = annotations.get("target")
-                pred = annotations.get("pred")
-                num_0s = np.sum(target == 0)
-                num_1s = np.sum(target == 1)
-
-                ax.annotate(f"num: 0s: {num_0s:.2f}", (0.5, 0.70), xycoords="axes fraction")
-                ax.annotate(f"num: 1s: {num_1s:.2f}", (0.5, 0.65), xycoords="axes fraction")
-                ax.annotate(f"loss: {loss:.2f}", (0.5, 0.60), xycoords="axes fraction")
-                iteration = annotations.get("iteration")
-                ax.annotate(f"iteration {iteration}", (0.5, 0.55))
-
-                tp = np.sum((target == 1) & (pred > 0.5))
-                tn = np.sum((target == 0) & (pred < 0.5))
-                fp = np.sum((target == 0) & (pred > 0.5))
-                fn = np.sum((target == 1) & (pred < 0.5))
-                accuracy = (tp + tn) / (tp + tn + fp + fn)
-                sensitivity = tp / (tp + fn)
-
-                ax.annotate(f"accuracy: {accuracy:.2f}", (0.5, 0.50), xycoords="axes fraction")
-                ax.annotate(f"sensitivity: {sensitivity:.2f}", (0.5, 0.45), xycoords="axes fraction")
-
-            return fig, ax
 
         def to(self, *args, **kwargs):
             # helper to move all customlayers to given device
@@ -653,28 +358,6 @@ if not isinstance(torch, MockModule):
         def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
             self.optimizer = torch.optim.AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
             self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=3, gamma=0.5)
-
-        def log_graph(self, engine):
-            (categorical_x, continous_x) = engine.state.batch[0]
-
-            categorical_x = self._handle_input(
-                categorical_x,
-                self.categorical_inputs,
-                dtype=torch.int32,
-                empty_fill_val=self.empty_value,
-                mask_value=EMPTY_INT,
-            )
-
-            continous_x = self._handle_input(
-                continous_x,
-                self.continuous_inputs,
-                dtype=torch.float32,
-                empty_fill_val=-10,
-                mask_value=EMPTY_FLOAT,
-                norm_layer=self.std_layer,
-            )
-
-            self.writer.add_graph(self, (categorical_x, continous_x))
 
         def forward(self, *inputs):
             return self.model(inputs)
@@ -860,50 +543,3 @@ if not isinstance(torch, MockModule):
                 torch.as_tensor(x[:, :self.num_cat], dtype=torch.int32),
             )
             return self.model((cat, cont))
-
-
-def export_model(self):
-    model = self
-    device = model.device
-    batch_dim = 2
-    assert batch_dim != 1, "can be anything except 1, else graph is made static with bs1"
-
-    example_args = (
-        torch.randn(batch_dim, 8).to(device).to(int),
-        torch.randn(batch_dim, 33).to(device),
-    )
-
-    batch_dim = torch.export.Dim("batch", min=1)
-    dynamic_shapes = {"inputs": ((batch_dim, 8), (batch_dim, 33))}
-    torch.export.export(
-        model,
-        args=example_args,
-        dynamic_shapes=dynamic_shapes,
-    )
-
-
-def export_onnx(model_path):
-    model = torch.load(model_path, map_location=torch.device("cpu"))
-    device = torch.device("cpu")
-
-    batch_dim = 1
-    example_args = (
-        # needs to be correct values due to the tokenizer
-        cat := torch.tensor([-1, 0, 0, 0, -1, -1, 0, 0]).reshape(1, -1).to(torch.float32),
-        # can be random stuff
-        cont := torch.randn(batch_dim, 35).to(device).to(torch.float32),
-    )
-
-    print(cat, cont)
-
-    path = "residual_dnn.onnx"
-    torch.onnx.export(
-        model,
-        (example_args,),
-
-        # this needs to be like this trust me
-        path,
-        input_names=["inputs"],
-        dynamo=True,
-    )
-    print(f"Sucess found model at: {path}")
