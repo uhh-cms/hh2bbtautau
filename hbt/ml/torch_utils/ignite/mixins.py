@@ -25,7 +25,6 @@ if not isinstance(ignite, MockModule):
     from torch.utils.tensorboard import SummaryWriter
     import torchdata.nodes as tn
     import numpy as np
-    from ignite.metrics.metric import Metric
     import hbt.ml.torch_utils.plotting as plotting
 
     class IgniteMixinBase:
@@ -151,20 +150,18 @@ if not isinstance(ignite, MockModule):
         def _log_timing(self, engine, round_precision: int = 3) -> None:
             time_per_epoch = engine.state.times[Events.EPOCH_COMPLETED.name] / engine.state.epoch_length
             self.logger.info(
-                f"Timing of Epoch [{engine.state.epoch}]: {time_per_epoch:0.{round_precision}f} s/iteration"
+                f"Timing of Epoch [{engine.state.epoch}]: {time_per_epoch:0.{round_precision}f} s/iteration",
             )
-
 
         def log_plots(self, engine, mode=None, trainer_engine=None) -> None:
             """Override this method to gather metrics from the training or validation step."""
             # prepare the data for plotting
-            iteration, epoch = (
-                trainer_engine.state.iteration, trainer_engine.state.epoch
-                if trainer_engine
-                else (None, None)
-            )
+            iteration, epoch = None, None
+            if trainer_engine:
+                iteration, epoch = trainer_engine.state.iteration, trainer_engine.state.epoch
 
-            pred, y, weights = self.epoch_outputs.data["predictions"], self.epoch_outputs.data["targets"], self.epoch_outputs.data["weights"]
+            data = self.epoch_outputs.data
+            pred, y, weights = data["predictions"], data["targets"], data["weights"]
             pred, y, weights = pred.to("cpu"), y.to("cpu"), weights.to("cpu")
 
             pred_probablity = torch.nn.functional.softmax(pred, dim=-1)
@@ -186,7 +183,7 @@ if not isinstance(ignite, MockModule):
             )
 
             # confusion matrix
-            y_ind = torch.argmax(y, dim =-1).reshape(-1, 1)
+            y_ind = torch.argmax(y, dim=-1).reshape(-1, 1)
             pred_ind = torch.argmax(pred_probablity, dim=-1).reshape(-1, 1)
             weight = weights[y.to(bool)]
 
@@ -195,14 +192,13 @@ if not isinstance(ignite, MockModule):
                 y_pred=pred_ind,
                 target_map=self.categorical_target_map,
                 sample_weight=weight,
-                title=f"epoch: {epoch}, iterations: {iteration}"
+                title=f"epoch: {epoch}, iterations: {iteration}",
             )
             self.writer.add_figure(
                 f"Confusion Matrix {mode}",
                 fig_confusion,
                 epoch,
             )
-
 
         def init_metrics(self) -> None:
 
@@ -357,12 +353,12 @@ if not isinstance(ignite, MockModule):
             pred, y, kwargs = engine.state.output
             self.data["predictions"].append(pred)
             self.data["targets"].append(y)
-            if weights:= kwargs.get("weights") is not None:
+            if weights := kwargs.get("weights") is not None:
                 self.data["weights"].append(weights)
 
         def store(self, engine):
             """Store the output of the epoch."""
             self.data["predictions"] = torch.concat(self.data["predictions"], dim=0)
             self.data["targets"] = torch.concat(self.data["targets"], dim=0)
-            self.data["weights"] = torch.concat(self.data["weights"], dim=0) if self.data["weights"] else torch.ones_like(self.data["predictions"]) #noqa
+            self.data["weights"] = torch.concat(self.data["weights"], dim=0) if self.data["weights"] else torch.ones_like(self.data["predictions"]) # noqa
             setattr(engine.state, self.name, self.data)

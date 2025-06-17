@@ -14,11 +14,6 @@ ak = maybe_import("awkward")
 sklearn = maybe_import("sklearn")
 plt = maybe_import("matplotlib.pyplot")
 
-
-network_predictions = MockModule("network_predictions")
-confusion_matrix = MockModule("confusion_matrix")
-
-
 if not isinstance(torch, MockModule):
 
     def network_predictions(y_true, y_pred, target_map, **kwargs):
@@ -50,7 +45,7 @@ if not isinstance(torch, MockModule):
         return fig, ax
 
     def confusion_matrix(y_true, y_pred, target_map, sample_weight=None, cmap="Blues", **kwargs):
-        confusion_matrix = sklearn.metrics.confusion_matrix(
+        cm = sklearn.metrics.confusion_matrix(
             y_true,
             y_pred,
             labels=list(target_map.values()),
@@ -59,11 +54,10 @@ if not isinstance(torch, MockModule):
         )
 
         disp = sklearn.metrics.ConfusionMatrixDisplay(
-            confusion_matrix=confusion_matrix, display_labels=list(target_map.keys()),
+            confusion_matrix=cm, display_labels=list(target_map.keys()),
         )
         disp.plot(cmap=cmap)
         disp.figure_.suptitle(kwargs.pop("title", None))
-
 
         return disp.figure_, disp.ax_, confusion_matrix
 
