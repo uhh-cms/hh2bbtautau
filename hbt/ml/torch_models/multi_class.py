@@ -176,6 +176,7 @@ if not isinstance(torch, MockModule):
             datasets: list[str] | None = None,
             extract_dataset_paths_fn: Callable | None = None,
             extract_probability_fn: Callable | None = None,
+            inputs: law.FileCollection | None = None,
             **kwargs,
         ):
             all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
@@ -187,6 +188,7 @@ if not isinstance(torch, MockModule):
 
             self.dataset_handler = TensorParquetFileHandler(
                 task=task,
+                inputs=inputs,
                 continuous_features=getattr(self, "continuous_features", self.inputs),
                 categorical_features=getattr(self, "categorical_features", None),
                 batch_transformations=MoveToDevice(device=device),
@@ -250,6 +252,7 @@ if not isinstance(torch, MockModule):
             datasets: list[str] | None = None,
             extract_dataset_paths_fn: Callable | None = None,
             extract_probability_fn: Callable | None = None,
+            inputs: law.FileCollection | None = None,
             **kwargs,
         ):
             all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
@@ -261,6 +264,7 @@ if not isinstance(torch, MockModule):
 
             self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
+                inputs=inputs,
                 continuous_features=getattr(self, "continuous_features", self.inputs),
                 categorical_features=getattr(self, "categorical_features", None),
                 batch_transformations=MoveToDevice(device=device),

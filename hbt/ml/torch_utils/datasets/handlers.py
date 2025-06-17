@@ -44,6 +44,7 @@ class BaseParquetFileHandler(object):
         self,
         *args,
         task: law.Task,
+        inputs: law.FileCollection | None = None,
         open_options: dict[str, Any] | None = None,
         columns: Collection[str | Route] | None = None,
         datasets: Collection[str] | None = None,
@@ -62,7 +63,7 @@ class BaseParquetFileHandler(object):
     ):
         self.open_options = open_options or dict()
         self.task = task
-        self.inputs = task.input()
+        self.inputs = inputs or task.input()
         self.configs = task.configs
         self.datasets = datasets or task.datasets
         self.load_parallel_cores = task.load_parallel_cores
