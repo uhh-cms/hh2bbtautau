@@ -9,7 +9,7 @@ from collections.abc import Iterable
 import law
 from columnflow.util import maybe_import, MockModule
 from columnflow.columnar_util import Route, EMPTY_INT, EMPTY_FLOAT
-from columnflow.types import Any
+from columnflow.types import Any, Callable
 from copy import deepcopy
 from hbt.ml.torch_utils.datasets import ParquetDataset
 
@@ -300,6 +300,7 @@ if not isinstance(ignite, MockModule):
 
 if not any(isinstance(module, MockModule) for module in (torch, np)):
     import torch.nn as nn
+    from torch import Tensor
 
     def LookUpTable(array: torch.Tensor, EMPTY=EMPTY_INT, placeholder: int = 15):
         """Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
@@ -420,3 +421,33 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
                 print(f"Input: {input[ind]}")
                 print(f"Expected: {expected[ind]}")
                 print(f"Tokenized: {token[ind]}")
+
+    class MLEnsembleWrapper(nn.Module):
+        def __init__(self, models: Iterable[nn.Module] | nn.Module, final_activation: Callable | str = "softmax"):
+            """
+            This wrapper allows to use a model that expects a sparse representation of categorical features.
+            The input tensor is expected to be a 2D tensor with shape (N, M) where N is the number of events and M is the number of features.
+            The output tensor will have shape (N, K) where K is the number of unique categories across all features.
+
+            Args:
+                model Iterable[nn.Module] | nn.Module: Model or models that need to be evaluated.
+            """
+            super().__init__()
+
+            self.models: Iterable[nn.Module] = models if isinstance(models, Iterable) else [models]
+            self.final_activation: Callable
+            if callable(final_activation):
+                self.final_activation = final_activation
+            elif isinstance(final_activation, str) and hasattr(nn.functional, final_activation):
+                self.final_activation = getattr(nn.functional, final_activation)
+            else:
+                raise ValueError(f"Invalid final activation function: {final_activation}")
+
+        def forward(self, x):
+            outputs: list[Tensor] = []
+            for model in self.models:
+                outputs.append(self.final_activation(model(*x)))
+
+            # collect outputs in tensor for easier handling
+            output_tensor = torch.cat([o[..., None] for o in outputs], axis=-1)
+            return torch.mean(output_tensor, axis=-1), torch.std(output_tensor, axis=-1)

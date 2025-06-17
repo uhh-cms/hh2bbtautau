@@ -197,6 +197,7 @@ if not isinstance(torchdata, MockModule):
         def _parse_columns(self) -> None:
             if self.columns:
                 self.columns = set(Route(x) for x in self.columns)
+                self.all_columns = self.columns.copy()
             elif isinstance(self._data, ak.Array):
                 self.all_columns = set(x for x in get_ak_routes(self.data))
 
@@ -237,12 +238,15 @@ if not isinstance(torchdata, MockModule):
 
             # make sure that columns that do not exist in the data but
             # that are still requested in columns are also resolved properly
+
             if self.columns:
                 for col in self.columns:
                     if any(self._check_against_pattern(col.string_column, x) for x in tranform_outputs):
                         self._resolved_trafo_outputs.add(col)
 
             if len(self.all_columns) == 0:
+                from IPython import embed
+                embed(header=f"columns={self.columns}, all_columns={self.all_columns}, ")
                 raise ValueError("No columns specified and no metadata found")
 
         def _check_against_pattern(self, target: str, col: Route | str) -> Route | None:
@@ -388,7 +392,7 @@ if not isinstance(torchdata, MockModule):
                 length = len(self.data)
             return length
 
-        def _get_data(self, i: int | Sequence[int], input_data: ak.Array | None = None) -> ak.Array:
+        def _get_data(self, i: int | Sequence[int] | slice, input_data: ak.Array | None = None) -> ak.Array:
             data: ak.Array
             if input_data is None:
                 data = self.input_data
@@ -407,7 +411,7 @@ if not isinstance(torchdata, MockModule):
             return arr
 
         def __getitem__(
-            self, i: int | Sequence[int],
+            self, i: int | Sequence[int] | slice,
         ) -> ak.Array | tuple[ak.Array, ak.Array] | tuple[ak.Array, ak.Array, ak.Array]:
             # from IPython import embed
             # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
@@ -424,7 +428,7 @@ if not isinstance(torchdata, MockModule):
                 return_data = self.batch_transform(return_data)
             return tuple(return_data) if isinstance(return_data, list) else return_data
 
-        def __getitems__(self, idx: Sequence[int]) -> ak.Array:
+        def __getitems__(self, idx: Sequence[int] | slice) -> ak.Array:
             return self.__getitem__(idx)
 
         def to_list(self) -> list[dict[str, Any]]:
@@ -471,7 +475,7 @@ if not isinstance(torchdata, MockModule):
                     self._target_data = self.data_type_transform(self._target_data)
             return self._target_data
 
-        def __getitem__(self, i: int | Sequence[int]) -> Any | tuple | tuple:
+        def __getitem__(self, i: int | Sequence[int] | slice) -> Any | tuple | tuple:
             # from IPython import embed
             # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
             return_data = [{key: self._get_data(i, data) for key, data in self.input_data.items()}]
@@ -493,7 +497,7 @@ if not isinstance(torchdata, MockModule):
                 return_data = self.batch_transform(return_data)
             return tuple(return_data) if isinstance(return_data, list) else return_data
 
-    class TensorParquetDataset(
+    class TensorParquetDataset(  # noqa: F811
         PaddingMixin,
         ParquetDataset,
     ):  # noqa: F811
@@ -604,7 +608,7 @@ if not isinstance(torchdata, MockModule):
                 arr = self.data_type_transform(arr)
             return arr
 
-        def __getitem__(self, i: int | Sequence[int]) -> Any | tuple | tuple:
+        def __getitem__(self, i: int | Sequence[int] | slice) -> Any | tuple | tuple:
             # from IPython import embed
             # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
             if isinstance(self.input_data, torch.Tensor):

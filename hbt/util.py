@@ -98,6 +98,30 @@ def IF_DATASET_IS_DY(
 
 
 @deferred_column
+def IF_DATASET_IS_DY_LO(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    return self.get() if func.dataset_inst.has_tag("dy_lo") else None
+
+
+@deferred_column
+def IF_DATASET_IS_DY_NLO(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    return self.get() if func.dataset_inst.has_tag("dy_nlo") else None
+
+
+@deferred_column
+def IF_DATASET_IS_DY_NNLO(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    return self.get() if func.dataset_inst.has_tag("dy_nnlo") else None
+
+
+@deferred_column
 def IF_DATASET_IS_W_LNU(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,

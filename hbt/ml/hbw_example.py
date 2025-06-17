@@ -18,9 +18,9 @@ import order as od
 from columnflow.types import Sequence
 from columnflow.ml import MLModel
 from columnflow.util import maybe_import, dev_sandbox, DotDict, DerivableMeta
-from columnflow.columnar_util import Route, set_ak_column, EMPTY_FLOAT, EMPTY_INT
+from columnflow.columnar_util import Route, set_ak_column, EMPTY_FLOAT, flat_np_view
 from columnflow.config_util import get_datasets_from_process
-from columnflow.types import Any
+from columnflow.types import Any, Callable
 
 from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
 from hbt.ml.torch_utils.ignite.metrics import (
@@ -36,6 +36,7 @@ from hbt.ml.torch_utils.datasets.handlers import (
     WeightedTensorParquetFileHandler,
 )
 from hbt.ml.torch_utils.transforms import MoveToDevice
+from hbt.ml.torch_utils.datasets import ParquetDataset
 
 
 # from hbw.util import log_memory
@@ -62,6 +63,7 @@ class MLClassifierBase(MLModel):
     # set some defaults, can be overwritten by subclasses or via cls_dict
     # NOTE: the order of processes is crucial! Do not change after training
     _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1")
+    # configs_to_use: tuple[str] = ("22pre_v14_larger_limited", "22post_v14_larger_limited")
     categorical_target_map: dict[str, int] = {
         "tt": 0,
         "hh": 1,
@@ -92,6 +94,8 @@ class MLClassifierBase(MLModel):
     _default__early_stopping_min_epochs: int = 4
     _default__early_stopping_min_diff: float = 0.0
     _default__deterministic_seeds: list[int] | int | None = None
+    _default__configs_to_use: tuple[str] = ("22{pre,post}_v14_larger_limited",)
+
 
     # parameters to add into the `parameters` attribute to determine the 'parameters_repr' and to store in a yaml file
     bookkeep_params: set[str] = {
@@ -103,7 +107,9 @@ class MLClassifierBase(MLModel):
         "early_stopping_patience",
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
-        "deterministic_seeds",
+        "configs_to_use",
+        # "deterministic_seeds",
+        # "configs_to_use",
     }
 
     # parameters that can be overwritten via command line
@@ -116,7 +122,10 @@ class MLClassifierBase(MLModel):
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
         "deterministic_seeds",
+        "configs_to_use",
     }
+
+    settings_list_delimiter = ":"
 
     _model = None
 
@@ -159,14 +168,17 @@ class MLClassifierBase(MLModel):
         Similarly, a parameter starting with "_default__" must be part of the `settings_parameters`.
         """
         super().__init__(*args, **kwargs)
-        # logger.warning("Running MLModel init")
 
+        # logger.warning("Running MLModel init")
         # checks
         if diff := self.settings_parameters.difference(self.bookkeep_params):
-            raise Exception(
-                f"settings_parameters {diff} not in bookkeep_params; all customizable settings should"
-                "be bookkept in the parameters.yaml file and the self.parameters_repr to ensure reproducibility",
-            )
+            if any(x != "deterministic_seeds" for x in diff):
+                # deterministic_seeds is a special case, so we allow it to be in settings_parameters
+                # but not in bookkeep_params
+                raise Exception(
+                    f"settings_parameters {diff} not in bookkeep_params; all customizable settings should"
+                    "be bookkept in the parameters.yaml file and the self.parameters_repr to ensure reproducibility",
+                )
         if diff := self.preml_params.difference(self.bookkeep_params):
             raise Exception(
                 f"preml_params {diff} not in bookkeep_params; all parameters that change the preml_store_name"
@@ -188,7 +200,14 @@ class MLClassifierBase(MLModel):
                 )
             # set to requested value, fallback on "__default_{param}"
             value = self.parameters.get(param, getattr(self, f"_default__{param}"))
+            if isinstance(value, str) and self.settings_list_delimiter in value:
+                value = value.split(self.settings_list_delimiter)
             setattr(self, param, value)
+
+        # special case for deterministic_seeds: shouldn't be part of the parameters,
+        # so remove the when necessary
+        if "deterministic_seeds" in self.parameters:
+            del self.parameters["deterministic_seeds"]
 
         # check that all _default__ attributes are taken care of
         for attr in dir(self):
@@ -215,6 +234,34 @@ class MLClassifierBase(MLModel):
         self._model = None
         # sanity check: for each process in "train_nodes", we need to have 1 process with "ml_id" in config
 
+    # @property
+    # def used_datasets(self) -> dict[od.Config, set[od.Dataset]]:
+    #     configs_to_use = getattr(self, "configs_to_use", self.config_insts)
+    #     # expand braces
+    #     configs_to_use = law.util.flatten(list(map(law.util.brace_expand, configs_to_use)))
+    #     config_insts = list(map(self.analysis_inst.get_config, configs_to_use))
+    #     used_datasets = DotDict.wrap({config: self.datasets(config) for config in config_insts})
+    #     return used_datasets
+
+    def training_configs(self, requested_configs: Sequence[str]) -> list[str]:
+        configs_to_use = getattr(self, "configs_to_use", requested_configs)
+    #     # expand braces
+        configs_to_use = law.util.flatten(list(map(law.util.brace_expand, configs_to_use)))
+        return configs_to_use
+
+    # @property
+    # def config_insts(self) -> list[od.Config]:
+
+    # def _setup_configs(self, configs: list[str | od.Config]):
+    #     # call setup for specific set, overriding the configs provided by the
+    #     # task instance
+    #     configs_to_use = getattr(self, "configs_to_use", configs)
+
+    #     config_insts = super()._setup_configs(configs_to_use)
+    #     from IPython import embed
+    #     embed(header=f"in {self.__class__.__name__}._setup_configs, {config_insts=}")
+    #     return config_insts
+
     def cast_ml_param_values(self):
         """
         Resolve the values of the parameters that are used in the MLModel
@@ -237,6 +284,8 @@ class MLClassifierBase(MLModel):
         self.batchsize = int(self.batchsize)
         self.folds = int(self.folds)
 
+        configs_to_use = getattr(self, "configs_to_use", self.config_insts)
+        self.configs_to_use = law.util.flatten(list(map(law.util.brace_expand, configs_to_use)))
         # checks
         if self.negative_weights not in ("ignore", "abs", "handle"):
             raise Exception(
@@ -271,18 +320,16 @@ class MLClassifierBase(MLModel):
             (name, val) for name, val in self.parameters.items()
             # deterministic seed might be part of branch data of task, so exclude it from
             # the representation
-            if not name == "deterministic_seed"
+            if not any(name == x for x in ("deterministic_seed", "deterministic_seeds"))
         ]))
-        # vice versa, create a hash that contains all current parameters
-        # THIS IS DIFFERENT FROM THE INTERNAL STATE!
-        full_parameters_repr = law.util.create_hash(sorted(self.parameters.items()))
+
         if hasattr(self, "_parameters_repr") and self._parameters_repr != internal_parameters_repr:
             raise Exception(
                 f"parameters_repr changed from {self._parameters_repr} to {internal_parameters_repr};"
                 "this should not happen",
             )
         self._parameters_repr = internal_parameters_repr
-        return full_parameters_repr
+        return self._parameters_repr
 
     def valid_ml_id_sanity_check(self):
         """
@@ -345,7 +392,7 @@ class MLClassifierBase(MLModel):
                     config_inst.add_variable(
                         name=f"mlscore.{proc}",
                         expression=f"mlscore.{proc}",
-                        null_value=-1,
+                        null_value=EMPTY_FLOAT,
                         binning=(1000, 0., 1.),
                         x_title=f"DNN output score {proc_inst.x('ml_label', proc) if proc_inst else proc}",
                         aux={
@@ -356,14 +403,14 @@ class MLClassifierBase(MLModel):
                             },
                         },  # automatically rebin to 40 bins for plotting tasks
                     )
+
                     config_inst.add_variable(
-                        name=f"logit_mlscore.{proc}",
-                        expression=lambda events, proc=proc: np.log(events.mlscore[proc] / (1 - events.mlscore[proc])),
-                        null_value=-1,
-                        binning=(1000, -2., 10.),
-                        x_title=f"logit(DNN output score {proc_inst.x('ml_label', proc) if proc_inst else proc})",
+                        name=f"best_mlscore.{proc}",
+                        expression=f"best_mlscore.{proc}",
+                        null_value=EMPTY_FLOAT,
+                        binning=(1000, 0., 1.),
+                        x_title=f"Best DNN output score {proc_inst.x('ml_label', proc) if proc_inst else proc}",
                         aux={
-                            "inputs": {f"mlscore.{proc}"},
                             "rebin": 25,
                             "rebin_config": {
                                 "processes": [proc],
@@ -379,12 +426,6 @@ class MLClassifierBase(MLModel):
     def process_insts(self):
         if hasattr(self, "_process_insts"):
             return self._process_insts
-        return [self.config_inst.get_process(proc) for proc in self.processes]
-
-    @property
-    def train_node_process_insts(self):
-        if hasattr(self, "_train_node_process_insts"):
-            return self._train_node_process_insts
         return [self.config_inst.get_process(proc) for proc in self.processes]
 
     def preparation_producer(self: MLModel, analysis_inst: od.Analysis):
@@ -458,7 +499,7 @@ class MLClassifierBase(MLModel):
         pass
 
     def uses(self, config_inst: od.Config) -> set[Route | str]:
-        columns = self.categorical_features | self.continuous_features
+        columns = set(self.categorical_features) | set(self.continuous_features)
 
         # TODO: switch to full event weight
         # TODO: this might not work with data, to be checked
@@ -470,15 +511,22 @@ class MLClassifierBase(MLModel):
 
     def produces(self, config_inst: od.Config) -> set[Route | str]:
         produced = set()
+        deterministic_seeds = getattr(self, "deterministic_seeds", None)
+
         for proc in self.categorical_target_map.keys():
             produced.add(f"mlscore.{proc}")
+            produced.add(f"best_mlscore.{proc}")
+            produced.add(f"mlscore_std.{proc}")
+            produced.add(f"best_mlscore_std.{proc}")
 
         return produced
 
     def output(self, task: law.Task) -> dict[str, law.FileSystemTarget]:
         branch_data = task.branch_data
         fold = None
-        if isinstance(branch_data, dict) and (seed := branch_data.get("deterministic_seed", None)):
+        suffix = ""
+
+        if isinstance(branch_data, dict) and (seed := branch_data.get("deterministic_seed", None)) is not None:
             fold = branch_data.get("fold")
             suffix = f"_seed_{seed}"
         else:
@@ -486,11 +534,12 @@ class MLClassifierBase(MLModel):
 
         target = task.target(f"mlmodel_f{fold}of{self.folds}", dir=True)
         # declare the main target
-        suffix = ""
 
         # from IPython import embed
         # embed(header=f"in {self.__class__.__name__}.output")
         ml_name = self.__class__.__name__
+        # from IPython import embed
+        # embed(header=f"check output path for local_target")
         output = {
             "model": target.child(f"torch_model_{ml_name}_f{fold}of{self.folds}{suffix}.pt", type="f"),
             "tensorboard": task.local_target(
@@ -500,8 +549,8 @@ class MLClassifierBase(MLModel):
             ),
         }
         output["aux_files"] = {
-            ".".join(fname.split(".")[:-1]): target.child(fname, type="f")
-            for fname in (f"parameter_summary{suffix}.yaml", "input_features.pkl")
+            "input_features": target.child("input_features.pkl", type="f"),
+            "parameter_summary": target.child(f"parameter_summary{suffix}.yaml", type="f"),
         }
         return DotDict.wrap(output)
 
@@ -570,7 +619,7 @@ class MLClassifierBase(MLModel):
         if deterministic_seed is not None and deterministic_seed >= 0:
             # set seed for reproducibility
             logger.info(f"Setting deterministic seed to {deterministic_seed}")
-            self.parameters["deterministic_seed"] = deterministic_seed
+            # self.parameters["deterministic_seed"] = deterministic_seed
             torch.manual_seed(deterministic_seed)
             if torch.cuda.is_available():
                 torch.cuda.manual_seed(deterministic_seed)
@@ -644,87 +693,118 @@ class MLClassifierBase(MLModel):
         }
         return reqs
 
+    @property
+    @abstractmethod
+    def eval_activation(self) -> Callable | str:
+        pass
+
+    def evaluate_training_events(
+        self,
+        models: list[torch.nn.Module],
+        fold_indices: ak.Array,
+        data: ParquetDataset,
+        outputs_view: np.ndarray,
+        outputs_std_view: np.ndarray,
+        template: ak.Array,
+    ):
+        from hbt.ml.torch_utils.utils import MLEnsembleWrapper
+
+        step_size = 1
+        deterministic_seeds = getattr(self, "deterministic_seeds", None)
+        if isinstance(deterministic_seeds, list):
+            step_size = len(deterministic_seeds)
+
+        for fold_idx, model_range_start in enumerate(range(0, len(models), step_size)):
+            fold_models = models[model_range_start : model_range_start + step_size]
+            logger.info(f"evaluating fold {fold_idx} with {len(fold_models)} models")
+            eval_wrapper = MLEnsembleWrapper(fold_models, final_activation=self.eval_activation)
+            fold_mask = fold_indices == fold_idx
+            flat_bc_mask = ak.flatten(ak.broadcast_arrays(fold_mask[..., None], template)[0])
+            fold_data = data[fold_mask]
+
+            with torch.no_grad():
+                output_mean, output_std = eval_wrapper(fold_data)
+
+            outputs_view[flat_bc_mask] = ak.flatten(output_mean)
+            if step_size > 1:
+                outputs_std_view[flat_bc_mask] = ak.flatten(output_std)
+
+    def evaluate_orthogonal_events(
+        self,
+        models: list[torch.nn.Module],
+        data: ParquetDataset,
+        outputs_view: np.ndarray,
+        outputs_std_view: np.ndarray,
+    ):
+        from hbt.ml.torch_utils.utils import MLEnsembleWrapper
+        eval_wrapper = MLEnsembleWrapper(models, final_activation=self.eval_activation)
+
+        with torch.no_grad():
+            output_mean, output_std = eval_wrapper(data[:])
+
+        outputs_view[:] = ak.flatten(output_mean)
+        outputs_std_view[:] = ak.flatten(output_std)
+
     def evaluate(
         self,
         task: law.Task,
         events: ak.Array,
-        models: list(Any),
+        models: list(torch.nn.Module),
         fold_indices: ak.Array,
         events_used_in_training: bool = True,
     ) -> None:
         """
         Evaluation function that is run as part of the MLEvaluation task
         """
-        use_best_model = False  # TODO ML, hier auf True setzen?
+        from hbt.ml.torch_utils.datasets import TensorParquetDataset
 
-        if len(events) == 0:
-            logger.warning(f"Dataset {task.dataset} is empty. No columns are produced.")
-            return events
+        # create place holders for the mean and std of the model predictions
+        n_classes = len(self.categorical_target_map)
+        template = np.array([EMPTY_FLOAT] * n_classes, ndmin=2)
 
-        # check that the input features are the same for all models
-        for model in models:
-            input_features_sanity_checks(self, model["input_features"])
+        outputs: ak.Array = ak.broadcast_arrays(fold_indices[..., None], template)[1]
+        outputs_std: ak.Array = ak.broadcast_arrays(fold_indices[..., None], template)[1]
 
-        process = task.dataset_inst.x("ml_process", task.dataset_inst.processes.get_first().name)
-        process_inst = task.config_inst.get_process(process)
-        node_processes = list(self.train_nodes.keys())
+        # create view for outputs for later filling
+        outputs_view = flat_np_view(outputs)
+        outputs_std_view = flat_np_view(outputs_std)
 
-        ml_dataset = self.data_loader(self, process_inst, events, skip_mask=True)
+        data = TensorParquetDataset(
+            categorical_features=self.categorical_features,
+            continuous_features=self.continuous_features,
+            input=events,
+        )
 
-        # # store the ml truth label in the events
-        # events = set_ak_column(
-        #     events, f"{self.cls_name}.ml_truth_label",
-        #     ml_dataset.labels,
-        # )
-
-        # check that all MLTrainings were started with the same set of parameters
-        parameters = [model["parameters"] for model in models]
-        from hbw.util import dict_diff
-        for i, params in enumerate(parameters[1:]):
-            if params != parameters[0]:
-                diff = dict_diff(params, parameters[0])
-                raise Exception(
-                    "The MLTraining parameters (see 'parameters.yaml') from "
-                    f"fold {i} differ from fold 0; diff: {diff}",
-                )
-
-        if use_best_model:
-            models = [model["best_model"] for model in models]
+        if events_used_in_training:
+            self.evaluate_training_events(
+                models=models,
+                fold_indices=fold_indices,
+                data=data,
+                outputs_view=outputs_view,
+                outputs_std_view=outputs_std_view,
+                template=template,
+            )
         else:
-            models = [model["model"] for model in models]
-
-        # do prediction for all models and all inputs
-        predictions = []
-        for i, model in enumerate(models):
-            # NOTE: the next line triggers some warning concering tf.function retracing
-            pred = ak.from_numpy(model.predict_on_batch(ml_dataset.features))
-            if len(pred[0]) != len(node_processes):
-                raise Exception("Number of output nodes should be equal to number of processes")
-            predictions.append(pred)
-            # store predictions for each model
-            for j, proc in enumerate(node_processes):
-                events = set_ak_column(
-                    events, f"fold{i}_mlscore.{proc}", pred[:, j],
-                )
-
-        # combine all models into 1 output score, using the model that has not yet seen the test set
-        outputs = ak.where(ak.ones_like(predictions[0]), -1, -1)
-        for i in range(self.folds):
-            logger.info(f"Evaluation fold {i}")
-            # reshape mask from N*bool to N*k*bool (TODO: simpler way?)
-            idx = ak.to_regular(ak.concatenate([ak.singletons(fold_indices == i)] * len(node_processes), axis=1))
-            outputs = ak.where(idx, predictions[i], outputs)
-
-        # sanity check of the number of output nodes
-        if len(outputs[0]) != len(node_processes):
-            raise Exception(
-                f"The number of output nodes {len(outputs[0])} should be equal to "
-                f"the number of processes {len(node_processes)}",
+            self.evaluate_orthogonal_events(
+                models=models,
+                data=data,
+                outputs_view=outputs_view,
+                outputs_std_view=outputs_std_view,
             )
 
-        for proc, node_config in self.train_nodes.items():
+        pred_cls = ak.argmax(outputs, axis=-1)
+        for proc, proc_idx in self.categorical_target_map.items():
+
+            events = set_ak_column(events, f"mlscore.{proc}", outputs[:, proc_idx])
+            events = set_ak_column(events, f"mlscore_std.{proc}", outputs_std[:, proc_idx])
+
+            mask = pred_cls == proc_idx
+
+            events = set_ak_column(events, f"best_mlscore.{proc}", ak.where(mask, outputs[:, proc_idx], EMPTY_FLOAT))
             events = set_ak_column(
-                events, f"mlscore.{proc}", outputs[:, node_config["ml_id"]],
+                events,
+                f"best_mlscore_std.{proc}",
+                ak.where(mask, outputs_std[:, proc_idx], EMPTY_FLOAT),
             )
 
         return events
@@ -779,17 +859,28 @@ class BinaryMLBase(MLClassifierBase):
     def categorical_features(self) -> set[Route | str]:
         return set()
 
+    @property
+    def eval_activation(self) -> Callable | str:
+        return lambda x: x
+
     def prepare_ml_model(
         self,
-        task: law.Task,
+        task: law.Task | None = None,
     ):
         """
         Minimal implementation of a ML model
         """
         from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
 
-        logger_path = self.output(task)["tensorboard"].abspath
-        model = WeightedTensorFeedForwardNet(tensorboard_path=logger_path, logger=logger, task=task)
+        logger_path = None
+        if task and not isinstance(task, DotDict):
+            logger_target = self.output(task).get("tensorboard", None)
+            logger_path = logger_target.abspath if logger_target else None
+
+        # fake the task to propagate to the model and initialize the model instance
+        # in case there is no task instance provided
+        dummy_task = DotDict.wrap({"param_kwargs": dict()})
+        model = WeightedTensorFeedForwardNet(tensorboard_path=logger_path, logger=logger, task=(task or dummy_task))
         model.categorical_target_map = self.categorical_target_map
         model.continuous_features = self.continuous_features
         model.categorical_features = self.categorical_features
@@ -847,28 +938,46 @@ class MultiClsMLBase(MLClassifierBase):
         self._categorical_features = sorted(self._categorical_features, key=str)
         return self._categorical_features
 
+    @property
+    def eval_activation(self) -> Callable | str:
+        return torch.nn.functional.softmax
+
     def prepare_ml_model(
         self,
-        task: law.Task,
+        task: law.Task | None = None,
     ):
         """
         Minimal implementation of a ML model
         """
-        logger_path = self.output(task)["tensorboard"].abspath
         from hbt.ml.torch_models.resnet import WeightedResnetTest
+        logger_path = None
+        if task and not isinstance(task, DotDict):
+            logger_target = self.output(task).get("tensorboard", None)
+            logger_path = logger_target.abspath if logger_target else None
 
-        model = WeightedResnetTest(tensorboard_path=logger_path, logger=logger, task=task)
+        # fake the task to propagate to the model and initialize the model instance
+        # in case there is no task instance provided
+        dummy_task = DotDict.wrap({"param_kwargs": dict()})
+
+        model = WeightedResnetTest(tensorboard_path=logger_path, logger=logger, task=(task or dummy_task))
         model.categorical_target_map = self.categorical_target_map
         model.continuous_features = self.continuous_features
         model.categorical_features = self.categorical_features
 
         return model
 
-    def open_model(self, task, *args, **kwargs):
-        model = self.prepare_ml_model(task)
+    def open_model(self, inputs, *args, **kwargs):
 
-        from IPython import embed
-        embed(header=f"in {self.__class__.__name__}.open_model")
+        # from IPython import embed
+        # embed(header=f"in {self.__class__.__name__}.open_model")
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        model = self.prepare_ml_model()
+
+        # load paths to the model state dicts and load the weights
+        model_path = inputs.model.abspath
+        logger.info(f"Loading model from {model_path}")
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        return model
 
     def start_training(self, run_name, max_epochs) -> None:
         return self.model.start_training(run_name, max_epochs)
@@ -884,11 +993,18 @@ class BogNetBase(MultiClsMLBase):
         # return requested_producers or ["event_weights", analysis_inst.x.ml_inputs_producer]
         return ["default", f"{analysis_inst.x.ml_inputs_producer}_no_rotation"]
 
-    def prepare_ml_model(self, task: law.Task):
+    def prepare_ml_model(self, task: law.Task | None = None):
         from hbt.ml.torch_models.bognet import UpdatedBogNet
 
-        logger_path = self.output(task)["tensorboard"].abspath
-        model = UpdatedBogNet(tensorboard_path=logger_path, logger=logger, task=task)
+        logger_path = None
+        if task and not isinstance(task, DotDict):
+            logger_target = self.output(task).get("tensorboard", None)
+            logger_path = logger_target.abspath if logger_target else None
+
+        # fake the task to propagate to the model and initialize the model instance
+        # in case there is no task instance provided
+        dummy_task = DotDict.wrap({"param_kwargs": dict()})
+        model = UpdatedBogNet(tensorboard_path=logger_path, logger=logger, task=(task or dummy_task))
         model.categorical_target_map = self.categorical_target_map
         # check if input feature set is set consistently
         def compare_features(feature_set_name):

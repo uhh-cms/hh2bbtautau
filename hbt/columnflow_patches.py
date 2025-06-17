@@ -18,8 +18,8 @@ logger = law.logger.get_logger(__name__)
 @memoize
 def patch_mltraining():
     # patch the MLTraining output collection
-    MLTraining.output_collection_cls = law.NestedSiblingFileCollection
-    logger.debug("patched MLTraining to use NestedSiblingFileCollection")
+    MLTraining.output_collection_cls = law.FileCollection
+    logger.debug("patched MLTraining to use FileCollection")
     def create_branch_map(self) -> list[dict[str, int]]:
         """Patched branch map for MLTraining that is ensemble-aware
 
