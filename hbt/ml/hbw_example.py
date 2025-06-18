@@ -96,7 +96,6 @@ class MLClassifierBase(MLModel):
     _default__deterministic_seeds: list[int] | int | None = None
     _default__configs_to_use: tuple[str] = ("22{pre,post}_v14_larger_limited",)
 
-
     # parameters to add into the `parameters` attribute to determine the 'parameters_repr' and to store in a yaml file
     bookkeep_params: set[str] = {
         "data_loader", "categorical_features", "continuous_features", "train_val_test_split",
@@ -1080,7 +1079,14 @@ bognet_test = BogNetBase.derive("bognet_test", cls_dict={
 
 bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
     "epochs": 10,
-    "deterministic_seeds": [0],
+    "deterministic_seeds": [0, 1, 2, 3, 4],
+    # "ml_cls": UpdatedBogNet,
+})
+
+bognet_ensemble_full_stats = BogNetBase.derive("bognet_ensemble_full_stats", cls_dict={
+    "epochs": 100,
+    "deterministic_seeds": [0, 1, 2, 3, 4],
+    "configs_to_use": ("{22,23}{pre,post}_v14",),
     # "ml_cls": UpdatedBogNet,
 })
 
