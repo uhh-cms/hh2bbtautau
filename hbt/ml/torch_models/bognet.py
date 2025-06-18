@@ -365,6 +365,7 @@ if not isinstance(torch, MockModule):
     class UpdatedBogNet(BogNet):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            self.training_epoch_length_cutoff = 10000
             if "perform_scheduler_step" not in self.custom_hooks:
                 self.custom_hooks.append("perform_scheduler_step")
 
