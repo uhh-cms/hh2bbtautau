@@ -545,6 +545,7 @@ class MLClassifierBase(MLModel):
                 dir=True,
                 optional=True,
             ),
+            "model_architecture": task.target("model_architecture", type="f", dir=False),
         }
         output["aux_files"] = {
             "input_features": target.child("input_features.pkl", type="f"),
@@ -657,7 +658,7 @@ class MLClassifierBase(MLModel):
             self.model.start_training(run_name=run_name, max_epochs=self.epochs)
             logger.info(f"Saving model to {output['model'].abspath}")
             torch.save(self.model.state_dict(), output["model"].abspath)
-
+            torch.save(self.model, output["model_architecture"].abspath)
         return
 
     @abstractmethod
