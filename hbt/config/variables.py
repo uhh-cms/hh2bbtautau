@@ -453,6 +453,17 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$\Delta R_{ll}$",
     )
 
+    # zoomed in variables for CCLUB dy enriched region
+    add_variable(
+        config,
+        name="dyc_dilep_mass",
+        expression=partial(build_dilep, which="mass"),
+        aux={"inputs": build_dilep.inputs},
+        binning=(40, 70, 110),
+        unit="GeV",
+        x_title=r"$m_{ll}$",
+    )
+
     # hh variables
     add_variable(
         config,

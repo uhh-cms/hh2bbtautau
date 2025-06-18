@@ -716,6 +716,11 @@ def add_config(
             *dijet, *dibjet, *dilep, *hh, *nbjets, *lep, *jet,
             "njets", "ht",
         ],
+        "dyc_dilep": (dyc_dilep := [f"dyc_dilep_{var}" for var in ["mass", "eta"]]),
+        "dyc_variables": [
+            *dyc_dilep, *hh, *nbjets, *lep, *jet,
+            "njets", "ht",
+        ],
     }
 
     # shift groups for conveniently looping over certain shifts
@@ -1600,12 +1605,6 @@ def add_config(
         # dy weight and recoil corrections
         add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v3.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
-
-        # custum UHH dy reweighting
-        # -----------------------------------------------------------------------------
-        # fits derived from CCLUB phase-space
-        add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod9_dy2/hbt_corrections_ee__dy_eq2j.json.gz", "v1"))  # noqa: E501
-        # -----------------------------------------------------------------------------
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
