@@ -81,7 +81,7 @@ def cat_iso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak
 """
 @categorizer(uses={"tau2_isolated"})
 def cat_noniso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # noon-isolated tau2
+    # non-isolated tau2
     return events, events.tau2_isolated == 0
 """
 
@@ -120,10 +120,10 @@ def get_iso_mask(
 @categorizer(uses={"Tau.*", "channel_id"})
 def cat_noniso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
 
-    # get isolated tau2 (passing Loose but failing Medium)
+    # get isolated tau2
     tau2_mask = get_iso_mask(self, events, "loose", "medium")
 
-    return events, ~tau2_mask
+    return events, tau2_mask
 
 
 #
