@@ -33,13 +33,15 @@ embedding_expected_inputs = {
     "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
     "channel_id": [1, 2, 3],
 }
+
+
 def export_ensemble_onnx(
     ensemble_wrapper,
     categoricat_tensor: torch.Tensor,
     continous_tensor: torch.Tensor,
     save_dir: str,
-    opset_version: int=None
-    ) -> str:
+    opset_version: int = None,
+) -> str:
     """
     Wrapper to export an ensemble model to onnx format. Does the same as export_onnx, but
     iterates over all models in the ensemble_wrapper and freezes them before exporting.
@@ -67,13 +69,14 @@ def export_ensemble_onnx(
         opset_version=opset_version,
     )
 
+
 def export_onnx(
     model: torch.nn.Module,
     categoricat_tensor: torch.Tensor,
     continous_tensor: torch.Tensor,
     save_dir: str,
-    opset_version: int=None
-    ) -> str:
+    opset_version: int = None,
+) -> str:
     """
     Function to export a loaded pytorch *model* to onnx format saved in *save_dir*.
     To successfully export the model, the input tensors *categoricat_tensor* and *continous_tensor* must be provided.
@@ -124,20 +127,21 @@ def export_onnx(
         do_constant_folding=True,
         dynamic_axes={
             # enable dynamic batch sizes
-            'cat' : {0 : 'batch_size'},
-            'cont' : {0 : 'batch_size'},
-            'output' : {0 : 'batch_size'},
-        }
+            "cat": {0: "batch_size"},
+            "cont": {0: "batch_size"},
+            "output": {0: "batch_size"},
+        },
     )
 
     logger.info(f"Succefully exported onnx model to {save_path}")
     return save_path
 
+
 def test_run_onnx(
     model_path: str,
     categorical_array: np.ndarray,
-    continous_array: np.ndarray
-    ) ->np.ndarray:
+    continous_array: np.ndarray,
+) -> np.ndarray:
     """
     Function to run a test inference on a given *model_path*.
     The *categorical_array* and *continous_array* are expected to be given as numpy arrays.
@@ -154,16 +158,17 @@ def test_run_onnx(
     first_node = sess.get_inputs()[0]
     second_node = sess.get_inputs()[1]
 
-    #setup data
+    # setup data
     input_feed = {
-        first_node.name : categorical_array.reshape(-1,first_node.shape).astype(np.float32),
-        second_node.name : continous_array.reshape(-1,second_node.shape).astype(np.float32),
-        }
+        first_node.name: categorical_array.reshape(-1, first_node.shape).astype(np.float32),
+        second_node.name: continous_array.reshape(-1, second_node.shape).astype(np.float32),
+    }
 
     output_name = [output.name for output in sess.get_outputs()]
 
     onnx_predition = sess.run(output_name, input_feed)
     return onnx_predition
+
 
 def get_standardization_parameter(
     data_map: list[ParquetDataset],
@@ -380,12 +385,12 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
         def __init__(self, translation: torch.Tensor, minimum: torch.Tensor):
             """
             This translaytion layer tokenizes categorical features into a sparse representation.
-            The input tensor is expected to be a 2D tensor with shape (N, M) where N is the number of events and M is the number of features.
+            The input tensor is a 2D tensor with shape (N, M) where N is the number of events and M of features.
             The output tensor will have shape (N, K) where K is the number of unique categories across all features.
 
             Args:
                 translation (torch.tensor): Sparse representation of the categories, created by LookUpTable.
-                minimum (torch.tensor): Array of minimum values for each feature. This is necessary to shift the input tensor to the valid index space.
+                minimum (torch.tensor): Array of minimas used to shift the input tensor into the valid index space.
             """
             super().__init__()
             self.map = translation
@@ -458,7 +463,7 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
         def __init__(self, models: Iterable[nn.Module] | nn.Module, final_activation: Callable | str = "softmax"):
             """
             This wrapper allows to use a model that expects a sparse representation of categorical features.
-            The input tensor is expected to be a 2D tensor with shape (N, M) where N is the number of events and M is the number of features.
+            The input tensor is a 2D tensor with shape (N, M) where N is the number of events and M of features.
             The output tensor will have shape (N, K) where K is the number of unique categories across all features.
 
             Args:
