@@ -33,14 +33,46 @@ embedding_expected_inputs = {
     "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
     "channel_id": [1, 2, 3],
 }
+def export_ensemble_onnx(
+    ensemble_wrapper,
+    categoricat_tensor: torch.Tensor,
+    continous_tensor: torch.Tensor,
+    save_dir: str,
+    opset_version: int=None
+    ) -> str:
+    """
+    Wrapper to export an ensemble model to onnx format. Does the same as export_onnx, but
+    iterates over all models in the ensemble_wrapper and freezes them before exporting.
 
+    Args:
+        ensemble_wrapper (MLEnsembleWrapper): _description_
+        categoricat_tensor (torch.tensor): tensor representing categorical features
+        continous_tensor (torch.tensor): tensor representing categorical features
+        save_dir (str): directory where the onnx model will be saved.
+        opset_version (int, optional): version of the used operation sets. Defaults to None.
+
+    Returns:
+        str: The path of the saved onnx ensemble model.
+    """
+    for model in ensemble_wrapper.models:
+        model.eval()
+        for param in model.parameters():
+            param.requires_grad = False
+
+    export_onnx(
+        ensemble_wrapper,
+        categoricat_tensor,
+        continous_tensor,
+        save_dir,
+        opset_version=opset_version,
+    )
 
 def export_onnx(
-    model,
-    categoricat_tensor,
-    continous_tensor,
-    save_dir,
-    opset_version=None
+    model: torch.nn.Module,
+    categoricat_tensor: torch.Tensor,
+    continous_tensor: torch.Tensor,
+    save_dir: str,
+    opset_version: int=None
     ) -> str:
     """
     Function to export a loaded pytorch *model* to onnx format saved in *save_dir*.
@@ -128,9 +160,9 @@ def test_run_onnx(
         second_node.name : continous_array.reshape(-1,second_node.shape).astype(np.float32),
         }
 
-    output_name = sess.get_outputs()[0].name
+    output_name = [output.name for output in sess.get_outputs()]
 
-    onnx_predition = sess.run([output_name], input_feed)
+    onnx_predition = sess.run(output_name, input_feed)
     return onnx_predition
 
 def get_standardization_parameter(
