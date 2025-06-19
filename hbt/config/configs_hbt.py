@@ -718,7 +718,7 @@ def add_config(
         ],
         "dyc_dilep": (dyc_dilep := [f"dyc_dilep_{var}" for var in ["mass", "eta"]]),
         "dyc_variables": [
-            *dyc_dilep, *hh, *nbjets, *lep, *jet,
+            *dyc_dilep, *dijet, *dibjet, *dilep, *hh, *nbjets, *lep, *jet,
             "njets", "ht",
         ],
     }
