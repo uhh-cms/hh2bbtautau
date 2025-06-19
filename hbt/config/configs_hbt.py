@@ -712,15 +712,14 @@ def add_config(
         "nbjets": (nbjets := [f"nbjets_{var}" for var in ["deepjet", "pnet"]]),
         "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1", "tau1"] for var in ["pt", "eta"]]),
         "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
+        "dyc_jet": (dyc_jet := [f"dyc_jet1_{var}" for var in ["pt", "eta"]]),
+        "dyc_dilep": (dyc_dilep := [f"dyc_dilep_{var}" for var in ["mass", "eta"]]),
         "dy_variables": [
             *dijet, *dibjet, *dilep, *hh, *nbjets, *lep, *jet,
+            *dyc_dilep, *dyc_jet,
             "njets", "ht",
         ],
-        "dyc_dilep": (dyc_dilep := [f"dyc_dilep_{var}" for var in ["mass", "eta"]]),
-        "dyc_variables": [
-            *dyc_dilep, *dijet, *dibjet, *dilep, *hh, *nbjets, *lep, *jet,
-            "njets", "ht",
-        ],
+
     }
 
     # shift groups for conveniently looping over certain shifts

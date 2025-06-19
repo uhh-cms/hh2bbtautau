@@ -480,6 +480,14 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"DYC Leading jet $p_{T}$",
     )
+    add_variable(
+        config,
+        name="dyc_jet1_eta",
+        expression="Jet.eta[:,0]",
+        binning=(30, -3.0, 3.0),
+        x_title=r"DYC Leading jet $\eta$",
+    )
+
     # hh variables
     add_variable(
         config,
