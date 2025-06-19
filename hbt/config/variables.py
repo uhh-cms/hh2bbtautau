@@ -463,6 +463,15 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"$m_{ll}$",
     )
+    add_variable(
+        config,
+        name="dyc_dilep_eta",
+        expression=partial(build_dilep, which="eta"),
+        aux={"inputs": build_dilep.inputs},
+        binning=(50, -2.3, 2.3),
+        unit="GeV",
+        x_title=r"$\eta_{ll}$",
+    )
 
     # hh variables
     add_variable(
