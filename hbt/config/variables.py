@@ -461,7 +461,7 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_dilep.inputs},
         binning=(40, 70, 110),
         unit="GeV",
-        x_title=r"$m_{ll}$",
+        x_title=r"$DYC m_{ll}$",
     )
     add_variable(
         config,
@@ -470,9 +470,16 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_dilep.inputs},
         binning=(50, -2.3, 2.3),
         unit="GeV",
-        x_title=r"$\eta_{ll}$",
+        x_title=r"$DYC \eta_{ll}$",
     )
-
+    add_variable(
+        config,
+        name="dyc_jet1_pt",
+        expression="Jet.pt[:,0]",
+        binning=(40, 20.0, 220.0),
+        unit="GeV",
+        x_title=r"DYC Leading jet $p_{T}$",
+    )
     # hh variables
     add_variable(
         config,
