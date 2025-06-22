@@ -300,6 +300,7 @@ def _res_dnn_evaluation(
             values_placeholder = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
             values_placeholder[event_mask] = ak.flatten(values)
             events = set_ak_column_f32(events, "sync_res_dnn_" + column, values_placeholder)
+
     return events
 
 

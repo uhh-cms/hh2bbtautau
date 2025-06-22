@@ -1456,6 +1456,9 @@ def add_config(
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/res_models/res_prod3/model_fold0.tgz", "v1"))  # noqa: E501
     # non-parametric (flat) training up to mX = 800 GeV
     add_external("res_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))  # noqa: E501
+    # non-parametric regression from the resonant analysis
+    add_external("res_reg", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))  # noqa: E501
+    add_external("res_reg_moe", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))  # noqa: E501
 
     # run specific files
     if run == 2:
@@ -1704,7 +1707,6 @@ def add_config(
             lfn_base = dir_cls(path, fs=fs)
 
             # loop though files and interpret paths as lfns
-            print(lfn_base)
             return sorted(
                 "/" + lfn_base.child(basename, type="f").path.lstrip("/")
                 for basename in lfn_base.listdir(pattern="*.root")
