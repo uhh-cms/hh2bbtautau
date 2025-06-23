@@ -254,7 +254,7 @@ def add_config(
         ]),
         "ttzz_madgraph",
 
-        # dy, nlo
+        # dy, amcatnlo
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
         "dy_m50toinf_amcatnlo",
@@ -272,7 +272,7 @@ def add_config(
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
 
-        # dy, nnlo
+        # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
         # "dy_ee_m10to50_powheg",
         # "dy_ee_m50to120_powheg",
@@ -404,11 +404,11 @@ def add_config(
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
             if dataset.name.endswith("_madgraph"):
-                dataset.add_tag("dy_lo")
+                dataset.add_tag("dy_madgraph")
             elif dataset.name.endswith("_amcatnlo"):
-                dataset.add_tag("dy_nlo")
+                dataset.add_tag("dy_amcatnlo")
             elif dataset.name.endswith("_powheg"):
-                dataset.add_tag("dy_nnlo")
+                dataset.add_tag("dy_powheg")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("dy_stitched")
         if (
@@ -530,9 +530,9 @@ def add_config(
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
-        # drell-yan, nlo
+        # drell-yan, amcatnlo
         if "dy_m50toinf_amcatnlo" in cfg.datasets:
-            cfg.x.dy_nlo_stitching = {
+            cfg.x.dy_amcatnlo_stitching = {
                 "m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                     "leaf_processes": [
@@ -547,9 +547,9 @@ def add_config(
                     ],
                 },
             }
-        # drell-yan, nnlo
+        # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
-            cfg.x.dy_nnlo_stitching = {
+            cfg.x.dy_powheg_stitching = {
                 "ee_m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
                     "leaf_processes": [
