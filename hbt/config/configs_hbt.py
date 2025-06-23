@@ -641,6 +641,7 @@ def add_config(
     cfg.x.selector_step_groups = {
         "all": [],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
+        "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
     cfg.x.default_selector_steps = "all"
 
