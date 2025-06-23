@@ -309,56 +309,56 @@ def add_config(
         ]),
         "ttzz_madgraph",
 
-        # dy, nlo
-        # "dy_m4to10_amcatnlo",
-        # "dy_m10to50_amcatnlo",
-        # "dy_m50toinf_amcatnlo",
-        # "dy_m50toinf_0j_amcatnlo",
-        # "dy_m50toinf_1j_amcatnlo",
-        # "dy_m50toinf_2j_amcatnlo",
-        # "dy_m50toinf_1j_pt40to100_amcatnlo",
-        # "dy_m50toinf_1j_pt100to200_amcatnlo",
-        # "dy_m50toinf_1j_pt200to400_amcatnlo",
-        # "dy_m50toinf_1j_pt400to600_amcatnlo",
-        # "dy_m50toinf_1j_pt600toinf_amcatnlo",
-        # "dy_m50toinf_2j_pt40to100_amcatnlo",
-        # "dy_m50toinf_2j_pt100to200_amcatnlo",
-        # "dy_m50toinf_2j_pt200to400_amcatnlo",
-        # "dy_m50toinf_2j_pt400to600_amcatnlo",
-        # "dy_m50toinf_2j_pt600toinf_amcatnlo",
+        # dy, amcatnlo
+        "dy_m4to10_amcatnlo",
+        "dy_m10to50_amcatnlo",
+        "dy_m50toinf_amcatnlo",
+        "dy_m50toinf_0j_amcatnlo",
+        "dy_m50toinf_1j_amcatnlo",
+        "dy_m50toinf_2j_amcatnlo",
+        "dy_m50toinf_1j_pt40to100_amcatnlo",
+        "dy_m50toinf_1j_pt100to200_amcatnlo",
+        "dy_m50toinf_1j_pt200to400_amcatnlo",
+        "dy_m50toinf_1j_pt400to600_amcatnlo",
+        "dy_m50toinf_1j_pt600toinf_amcatnlo",
+        "dy_m50toinf_2j_pt40to100_amcatnlo",
+        "dy_m50toinf_2j_pt100to200_amcatnlo",
+        "dy_m50toinf_2j_pt200to400_amcatnlo",
+        "dy_m50toinf_2j_pt400to600_amcatnlo",
+        "dy_m50toinf_2j_pt600toinf_amcatnlo",
 
-        # dy, nnlo
-        *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
-        "dy_ee_m10to50_powheg",
-        "dy_ee_m50to120_powheg",
-        "dy_ee_m120to200_powheg",
-        "dy_ee_m200to400_powheg",
-        "dy_ee_m400to800_powheg",
-        "dy_ee_m800to1500_powheg",
-        "dy_ee_m1500to2500_powheg",
-        "dy_ee_m2500to4000_powheg",
-        "dy_ee_m4000to6000_powheg",
-        "dy_ee_m6000toinf_powheg",
-        "dy_mumu_m10to50_powheg",
-        "dy_mumu_m50to120_powheg",
-        "dy_mumu_m120to200_powheg",
-        "dy_mumu_m200to400_powheg",
-        "dy_mumu_m400to800_powheg",
-        "dy_mumu_m800to1500_powheg",
-        "dy_mumu_m1500to2500_powheg",
-        "dy_mumu_m2500to4000_powheg",
-        "dy_mumu_m4000to6000_powheg",
-        "dy_mumu_m6000toinf_powheg",
-        "dy_tautau_m10to50_powheg",
-        "dy_tautau_m50to120_powheg",
-        "dy_tautau_m120to200_powheg",
-        "dy_tautau_m200to400_powheg",
-        "dy_tautau_m400to800_powheg",
-        "dy_tautau_m800to1500_powheg",
-        "dy_tautau_m1500to2500_powheg",
-        "dy_tautau_m2500to4000_powheg",
-        "dy_tautau_m4000to6000_powheg",
-        "dy_tautau_m6000toinf_powheg",
+        # dy, powheg
+        # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
+        # "dy_ee_m10to50_powheg",
+        # "dy_ee_m50to120_powheg",
+        # "dy_ee_m120to200_powheg",
+        # "dy_ee_m200to400_powheg",
+        # "dy_ee_m400to800_powheg",
+        # "dy_ee_m800to1500_powheg",
+        # "dy_ee_m1500to2500_powheg",
+        # "dy_ee_m2500to4000_powheg",
+        # "dy_ee_m4000to6000_powheg",
+        # "dy_ee_m6000toinf_powheg",
+        # "dy_mumu_m10to50_powheg",
+        # "dy_mumu_m50to120_powheg",
+        # "dy_mumu_m120to200_powheg",
+        # "dy_mumu_m200to400_powheg",
+        # "dy_mumu_m400to800_powheg",
+        # "dy_mumu_m800to1500_powheg",
+        # "dy_mumu_m1500to2500_powheg",
+        # "dy_mumu_m2500to4000_powheg",
+        # "dy_mumu_m4000to6000_powheg",
+        # "dy_mumu_m6000toinf_powheg",
+        # "dy_tautau_m10to50_powheg",
+        # "dy_tautau_m50to120_powheg",
+        # "dy_tautau_m120to200_powheg",
+        # "dy_tautau_m200to400_powheg",
+        # "dy_tautau_m400to800_powheg",
+        # "dy_tautau_m800to1500_powheg",
+        # "dy_tautau_m1500to2500_powheg",
+        # "dy_tautau_m2500to4000_powheg",
+        # "dy_tautau_m4000to6000_powheg",
+        # "dy_tautau_m6000toinf_powheg",
 
         # w + jets
         "w_lnu_amcatnlo",
@@ -459,11 +459,11 @@ def add_config(
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
             if dataset.name.endswith("_madgraph"):
-                dataset.add_tag("dy_lo")
+                dataset.add_tag("dy_madgraph")
             elif dataset.name.endswith("_amcatnlo"):
-                dataset.add_tag("dy_nlo")
+                dataset.add_tag("dy_amcatnlo")
             elif dataset.name.endswith("_powheg"):
-                dataset.add_tag("dy_nnlo")
+                dataset.add_tag("dy_powheg")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("dy_stitched")
         if (
@@ -594,9 +594,9 @@ def add_config(
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
-        # drell-yan, nlo
+        # drell-yan, amcatnlo
         if "dy_m50toinf_amcatnlo" in cfg.datasets:
-            cfg.x.dy_nlo_stitching = {
+            cfg.x.dy_amcatnlo_stitching = {
                 "m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                     "leaf_processes": [
@@ -611,9 +611,9 @@ def add_config(
                     ],
                 },
             }
-        # drell-yan, nnlo
+        # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
-            cfg.x.dy_nnlo_stitching = {
+            cfg.x.dy_powheg_stitching = {
                 "ee_m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
                     "leaf_processes": [
@@ -731,6 +731,7 @@ def add_config(
     cfg.x.selector_step_groups = {
         "all": [],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
+        "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
     cfg.x.default_selector_steps = "all"
 
