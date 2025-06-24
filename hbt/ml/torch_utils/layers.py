@@ -505,8 +505,8 @@ if not isinstance(torch, MockModule):
     class StandardizeLayer(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
-            mean: torch.tensor = torch.tensor(0.),
-            std: torch.tensor = torch.tensor(1.),
+            mean: float = 0.,
+            std: float = 1.,
         ):
             """
             Standardizes the input tensor with given *mean* and *std* tensor.
@@ -517,8 +517,8 @@ if not isinstance(torch, MockModule):
                 std (torch.tensor, optional): Standard tensor. Defaults to torch.tensor(1.).
             """
             super().__init__()
-            self.mean = torch.nn.Buffer(mean, persistent=True)
-            self.std = torch.nn.Buffer(std, persistent=True)
+            self.mean = torch.nn.Buffer(torch.tensor(mean), persistent=True)
+            self.std = torch.nn.Buffer(torch.tensor(std), persistent=True)
 
 
         def forward(self, x: Tensor):
@@ -556,13 +556,10 @@ if not isinstance(torch, MockModule):
             self.ref_indices = torch.nn.Buffer(self.find_indices_of(columns, ref_phi_columns, True), persistent=True)
             self.rotate_indices = torch.nn.Buffer(self.find_indices_of(columns, rotate_columns, True), persistent=True)
 
-
-        # def update_buffer(self, state_dict):
         def load_state_dict(self, state_dict, strict, assign):
             # overload load_state_dict to set buffer sizes to same of state dict
             for name in self.state_dict().keys():
                 self.__setattr__(name, torch.zeros_like(state_dict[name]))
-            from IPython import embed; embed(header="string - 566 in layers.py ")
             super().load_state_dict(state_dict=state_dict,strict=strict, assign=assign)
 
         def find_indices_of(self, search_in, search_for, _expand=False):
