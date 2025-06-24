@@ -529,54 +529,54 @@ if not isinstance(torch, MockModule):
             if not all([isinstance(value, torch.Tensor) for value in [mean, std]]):
                 raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
 
-        def set_mean_std(self, mean: float | int = 0, std: float | int = 1):
+        def update_buffer(self, mean: torch.tensor, std: torch.tensor):
             """
-            Set the mean and std parameter.
+            Update the mean and std parameter.
 
             Args:
-                mean (float, optional): Mean value. Defaults to 0.
-                std (float, optional): Standard deviation value. Defaults to 1.
+                mean (torch.tensor): Mean value.
+                std (torch.tensor): Standard deviation value.
             """
             self._type_check(mean=mean, std=std)
-            self.mean.data = mean.detach()
-            self.std.data = std.detach()
+            self.mean = mean.type_as(self.mean)
+            self.std = std.type_as(self.std)
 
-        def to(self, *args, **kwargs):
-            self.mean.data = self.mean.data.to(*args, **kwargs)
-            self.std.data = self.std.data.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
 
-    class RotatePhiLayer(nn.Module):  # noqa: F811
+    class RotatePhiLayer(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
-            columns: list[str],
-            ref_phi_columns: list[str] | None = None,
-            rotate_columns: list[str] | None = None,
-            activate=False,
+            columns: list[str] | None,
+            ref_phi_columns: list[str] | None = ("lepton1", "lepton2"),
+            rotate_columns: list[str] | None = ("bjet1", "bjet2", "fatjet", "lepton1", "lepton2"),
         ):
             """
             Rotate specific *columns* given in *rotate_columns* relative to reference in *ref_phi_columns*.
             """
             super().__init__()
-            self.columns = columns
-            # leptons reference is rotated to 0
-            self.columns_to_rotate = rotate_columns or ["bjet1", "bjet2", "fatjet", "lepton1", "lepton2"]
-            self.columns_ref_phi = ref_phi_columns or ["lepton1", "lepton2"]
-            self.activate=False
-            # assert (len_ref := len(self.columns_ref_phi == 2)), f"Reference columns needs to have 2, but have {len_ref}"
+            self.ref_indices = torch.nn.Buffer(self.find_indices_of(columns, ref_phi_columns, True), persistent=True)
+            self.rotate_indices = torch.nn.Buffer(self.find_indices_of(columns, rotate_columns, True), persistent=True)
 
-            self.ref_indices = self.find_indices_of(self.columns, self.columns_ref_phi, True)
-            self.rotate_indices = self.find_indices_of(self.columns, self.columns_to_rotate, True)
 
-        def find_indices_of(self, search_in, search_for, expand=False):
-            if expand:
-                search_for = self.expand(search_for)
-            return dict(zip(search_for, map(search_in.index, search_for)))
+        # def update_buffer(self, state_dict):
+        def load_state_dict(self, state_dict, strict, assign):
+            # overload load_state_dict to set buffer sizes to same of state dict
+            for name in self.state_dict().keys():
+                self.__setattr__(name, torch.zeros_like(state_dict[name]))
+            from IPython import embed; embed(header="string - 566 in layers.py ")
+            super().load_state_dict(state_dict=state_dict,strict=strict, assign=assign)
 
-        def expand(self, columns):
-            # adds px, py to columns
+        def find_indices_of(self, search_in, search_for, _expand=False):
+            if search_in is None or search_for is None:
+                return None
+
+            if _expand:
+                search_for = self._expand(search_for)
+            return torch.tensor([tuple(map(search_in.index,particle)) for particle in search_for])
+
+        def _expand(self, columns):
+            # adds px, py to columns and return them as tuple
             columns = [columns] if isinstance(columns, str) else columns
-            return [f"{col}.{suffix}" for suffix in ("px", "py") for col in columns]
+            return [tuple(f"{col}.{suffix}" for suffix in ("px", "py")) for col in columns]
 
         def calc_phi(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
             def arctan2(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -608,34 +608,31 @@ if not isinstance(torch, MockModule):
             return pt * torch.cos(new_phi), pt * torch.sin(new_phi)
 
         def calc_ref_phi(self, array):
-            (ref1_px, ref1_py) = self.expand(self.columns_ref_phi[0])
-            (ref2_px, ref2_py) = self.expand(self.columns_ref_phi[1])
-
-            slice_ref = self.slicer_factory(self.ref_indices)
+            px1, py1 = self.get_kinematics(array, self.ref_indices[0])
+            px2, py2 = self.get_kinematics(array, self.ref_indices[1])
 
             ref_phi = self.calc_phi(
-                x=(slice_ref(array, ref2_px) + slice_ref(array, ref1_px)),
-                y=(slice_ref(array, ref2_py) + slice_ref(array, ref1_py)),
+                x=px1 + px2,
+                y=py1 + py2,
             )
             return ref_phi
 
-        def slicer_factory(self, ref_indices):
-            # helper to slice with ref_indices by name
-            return lambda array, name: array[:, ref_indices.get(name)]
+        def get_kinematics(self, array, ref_indices):
+            x, y = ref_indices
+            return array[:, x], array[:, y]
 
         def rotate_columns(self, array, ref_phi):
             # px, py pairs in fixed order
-            slice_rotate = self.slicer_factory(self.rotate_indices)
-            for col in self.columns_to_rotate:
-                px, py = self.expand(col)
+            for rotate_indice in self.rotate_indices:
+                px, py = self.get_kinematics(array, rotate_indice)
+
                 new_px, new_py = self.rotate_pt_to_phi(
-                    px=slice_rotate(array, px),
-                    py=slice_rotate(array, py),
+                    px=px,
+                    py=py,
                     ref_phi=ref_phi,
                 )
-                # replace inplace
-                array[:, self.rotate_indices[px]] = new_px
-                array[:, self.rotate_indices[py]] = new_py
+                array[:, rotate_indice[0]] = new_px
+                array[:, rotate_indice[1]] = new_py
             return array
 
         def forward(self, x):
