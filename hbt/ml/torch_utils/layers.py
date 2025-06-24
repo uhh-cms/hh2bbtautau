@@ -35,7 +35,7 @@ if not isinstance(torch, MockModule):
     import torch
     from torch import nn, Tensor
 
-    class PaddingLayer(nn.Module):  # noqa: F811
+    class PaddingLayer(torch.nn.Module):  # noqa: F811
         def __init__(self, padding_value: float | int = 0, mask_value: float | int = EMPTY_FLOAT):
             """
             Padding layer for torch models. Pads the input tensor with the given padding value.
@@ -44,8 +44,9 @@ if not isinstance(torch, MockModule):
                 padding (int, optional): Padding value. Defaults to 0.
             """
             super().__init__()
-            self.padding_value = padding_value
-            self.mask_value = mask_value
+
+            self.padding_value = torch.nn.Buffer(torch.tensor(padding_value), persistent=True)
+            self.mask_value = torch.nn.Buffer(torch.tensor(mask_value), persistent=True)
 
         def forward(self, x):
             mask = x == self.mask_value
