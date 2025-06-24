@@ -502,11 +502,11 @@ if not isinstance(torch, MockModule):
             x = x + skip_connection
             return self.last_activation(x)
 
-    class StandardizeLayer(nn.Module):  # noqa: F811
+    class StandardizeLayer(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
-            mean: Tensor = torch.tensor(0.),
-            std: Tensor = torch.tensor(1.),
+            mean: torch.tensor = torch.tensor(0.),
+            std: torch.tensor = torch.tensor(1.),
         ):
             """
             Standardizes the input tensor with given *mean* and *std* tensor.
@@ -517,9 +517,9 @@ if not isinstance(torch, MockModule):
                 std (torch.tensor, optional): Standard tensor. Defaults to torch.tensor(1.).
             """
             super().__init__()
-            self._type_check(mean=mean, std=std)
-            self.mean = torch.nn.Parameter(mean, requires_grad=False)
-            self.std = torch.nn.Parameter(std, requires_grad=False)
+            self.mean = torch.nn.Buffer(mean, persistent=True)
+            self.std = torch.nn.Buffer(std, persistent=True)
+
 
         def forward(self, x: Tensor):
             x = (x - self.mean) / self.std

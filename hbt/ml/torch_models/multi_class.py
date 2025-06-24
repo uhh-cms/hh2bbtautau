@@ -88,7 +88,7 @@ if not isinstance(torch, MockModule):
             mean, std = torch.concat(mean).to(device), torch.concat(std).to(device)
 
             # set up standardization layer
-            self.std_layer.set_mean_std(
+            self.std_layer.update_buffer(
                 mean.float(),
                 std.float(),
             )
