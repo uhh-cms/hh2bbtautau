@@ -130,8 +130,8 @@ def electron_selection(
     analysis_mask = None
     control_mask = None
     if is_single or is_cross:
-        min_pt = 26.0 if is_2016 else (40.0 if is_single else 35.0)  # 26.0 if is_2016 else (31.0 if is_single else 25.0)
-        max_eta = 2.3 if is_single else 2.0  # 2.5 if is_single else 2.1
+        min_pt = 26.0 if is_2016 else (31.0 if is_single else 25.0)
+        max_eta = 2.5 if is_single else 2.1
         default_mask = (
             (mva_iso_wp80 == 1) &
             (abs(events.Electron.eta) < max_eta) &
@@ -150,7 +150,7 @@ def electron_selection(
             )
 
         # control mask for the electron selection
-        control_mask = default_mask & (events.Electron.pt > 24)
+        control_mask = default_mask & (events.Electron.pt > 24.0)
         analysis_mask = default_mask & (events.Electron.pt > min_pt)
 
     # veto electron mask (must be trigger independent!)
@@ -234,8 +234,8 @@ def muon_selection(
         if is_2016:
             min_pt = 23.0 if is_single else 20.0
         else:
-            min_pt = 40.0 if is_single else 35.0  # 26.0 if is_single else 22.0
-        eta_cut = 2.3 if is_single else 2.0  # 2.4 if is_single else 2.1
+            min_pt = 26.0 if is_single else 22.0
+        eta_cut = 2.4 if is_single else 2.1
         default_mask = (
             (events.Muon.tightId == 1) &
             (abs(events.Muon.eta) < eta_cut) &
@@ -243,7 +243,7 @@ def muon_selection(
             (abs(events.Muon.dz) < 0.2) &
             (events.Muon.pfRelIso04_all < 0.15)
         )
-        control_mask = default_mask & (events.Muon.pt > 20)
+        control_mask = default_mask & (events.Muon.pt > 20.0)
         analysis_mask = default_mask & (events.Muon.pt > min_pt)
 
     # veto muon mask (must be trigger independent!)
@@ -253,7 +253,7 @@ def muon_selection(
         (abs(events.Muon.dxy) < 0.045) &
         (abs(events.Muon.dz) < 0.2) &
         (events.Muon.pfRelIso04_all < 0.3) &
-        (events.Muon.pt > 10)
+        (events.Muon.pt > 10.0)
     )
 
     return analysis_mask, control_mask, veto_mask
@@ -763,8 +763,8 @@ def lepton_selection(
             # expect 2 electrons, 2 veto electrons, 0 veto muons, and ignore the taus
             is_ee = (
                 trigger_fired &
-                (ak.sum(electron_mask, axis=1) == 2) &
-                # (ak.sum(electron_control_mask, axis=1) == 2) &
+                (ak.sum(electron_mask, axis=1) >= 1) &
+                (ak.sum(electron_control_mask, axis=1) == 2) &
                 leading_electron_matched &
                 (ak.sum(electron_veto_mask, axis=1) == 2) &
                 (ak.sum(muon_veto_mask, axis=1) == 0)
@@ -809,8 +809,8 @@ def lepton_selection(
             # expect 2 muons, 2 veto muons, 0 veto electrons, and ignore the taus
             is_mumu = (
                 trigger_fired &
-                (ak.sum(muon_mask, axis=1) == 2) &
-                # (ak.sum(muon_control_mask, axis=1) == 2) &
+                (ak.sum(muon_mask, axis=1) >= 1) &
+                (ak.sum(muon_control_mask, axis=1) == 2) &
                 leading_muon_matched &
                 (ak.sum(muon_veto_mask, axis=1) == 2) &
                 (ak.sum(electron_veto_mask, axis=1) == 0)
