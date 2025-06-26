@@ -53,10 +53,10 @@ if not isinstance(torch, MockModule):
             x[mask] = self.padding_value
             return x
 
-    class CategoricalTokenizer(nn.Module):  # noqa: F811
+    class CategoricalTokenizer(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
-            categories: tuple[Route | str],
+            categories: tuple[str | Route],
             expected_categorical_inputs: dict[str, list[int]],
             empty: int = 15,
         ):
@@ -78,43 +78,64 @@ if not isinstance(torch, MockModule):
                     Defaults to 15.
             """
             super().__init__()
-            self.expected_categorical_inputs = copy.deepcopy(expected_categorical_inputs)
-            self.categories = tuple(map(str, categories))
-            self.empty = self._empty(empty)
+            self._expected_inputs, self._empty = self.setup(categories, expected_categorical_inputs, empty)
 
-            self.map, self.min = self.LookUpTable(
-                self.pad_to_longest())
+            # setup lookuptable, returns dummy if None
+            _map, _min = self.LookUpTable(self.pad_to_longest())
+            _indices = None if _min is None else torch.arange(len(_min))
 
-            self.indices = torch.arange(len(self.min))
+            # register buffer
+            self.map = torch.nn.Buffer(_map, persistent=True)
+            self.min = torch.nn.Buffer(_min, persistent=True)
+            self.indices = torch.nn.Buffer(_indices, persistent=True)
+
+        def load_state_dict(self, state_dict, strict, assign):
+            # overload load_state_dict to set buffer sizes to same of state dict
+            for name in self.state_dict().keys():
+                self.__setattr__(name, torch.zeros_like(state_dict[name]))
+            super().load_state_dict(state_dict=state_dict, strict=strict, assign=assign)
+
+        def setup(self, categories, expected_inputs, empty):
+            def _empty(expected_inputs, empty):
+                if empty is None:
+                    return None
+                if empty < 0:
+                    raise ValueError("Empty value must be positive")
+                if empty in set([item for sublist in expected_inputs.values() for item in sublist]):
+                    raise ValueError(f"Empty value {empty} is already used in on the categories")
+                return empty
+
+            if expected_inputs is None:
+                return {}, None
+
+            # check empty for faulty values
+            # add empty category with value of empty to each value
+            expected_inputs = copy.deepcopy(expected_inputs)
+            empty = _empty(expected_inputs, empty)
+            _expected_inputs = {}
+            for categorie in map(str, categories):
+                data = expected_inputs[categorie]
+                data.append(empty)
+                _expected_inputs[categorie] = data
+            return _expected_inputs, empty
 
         @property
         def num_dim(self):
             return torch.max(self.map) + 1
 
-        def _empty(self, empty):
-            if empty is None:
-                return None
-
-            if empty < 0:
-                raise ValueError("Empty value must be positive")
-            if empty in set([item for sublist in self.expected_categorical_inputs.values() for item in sublist]):
-                raise ValueError(f"Empty value {empty} is already used in on the categories")
-
-            # add empty to the expected_categorical_inputs
-            for categorie in self.categories:
-                self.expected_categorical_inputs[categorie].append(empty)
-            return empty
-
         def __repr__(self):
             # create dummy input from expected_categorical_inputs
-            expected_pad = self.pad_to_longest().transpose(0, 1).to(device=self.map.device)
+            padded_array = self.pad_to_longest()
+            if padded_array is None:
+                return "Not initialized Tokenizer"
+
+            expected_pad = padded_array.transpose(0, 1).to(device=self.map.device)
             shifted = expected_pad - self.min
             output_per_feature = self.map[self.indices, shifted].transpose(0, 1)
             _str = []
             _str.append("Translation (input : output):")
-            for ind, categorie in enumerate(self.categories):
-                num_expected = self.expected_categorical_inputs[categorie]
-                _str.append(f"{categorie}: {num_expected} -> {output_per_feature[ind][:len(num_expected)].tolist()}")
+            for ind, (categorie, expected_value) in enumerate(self._expected_inputs.items()):
+                _str.append(f"{categorie}: {expected_value} -> {output_per_feature[ind][:len(expected_value)].tolist()}")
             return "\n".join(_str)
 
         def check_for_values_outside_range(self, input_tensor):
@@ -126,30 +147,32 @@ if not isinstance(torch, MockModule):
             """
             # reshape to have features in the first dimension
             input_tensor = input_tensor.transpose(0, 1)
-            for i, categorie in enumerate(self.categories):
+            for i, (categorie, expected_value) in enumerate(self._expected_inputs.items()):
                 uniques = set(torch.unique(input_tensor[i]).to(torch.int32).tolist())
-                expected = set(self.expected_categorical_inputs[categorie])
+                expected = set(expected_value)
                 if uniques != expected:
                     difference = uniques - expected
                     print(f"{categorie} has values outside the expected range: {difference}")
 
         def pad_to_longest(self):
+            if not self._expected_inputs:
+                return None
             # helper function to pad the input tensor to the longest category
             # first value of the category is used as padding value
             local_max = max([
-                len(self.expected_categorical_inputs[categorie])
-                for categorie in self.categories
+                len(input_for_categorie)
+                for input_for_categorie in self._expected_inputs.values()
             ])
             # pad with first value of the category, so we guarantee to not introduce new values
             array = torch.stack(
                 [
-                    nn.functional.pad(
-                        torch.tensor(self.expected_categorical_inputs[categorie]),
-                        (0, local_max - len(self.expected_categorical_inputs[categorie])),
+                    torch.nn.functional.pad(
+                        torch.tensor(input_for_categorie),
+                        (0, local_max - len(input_for_categorie)),
                         mode="constant",
-                        value=self.expected_categorical_inputs[categorie][0],
+                        value=input_for_categorie[0],
                     )
-                    for categorie in self.categories
+                    for input_for_categorie in self._expected_inputs.values()
                 ],
             )
             return array
@@ -168,8 +191,10 @@ if not isinstance(torch, MockModule):
                     Defaults to False.
 
             Returns:
-                tuple([torch.Tensor]): Returns minimum and LookUpTable
+                tuple([torch.Tensor]), None: Returns minimum and LookUpTable
             """
+            if array is None:
+                return None, None
             # append empty to the array representing the empty category
             # array = torch.cat([array, torch.ones(array.shape[0], dtype=torch.int32).reshape(-1, 1) * empty], axis=-1)
 
@@ -209,14 +234,6 @@ if not isinstance(torch, MockModule):
             shifted = (x - self.min).to(torch.int32)
             output = self.map[self.indices, shifted]
             return output
-
-        def to(self, *args, **kwargs):
-            # make sure to move the translation array to the same device as the input
-            self.map = self.map.to(*args, **kwargs)
-            self.min = self.min.to(*args, **kwargs)
-            self.indices = self.indices.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
-
 
     class CatEmbeddingLayer(nn.Module):  # noqa: F811
         def __init__(
@@ -521,7 +538,6 @@ if not isinstance(torch, MockModule):
             self.mean = torch.nn.Buffer(torch.tensor(mean), persistent=True)
             self.std = torch.nn.Buffer(torch.tensor(std), persistent=True)
 
-
         def forward(self, x: Tensor):
             x = (x - self.mean) / self.std
             return x
@@ -542,7 +558,6 @@ if not isinstance(torch, MockModule):
             self.mean = mean.type_as(self.mean)
             self.std = std.type_as(self.std)
 
-
     class RotatePhiLayer(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
@@ -561,7 +576,7 @@ if not isinstance(torch, MockModule):
             # overload load_state_dict to set buffer sizes to same of state dict
             for name in self.state_dict().keys():
                 self.__setattr__(name, torch.zeros_like(state_dict[name]))
-            super().load_state_dict(state_dict=state_dict,strict=strict, assign=assign)
+            super().load_state_dict(state_dict=state_dict, strict=strict, assign=assign)
 
         def find_indices_of(self, search_in, search_for, _expand=False):
             if search_in is None or search_for is None:
@@ -569,7 +584,7 @@ if not isinstance(torch, MockModule):
 
             if _expand:
                 search_for = self._expand(search_for)
-            return torch.tensor([tuple(map(search_in.index,particle)) for particle in search_for])
+            return torch.tensor([tuple(map(search_in.index, particle)) for particle in search_for])
 
         def _expand(self, columns):
             # adds px, py to columns and return them as tuple
