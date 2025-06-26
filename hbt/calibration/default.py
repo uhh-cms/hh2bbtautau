@@ -148,10 +148,10 @@ def default_init(self: Calibrator, **kwargs) -> None:
         })
         # derive tec calibrators
         add_calib_cls("tec_full", tec, cls_dict={
-            "met_name": met_name,
+            "propagate_met": False,  # not needed after JET-to-MET propagation
         })
         add_calib_cls("tec_nominal", tec, cls_dict={
-            "met_name": met_name,
+            "propagate_met": False,  # not needed after JET-to-MET propagation
             "with_uncertainties": False,
         })
         # derive electron scale and resolution calibrators
