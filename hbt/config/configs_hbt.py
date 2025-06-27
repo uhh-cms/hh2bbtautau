@@ -689,7 +689,7 @@ def add_config(
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
-        cfg.x.luminosity = Number(23_588.8567, {
+        cfg.x.luminosity = Number(26_671.6097, {
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2023 and campaign.has_tag("preBPix"):
