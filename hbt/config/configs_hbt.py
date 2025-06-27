@@ -1693,19 +1693,21 @@ def add_config(
             main_campaign, sub_campaign = full_campaign.split("-", 1)
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
 
+            # nanogen version that is appended to the fs base
+            nanogen_version = dataset_inst.x("nanogen_version", None) or cfg.campaign.x.custom["nanogen_version"]
+
             # create the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
             local_fs = f"local_fs_{cfg.campaign.x.custom['name']}"
             if law.config.has_section(local_fs):
                 base = law.target.file.remove_scheme(law.config.get_expanded(local_fs, "base"))
-                if os.path.exists(base):
+                if os.path.exists(os.path.join(base, nanogen_version)):
                     dir_cls = law.LocalDirectoryTarget
                     fs = local_fs
-            lfn_base = dir_cls(path, fs=fs)
+            lfn_base = dir_cls(nanogen_version, fs=fs).child(path, type="d")
 
             # loop though files and interpret paths as lfns
-            print(lfn_base)
             return sorted(
                 "/" + lfn_base.child(basename, type="f").path.lstrip("/")
                 for basename in lfn_base.listdir(pattern="*.root")
