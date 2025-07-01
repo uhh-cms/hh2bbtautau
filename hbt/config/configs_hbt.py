@@ -254,7 +254,7 @@ def add_config(
         ]),
         "ttzz_madgraph",
 
-        # dy, nlo
+        # dy, amcatnlo
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
         "dy_m50toinf_amcatnlo",
@@ -272,7 +272,7 @@ def add_config(
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
 
-        # dy, nnlo
+        # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
         # "dy_ee_m10to50_powheg",
         # "dy_ee_m50to120_powheg",
@@ -404,11 +404,11 @@ def add_config(
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
             if dataset.name.endswith("_madgraph"):
-                dataset.add_tag("dy_lo")
+                dataset.add_tag("dy_madgraph")
             elif dataset.name.endswith("_amcatnlo"):
-                dataset.add_tag("dy_nlo")
+                dataset.add_tag("dy_amcatnlo")
             elif dataset.name.endswith("_powheg"):
-                dataset.add_tag("dy_nnlo")
+                dataset.add_tag("dy_powheg")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("dy_stitched")
         if (
@@ -530,9 +530,9 @@ def add_config(
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
-        # drell-yan, nlo
+        # drell-yan, amcatnlo
         if "dy_m50toinf_amcatnlo" in cfg.datasets:
-            cfg.x.dy_nlo_stitching = {
+            cfg.x.dy_amcatnlo_stitching = {
                 "m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                     "leaf_processes": [
@@ -547,9 +547,9 @@ def add_config(
                     ],
                 },
             }
-        # drell-yan, nnlo
+        # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
-            cfg.x.dy_nnlo_stitching = {
+            cfg.x.dy_powheg_stitching = {
                 "ee_m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
                     "leaf_processes": [
@@ -641,6 +641,7 @@ def add_config(
     cfg.x.selector_step_groups = {
         "all": [],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
+        "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
     cfg.x.default_selector_steps = "all"
 
@@ -688,7 +689,7 @@ def add_config(
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
-        cfg.x.luminosity = Number(23_588.8567, {
+        cfg.x.luminosity = Number(26_671.6097, {
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2023 and campaign.has_tag("preBPix"):
@@ -1695,16 +1696,19 @@ def add_config(
             main_campaign, sub_campaign = full_campaign.split("-", 1)
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
 
+            # nanogen version that is appended to the fs base
+            nanogen_version = dataset_inst.x("nanogen_version", None) or cfg.campaign.x.custom["nanogen_version"]
+
             # create the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
             local_fs = f"local_fs_{cfg.campaign.x.custom['name']}"
             if law.config.has_section(local_fs):
                 base = law.target.file.remove_scheme(law.config.get_expanded(local_fs, "base"))
-                if os.path.exists(base):
+                if os.path.exists(os.path.join(base, nanogen_version)):
                     dir_cls = law.LocalDirectoryTarget
                     fs = local_fs
-            lfn_base = dir_cls(path, fs=fs)
+            lfn_base = dir_cls(nanogen_version, fs=fs).child(path, type="d")
 
             # loop though files and interpret paths as lfns
             return sorted(

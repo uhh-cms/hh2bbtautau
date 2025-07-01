@@ -190,10 +190,10 @@ def default(
             )
 
     # create process ids
-    if self.process_ids_dy_nlo is not None:
-        events = self[self.process_ids_dy_nlo](events, **kwargs)
-    elif self.process_ids_dy_nnlo is not None:
-        events = self[self.process_ids_dy_nnlo](events, **kwargs)
+    if self.process_ids_dy_amcatnlo is not None:
+        events = self[self.process_ids_dy_amcatnlo](events, **kwargs)
+    elif self.process_ids_dy_powheg is not None:
+        events = self[self.process_ids_dy_powheg](events, **kwargs)
     elif self.process_ids_w_lnu is not None:
         events = self[self.process_ids_w_lnu](events, **kwargs)
     else:
@@ -244,7 +244,7 @@ def default(
 @default.init
 def default_init(self: Selector, **kwargs) -> None:
     # build and store derived process id producers
-    for tag in {"dy_nlo", "dy_nnlo", "w_lnu"}:
+    for tag in {"dy_amcatnlo", "dy_powheg", "w_lnu"}:
         prod_name = f"process_ids_{tag}"
         setattr(self, prod_name, None)
         if not self.dataset_inst.has_tag(tag):
@@ -385,10 +385,10 @@ def empty_call(
             )
 
     # create process ids
-    if self.process_ids_dy_nlo is not None:
-        events = self[self.process_ids_dy_nlo](events, **kwargs)
-    elif self.process_ids_dy_nnlo is not None:
-        events = self[self.process_ids_dy_nnlo](events, **kwargs)
+    if self.process_ids_dy_amcatnlo is not None:
+        events = self[self.process_ids_dy_amcatnlo](events, **kwargs)
+    elif self.process_ids_dy_powheg is not None:
+        events = self[self.process_ids_dy_powheg](events, **kwargs)
     elif self.process_ids_w_lnu is not None:
         events = self[self.process_ids_w_lnu](events, **kwargs)
     else:

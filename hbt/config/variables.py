@@ -117,6 +117,13 @@ def add_variables(config: od.Config) -> None:
     )
     add_variable(
         config,
+        name="met_pt",
+        expression="PuppiMET.pt",
+        binning=(40, 0, 200),
+        x_title=r"MET $p_T$",
+    )
+    add_variable(
+        config,
         name="met_phi",
         expression="PuppiMET.phi",
         binning=(66, -3.3, 3.3),

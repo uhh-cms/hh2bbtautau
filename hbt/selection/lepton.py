@@ -86,7 +86,7 @@ def update_channel_ids(
 
 @selector(
     uses={
-        "Electron.{pt,eta,phi,dxy,dz,pfRelIso03_all,seediEtaOriX,seediPhiOriY}",
+        "Electron.{pt,eta,phi,dxy,dz,pfRelIso03_all,seediEtaOriX,seediPhiOriY,deltaEtaSC}",
         IF_NANO_V9("Electron.mvaFall17V2{Iso_WP80,Iso_WP90}"),
         IF_NANO_GE_V10("Electron.{mvaIso_WP80,mvaIso_WP90}"),
     },
@@ -122,6 +122,10 @@ def electron_selection(
         mva_iso_wp80 = events.Electron.mvaFall17V2Iso_WP80
         mva_iso_wp90 = events.Electron.mvaFall17V2Iso_WP90
 
+    # ecal overlap region rejection based on supercluster eta
+    abs_sc_eta = abs(events.Electron.eta + events.Electron.deltaEtaSC)
+    in_ecal_overlap = (abs_sc_eta >= 1.4442) & (abs_sc_eta <= 1.5660)
+
     # default electron mask
     analysis_mask = None
     control_mask = None
@@ -132,7 +136,8 @@ def electron_selection(
             (mva_iso_wp80 == 1) &
             (abs(events.Electron.eta) < max_eta) &
             (abs(events.Electron.dxy) < 0.045) &
-            (abs(events.Electron.dz) < 0.2)
+            (abs(events.Electron.dz) < 0.2) &
+            ~in_ecal_overlap
         )
 
         # additional cut in 2022 post-EE
@@ -154,7 +159,8 @@ def electron_selection(
         (abs(events.Electron.eta) < 2.5) &
         (abs(events.Electron.dxy) < 0.045) &
         (abs(events.Electron.dz) < 0.2) &
-        (events.Electron.pt > 10.0)
+        (events.Electron.pt > 10.0) &
+        ~in_ecal_overlap
     )
 
     return analysis_mask, control_mask, veto_mask
