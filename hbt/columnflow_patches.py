@@ -17,8 +17,8 @@ logger = law.logger.get_logger(__name__)
 @memoize
 def patch_bundle_repo_exclude_files():
     """
-    Patches the exclude_files attribute of the existing BundleRepo task to exclude files
-    specific to _this_ analysis project.
+    Patches the exclude_files attribute of the existing BundleRepo task to exclude files specific to _this_ analysis
+    project.
     """
     from columnflow.tasks.framework.remote import BundleRepo
 
@@ -42,18 +42,15 @@ def patch_bundle_repo_exclude_files():
 @memoize
 def patch_remote_workflow_poll_interval():
     """
-    Patches the HTCondorWorkflow and SlurmWorkflow tasks to change the default value of the
-    poll_interval parameter to 1 minute.
+    Patches the HTCondorWorkflow and SlurmWorkflow tasks to change the default value of the poll_interval parameter to 1
+    minute.
     """
     from columnflow.tasks.framework.remote import HTCondorWorkflow, SlurmWorkflow
 
     HTCondorWorkflow.poll_interval._default = 1.0  # minutes
     SlurmWorkflow.poll_interval._default = 1.0  # minutes
 
-    logger.debug(
-        f"patched poll_interval._default of {HTCondorWorkflow.task_family} and "
-        f"{SlurmWorkflow.task_family}",
-    )
+    logger.debug(f"patched poll_interval._default of {HTCondorWorkflow.task_family} and {SlurmWorkflow.task_family}")
 
 
 @memoize
@@ -73,7 +70,21 @@ def patch_htcondor_workflow_naf_resources():
 
 
 @memoize
+def patch_merge_reduction_stats_inputs():
+    """
+    Patches the MergeReductionStats task to set the default value of n_inputs to -1, so as to use all files to infer
+    merging factors with full statistical precision.
+    """
+    from columnflow.tasks.reduction import MergeReductionStats
+
+    MergeReductionStats.n_inputs._default = -1
+
+    logger.debug(f"patched n_inputs default value of {MergeReductionStats.task_family}")
+
+
+@memoize
 def patch_all():
     patch_bundle_repo_exclude_files()
     patch_remote_workflow_poll_interval()
     patch_htcondor_workflow_naf_resources()
+    patch_merge_reduction_stats_inputs()

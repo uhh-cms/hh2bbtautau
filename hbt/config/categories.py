@@ -29,20 +29,26 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="emu", id=6, selection="cat_emu", label=config.channels.n.emu.label)
 
     # qcd regions
-    _add_category(config, name="os", id=10, selection="cat_os", label="OS", tags={"os"})
-    _add_category(config, name="ss", id=11, selection="cat_ss", label="SS", tags={"ss"})
-    _add_category(config, name="iso", id=12, selection="cat_iso", label=r"iso", tags={"iso"})
-    _add_category(config, name="noniso", id=13, selection="cat_noniso", label=r"non-iso", tags={"noniso"})  # noqa: E501
+    _add_category(config, name="os", id="+", selection="cat_os", label="OS", tags={"os"})
+    _add_category(config, name="ss", id="+", selection="cat_ss", label="SS", tags={"ss"})
+    _add_category(config, name="iso", id="+", selection="cat_iso", label=r"iso", tags={"iso"})
+    _add_category(config, name="noniso", id="+", selection="cat_noniso", label=r"non-iso", tags={"noniso"})  # noqa: E501
 
     # kinematic categories
-    _add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
-    _add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
-    _add_category(config, name="dy", id=210, selection="cat_dy", label="DY enriched")
-    _add_category(config, name="tt", id=220, selection="cat_tt", label=r"$t\bar{t}$ enriched")
+    _add_category(config, name="incl", id="+", selection="cat_incl", label="inclusive")
+    _add_category(config, name="eq0j", id="+", selection="cat_eq0j", label="0 jets")
+    _add_category(config, name="eq1j", id="+", selection="cat_eq1j", label="1 jet")
+    _add_category(config, name="eq2j", id="+", selection="cat_eq2j", label="2 jets")
+    _add_category(config, name="eq3j", id="+", selection="cat_eq3j", label="3 jets")
+    _add_category(config, name="eq4j", id="+", selection="cat_eq4j", label="4 jets")
+    _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
+    _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
+    _add_category(config, name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
+    _add_category(config, name="mll40", id="+", selection="cat_mll40", label=r"$m_{ll} > 40$")
 
-    _add_category(config, name="res1b", id=300, selection="cat_res1b", label="res1b")
-    _add_category(config, name="res2b", id=301, selection="cat_res2b", label="res2b")
-    _add_category(config, name="boosted", id=310, selection="cat_boosted", label="boosted")
+    _add_category(config, name="res1b", id="+", selection="cat_res1b", label="res1b")
+    _add_category(config, name="res2b", id="+", selection="cat_res2b", label="res2b")
+    _add_category(config, name="boosted", id="+", selection="cat_boosted", label="boosted")
 
     #
     # build groups
@@ -81,7 +87,7 @@ def add_categories(config: od.Config) -> None:
         # channels first
         "channel": CategoryGroup(["etau", "mutau", "tautau"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-        "kin": CategoryGroup(["incl", "2j", "res1b", "res2b", "boosted"], is_complete=True, has_overlap=True),
+        "kin": CategoryGroup(["incl", "res1b", "res2b", "boosted"], is_complete=True, has_overlap=True),
         # qcd regions last
         "sign": CategoryGroup(["os", "ss"], is_complete=True, has_overlap=False),
         "tau2": CategoryGroup(["iso", "noniso"], is_complete=True, has_overlap=False),
@@ -99,7 +105,8 @@ def add_categories(config: od.Config) -> None:
         # channels first
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-        "kin": CategoryGroup(["incl", "dy", "tt"], is_complete=True, has_overlap=True),
+        "kin": CategoryGroup(["incl", "dy", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
+        "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "eq4j"], is_complete=False, has_overlap=False),
         # relative sign last
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
@@ -110,10 +117,10 @@ def add_categories(config: od.Config) -> None:
         ch_cat = categories["channel"]
         kin_cat = categories["kin"]
         # skip dy in emu
-        if kin_cat.name == "dy" and ch_cat.name == "emu":
+        if kin_cat.name.startswith("dy") and ch_cat.name == "emu":
             return True
         # skip tt in ee/mumu
-        if kin_cat.name == "tt" and ch_cat.name in ("ee", "mumu"):
+        if kin_cat.name == "tt" and ch_cat.name in {"ee", "mumu"}:
             return True
         return False
 
