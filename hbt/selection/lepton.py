@@ -150,7 +150,7 @@ def electron_selection(
             )
 
         # control mask for the electron selection
-        control_mask = default_mask & (events.Electron.pt > 24)
+        control_mask = default_mask & (events.Electron.pt > 24.0)
         analysis_mask = default_mask & (events.Electron.pt > min_pt)
 
     # veto electron mask (must be trigger independent!)
@@ -243,7 +243,7 @@ def muon_selection(
             (abs(events.Muon.dz) < 0.2) &
             (events.Muon.pfRelIso04_all < 0.15)
         )
-        control_mask = default_mask & (events.Muon.pt > 20)
+        control_mask = default_mask & (events.Muon.pt > 20.0)
         analysis_mask = default_mask & (events.Muon.pt > min_pt)
 
     # veto muon mask (must be trigger independent!)
@@ -253,7 +253,7 @@ def muon_selection(
         (abs(events.Muon.dxy) < 0.045) &
         (abs(events.Muon.dz) < 0.2) &
         (events.Muon.pfRelIso04_all < 0.3) &
-        (events.Muon.pt > 10)
+        (events.Muon.pt > 10.0)
     )
 
     return analysis_mask, control_mask, veto_mask
