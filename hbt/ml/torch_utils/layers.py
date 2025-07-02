@@ -651,3 +651,61 @@ if not isinstance(torch, MockModule):
         def forward(self, x):
             ref_phi = self.calc_ref_phi(x)
             return self.rotate_columns(x, ref_phi)
+
+    class TwoHeadFactory(torch.nn.Module):
+        def __init__(self, common_base, categorization_head, regression_head):
+            """
+            Small factory to create a model with two heads.
+            All inputs needs to be models of sequential nature, where a single output is expected.
+
+            Args:
+                common_base (torch.nn.Module): Network performing common base task
+                categorization_head (torch.nn.Module): Network performing categorization task
+                regression_head (torch.nn.Module): Network performing regression task
+            """
+            super().__init__()
+            self.base = common_base
+            self.cat_head = categorization_head
+            self.reg_head = regression_head
+
+        def check_shape(self):
+            pass
+
+        def forward(self, x: Tensor):
+            base_output = self.base(x)
+            cat_pred = self.cat_head(base_output)
+            reg_pred = self.reg_head(base_output)
+            return cat_pred, reg_pred
+
+    class AggregationLayer(torch.nn.Module):
+        def __init__(self, aggregation_name: str = "sum", aggregation_dim: int = 1):
+            """
+            Aggregation Layer to aggregate over object dimension of input.
+            This layer assumes that the
+
+            Args:
+                aggregation_name (str, optional): Name of the aggregation function ("max", "sum", "mean"). Defaults to "sum".
+                aggregation_dim (int, optional): Dimension over which the aggregation happens. Defaults to 1.
+            """
+            super().__init__()
+            self.aggregation_fn = self._get_agg_fn(aggregation_name)
+            self.aggregation_dim = torch.nn.Buffer(torch.tensor(aggregation_dim).to(torch.int32))
+
+        @property
+        def name(self):
+            return self.aggregation_fn.__name__
+
+        def _get_agg_fn(self, name):
+            return self.__getattribute__(name.lower())
+
+        def max(self, x):
+            return x.max(dim=1).values
+
+        def sum(self, x):
+            return x.sum(dim=1)
+
+        def mean(self, x):
+            return x.mean(dim=1)
+
+        def forward(self, x):
+            return self.aggregation_fn(x)
