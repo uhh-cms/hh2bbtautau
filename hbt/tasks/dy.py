@@ -29,7 +29,7 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             --processes sm_nlo_data_bkg \
             --version prod8_dy \
             --hist-producer no_dy_weight \
-            --categories mumu__dy__os \
+            --categories mumu__dyc_eq2j__os \
             --variables njets-dilep_pt
     """
 
@@ -42,8 +42,8 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
         if len(self.categories) != 1:
             raise ValueError(f"{self.task_family} requires exactly one category, got {self.categories}")
         # ensure that the category matches a specific pattern: starting with "ee"/"mumu" and ending in "os"
-        if not re.match(r"^(ee|mumu|tautau)__.*__os.*$", self.categories[0]):
-            raise ValueError(f"category must start with '{{ee,mumu,tautau}}__' and contain '__os', got {self.categories[0]}")
+        if not re.match(r"^(mumu)__.*__os.*$", self.categories[0]):
+            raise ValueError(f"category must start with '{{mumu}}__' and contain '__os', got {self.categories[0]}")
         self.category_inst = self.config_inst.get_category(self.categories[0])
 
         # only one variable is allowed
@@ -96,7 +96,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
     single_config = False
 
-    category = "tautau__dyc__os__noniso"
+    category = "mumu__dyc_eq3j__os"
     variable = "njets-dilep_pt"
 
     def requires(self):
@@ -281,8 +281,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         lower_bounds = [0.8, 0, 0, 0, 0, -1, 0]
         upper_bounds = [1.2, 10, 50, 20, 2, 2, 60]
 
-        from IPython import embed; embed(header="dy fit ...")
-
         # perform the fit with both functions
         param_fit, _ = optimize.curve_fit(
             fit_function,
@@ -331,9 +329,9 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         ax.legend(loc="upper right")
         ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
         ax.set_ylabel("Ratio (data-non DY MC)/DY")
-        ax.set_title("NNLO 2022preEE, mumu__dy_eq2j_eq0b")
+        ax.set_title("2022preEE, amcatnlo, dilep.pt , mumu__dyc_eq3j__os")
         ax.grid(True)
-        fig.savefig("plot_NNLO_mumu__dy_eq2j_eq0b.pdf")
+        fig.savefig("plot_mumu__dyc_eq3j__os.pdf")
         # -------------------------------
         print(fit_string)
 
@@ -348,7 +346,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         },
     }
 
-    for njet in [2]:
+    for njet in [3]:
         fit_str = get_fit_str(njet, h)
 
         # TODO: if first 2 elements in tupple are not -inf, inf the fit_str will be multiplied
