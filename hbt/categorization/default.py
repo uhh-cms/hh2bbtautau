@@ -85,6 +85,15 @@ def cat_noniso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array,
 
 
 #
+# additional special regions
+#
+
+@categorizer(uses={"single_triggered"})
+def cat_single_triggered(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.single_triggered == 1
+
+
+#
 # kinematic regions
 #
 
@@ -94,10 +103,29 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, ak.ones_like(events.event) == 1
 
 
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # two or more jets
-    return events, ak.num(events.Jet.pt, axis=1) >= 2
+@categorizer(uses={"Jet.pt"})
+def cat_eq0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) == 0
+
+
+@categorizer(uses={"Jet.pt"})
+def cat_eq1j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) == 1
+
+
+@categorizer(uses={"Jet.pt"})
+def cat_eq2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) == 2
+
+
+@categorizer(uses={"Jet.pt"})
+def cat_eq3j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) == 3
+
+
+@categorizer(uses={"Jet.pt"})
+def cat_eq4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) == 4
 
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
@@ -180,7 +208,13 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, mask
 
 
-@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass,charge}"})
+@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
+def cat_mll40(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+    return events, leps.sum(axis=1).mass > 40.0
+
+
+@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # e/mu driven DY region: mll > 40 and met < 30 (to supress tau decays into e/mu)
     leps = attach_behavior(

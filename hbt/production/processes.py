@@ -15,7 +15,7 @@ from columnflow.production import Producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
 
-from hbt.util import IF_DATASET_IS_DY_NLO, IF_DATASET_IS_DY_NNLO, IF_DATASET_IS_W_LNU
+from hbt.util import IF_DATASET_IS_DY_AMCATNLO, IF_DATASET_IS_DY_POWHEG, IF_DATASET_IS_W_LNU
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -323,10 +323,17 @@ class stiched_process_ids_m(stitched_process_ids):
                     stitching_values[i] = ak.where(max_outlier, aux_max - 1e-5, values)
 
 
-process_ids_dy_nlo = stiched_process_ids_nj_pt.derive("process_ids_dy_nlo", cls_dict={
+process_ids_dy_amcatnlo = stiched_process_ids_nj_pt.derive("process_ids_dy_amcatnlo", cls_dict={
     "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
     "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
-    "include_condition": IF_DATASET_IS_DY_NLO,
+    "include_condition": IF_DATASET_IS_DY_AMCATNLO,
+    # still misses leaf_processes, must be set dynamically
+})
+
+process_ids_dy_powheg = stiched_process_ids_m.derive("process_ids_dy_powheg", cls_dict={
+    "stitching_columns": ["LHEmll"],
+    "cross_check_translation_dict": {"LHEmll": "mll"},
+    "include_condition": IF_DATASET_IS_DY_POWHEG,
     # still misses leaf_processes, must be set dynamically
 })
 
@@ -334,12 +341,5 @@ process_ids_w_lnu = stiched_process_ids_nj_pt.derive("process_ids_w_lnu", cls_di
     "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
     "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
     "include_condition": IF_DATASET_IS_W_LNU,
-    # still misses leaf_processes, must be set dynamically
-})
-
-process_ids_dy_nnlo = stiched_process_ids_m.derive("process_ids_dy_nnlo", cls_dict={
-    "stitching_columns": ["LHEmll"],
-    "cross_check_translation_dict": {"LHEmll": "mll"},
-    "include_condition": IF_DATASET_IS_DY_NNLO,
     # still misses leaf_processes, must be set dynamically
 })

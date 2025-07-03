@@ -117,10 +117,89 @@ def add_variables(config: od.Config) -> None:
     )
     add_variable(
         config,
+        name="met_pt",
+        expression="PuppiMET.pt",
+        binning=(40, 0, 200),
+        x_title=r"MET $p_T$",
+    )
+    add_variable(
+        config,
         name="met_phi",
         expression="PuppiMET.phi",
         binning=(66, -3.3, 3.3),
         x_title=r"MET $\phi$",
+    )
+    for n in range(1, 2 + 1):
+        for v in ["px", "py", "pz"]:
+            add_variable(
+                config,
+                name=f"reg_dnn_nu{n}_{v}",
+                binning=(40, -150, 150),
+                x_title=rf"Regressed $\nu_{n} {v}$",
+            )
+
+    def build_reg_h(events, which=None):
+        import numpy as np
+        vis_leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+        ref_phi = vis_leps.sum(axis=1).phi
+        def rotate_px_py(px, py):
+            new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
+            pt = (px**2 + py**2)**0.5
+            return pt * np.cos(new_phi), pt * np.sin(new_phi)
+        nu1_px, nu1_py = rotate_px_py(events.reg_dnn_nu1_px, events.reg_dnn_nu1_py)
+        nu1 = ak.Array(
+            {
+                "px": nu1_px,
+                "py": nu1_py,
+                "pz": events.reg_dnn_nu1_pz,
+                "e": (nu1_px**2 + nu1_py**2 + events.reg_dnn_nu1_pz**2)**0.5,
+            },
+            with_name="PtEtaPhiMLorentzVector",
+            behavior=events.behavior,
+        )
+        nu2_px, nu2_py = rotate_px_py(events.reg_dnn_nu2_px, events.reg_dnn_nu2_py)
+        nu2 = ak.Array(
+            {
+                "px": nu2_px,
+                "py": nu2_py,
+                "pz": events.reg_dnn_nu2_pz,
+                "e": (nu2_px**2 + nu2_py**2 + events.reg_dnn_nu2_pz**2)**0.5,
+            },
+            with_name="PtEtaPhiMLorentzVector",
+            behavior=events.behavior,
+        )
+        # build the higgs
+        h = ak.concatenate([nu1[:, None] * 1, nu2[:, None] * 1, vis_leps], axis=1).sum(axis=1)
+        if which is None:
+            return h
+        if which == "mass":
+            return h.mass
+        raise ValueError(f"Unknown which: {which}")
+    build_reg_h.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}", "reg_dnn_nu{1,2}_p{x,y,z}"]
+    add_variable(
+        config,
+        name="reg_h_mass",
+        expression=partial(build_reg_h, which="mass"),
+        aux={"inputs": build_reg_h.inputs},
+        binning=(50, 0.0, 250.0),
+        x_title=r"Regressed $m_{H}$",
+    )
+
+    def build_vis_h(events, which=None):
+        vis_h = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2].sum(axis=1)
+        if which is None:
+            return vis_h
+        if which == "mass":
+            return vis_h.mass
+        raise ValueError(f"Unknown which: {which}")
+    build_vis_h.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
+    add_variable(
+        config,
+        name="vis_h_mass",
+        expression=partial(build_vis_h, which="mass"),
+        aux={"inputs": build_vis_h.inputs},
+        binning=(50, 0.0, 250.0),
+        x_title=r"Visible $m_{H}$",
     )
 
     # weights

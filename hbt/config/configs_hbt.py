@@ -254,7 +254,7 @@ def add_config(
         ]),
         "ttzz_madgraph",
 
-        # dy, nlo
+        # dy, amcatnlo
         "dy_m4to10_amcatnlo",
         "dy_m10to50_amcatnlo",
         "dy_m50toinf_amcatnlo",
@@ -272,7 +272,7 @@ def add_config(
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
 
-        # dy, nnlo
+        # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
         # "dy_ee_m10to50_powheg",
         # "dy_ee_m50to120_powheg",
@@ -404,11 +404,11 @@ def add_config(
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
             if dataset.name.endswith("_madgraph"):
-                dataset.add_tag("dy_lo")
+                dataset.add_tag("dy_madgraph")
             elif dataset.name.endswith("_amcatnlo"):
-                dataset.add_tag("dy_nlo")
+                dataset.add_tag("dy_amcatnlo")
             elif dataset.name.endswith("_powheg"):
-                dataset.add_tag("dy_nnlo")
+                dataset.add_tag("dy_powheg")
         if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("dy_stitched")
         if (
@@ -536,9 +536,9 @@ def add_config(
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
-        # drell-yan, nlo
+        # drell-yan, amcatnlo
         if "dy_m50toinf_amcatnlo" in cfg.datasets:
-            cfg.x.dy_nlo_stitching = {
+            cfg.x.dy_amcatnlo_stitching = {
                 "m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                     "leaf_processes": [
@@ -553,9 +553,9 @@ def add_config(
                     ],
                 },
             }
-        # drell-yan, nnlo
+        # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
-            cfg.x.dy_nnlo_stitching = {
+            cfg.x.dy_powheg_stitching = {
                 "ee_m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
                     "leaf_processes": [
@@ -664,6 +664,7 @@ def add_config(
     cfg.x.selector_step_groups = {
         "all": [],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
+        "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
     cfg.x.default_selector_steps = "all"
 
@@ -711,7 +712,7 @@ def add_config(
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
-        cfg.x.luminosity = Number(23_588.8567, {
+        cfg.x.luminosity = Number(26_671.6097, {
             "lumi_13p6TeV_correlated": 0.014j,
         })
     elif year == 2023 and campaign.has_tag("preBPix"):
@@ -765,9 +766,19 @@ def add_config(
         jet_type = "AK4PFchs"
     elif run == 3:
         # https://cms-jerc.web.cern.ch/Recommendations/#2022
-        jerc_postfix = {2022: "_22Sep2023", 2023: "Prompt23"}[year]
+        jerc_postfix = {
+            (2022, ""): "_22Sep2023",
+            (2022, "EE"): "_22Sep2023",
+            (2023, ""): "Prompt23",
+            (2023, "BPix"): "Prompt23",
+        }[(year, campaign.x.postfix)]
         jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
-        jec_version = {2022: "V2", 2023: "V1"}[year]
+        jec_version = {
+            (2022, ""): "V2",
+            (2022, "EE"): "V2",
+            (2023, ""): "V2",
+            (2023, "BPix"): "V3",
+        }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
@@ -781,6 +792,7 @@ def add_config(
         "Jet": {
             "campaign": jec_campaign,
             "version": jec_version,
+            "data_per_era": True if year == 2022 else False,  # 2022 JEC has the era as a corrlib input argument
             "jet_type": jet_type,
             "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
             "levels_for_type1_met": ["L1FastJet"],
@@ -1430,10 +1442,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c9422789"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-b7a48c75"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c9422789"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-b7a48c75"
         trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
@@ -1479,6 +1491,9 @@ def add_config(
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/res_models/res_prod3/model_fold0.tgz", "v1"))  # noqa: E501
     # non-parametric (flat) training up to mX = 800 GeV
     add_external("res_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))  # noqa: E501
+    # non-parametric regression from the resonant analysis
+    add_external("reg_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))  # noqa: E501
+    add_external("reg_dnn_moe", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))  # noqa: E501
 
     # run specific files
     if run == 2:
@@ -1715,19 +1730,24 @@ def add_config(
             main_campaign, sub_campaign = full_campaign.split("-", 1)
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
 
+            # nanogen version that is appended to the fs base
+            # note: this feature is not yet used as we do not have different prod* versions per dataset yet
+            # nanogen_version = dataset_inst.x("nanogen_version", None) or cfg.campaign.x.custom["nanogen_version"]
+
             # create the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
             local_fs = f"local_fs_{cfg.campaign.x.custom['name']}"
             if law.config.has_section(local_fs):
                 base = law.target.file.remove_scheme(law.config.get_expanded(local_fs, "base"))
+                # if os.path.exists(os.path.join(base, nanogen_version)):
                 if os.path.exists(base):
                     dir_cls = law.LocalDirectoryTarget
                     fs = local_fs
+            # lfn_base = dir_cls(nanogen_version, fs=fs).child(path, type="d")
             lfn_base = dir_cls(path, fs=fs)
 
             # loop though files and interpret paths as lfns
-            print(lfn_base)
             return sorted(
                 "/" + lfn_base.child(basename, type="f").path.lstrip("/")
                 for basename in lfn_base.listdir(pattern="*.root")

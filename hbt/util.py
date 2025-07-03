@@ -98,27 +98,27 @@ def IF_DATASET_IS_DY(
 
 
 @deferred_column
-def IF_DATASET_IS_DY_LO(
+def IF_DATASET_IS_DY_MADGRAPH(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
 ) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("dy_lo") else None
+    return self.get() if func.dataset_inst.has_tag("dy_madgraph") else None
 
 
 @deferred_column
-def IF_DATASET_IS_DY_NLO(
+def IF_DATASET_IS_DY_AMCATNLO(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
 ) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("dy_nlo") else None
+    return self.get() if func.dataset_inst.has_tag("dy_amcatnlo") else None
 
 
 @deferred_column
-def IF_DATASET_IS_DY_NNLO(
+def IF_DATASET_IS_DY_POWHEG(
     self: ArrayFunction.DeferredColumn,
     func: ArrayFunction,
 ) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("dy_nnlo") else None
+    return self.get() if func.dataset_inst.has_tag("dy_powheg") else None
 
 
 @deferred_column
