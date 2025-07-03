@@ -70,7 +70,7 @@ class _res_dnn_evaluation(Producer):
     dir_name: str | None = None
 
     # limited chunk size to avoid memory issues
-    max_chunk_size: int = 5_000
+    max_chunk_size: int = 10_000
 
     # the empty value to insert to output columns in case of missing or broken values
     empty_value: float = EMPTY_FLOAT
