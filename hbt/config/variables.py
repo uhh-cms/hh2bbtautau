@@ -6,6 +6,7 @@ Definition of variables.
 from functools import partial
 
 import order as od
+import numpy as np
 
 from columnflow.columnar_util import EMPTY_FLOAT, attach_coffea_behavior, default_coffea_collections
 from columnflow.util import maybe_import
@@ -423,6 +424,7 @@ def add_variables(config: od.Config) -> None:
         expression=partial(build_dilep, which="pt"),
         aux={"inputs": build_dilep.inputs},
         binning=(40, 0, 200),
+        # binning=np.linspace(0, 80, 33).tolist() + np.linspace(80, 200, 25).tolist()[1:],
         unit="GeV",
         x_title=r"$p_{T,ll}$",
     )
@@ -451,6 +453,15 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_dilep.inputs},
         binning=(30, 0, 6),
         x_title=r"$\Delta R_{ll}$",
+    )
+
+    # DY wegithts
+    add_variable(
+        config,
+        name="dy_weight",
+        expression="dy_weight",
+        binning=(40, 0.8, 1.5),
+        x_title="DY weight (gen)",
     )
 
     # zoomed in variables for CCLUB dy enriched region
