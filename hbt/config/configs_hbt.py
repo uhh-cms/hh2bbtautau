@@ -743,9 +743,19 @@ def add_config(
         jet_type = "AK4PFchs"
     elif run == 3:
         # https://cms-jerc.web.cern.ch/Recommendations/#2022
-        jerc_postfix = {2022: "_22Sep2023", 2023: "Prompt23"}[year]
+        jerc_postfix = {
+            (2022, ""): "_22Sep2023",
+            (2022, "EE"): "_22Sep2023",
+            (2023, ""): "Prompt23",
+            (2023, "BPix"): "Prompt23",
+        }[(year, campaign.x.postfix)]
         jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
-        jec_version = {2022: "V2", 2023: "V1"}[year]
+        jec_version = {
+            (2022, ""): "V2",
+            (2022, "EE"): "V2",
+            (2023, ""): "V2",
+            (2023, "BPix"): "V3",
+        }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
@@ -759,6 +769,7 @@ def add_config(
         "Jet": {
             "campaign": jec_campaign,
             "version": jec_version,
+            "data_per_era": True if year == 2022 else False,  # 2022 JEC has the era as a corrlib input argument
             "jet_type": jet_type,
             "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
             "levels_for_type1_met": ["L1FastJet"],
@@ -1408,10 +1419,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c9422789"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-b7a48c75"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c9422789"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-b7a48c75"
         trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
@@ -1697,7 +1708,8 @@ def add_config(
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
 
             # nanogen version that is appended to the fs base
-            nanogen_version = dataset_inst.x("nanogen_version", None) or cfg.campaign.x.custom["nanogen_version"]
+            # note: this feature is not yet used as we do not have different prod* versions per dataset yet
+            # nanogen_version = dataset_inst.x("nanogen_version", None) or cfg.campaign.x.custom["nanogen_version"]
 
             # create the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
@@ -1705,10 +1717,12 @@ def add_config(
             local_fs = f"local_fs_{cfg.campaign.x.custom['name']}"
             if law.config.has_section(local_fs):
                 base = law.target.file.remove_scheme(law.config.get_expanded(local_fs, "base"))
-                if os.path.exists(os.path.join(base, nanogen_version)):
+                # if os.path.exists(os.path.join(base, nanogen_version)):
+                if os.path.exists(base):
                     dir_cls = law.LocalDirectoryTarget
                     fs = local_fs
-            lfn_base = dir_cls(nanogen_version, fs=fs).child(path, type="d")
+            # lfn_base = dir_cls(nanogen_version, fs=fs).child(path, type="d")
+            lfn_base = dir_cls(path, fs=fs)
 
             # loop though files and interpret paths as lfns
             return sorted(
