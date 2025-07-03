@@ -29,6 +29,7 @@ DenseBlock = MockModule("DenseBlock")  # type: ignore[assignment]
 ResNetPreactivationBlock = MockModule("ResNetPreactivationBlock")  # type: ignore[assignment]
 StandardizeLayer = MockModule("StandardizeLayer")  # type: ignore[assignment]
 RotatePhiLayer = MockModule("RotatePhiLayer")  # type: ignore[assignment]
+AggregationLayer = MockModule("AggregationLayer")  # type: ignore[assignment]
 
 
 if not isinstance(torch, MockModule):
@@ -45,8 +46,8 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
 
-            self.padding_value = torch.nn.Buffer(torch.tensor(padding_value), persistent=True)
-            self.mask_value = torch.nn.Buffer(torch.tensor(mask_value), persistent=True)
+            self.padding_value = torch.nn.Buffer(torch.tensor(padding_value).to(torch.float32), persistent=True)
+            self.mask_value = torch.nn.Buffer(torch.tensor(mask_value).to(torch.float32), persistent=True)
 
         def forward(self, x):
             mask = x == self.mask_value
