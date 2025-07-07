@@ -176,11 +176,7 @@ def add_categories(config: od.Config) -> None:
         ch_cat = categories["channel"]
         kin_cat = categories["kin"]
         # skip dy in emu
-<<<<<<< HEAD
-        if ("dy" in kin_cat.name) and ch_cat.name == "emu":
-=======
         if kin_cat.name.startswith("dy") and ch_cat.name == "emu":
->>>>>>> master
             return True
         # skip tt in ee/mumu
         if kin_cat.name == "tt" and ch_cat.name in {"ee", "mumu"}:
