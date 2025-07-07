@@ -4,11 +4,9 @@
 Exemplary selection methods.
 """
 
-from typing import Optional
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 from columnflow.util import maybe_import
-from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 
 ak = maybe_import("awkward")
 
@@ -78,52 +76,11 @@ def cat_iso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak
     # isolated tau2
     return events, events.tau2_isolated == 1
 
-"""
+
 @categorizer(uses={"tau2_isolated"})
 def cat_noniso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # non-isolated tau2
+    # noon-isolated tau2
     return events, events.tau2_isolated == 0
-"""
-
-
-# helper function
-def get_iso_mask(
-    self: Categorizer,
-    events: ak.Array,
-    passes_wp: str,
-    fails_wp: Optional[str] = None,
-) -> ak.Array:
-
-    # define tautau channel
-    is_tautau = events.channel_id == self.config_inst.channels.n.tautau.id
-
-    # get tau vs jet tagger
-    tagger = f"id{self.config_inst.x.tau_tagger}VSjet"
-
-    # define working points and intermediate isolation mask
-    if passes_wp is not None:
-        wp_pass = getattr(self.config_inst.x.tau_id_working_points.tau_vs_jet, passes_wp)
-        iso_mask = (getattr(events.Tau, tagger) >= wp_pass)
-
-        # define highest working point (optional)
-        if fails_wp is not None:
-            wp_fail = getattr(self.config_inst.x.tau_id_working_points.tau_vs_jet, fails_wp)
-            iso_mask = iso_mask & (getattr(events.Tau, tagger) < wp_fail)
-
-    # define channel dependent isolation masks
-    padded_iso_mask = ak.fill_none(ak.pad_none(iso_mask, 2, axis=1), False)
-    tau2_iso_mask = ak.where(is_tautau, padded_iso_mask[:, 1], padded_iso_mask[:, 0])
-
-    return tau2_iso_mask
-
-
-@categorizer(uses={"Tau.*", "channel_id"})
-def cat_noniso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-
-    # get isolated tau2
-    tau2_mask = get_iso_mask(self, events, "loose", "medium")
-
-    return events, tau2_mask
 
 
 #
@@ -168,6 +125,31 @@ def cat_eq3j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 @categorizer(uses={"Jet.pt"})
 def cat_eq4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, ak.num(events.Jet, axis=1) == 4
+
+
+@categorizer(uses={"Jet.pt"})
+def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) >= 4
+
+
+def get_bjets(events: ak.Array, config_inst):
+    wp = config_inst.x.btag_working_points["particleNet"]["medium"]
+    return ak.sum(events.Jet.btagPNetB > wp, axis=-1)
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_eq0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, get_bjets(events, self.config_inst) == 0
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_eq1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, get_bjets(events, self.config_inst) == 1
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_eq2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, get_bjets(events, self.config_inst) == 2
 
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
@@ -247,9 +229,6 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, mask
 
 
-# DY ENRICHED WITH CF/CCLUB DEFINITIONS
-
-
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_mll40(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
@@ -264,7 +243,6 @@ def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
         (leps.sum(axis=1).mass > 40) &
         (events[self.config_inst.x.met_name].pt < 30)
     )
-
     return events, mask
 
 
@@ -286,86 +264,9 @@ def cat_dyc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak
     return events, mask_cclub
 
 
-@cat_dy.init
+@cat_dyc.init
 def cat_dyc_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
-
-
-# NJET CATEGORIZERS
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_eq0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) == 0
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_eq1j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) == 1
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_eq2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) == 2
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_eq3j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) == 3
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_eq4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) == 4
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_eq5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) == 5
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_eq6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) == 6
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_eq7j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) == 7
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) >= 4
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_ge6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) >= 6
-
-
-@categorizer(uses={"Jet.{pt,phi}"})
-def cat_ge7j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet.pt, axis=1) >= 7
-
-
-def get_bjets(events: ak.Array, config_inst):
-    wp = config_inst.x.btag_working_points["particleNet"]["medium"]
-    return ak.sum(events.Jet.btagPNetB > wp, axis=-1)
-
-
-@categorizer(uses={"Jet.btagPNetB"})
-def cat_eq0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) == 0
-
-
-@categorizer(uses={"Jet.btagPNetB"})
-def cat_eq1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) == 1
-
-
-@categorizer(uses={"Jet.btagPNetB"})
-def cat_eq2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) == 2
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
