@@ -236,7 +236,7 @@ if not isinstance(torch, MockModule):
             output = self.map[self.indices, shifted]
             return output
 
-    class CatEmbeddingLayer(nn.Module):  # noqa: F811
+    class CatEmbeddingLayer(toch.nn.Module):  # noqa: F811
         def __init__(
             self,
             embedding_dim: int,
@@ -302,7 +302,7 @@ if not isinstance(torch, MockModule):
                 self.tokenizer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-    class InputLayer(nn.Module):  # noqa: F811
+    class InputLayer(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
             continuous_inputs: tuple[str],
@@ -311,10 +311,10 @@ if not isinstance(torch, MockModule):
             category_dims: int | None = None,
             expected_categorical_inputs: dict[str, list[int]] | None = None,
             empty: int = 15,
-            std_layer: nn.Module | None = None,
-            rotation_layer: nn.Module | None = None,
-            padding_continous_layer: nn.Module | None = None,
-            padding_categorical_layer: nn.Module | None = None,
+            std_layer: torch.nn.Module | None = None,
+            rotation_layer: torch.nn.Module | None = None,
+            padding_continous_layer: torch.nn.Module | None = None,
+            padding_categorical_layer: torch.nn.Module | None = None,
         ):
             """
             Enables the use of categorical and continous features in a single model.
@@ -352,7 +352,7 @@ if not isinstance(torch, MockModule):
 
         def dummy_identity(self, layer):
             if layer is None:
-                return nn.Identity()
+                return torch.nn.Identity()
             return layer
 
         def cateogrical_preprocessing_pipeline(self, x):
@@ -382,7 +382,7 @@ if not isinstance(torch, MockModule):
             self.embedding_layer.to(*args, **kwargs)
             return super().to(*args, **kwargs)
 
-    class ResNetBlock(nn.Module):  # noqa: F811
+    class ResNetBlock(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
             nodes,
@@ -408,13 +408,13 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
             self.nodes = nodes
-            self.act_func = self._get_attr(nn.modules.activation, activation_functions)()
-            self.skip_connection_amplifier = nn.Parameter(torch.ones(1) * skip_connection_init)
+            self.act_func = self._get_attr(torch.nn.modules.activation, activation_functions)()
+            self.skip_connection_amplifier = torch.nn.Parameter(torch.ones(1) * skip_connection_init)
             if freeze_skip_connection:
                 self.skip_connection_amplifier.requires_grad = False
-            self.layers = nn.Sequential(
-                nn.Linear(self.nodes, self.nodes, bias=False),
-                nn.BatchNorm1d(self.nodes),
+            self.layers = torch.nn.Sequential(
+                torch.nn.Linear(self.nodes, self.nodes, bias=False),
+                torch.nn.BatchNorm1d(self.nodes),
                 self.act_func,
             )
 
@@ -431,7 +431,7 @@ if not isinstance(torch, MockModule):
             x = x + skip_connection
             return x
 
-    class DenseBlock(nn.Module):  # noqa: F811
+    class DenseBlock(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
             input_nodes,
@@ -450,10 +450,10 @@ if not isinstance(torch, MockModule):
             self.input_nodes = input_nodes
             self.output_nodes = output_nodes
 
-            self.layers = nn.Sequential(
-                nn.Linear(self.input_nodes, self.output_nodes, bias=False),
-                nn.BatchNorm1d(self.output_nodes),
-                self._get_attr(nn.modules.activation, activation_functions)(),
+            self.layers = torch.nn.Sequential(
+                torch.nn.Linear(self.input_nodes, self.output_nodes, bias=False),
+                torch.nn.BatchNorm1d(self.output_nodes),
+                self._get_attr(torch.nn.modules.activation, activation_functions)(),
             )
 
         def _get_attr(self, obj, attr):
@@ -466,7 +466,7 @@ if not isinstance(torch, MockModule):
         def forward(self, x):
             return self.layers(x)
 
-    class ResNetPreactivationBlock(nn.Module):  # noqa: F811
+    class ResNetPreactivationBlock(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
             nodes,
@@ -494,17 +494,17 @@ if not isinstance(torch, MockModule):
             """
             super().__init__()
             self.nodes = nodes
-            self.act_func = self._get_attr(nn.modules.activation, activation_functions)()
-            self.skip_connection_amplifier = nn.Parameter(torch.ones(1) * skip_connection_init)
+            self.act_func = self._get_attr(torch.nn.modules.activation, activation_functions)()
+            self.skip_connection_amplifier = torch.nn.Parameter(torch.ones(1) * skip_connection_init)
             if freeze_skip_connection:
                 self.skip_connection_amplifier.requires_grad = False
 
-            self.layers = nn.Sequential(
-                nn.Linear(self.nodes, self.nodes, bias=False),
-                nn.BatchNorm1d(self.nodes),
+            self.layers = torch.nn.Sequential(
+                torch.nn.Linear(self.nodes, self.nodes, bias=False),
+                torch.nn.BatchNorm1d(self.nodes),
                 self.act_func,
-                nn.Linear(self.nodes, self.nodes, bias=False),
-                nn.BatchNorm1d(self.nodes),
+                torch.nn.Linear(self.nodes, self.nodes, bias=False),
+                torch.nn.BatchNorm1d(self.nodes),
             )
             self.last_activation = self.act_func
 
