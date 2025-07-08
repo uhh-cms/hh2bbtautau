@@ -532,7 +532,7 @@ if not isinstance(torch, MockModule):
             return x
 
         def _type_check(self, mean: torch.FloatTensor, std: torch.FloatTensor):
-            if not all([isinstance(value, torch.tensor) for value in [mean, std]]):
+            if not all([isinstance(value, torch.Tensor) for value in [mean, std]]):
                 raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
 
         def update_buffer(self, mean: torch.tensor, std: torch.tensor):
