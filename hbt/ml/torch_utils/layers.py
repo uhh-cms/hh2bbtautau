@@ -89,13 +89,13 @@ if not isinstance(torch, MockModule):
             self.min = torch.nn.Buffer(_min, persistent=True)
             self.indices = torch.nn.Buffer(_indices, persistent=True)
 
-        def load_state_dict(self, state_dict, strict, assign):
+        def load_state_dict(self, state_dict: dict, strict: bool, assign: bool):
             # overload load_state_dict to set buffer sizes to same of state dict
             for name in self.state_dict().keys():
                 self.__setattr__(name, torch.zeros_like(state_dict[name]))
             super().load_state_dict(state_dict=state_dict, strict=strict, assign=assign)
 
-        def setup(self, categories, expected_inputs, empty):
+        def setup(self, categories: list[str], expected_inputs: list[str], empty: int) -> tuple[dict[str, list[int]], int | None]:
             def _empty(expected_inputs, empty):
                 if empty is None:
                     return None
@@ -120,7 +120,7 @@ if not isinstance(torch, MockModule):
             return _expected_inputs, empty
 
         @property
-        def num_dim(self):
+        def num_dim(self) -> torch.IntTensor:
             return torch.max(self.map) + 1
 
         def __repr__(self):
@@ -138,7 +138,7 @@ if not isinstance(torch, MockModule):
                 _str.append(f"{categorie}: {expected_value} -> {output_per_feature[ind][:len(expected_value)].tolist()}")
             return "\n".join(_str)
 
-        def check_for_values_outside_range(self, input_tensor):
+        def check_for_values_outside_range(self, input_tensor: torch.FloatTensor):
             """
             Helper function checks *input_tensor* for values the tokenizer does not expect but found.
 
@@ -154,7 +154,7 @@ if not isinstance(torch, MockModule):
                     difference = uniques - expected
                     print(f"{categorie} has values outside the expected range: {difference}")
 
-        def pad_to_longest(self):
+        def pad_to_longest(self) -> torch.FloatTensor:
             if not self._expected_inputs:
                 return None
             # helper function to pad the input tensor to the longest category
@@ -177,7 +177,7 @@ if not isinstance(torch, MockModule):
             )
             return array
 
-        def LookUpTable(self, array: torch.tensor, padding_value=EMPTY_INT):
+        def LookUpTable(self, array: torch.FloatTensor, padding_value: int=EMPTY_INT) -> tuple[torch.FloatTensor, torch.FloatTensor] | None:
             """
             Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
             Empty values are replaced with *EMPTY*.
@@ -228,14 +228,14 @@ if not isinstance(torch, MockModule):
                 stride += len(unique)
             return mapping_array, minimum
 
-        def forward(self, x):
+        def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
             # shift input array by their respective minimum and slice translation accordingly
             # map to int to be used as indices
             shifted = (x - self.min).to(torch.int32)
             output = self.map[self.indices, shifted]
             return output
 
-    class CatEmbeddingLayer(toch.nn.Module):  # noqa: F811
+    class CatEmbeddingLayer(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
             embedding_dim: int,
@@ -278,7 +278,7 @@ if not isinstance(torch, MockModule):
             self.ndim = embedding_dim * len(categories)
 
         @property
-        def look_up_table(self):
+        def look_up_table(self) -> torch.FloatTensor | None:
             return self.tokenizer.map if self.tokenizer else None
 
         def normalize_embeddings(self):
@@ -287,9 +287,7 @@ if not isinstance(torch, MockModule):
                 norm = torch.sqrt(torch.sum(self.embeddings.weight**2, dim=-1)).reshape(-1, 1)
                 self.embeddings.weight = torch.nn.Parameter(self.embeddings.weight / norm)
 
-        def forward(self, cat_input):
-            x = cat_input
-
+        def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
             if self.tokenizer:
                 x = self.tokenizer(x)
 
@@ -344,16 +342,16 @@ if not isinstance(torch, MockModule):
             self.padding_continous_layer = self.dummy_identity(padding_continous_layer)
             self.padding_categorical_layer = self.dummy_identity(padding_categorical_layer)
 
-        def dummy_identity(self, layer):
+        def dummy_identity(self, layer: torch.nn.Module | None) -> torch.nn.Module:
             if layer is None:
                 return torch.nn.Identity()
             return layer
 
-        def cateogrical_preprocessing_pipeline(self, x):
+        def cateogrical_preprocessing_pipeline(self, x: torch.FloatTensor) -> torch.FloatTensor:
             x = self.padding_categorical_layer(x)
             return self.embedding_layer(x)
 
-        def continous_preprocessing_pipeline(self, x):
+        def continous_preprocessing_pipeline(self, x: torch.FloatTensor) -> torch.FloatTensor:
             # preprocessing
             x = x.to(torch.float32)
             x = self.padding_continous_layer(x)
@@ -375,10 +373,10 @@ if not isinstance(torch, MockModule):
     class ResNetBlock(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
-            nodes,
-            activation_functions="LeakyReLu",
-            skip_connection_init=1,
-            freeze_skip_connection=False,
+            nodes: int,
+            activation_functions: str="LeakyReLu",
+            skip_connection_init: float=1,
+            freeze_skip_connection: float=False,
         ):
             """
             ResNetBlock consisting of a linear layer, batch normalization, and an activation function.
@@ -415,7 +413,7 @@ if not isinstance(torch, MockModule):
             else:
                 raise AttributeError(f"Object has no attribute '{attr}'")
 
-        def forward(self, x):
+        def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
             skip_connection = self.skip_connection_amplifier * x
             x = self.layers(x)
             x = x + skip_connection
@@ -424,9 +422,9 @@ if not isinstance(torch, MockModule):
     class DenseBlock(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
-            input_nodes,
-            output_nodes,
-            activation_functions="LeakyReLu",
+            input_nodes: float,
+            output_nodes: float,
+            activation_functions: str="LeakyReLu",
         ):
             """
             DenseBlock is a dense block that consists of a linear layer, batch normalization, and an activation function.
@@ -459,10 +457,10 @@ if not isinstance(torch, MockModule):
     class ResNetPreactivationBlock(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
-            nodes,
-            activation_functions="PReLu",
-            skip_connection_init=1,
-            freeze_skip_connection=False,
+            nodes: int,
+            activation_functions: str="PReLu",
+            skip_connection_init: float=1,
+            freeze_skip_connection: bool=False,
         ):
             """
             Residual block that consists of a linear layer, batch normalization, and an activation function.
@@ -505,7 +503,7 @@ if not isinstance(torch, MockModule):
             else:
                 raise AttributeError(f"Object has no attribute '{attr}'")
 
-        def forward(self, x):
+        def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
             skip_connection = self.skip_connection_amplifier * x
             x = self.layers(x)
             x = x + skip_connection
@@ -529,11 +527,11 @@ if not isinstance(torch, MockModule):
             self.mean = torch.nn.Buffer(torch.tensor(mean), persistent=True)
             self.std = torch.nn.Buffer(torch.tensor(std), persistent=True)
 
-        def forward(self, x: torch.tensor):
+        def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
             x = (x - self.mean) / self.std
             return x
 
-        def _type_check(self, mean, std):
+        def _type_check(self, mean: torch.FloatTensor, std: torch.FloatTensor):
             if not all([isinstance(value, torch.tensor) for value in [mean, std]]):
                 raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
 
@@ -563,13 +561,13 @@ if not isinstance(torch, MockModule):
             self.ref_indices = torch.nn.Buffer(self.find_indices_of(columns, ref_phi_columns, True), persistent=True)
             self.rotate_indices = torch.nn.Buffer(self.find_indices_of(columns, rotate_columns, True), persistent=True)
 
-        def load_state_dict(self, state_dict, strict, assign):
+        def load_state_dict(self, state_dict: dict, strict: bool, assign: bool):
             # overload load_state_dict to set buffer sizes to same of state dict
             for name in self.state_dict().keys():
                 self.__setattr__(name, torch.zeros_like(state_dict[name]))
             super().load_state_dict(state_dict=state_dict, strict=strict, assign=assign)
 
-        def find_indices_of(self, search_in, search_for, _expand=False):
+        def find_indices_of(self, search_in: list[str], search_for: list[str], _expand: bool=False) -> torch.FloatTensor | None:
             if search_in is None or search_for is None:
                 return None
 
@@ -577,13 +575,13 @@ if not isinstance(torch, MockModule):
                 search_for = self._expand(search_for)
             return torch.tensor([tuple(map(search_in.index, particle)) for particle in search_for])
 
-        def _expand(self, columns):
+        def _expand(self, columns: list[str] | str) -> list[tuple[str, str]]:
             # adds px, py to columns and return them as tuple
             columns = [columns] if isinstance(columns, str) else columns
             return [tuple(f"{col}.{suffix}" for suffix in ("px", "py")) for col in columns]
 
-        def calc_phi(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
-            def arctan2(x: torch.tensor, y: torch.tensor) -> torch.tensor:
+        def calc_phi(self, x: torch.FloatTensor, y: torch.FloatTensor) -> torch.FloatTensor:
+            def arctan2(x: torch.FloatTensor, y: torch.FloatTensor) -> torch.FloatTensor:
                 # calculate arctan2 using arctan, since onnx does not have support for arctan2
                 # torch constants are not tensors for some reason
                 pi = torch.tensor(torch.pi)
@@ -603,7 +601,7 @@ if not isinstance(torch, MockModule):
                 return phis + phi_shift
             return arctan2(x=x, y=y)
 
-        def rotate_pt_to_phi(self, px: torch.tensor, py: torch.tensor, ref_phi: torch.tensor):
+        def rotate_pt_to_phi(self, px: torch.FloatTensor, py: torch.FloatTensor, ref_phi: torch.FloatTensor):
             # rotate px, py relative to ref_phi
             # returns px, py rotated
             pt = torch.sqrt(torch.square(px) + torch.square(py))
@@ -621,11 +619,11 @@ if not isinstance(torch, MockModule):
             )
             return ref_phi
 
-        def get_kinematics(self, array, ref_indices):
+        def get_kinematics(self, array: torch.FloatTensor, ref_indices: torch.FloatTensor) -> tuple[torch.FloatTensor, torch.FloatTensor]:
             x, y = ref_indices
             return array[:, x], array[:, y]
 
-        def rotate_columns(self, array, ref_phi):
+        def rotate_columns(self, array: torch.FloatTensor, ref_phi: torch.FloatTensor) -> torch.FloatTensor:
             # px, py pairs in fixed order
             for rotate_indice in self.rotate_indices:
                 px, py = self.get_kinematics(array, rotate_indice)
@@ -639,7 +637,7 @@ if not isinstance(torch, MockModule):
                 array[:, rotate_indice[1]] = new_py
             return array
 
-        def forward(self, x):
+        def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
             ref_phi = self.calc_ref_phi(x)
             return self.rotate_columns(x, ref_phi)
 
@@ -689,14 +687,14 @@ if not isinstance(torch, MockModule):
         def _get_agg_fn(self, name):
             return self.__getattribute__(name.lower())
 
-        def max(self, x):
+        def max(self, x: torch.FloatTensor) -> torch.FloatTensor:
             return x.max(dim=1).values
 
-        def sum(self, x):
+        def sum(self, x: torch.FloatTensor) -> torch.FloatTensor:
             return x.sum(dim=1)
 
-        def mean(self, x):
+        def mean(self, x: torch.FloatTensor) -> torch.FloatTensor:
             return x.mean(dim=1)
 
-        def forward(self, x):
+        def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
             return self.aggregation_fn(x)
