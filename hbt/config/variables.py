@@ -3,12 +3,17 @@
 """
 Definition of variables.
 """
+
+from __future__ import annotations
+
 from functools import partial
 
 import order as od
 
 from columnflow.columnar_util import EMPTY_FLOAT, attach_coffea_behavior, default_coffea_collections
 from columnflow.util import maybe_import
+
+from hbt.util import create_lvector_xyz
 
 ak = maybe_import("awkward")
 
@@ -162,28 +167,8 @@ def add_variables(config: od.Config) -> None:
             new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
             pt = (px**2 + py**2)**0.5
             return pt * np.cos(new_phi), pt * np.sin(new_phi)
-        nu1_px, nu1_py = rotate_px_py(events.reg_dnn_nu1_px, events.reg_dnn_nu1_py)
-        nu1 = ak.Array(
-            {
-                "px": nu1_px,
-                "py": nu1_py,
-                "pz": events.reg_dnn_nu1_pz,
-                "e": (nu1_px**2 + nu1_py**2 + events.reg_dnn_nu1_pz**2)**0.5,
-            },
-            with_name="PtEtaPhiMLorentzVector",
-            behavior=events.behavior,
-        )
-        nu2_px, nu2_py = rotate_px_py(events.reg_dnn_nu2_px, events.reg_dnn_nu2_py)
-        nu2 = ak.Array(
-            {
-                "px": nu2_px,
-                "py": nu2_py,
-                "pz": events.reg_dnn_nu2_pz,
-                "e": (nu2_px**2 + nu2_py**2 + events.reg_dnn_nu2_pz**2)**0.5,
-            },
-            with_name="PtEtaPhiMLorentzVector",
-            behavior=events.behavior,
-        )
+        nu1 = create_lvector_xyz(*rotate_px_py(events.reg_dnn_nu1_px, events.reg_dnn_nu1_py), events.reg_dnn_nu1_pz)
+        nu2 = create_lvector_xyz(*rotate_px_py(events.reg_dnn_nu2_px, events.reg_dnn_nu2_py), events.reg_dnn_nu2_pz)
         if which == "nus":
             return nu1, nu2
         # build the higgs
