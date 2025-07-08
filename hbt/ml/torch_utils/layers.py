@@ -34,7 +34,6 @@ AggregationLayer = MockModule("AggregationLayer")  # type: ignore[assignment]
 
 if not isinstance(torch, MockModule):
     import torch
-    from torch import nn, Tensor
 
     class PaddingLayer(torch.nn.Module):  # noqa: F811
         def __init__(self, padding_value: float | int = 0, mask_value: float | int = EMPTY_FLOAT):
@@ -178,13 +177,13 @@ if not isinstance(torch, MockModule):
             )
             return array
 
-        def LookUpTable(self, array: torch.Tensor, padding_value=EMPTY_INT):
+        def LookUpTable(self, array: torch.tensor, padding_value=EMPTY_INT):
             """
             Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
             Empty values are replaced with *EMPTY*.
 
             Args:
-                array (torch.Tensor): 2D array of categories.
+                array (torch.tensor): 2D array of categories.
                 EMPTY (int, optional): Replacement value if empty. Defaults to columnflow EMPTY_INT.
                 same_empty (bool, optional): If True, all missing values will be mapped to the same value.
                     By default, each category will be mapped to a different value,
@@ -192,7 +191,7 @@ if not isinstance(torch, MockModule):
                     Defaults to False.
 
             Returns:
-                tuple([torch.Tensor]), None: Returns minimum and LookUpTable
+                tuple([torch.tensor]), None: Returns minimum and LookUpTable
             """
             if array is None:
                 return None, None
@@ -297,11 +296,6 @@ if not isinstance(torch, MockModule):
             x = self.embeddings(x)
             return x.flatten(start_dim=1)
 
-        def to(self, *args, **kwargs):
-            if self.tokenizer:
-                self.tokenizer.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
-
     class InputLayer(torch.nn.Module):  # noqa: F811
         def __init__(
             self,
@@ -377,10 +371,6 @@ if not isinstance(torch, MockModule):
                 dim=1,
             ).to(torch.float32)
             return x
-
-        def to(self, *args, **kwargs):
-            self.embedding_layer.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
 
     class ResNetBlock(torch.nn.Module):  # noqa: F811
         def __init__(
@@ -539,12 +529,12 @@ if not isinstance(torch, MockModule):
             self.mean = torch.nn.Buffer(torch.tensor(mean), persistent=True)
             self.std = torch.nn.Buffer(torch.tensor(std), persistent=True)
 
-        def forward(self, x: Tensor):
+        def forward(self, x: torch.tensor):
             x = (x - self.mean) / self.std
             return x
 
         def _type_check(self, mean, std):
-            if not all([isinstance(value, torch.Tensor) for value in [mean, std]]):
+            if not all([isinstance(value, torch.tensor) for value in [mean, std]]):
                 raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
 
         def update_buffer(self, mean: torch.tensor, std: torch.tensor):
@@ -592,8 +582,8 @@ if not isinstance(torch, MockModule):
             columns = [columns] if isinstance(columns, str) else columns
             return [tuple(f"{col}.{suffix}" for suffix in ("px", "py")) for col in columns]
 
-        def calc_phi(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-            def arctan2(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        def calc_phi(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
+            def arctan2(x: torch.tensor, y: torch.tensor) -> torch.tensor:
                 # calculate arctan2 using arctan, since onnx does not have support for arctan2
                 # torch constants are not tensors for some reason
                 pi = torch.tensor(torch.pi)
@@ -613,7 +603,7 @@ if not isinstance(torch, MockModule):
                 return phis + phi_shift
             return arctan2(x=x, y=y)
 
-        def rotate_pt_to_phi(self, px: torch.Tensor, py: torch.Tensor, ref_phi: torch.Tensor):
+        def rotate_pt_to_phi(self, px: torch.tensor, py: torch.tensor, ref_phi: torch.tensor):
             # rotate px, py relative to ref_phi
             # returns px, py rotated
             pt = torch.sqrt(torch.square(px) + torch.square(py))
@@ -672,7 +662,7 @@ if not isinstance(torch, MockModule):
         def check_shape(self):
             pass
 
-        def forward(self, x: Tensor):
+        def forward(self, x: torch.tensor):
             base_output = self.base(x)
             cat_pred = self.cat_head(base_output)
             reg_pred = self.reg_head(base_output)
