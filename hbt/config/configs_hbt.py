@@ -702,19 +702,20 @@ def add_config(
     # variable groups for conveniently looping over certain variables
     # (used during plotting)
     cfg.x.variable_groups = {
-        "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
-        "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
-        "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
-        "dibjet": (dibjet := [f"dibjet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "hh": (hh := [f"hh_{var}" for var in ["mass", "pt", "eta"]]),
+        "dilep": (dilep := [f"dilep_{var}" for var in ["mass", "pt", "eta", "phi", "dr"]]),
+        "dijet": (dijet := [f"dijet_{var}" for var in ["mass", "pt", "eta", "phi", "dr"]]),
+        "dibjet": (dibjet := [f"dibjet_{var}" for var in ["mass", "pt", "eta"]]),
         "nbjets": (nbjets := [f"nbjets_{var}" for var in ["deepjet", "pnet"]]),
-        "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1", "tau1"] for var in ["pt", "eta"]]),
+        # "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1", "tau1"] for var in ["pt", "eta"]]),
+        "lep_mu": (lep_mu := [f"mu1_{var}" for var in ["pt", "eta"]]),
         "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
-        "dyc_jet": (dyc_jet := [f"dyc_jet1_{var}" for var in ["pt", "eta"]]),
-        "dyc_dilep": (dyc_dilep := [f"dyc_dilep_{var}" for var in ["mass", "eta"]]),
+        # "dyc_jet": (dyc_jet := [f"dyc_jet1_{var}" for var in ["pt", "eta"]]),
+        # "dyc_dilep": (dyc_dilep := [f"dyc_dilep_{var}" for var in ["mass", "eta"]]),
         "dy_variables": [
-            *dijet, *dibjet, *dilep, *hh, *nbjets, *lep, *jet,
-            *dyc_dilep, *dyc_jet,
-            "njets", "ht",
+            *dijet, *dibjet, *dilep, *nbjets, *lep_mu, *jet,
+            # *dyc_dilep, *dyc_jet,
+            "njets", "ht", "njets-dilep_pt",
         ],
 
     }
