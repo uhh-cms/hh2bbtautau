@@ -96,7 +96,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
     single_config = False
 
-    category = "mumu__dyc__eq3j__os"
+    categories = ("mumu__dyc__os",)
     variable = "njets-dilep_pt"
 
     def requires(self):
@@ -106,14 +106,14 @@ class ExportDYWeights(HBTTask, ConfigTask):
                 config=config,
                 processes=("sm_bkg",),  # supports groups
                 hist_producer="no_dy_weight",
-                categories=(self.category,),
+                categories=self.categories,
                 variables=(self.variable,),
             )
             for config in self.configs
         }
 
     def output(self):
-        return self.target(f"hbt_njets_corrections_{self.category}_{self.variable}.json.gz")
+        return self.target(f"hbt_njets_corrections_{self.variable}.json.gz")
 
     def run(self):
         import correctionlib.schemav2 as cs
