@@ -11,6 +11,7 @@ __all__ = [
     "ResNetPreactivationBlock",
     "StandardizeLayer",
     "RotatePhiLayer",
+    "AggregationLayer",
 ]
 
 import copy
@@ -36,7 +37,11 @@ if not isinstance(torch, MockModule):
     import torch
 
     class PaddingLayer(torch.nn.Module):  # noqa: F811
-        def __init__(self, padding_value: float | int = 0, mask_value: float | int = EMPTY_FLOAT):
+        def __init__(
+            self,
+            padding_value: float | int = 0,
+            mask_value: float | int = EMPTY_FLOAT,
+        ):
             """
             Padding layer for torch models. Pads the input tensor with the given padding value.
 
@@ -95,7 +100,12 @@ if not isinstance(torch, MockModule):
                 self.__setattr__(name, torch.zeros_like(state_dict[name]))
             super().load_state_dict(state_dict=state_dict, strict=strict, assign=assign)
 
-        def setup(self, categories: list[str], expected_inputs: list[str], empty: int) -> tuple[dict[str, list[int]], int | None]:
+        def setup(
+            self,
+            categories: list[str],
+            expected_inputs: list[str],
+            empty: int,
+        ) -> tuple[dict[str, list[int]], int | None]:
             def _empty(expected_inputs, empty):
                 if empty is None:
                     return None
@@ -177,7 +187,11 @@ if not isinstance(torch, MockModule):
             )
             return array
 
-        def LookUpTable(self, array: torch.FloatTensor, padding_value: int=EMPTY_INT) -> tuple[torch.FloatTensor, torch.FloatTensor] | None:
+        def LookUpTable(
+            self,
+            array: torch.FloatTensor,
+            padding_value: int = EMPTY_INT,
+        ) -> tuple[torch.FloatTensor, torch.FloatTensor] | None:
             """
             Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
             Empty values are replaced with *EMPTY*.
@@ -374,9 +388,9 @@ if not isinstance(torch, MockModule):
         def __init__(
             self,
             nodes: int,
-            activation_functions: str="LeakyReLu",
-            skip_connection_init: float=1,
-            freeze_skip_connection: float=False,
+            activation_functions: str = "LeakyReLu",
+            skip_connection_init: float = 1,
+            freeze_skip_connection: float = False,
         ):
             """
             ResNetBlock consisting of a linear layer, batch normalization, and an activation function.
@@ -424,7 +438,7 @@ if not isinstance(torch, MockModule):
             self,
             input_nodes: float,
             output_nodes: float,
-            activation_functions: str="LeakyReLu",
+            activation_functions: str = "LeakyReLu",
         ):
             """
             DenseBlock is a dense block that consists of a linear layer, batch normalization, and an activation function.
@@ -458,9 +472,9 @@ if not isinstance(torch, MockModule):
         def __init__(
             self,
             nodes: int,
-            activation_functions: str="PReLu",
-            skip_connection_init: float=1,
-            freeze_skip_connection: bool=False,
+            activation_functions: str = "PReLu",
+            skip_connection_init: float = 1,
+            freeze_skip_connection: bool = False,
         ):
             """
             Residual block that consists of a linear layer, batch normalization, and an activation function.
@@ -535,7 +549,8 @@ if not isinstance(torch, MockModule):
             if not all([isinstance(value, torch.Tensor) for value in [mean, std]]):
                 raise TypeError(f"given mean or std needs to be tensor, but is {type(mean)}{type(std)}")
 
-        def update_buffer(self, mean: torch.tensor, std: torch.tensor):
+        def update_buffer(self, mean: torch.
+                          tensor, std: torch.tensor):
             """
             Update the mean and std parameter.
 
@@ -567,7 +582,12 @@ if not isinstance(torch, MockModule):
                 self.__setattr__(name, torch.zeros_like(state_dict[name]))
             super().load_state_dict(state_dict=state_dict, strict=strict, assign=assign)
 
-        def find_indices_of(self, search_in: list[str], search_for: list[str], _expand: bool=False) -> torch.FloatTensor | None:
+        def find_indices_of(
+            self,
+            search_in: list[str],
+            search_for: list[str],
+            _expand: bool = False,
+        ) -> torch.FloatTensor | None:
             if search_in is None or search_for is None:
                 return None
 
@@ -580,8 +600,15 @@ if not isinstance(torch, MockModule):
             columns = [columns] if isinstance(columns, str) else columns
             return [tuple(f"{col}.{suffix}" for suffix in ("px", "py")) for col in columns]
 
-        def calc_phi(self, x: torch.FloatTensor, y: torch.FloatTensor) -> torch.FloatTensor:
-            def arctan2(x: torch.FloatTensor, y: torch.FloatTensor) -> torch.FloatTensor:
+        def calc_phi(
+            self,
+            x: torch.FloatTensor,
+            y: torch.FloatTensor,
+        ) -> torch.FloatTensor:
+            def arctan2(
+                x: torch.FloatTensor,
+                y: torch.FloatTensor,
+            ) -> torch.FloatTensor:
                 # calculate arctan2 using arctan, since onnx does not have support for arctan2
                 # torch constants are not tensors for some reason
                 pi = torch.tensor(torch.pi)
@@ -601,7 +628,12 @@ if not isinstance(torch, MockModule):
                 return phis + phi_shift
             return arctan2(x=x, y=y)
 
-        def rotate_pt_to_phi(self, px: torch.FloatTensor, py: torch.FloatTensor, ref_phi: torch.FloatTensor):
+        def rotate_pt_to_phi(
+            self,
+            px: torch.FloatTensor,
+            py: torch.FloatTensor,
+            ref_phi: torch.FloatTensor,
+        ) -> tuple[torch.FloatTensor, torch.FloatTensor]:
             # rotate px, py relative to ref_phi
             # returns px, py rotated
             pt = torch.sqrt(torch.square(px) + torch.square(py))
@@ -609,7 +641,10 @@ if not isinstance(torch, MockModule):
             new_phi = old_phi - ref_phi
             return pt * torch.cos(new_phi), pt * torch.sin(new_phi)
 
-        def calc_ref_phi(self, array):
+        def calc_ref_phi(
+            self,
+            array,
+        ) -> torch.FloatTensor:
             px1, py1 = self.get_kinematics(array, self.ref_indices[0])
             px2, py2 = self.get_kinematics(array, self.ref_indices[1])
 
@@ -619,7 +654,11 @@ if not isinstance(torch, MockModule):
             )
             return ref_phi
 
-        def get_kinematics(self, array: torch.FloatTensor, ref_indices: torch.FloatTensor) -> tuple[torch.FloatTensor, torch.FloatTensor]:
+        def get_kinematics(
+            self,
+            array: torch.FloatTensor,
+            ref_indices: torch.FloatTensor,
+        ) -> tuple[torch.FloatTensor, torch.FloatTensor]:
             x, y = ref_indices
             return array[:, x], array[:, y]
 
@@ -667,18 +706,22 @@ if not isinstance(torch, MockModule):
             return cat_pred, reg_pred
 
     class AggregationLayer(torch.nn.Module):
-        def __init__(self, aggregation_name: str = "sum", aggregation_dim: int = 1):
+        def __init__(
+            self,
+            name: str = "sum",
+            dim: int = 1,
+        ):
             """
             Aggregation Layer to aggregate over object dimension of input.
             This layer assumes that the
 
             Args:
-                aggregation_name (str, optional): Name of the aggregation function ("max", "sum", "mean"). Defaults to "sum".
-                aggregation_dim (int, optional): Dimension over which the aggregation happens. Defaults to 1.
+                name (str, optional): Name of the aggregation function ("max", "sum", "mean"). Defaults to "sum".
+                dim (int, optional): Dimension over which the aggregation happens. Defaults to 1.
             """
             super().__init__()
-            self.aggregation_fn = self._get_agg_fn(aggregation_name)
-            self.aggregation_dim = torch.nn.Buffer(torch.tensor(aggregation_dim).to(torch.int32))
+            self.aggregation_fn = self._get_agg_fn(name)
+            self.dim = torch.nn.Buffer(torch.tensor(dim).to(torch.int32))
 
         @property
         def name(self):
