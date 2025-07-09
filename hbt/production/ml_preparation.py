@@ -22,7 +22,6 @@ from columnflow.config_util import get_events_from_categories
 
 from hbt.util import IF_MC
 from hbt.histogramming.default import ml_weights as default_hist_producer
-from hbt.reduction.default import ml
 
 
 ak = maybe_import("awkward")
@@ -93,7 +92,6 @@ def ml_preparation(
         events = events[event_mask]
         events = get_events_from_categories(events=events, categories=["os"], config_inst=self.config_inst)
         events = get_events_from_categories(events=events, categories=["iso"], config_inst=self.config_inst)
-
 
         logger.info(f"Select {len(events)} from {n_events} events for MLTraining using")
         if len(events) == 0:

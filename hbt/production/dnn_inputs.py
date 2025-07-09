@@ -1,8 +1,7 @@
 # coding: utf-8
 
 """
-Producer for evaluating the pDNN developed for the resonant run 2 analysis.
-See https://github.com/uhh-cms/tautauNN
+Producer to prepare DNN inputs for Run3 classifier.
 """
 
 from __future__ import annotations
@@ -28,6 +27,7 @@ logger = law.logger.get_logger(__name__)
 
 # helper function
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
+
 
 @producer(
     uses=({
@@ -59,6 +59,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     }),
     # variable to configure whether to rotate continuous features against lepton system
     do_rotation=True,
+    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_dev.sh"),
 )
 def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     # ensure coffea behavior
@@ -204,8 +205,8 @@ def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     # fatjet = ak.pad_none(_events.FatJet, 1, axis=1)[:, 0]
 
     jet_columns = {
-        "btagDeepFlavB", "hhbtag", "btagDeepFlavCvB", "btagDeepFlavCvL", "btagPNetB", "btagPNetCvB", "btagPNetCvL"
-        } | default_4momenta_cols
+        "btagDeepFlavB", "hhbtag", "btagDeepFlavCvB", "btagDeepFlavCvL", "btagPNetB", "btagPNetCvB", "btagPNetCvL",
+    } | default_4momenta_cols
 
     bjet_events = ak.mask(events, has_jet_pair)
     events = save_rotated_momentum(

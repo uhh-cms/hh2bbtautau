@@ -3,7 +3,7 @@ from __future__ import annotations
 __all__ = [
 ]
 
-from columnflow.util import MockModule, maybe_import, DotDict
+from columnflow.util import MockModule, maybe_import
 from columnflow.types import Any, Callable
 from collections.abc import Container
 
@@ -18,6 +18,7 @@ ak = maybe_import("awkward")
 import law
 
 WeightedTensorFeedForwardNet = MockModule("WeightedTensorFeedForwardNet")
+
 if not isinstance(torch, MockModule):
     from torch import nn
     from torch.optim import Adam, AdamW
@@ -29,7 +30,6 @@ if not isinstance(torch, MockModule):
     )
     from hbt.ml.torch_utils.datasets.handlers import (
         FlatListRowgroupParquetFileHandler, FlatArrowParquetFileHandler,
-        WeightedFlatListRowgroupParquetFileHandler,
         RgTensorParquetFileHandler, WeightedRgTensorParquetFileHandler,
         WeightedTensorParquetFileHandler,
     )
@@ -68,12 +68,14 @@ if not isinstance(torch, MockModule):
             super().__init__(*args, tensorboard_path=tensorboard_path, logger=logger, **task.param_kwargs, **kwargs)
 
             columns = [
-                "lepton1.{px,py,pz,energy,mass}",
-                "lepton2.{px,py,pz,energy,mass}",
-                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "fatjet.{px,py,pz,energy,mass}",
+                "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+                "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+                "fatjet.{energy,mass,px,py,pz}",
+                "lepton1.{energy,mass,px,py,pz}",
+                "lepton2.{energy,mass,px,py,pz}",
+                "PuppiMET.{px,py}",
             ]
+
             self.inputs: set[Route] = set()
             self.inputs.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
 
