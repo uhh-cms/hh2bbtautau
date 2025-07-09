@@ -26,10 +26,10 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
 
         > law run hbt.ComuteDYWeights \
             --config 22pre_v14 \
-            --processes sm_nlo_data_bkg \
+            --processes sm_bkg \
             --version prod8_dy \
             --hist-producer no_dy_weight \
-            --categories mumu__dyc_eq2j__os \
+            --categories mumu__dyc__os \
             --variables njets-dilep_pt
     """
 
@@ -66,9 +66,9 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
         for dataset_name, inp in self.input().items():
             h_ = inp.collection[0]["hists"][self.variable].load(formatter="pickle")
 
-            # select and sum over leaf categories
+            # select leaf categories
             h_ = h_[{"category": [hist.loc(cat.name) for cat in leaf_category_insts if cat.name in h_.axes["category"]]}]
-            h_ = h_[{"category": sum}]
+            # h_ = h_[{"category": sum}]
 
             # use the nominal shift only
             h_ = h_[{"shift": hist.loc("nominal")}]
@@ -96,7 +96,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
     single_config = False
 
-    category = "mumu__dyc_eq3j__os"
+    category = "mumu__dyc__eq3j__os"
     variable = "njets-dilep_pt"
 
     def requires(self):
@@ -104,7 +104,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
             config: ComuteDYWeights.req(
                 self,
                 config=config,
-                processes=("sm_nlo_data_bkg",),  # supports groups
+                processes=("sm_bkg",),  # supports groups
                 hist_producer="no_dy_weight",
                 categories=(self.category,),
                 variables=(self.variable,),
@@ -113,7 +113,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         }
 
     def output(self):
-        return self.target(f"hbt_corrections_{self.category}_{self.variable}.json.gz")
+        return self.target(f"hbt_njets_corrections_{self.category}_{self.variable}.json.gz")
 
     def run(self):
         import correctionlib.schemav2 as cs
@@ -236,14 +236,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
     # build fit function string
     def get_fit_str(njet: int, h: hist.Hist) -> dict:
-        if njet not in [2, 3, 4]:
-            raise ValueError(f"Invalid njets value {njet}, expected 2, 3, or 4.")
-
-        # slice the histogram for the current njets bin
-        jet_tupple = (njet - 0.5, njet + 0.5)
-
-        # slice the histogram for the selected njets bin
-        h = h[:, hist.loc(jet_tupple[0]):hist.loc(jet_tupple[1]), ...]
 
         # get and sum process histograms
         dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
@@ -256,13 +248,13 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         # get bin centers
         bin_centers = dy_h.axes[-1].centers
 
-        # get histogram values and errors, summing over njets axis
-        dy_values = (dy_h.view().value).sum(axis=0)
-        data_values = (data_h.view().value).sum(axis=0)
-        mc_values = (mc_h.view().value).sum(axis=0)
-        dy_err = (dy_h.view().variance**0.5).sum(axis=0)
-        data_err = (data_h.view().variance**0.5).sum(axis=0)
-        mc_err = (mc_h.view().variance**0.5).sum(axis=0)
+        # get histogram values and errors
+        dy_values = dy_h.view().value
+        data_values = data_h.view().value
+        mc_values = mc_h.view().value
+        dy_err = dy_h.view().variance**0.5
+        data_err = data_h.view().variance**0.5
+        mc_err = mc_h.view().variance**0.5
 
         # calculate (data-mc)/dy ratio and its error
         ratio_values = (data_values - mc_values) / dy_values
@@ -309,9 +301,9 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
         # full fit function string
         fit_string = f"(0.5*(erf(-0.1*(x-{r}))+1))*{gauss}+(0.5*(erf(0.1*(x-{r}))+1))*{pol}"
-        print(fit_string)
+
         # -------------------------------
-        #  plot the fit function‚
+        #  plot the fit functions‚
         s = np.linspace(0, 200, 1000)
         y = [fit_function(v, *param_fit) for v in s]
         fig, ax = plt.subplots()
@@ -329,11 +321,18 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         ax.legend(loc="upper right")
         ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
         ax.set_ylabel("Ratio (data-non DY MC)/DY")
-        ax.set_title("2022preEE, amcatnlo, dilep.pt , mumu__dyc_eq3j__os")
         ax.grid(True)
-        fig.savefig("plot_mumu__dyc_eq3j__os.pdf")
+
+        if njet != 4:
+            title = f"2022preEE, njets = {njet}"
+            file_name = f"plot_njets_eq{njet}j.pdf"
+        else:
+            title = f"2022preEE, njets >= {njet}"
+            file_name = f"plot_njets_ge{njet}j.pdf"
+
+        ax.set_title(title)
+        fig.savefig(file_name)
         # -------------------------------
-        print(fit_string)
 
         return fit_string
 
@@ -346,13 +345,33 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         },
     }
 
-    for njet in [3]:
-        fit_str = get_fit_str(njet, h)
+    # do the fit per njet (or nbjet) category
+    leaf_cat_names = h.axes["category"]
+    bool_njet = True
+    cats = []
+    if bool_njet:
+        cats = [cat for cat in leaf_cat_names if "j" in cat]
+    else:
+        cats = [cat for cat in leaf_cat_names if "b" in cat]
 
-        # TODO: if first 2 elements in tupple are not -inf, inf the fit_str will be multiplied
-        # by a step function scipy.special.erf with parameter 1000
+    # hist with all leaf categories
+    for cat in cats:
+        # Extract njet number from category name (e.g., "eq2j" -> 2)
+        match = re.search(r'(\d+)', cat)
+        if match:
+            njet = int(match.group(1))
+        else:
+            raise ValueError("No njets digit found in category name!")
 
-        # temporarily use the same fit function for all njets
-        fit_dict[era]["nominal"][(0, 500)] = [(-inf, inf, fit_str)]
+        # slice the histogram for the selected njets bin
+        if njet != 4:
+            h_ = h[cat, :, njet, ...]
+            fit_str = get_fit_str(njet, h_)
+            fit_dict[era]["nominal"][(njet, njet + 1)] = [(-inf, inf, fit_str)]
+        else:
+            h_ = h[cat, ...][{"njets": sum}]
+            fit_str = get_fit_str(njet, h_)
+            fit_dict[era]["nominal"][(njet, 11)] = [(-inf, inf, fit_str)]
 
+    print(fit_dict)
     return fit_dict
