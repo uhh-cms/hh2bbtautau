@@ -5,7 +5,7 @@ __all__ = [
 
 from functools import partial
 
-from columnflow.util import MockModule, maybe_import, DotDict, classproperty
+from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import Callable
 from collections.abc import Container
 
@@ -20,48 +20,129 @@ torchdata = maybe_import("torchdata")
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 import law
+import abc
+import collections
 
 model_clss: DotDict[str, torch.nn.Module] = DotDict()
 
 if not isinstance(torch, MockModule):
     import torch
-    # import torch.utils.tensorboard as tensorboard
-    # from torch.utils.tensorboard import SummaryWriter
-    # from ignite.metrics import Loss, ROC_AUC
-    import matplotlib.pyplot as plt
-
-    from hbt.ml.torch_models.multi_class import WeightedFeedForwardMultiCls
-    from hbt.ml.torch_utils.ignite.metrics import (
-        WeightedROC_AUC, WeightedLoss,
-        # WeightedBalanced_Acc,
-    )
-    from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin
+    import torch.utils.tensorboard as tensorboard
+    from hbt.ml.torch_utils.ignite.metrics import WeightedROC_AUC, WeightedLoss
     from hbt.ml.torch_utils.transforms import MoveToDevice
-    from hbt.ml.torch_utils.datasets.handlers import (
-        WeightedTensorParquetFileHandler,
-    )
-    from hbt.ml.torch_utils.utils import (
-        embedding_expected_inputs, expand_columns, get_standardization_parameter,
-    )
-    from hbt.ml.torch_utils.layers import (
-        InputLayer, StandardizeLayer, ResNetPreactivationBlock, DenseBlock, PaddingLayer, RotatePhiLayer,
-    )
-    from hbt.ml.torch_utils.functions import generate_weighted_loss
+    from hbt.ml.torch_utils.datasets.handlers import WeightedTensorParquetFileHandler
+    from hbt.ml.torch_utils.loss import WeightedCrossEntropy
+    from hbt.ml.torch_utils.utils import embedding_expected_inputs, get_standardization_parameter
+    from hbt.ml.torch_utils.layers import InputLayer, StandardizeLayer, ResNetPreactivationBlock, DenseBlock, PaddingLayer, RotatePhiLayer
+    from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
 
-    import sklearn
     from ignite.engine import Events
 
-    class BogNet(WeightedFeedForwardMultiCls):
-        def __init__(self, *args, **kwargs):
+    class TensorBoardLogger:
+        def __init__(self, tensorboard_path: str | None = None, logger: Any | None = None, **kwargs):
+            """
+            Setup a TensorBoard logger for a neural network located at *tensorboard_path*.
+            TensorBoardLogger has access to verbose logger like law.logger.
 
-            self.inputs = set(self.categorical_inputs) | set(self.continuous_inputs)
+            Args:
+                tensorboard_path (str | None, optional): Path where the tensorboard logs are located.
+                    Does not log if no path is given. Defaults to None.
+                logger (Any | None, optional): Logging instance, defaults to law's logger if None is passed.
+            """
+            # use passed logger or default law logger by name
+            super().__init__(**kwargs)
+            self.logger = logger or law.logger.get_logger(__name__)
+            self.writer = None
+            if tensorboard_path:
+                self.logger.info(f"Creating tensorboard logger at {tensorboard_path}")
+                self.writer = tensorboard.SummaryWriter(log_dir=tensorboard_path)
 
-            # targets
-            self.categorical_target_map = {
-                "hh": 0,
-                "tt": 1,
-                "dy": 2,
-            }
+    class NetworkBase(abc.ABC, torch.nn.Module):
+        def __init__(
+            self,
+            *args,
+            **kwargs
+        ):
+            super().__init__()
+            self.custom_hooks = list()
+
+        @abc.abstractmethod
+        def train_step(self, engine, batch):
+            """
+            Defines the training step for the model.
+            """
+
+        @abc.abstractmethod
+        def validation_step(self, engine, batch):
+            """
+            Defines the validation step for the model.
+            """
+
+        @property
+        @abc.abstractmethod
+        def _continuous_features(self) -> set[Route]:
+            """
+            Returns a set of continuous features used in the model.
+            """
+
+        @property
+        @abc.abstractmethod
+        def _categorical_features(self) -> set[Route]:
+            """
+            Returns a set of continuous features used in the model.
+            """
+
+        @property
+        def categorical_features(self) -> set[Route]:
+            """
+            Returns a set of continuous features used in the model.
+            """
+            return self._process_columns(self._categorical_features)
+
+        @property
+        def continuous_features(self) -> set[Route]:
+            """
+            Returns a set of continuous features used in the model.
+            """
+            return self._process_columns(self._continuous_features)
+
+
+        @classmethod
+        def _process_columns(cls, columns: Container[str]) -> list[Route]:
+            final_set = set()
+            final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+            return sorted(final_set, key=str)
+
+        @property
+        def inputs(self) -> list[Route]:
+            """
+            Combines continuous and categorical features and removed duplicated..
+            Returns a list of Route objects.
+            """
+            return list(dict.fromkeys(self.continuous_features + self.categorical_features))
+
+        @property
+        @abc.abstractmethod
+        def categorical_target_map(self) -> dict[str, int]:
+            """
+            Returns a mapping of categorical targets to integers.
+            This is used for classification tasks.
+
+            ex: {"hh": 0, "tt": 1, "dy": 2}
+            """
+
+
+
+
+    class BogNet(
+        IgniteEarlyStoppingMixin,
+        IgniteTrainingMixin,
+        TensorBoardLogger,
+        NetworkBase,
+    ):
+        def __init__(self, *args, tensorboard_path, logger, task, **kwargs):
+            from IPython import embed; embed(header="BOGNET - 148 in bognet.py ")
+            super().__init__(*args, tensorboard_path=tensorboard_path, logger=logger, **task.param_kwargs, **kwargs)
 
             # build network, get commandline arguments
             self.nodes = kwargs.get("nodes", 128)
@@ -69,20 +150,25 @@ if not isinstance(torch, MockModule):
             self.skip_connection_init = kwargs.get("skip_connection_init", 1)
             self.freeze_skip_connection = kwargs.get("freeze_skip_connection", False)
             self.empty_value = 15
-            super().__init__(*args, **kwargs)
+            self.input_layer, self.model = self.init_layers()
 
-            self.padding_layer, self.rotation_layer, self.std_layer, self.input_layer, self.model = self.init_layers()
+            # trainings settings
+            self.training_epoch_length_cutoff = 200
+            self.training_weight_cutoff = 0.05
+            self.training_logger_interval = 20
+            self.val_epoch_length_cutoff = None
+            self.val_weight_cutoff = None
 
             # loss function and metrics
             self.label_smoothing_coefficient = 0.05
-            self._loss_fn = generate_weighted_loss(
-                torch.nn.CrossEntropyLoss,
-            )(label_smoothing=self.label_smoothing_coefficient)
 
-            self.validation_metrics["loss"] = WeightedLoss(self.loss_fn)
-            self.mode_switch = 0
-            self.output_path = "/data/dust/user/wiedersb/"
+            self._loss_fn = WeightedCrossEntropy(label_smoothing=self.label_smoothing_coefficient)
 
+            # metrics
+            self.validation_metrics = {
+                "loss" : WeightedLoss(self.loss_fn)
+
+            }
             self.validation_metrics.update({
                 f"loss_cls_{identifier}": WeightedLoss(
                     WeightedCrossEntropySlice(cls_index=idx, label_smoothing=self.label_smoothing_coefficient),
@@ -102,27 +188,21 @@ if not isinstance(torch, MockModule):
                 for identifier, idx in self.categorical_target_map.items()
             })
 
-            # trainings settings
-            self.training_epoch_length_cutoff = 200
-            self.training_weight_cutoff = 0.05
+            if "perform_scheduler_step" not in self.custom_hooks:
+                self.custom_hooks.append("perform_scheduler_step")
 
-            # remove layers that comes due to inheritance
-            # TODO clean up, this is only a monkey patch
-            if hasattr(self, "linear_relu_stack"):
-                del self.linear_relu_stack
-            # del self.norm_layer
-            self.custom_hooks.append("add_checkpoints")
-            self.custom_hooks.append("perform_scheduler_step")
+            # disable checkpoints for now since they point to Bogdan specifically
+            if "add_checkpoints" in self.custom_hooks:
+                self.custom_hooks.remove("add_checkpoints")
 
-        @classmethod
-        def _process_columns(cls, columns: Container[str]) -> list[Route]:
-            final_set = set()
-            final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
-            return sorted(final_set, key=str)
+        @property
+        def categorical_target_map(self):
+            return {"hh": 0, "tt": 1, "dy": 2}
 
-        @classproperty
-        def categorical_inputs(cls) -> list[str]:
-            columns = {
+
+        @property
+        def _categorical_features(self) -> list[str]:
+            return [
                 "pair_type",
                 "decay_mode1",
                 "decay_mode2",
@@ -131,31 +211,34 @@ if not isinstance(torch, MockModule):
                 "has_fatjet",
                 "has_jet_pair",
                 "year_flag",
-            }
-            return cls._process_columns(columns)
+            ]
 
-        @classproperty
-        def continuous_inputs(cls) -> list[str]:
-            columns = {
-                "lepton1.{px,py,pz,energy,mass}",
-                "lepton2.{px,py,pz,energy,mass}",
-                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "fatjet.{px,py,pz,energy,mass}",
-            }
-            return cls._process_columns(columns)
+        @property
+        def _continuous_features(self) -> list[str]:
+            return [
+                "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+                "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+                "fatjet.{energy,mass,px,py,pz}",
+                "lepton1.{energy,mass,px,py,pz}",
+                "lepton2.{energy,mass,px,py,pz}",
+                "PuppiMET.{px,py}",
+                "reg_dnn_nu{1,2}_{px,py,pz}",
+            ]
+
 
         def state_dict(self, *args, **kwargs):
+            # IMP
             return self.model.state_dict(*args, **kwargs)
 
         def load_state_dict(self, *args, **kwargs):
+            # IMP
             return self.model.load_state_dict(*args, **kwargs)
 
         def perform_scheduler_step(self):
-            if self.scheduler:
+            if hasattr(self, "scheduler") and self.scheduler:
                 def do_step(engine, logger=self.logger):
                     self.scheduler.step()
-                    self.logger.info(f"Current LR: {self.scheduler.get_last_lr()}")
+                    logger.info(f"Performing scheduler step, last lr: {self.scheduler.get_last_lr()}")
 
                 self.train_evaluator.add_event_handler(
                     event_name="EPOCH_COMPLETED",
@@ -176,217 +259,15 @@ if not isinstance(torch, MockModule):
 
         @property
         def num_cat(self):
-            return len(self.categorical_inputs)
+            return len(self.categorical_features)
 
         @property
         def num_cont(self):
-            return len(self.continuous_inputs)
+            return len(self.continuous_features)
 
         @property
-        def num_inputs(self):
+        def num_features(self):
             return self.num_cat + self.num_cont
-
-        def init_layers(self):
-            # helper where all layers are defined
-            # std layers are filled when statitics are known
-            padding_layer = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
-
-            # only continous_inputs are rotated
-            rotation_layer = RotatePhiLayer(
-                list(map(lambda x: x.column, self.continous_inputs)),
-                rotate_columns=["bjet1", "bjet2", "fatjet", "lepton1", "lepton2", "rotated_PuppiMET"],
-                ref_phi_columns=["lepton1", "lepton2"],
-                activate=False,
-            )
-
-            std_layer = StandardizeLayer(
-                None,
-                None,
-            )
-
-            input_layer = InputLayer(
-                continuous_inputs=self.continuous_inputs,
-                categorical_inputs=self.categorical_inputs,
-                embedding_dim=3,
-                expected_categorical_inputs=embedding_expected_inputs,
-                empty=self.empty_value,
-                std_layer=std_layer,
-                rotation_layer=rotation_layer,
-                padding_continous_layer=padding_layer,
-            )
-
-            model = torch.nn.Sequential(
-                input_layer,
-                DenseBlock(input_nodes = input_layer.ndim, output_nodes = self.nodes, activation_functions=self.activation_functions), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
-                # no softmax since this is already part of loss
-            )
-            return padding_layer, rotation_layer, std_layer, input_layer, model
-
-        def train_step(self, engine, batch):
-            self.train()
-
-            # Compute prediction and loss
-            (categorical_x, continous_x), y = batch
-            self.optimizer.zero_grad()
-
-            # extra step normalize embedding vectors to have unit norm of 1, increases stability
-            self.input_layer.embedding_layer.normalize_embeddings()
-
-            pred = self(categorical_x, continous_x)
-            target = y.to(torch.float32)
-            if target.dim() == 1:
-                target = target.reshape(-1, 1)
-
-            loss = self.loss_fn(pred, target)
-            # Backpropagation
-            loss.backward()
-            self.optimizer.step()
-
-            return loss.item()
-
-        def validation_step(self, engine, batch):
-            self.eval()
-            # Set the model to evaluation mode - important for batch normalization and dropout layers
-
-            # if engine.state.iteration > self.max_val_epoch_length * (engine.state.epoch + 1):
-            #     engine.terminate_epoch()
-
-            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
-            # also serves to reduce unnecessary gradient computations and memory usage for tensors with
-            # requires_grad=True
-            with torch.no_grad():
-                (categorical_x, continous_x, weights), y = batch
-                pred = self(categorical_x, continous_x)
-
-                if y.dim() == 1:
-                    y = y.reshape(-1, 1)
-                y = y.to(torch.float32)
-                return pred, y, {"weight": weights.reshape(-1, 1)}
-
-        def to(self, *args, **kwargs):
-            # helper to move all customlayers to given device
-            self.std_layer = self.std_layer.to(*args, **kwargs)
-            self.input_layer = self.input_layer.to(*args, **kwargs)
-            self.model = self.model.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
-
-        def setup_preprocessing(self):
-            # extract dataset std and mean from dataset
-            # extraction happens form no oversampled dataset
-            mean, std = [], []
-            for _input in self.continuous_inputs:
-                input_statitics = self.dataset_statistics[_input.column]
-                mean.append(torch.from_numpy(input_statitics["mean"]))
-                std.append(torch.from_numpy(input_statitics["std"]))
-
-            mean, std = torch.concat(mean), torch.concat(std)
-            # set up standardization layer
-            self.std_layer.update_buffer(
-                mean.float(),
-                std.float(),
-            )
-
-        def logging(self, *args, **kwargs):
-            # output histogram
-            for target, index in self.categorical_target_map.items():
-                # apply softmax to prediction
-                logit = kwargs["prediction"]
-
-                self.writer.add_histogram(
-                    f"output_logit_{target}",
-                    logit[:, index],
-                    self.trainer.state.iteration,
-                )
-
-        def init_dataset_handler(self, task: law.Task, device: str = "cpu") -> None:
-            all_datasets = getattr(task, "resolved_datasets", task.datasets)
-            group_datasets = {
-                "ttbar": [d for d in all_datasets if d.startswith("tt_")],
-                "dy": [d for d in all_datasets if d.startswith("dy_")],
-            }
-
-            self.dataset_handler = WeightedTensorParquetFileHandler(
-                task=task,
-                continuous_features=getattr(self, "continuous_features", self.continuous_inputs),
-                categorical_features=getattr(self, "categorical_features", self.categorical_inputs),
-                batch_transformations=MoveToDevice(device=device),
-                # global_transformations=PreProcessFloatValues(),
-                build_categorical_target_fn=self._build_categorical_target,
-                group_datasets=group_datasets,
-                device=device,
-                categorical_target_transformation=partial(get_one_hot, nb_classes=3),
-                datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
-            )
-
-            self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets() # noqa
-
-            # define lenght of training epoch
-            self.max_epoch_length = self._calculate_max_epoch_length(
-                self.training_loader,
-                cutoff=self.training_epoch_length_cutoff,
-                weight_cutoff=self.training_weight_cutoff,
-            )
-
-            # get statistics for standardization from training dataset without oversampling
-            self.dataset_statistics = get_standardization_parameter(
-                self.train_validation_loader.data_map, self.continous_inputs,
-            )
-
-        def control_plot_1d(self):
-            import matplotlib.pyplot as plt
-            d = {}
-            for dataset, file_handler in self.training_loader.data_map.items():
-                d[dataset] = ak.concatenate(list(map(lambda x: x.data, file_handler)))
-
-            for cat in self.dataset_handler.categorical_features:
-                plt.clf()
-                data = []
-                labels = []
-                for dataset, arrays in d.items():
-                    data.append(Route(cat).apply(arrays))
-                    labels.append(dataset)
-                plt.hist(data, histtype="barstacked", alpha=0.5, label=labels)
-                plt.xlabel(cat)
-                plt.legend()
-                plt.savefig(f"{cat}_all.png")
-
-        def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
-            self.optimizer = torch.optim.AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
-            self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=3, gamma=0.5)
-
-        def forward(self, *inputs):
-            return self.model(inputs)
-
-    class UpdatedBogNet(BogNet):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.training_epoch_length_cutoff = 10000
-            if "perform_scheduler_step" not in self.custom_hooks:
-                self.custom_hooks.append("perform_scheduler_step")
-
-            # disable checkpoints for now since they point to Bogdan specifically
-            if "add_checkpoints" in self.custom_hooks:
-                self.custom_hooks.remove("add_checkpoints")
-
-        def log_graph(self, engine):
-            input_data = engine.state.batch[0]
-            self.writer.add_graph(self, input_data)
-
-        def perform_scheduler_step(self):
-            if hasattr(self, "scheduler") and self.scheduler:
-                def do_step(engine, logger=self.logger):
-                    self.scheduler.step()
-                    logger.info(f"Performing scheduler step, last lr: {self.scheduler.get_last_lr()}")
-
-                self.train_evaluator.add_event_handler(
-                    event_name="EPOCH_COMPLETED",
-                    handler=do_step,
-                )
 
         def init_layers(self):
             # helper where all layers are defined
@@ -395,12 +276,13 @@ if not isinstance(torch, MockModule):
 
             continuous_padding = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
             categorical_padding = PaddingLayer(padding_value=self.empty_value, mask_value=EMPTY_INT)
-            rotation_layer = RotatePhiLayer(columns=list(map(str, self.continuous_inputs)))
-
+            rotation_layer = RotatePhiLayer(
+                columns=list(map(str, self.continuous_features))
+            )
             input_layer = InputLayer(
-                continuous_inputs=self.continuous_inputs,
-                categorical_inputs=self.categorical_inputs,
-                embedding_dim=3,
+                continuous_inputs=self.continuous_features,
+                categorical_inputs=self.categorical_features,
+                embedding_dim=4,
                 expected_categorical_inputs=embedding_expected_inputs,
                 empty=self.empty_value,
                 std_layer=std_layer,
@@ -418,11 +300,78 @@ if not isinstance(torch, MockModule):
                 torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
                 # no softmax since this is already part of loss
             )
-            return continuous_padding, rotation_layer, std_layer, input_layer, model
+            return input_layer, model
 
-        def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-            self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
+        def train_step(self, engine, batch):
+            self.model.train()
+
+            # Compute prediction and loss
+            (categorical_x, continous_x), y = batch
+            self.optimizer.zero_grad()
+
+            pred = self(categorical_x, continous_x)
+            target = y.to(torch.float32)
+            if target.dim() == 1:
+                target = target.reshape(-1, 1)
+
+            loss = self.loss_fn(pred, target)
+            # Backpropagation
+            loss.backward()
+            self.optimizer.step()
+
+            return loss.item()
+
+        def validation_step(self, engine, batch):
+            self.model.eval()
+            # Set the model to evaluation mode - important for batch normalization and dropout layers
+
+            # if engine.state.iteration > self.max_val_epoch_length * (engine.state.epoch + 1):
+            #     engine.terminate_epoch()
+
+            with torch.no_grad():
+                (categorical_x, continous_x, weights), y = batch
+
+                pred = self(categorical_x, continous_x)
+
+                if y.dim() == 1:
+                    y = y.reshape(-1, 1)
+                y = y.to(torch.float32)
+
+                return pred, y, {"weight": weights}
+
+        def setup_preprocessing(self, device: str | None = None):
+            # extract dataset std and mean from dataset
+            # extraction happens form no oversampled dataset
+            mean, std = [], []
+            if not device:
+                device = next(self.model.parameters()).device
+            for _input in self.continuous_features:
+                input_statistics = self.dataset_statistics[_input.column]
+                mean.append(torch.from_numpy(input_statistics["mean"]))
+                std.append(torch.from_numpy(input_statistics["std"]))
+
+            mean, std = torch.concat(mean).to(device), torch.concat(std).to(device)
+            # set up standardization layer
+            self.input_layer.std_layer.update_buffer(
+                mean.float(),
+                std.float(),
+            )
+
+        def log_graph(self, engine):
+            input_data = engine.state.batch[0]
+            self.writer.add_graph(self, input_data)
+
+        def logging(self, *args, **kwargs):
+            # output histogram
+            for target, index in self.categorical_target_map.items():
+                # apply softmax to prediction
+                logit = kwargs["prediction"]
+
+                self.writer.add_histogram(
+                    f"output_logit_{target}",
+                    logit[:, index],
+                    self.trainer.state.iteration,
+                )
 
         def init_dataset_handler(
             self,
@@ -444,8 +393,8 @@ if not isinstance(torch, MockModule):
             self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
                 inputs=inputs,
-                continuous_features=getattr(self, "continuous_features", self.continuous_inputs),
-                categorical_features=getattr(self, "categorical_features", self.categorical_inputs),
+                continuous_features=getattr(self, "continuous_features", self.continuous_features),
+                categorical_featuress=getattr(self, "categorical_featuress", self.categorical_features),
                 batch_transformations=MoveToDevice(device=device),
                 # global_transformations=PreProcessFloatValues(),
                 build_categorical_target_fn=self._build_categorical_target,
@@ -467,82 +416,83 @@ if not isinstance(torch, MockModule):
                 cutoff=self.training_epoch_length_cutoff,
                 weight_cutoff=self.training_weight_cutoff,
             )
-
             # get statistics for standardization from training dataset without oversampling
-            self.dataset_statistics = get_standardization_parameter(self.train_validation_loader.data_map, self.continuous_inputs)
+            from IPython import embed; embed(header="Iinit datahandling - 337 in bognet.py ")
+            self.dataset_statistics = get_standardization_parameter(self.train_validation_loader.data_map, self.continuous_features)
 
-        def setup_preprocessing(self, device: str | None = None):
-            # extract dataset std and mean from dataset
-            # extraction happens form no oversampled dataset
-            mean, std = [], []
-            if not device:
-                device = next(self.model.parameters()).device
-            for _input in self.continuous_inputs:
-                input_statistics = self.dataset_statistics[_input.column]
-                mean.append(torch.from_numpy(input_statistics["mean"]))
-                std.append(torch.from_numpy(input_statistics["std"]))
+        def control_plot_1d(self):
+            import matplotlib.pyplot as plt
+            d = {}
+            for dataset, file_handler in self.training_loader.data_map.items():
+                d[dataset] = ak.concatenate(list(map(lambda x: x.data, file_handler)))
 
-            mean, std = torch.concat(mean).to(device), torch.concat(std).to(device)
-            # set up standardization layer
-            self.std_layer.update_buffer(
-                mean.float(),
-                std.float(),
-            )
+            for cat in self.dataset_handler.categorical_featuress:
+                plt.clf()
+                data = []
+                labels = []
+                for dataset, arrays in d.items():
+                    data.append(Route(cat).apply(arrays))
+                    labels.append(dataset)
+                plt.hist(data, histtype="barstacked", alpha=0.5, label=labels)
+                plt.xlabel(cat)
+                plt.legend()
+                plt.savefig(f"{cat}_all.png")
 
-        def validation_step(self, engine, batch):
-            self.eval()
-            # Set the model to evaluation mode - important for batch normalization and dropout layers
+        def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
 
-            # if engine.state.iteration > self.max_val_epoch_length * (engine.state.epoch + 1):
-            #     engine.terminate_epoch()
+        def forward(self, *inputs):
+            return self.model(inputs)
 
-            # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
-            # also serves to reduce unnecessary gradient computations and memory usage for tensors with
-            # requires_grad=True
-            with torch.no_grad():
-                (categorical_x, continous_x, weights), y = batch
+        def _build_categorical_target(self, dataset: str):
+            for key in self.categorical_target_map.keys():
+                if dataset.startswith(key):
+                    return self.categorical_target_map[key]
+            raise ValueError(f"Dataset {dataset} not in categorical target map")
 
-                pred = self(categorical_x, continous_x)
+        def _calculate_max_epoch_length(
+            self,
+            composite_loader,
+            weight_cutoff: float | None = None,
+            cutoff: int | None = None,
+            # priority_list: list[str] | None = None,
+        ):
+            global_max = 0
+            max_key = None
+            weight_cutoff = weight_cutoff or 0.
+            batch_comp = getattr(composite_loader.batcher, "_batch_composition", None)
+            # composition_length = {}
+            if not batch_comp:
+                batch_comp = {key: 1. for key in composite_loader.data_map.keys()}
+            for key, batchsize in batch_comp.items():
+                weights = composite_loader.weight_dict[key]
+                if isinstance(weights, float):
+                    data = composite_loader.data_map[key]
+                    if isinstance(data, (list, tuple, set)):
+                        total_length = sum([len(x) for x in data])
+                    else:
+                        total_length = len(data)
+                    local_max = np.ceil(total_length / batchsize)
+                    if local_max > global_max:
+                        max_key = key
+                        global_max = local_max
+                    # composition_length[key] = local_max
 
-                if y.dim() == 1:
-                    y = y.reshape(-1, 1)
-                y = y.to(torch.float32)
+                elif isinstance(weights, dict):
+                    for subkey, weight in weights.items():
+                        data = composite_loader.data_map[subkey]
+                        if isinstance(data, (list, tuple, set)):
+                            total_length = sum([len(x) for x in data])
+                        else:
+                            total_length = len(data)
+                        submax = np.ceil(total_length / batchsize / weight)
+                        # filter out datasets with small weight contribution
+                        if submax > global_max and weight >= weight_cutoff:
+                            global_max = submax
+                            max_key = subkey
 
-                return pred, y, {"weight": weights}
-
-        def train_step(self, engine, batch):
-            # from IPython import embed; embed(header="string - 149 in bognet.py ")
-            self.train()
-
-            # Compute prediction and loss
-            (categorical_x, continous_x), y = batch
-            self.optimizer.zero_grad()
-
-            # replace missing values with empty_fill, convert to expected type
-
-            pred = self(categorical_x, continous_x)
-            target = y.to(torch.float32)
-            if target.dim() == 1:
-                target = target.reshape(-1, 1)
-
-            loss = self.loss_fn(pred, target)
-            # Backpropagation
-            loss.backward()
-            self.optimizer.step()
-
-            return loss.item()
-
-    class ShapModel(torch.nn.Module):
-        # dummy Model class to give interface for single tensor inputs, since SHAP expect this kind of input tensor
-        def __init__(self, model):
-            super().__init__()
-            self.model = model.model
-            self.num_cont = len(model.continuous_inputs)
-            self.num_cat = len(model.categorical_inputs)
-
-        def forward(self, x):
-            cont, cat = (
-                torch.as_tensor(x[:, self.num_cat:], dtype=torch.float32),
-                torch.as_tensor(x[:, :self.num_cat], dtype=torch.int32),
-            )
-            return self.model((cat, cont))
+            if cutoff:
+                global_max = np.min([global_max, cutoff])
+            self.logger.info(f"epoch dominated by  '{max_key}': expect {global_max} batches/iteration")
+            return global_max

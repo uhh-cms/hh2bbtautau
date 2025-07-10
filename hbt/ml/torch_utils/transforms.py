@@ -10,7 +10,7 @@ __all__ = [
 from collections.abc import Mapping
 from columnflow.util import MockModule, maybe_import
 from columnflow.columnar_util import flat_np_view
-from hbt.production.res_networks import res_net_preprocessing
+from hbt.production.dnn_inputs import res_net_preprocessing
 
 from hbt.ml.torch_utils.layers import CategoricalTokenizer
 
