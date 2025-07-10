@@ -33,12 +33,9 @@ if not isinstance(torch, MockModule):
         RgTensorParquetFileHandler, WeightedRgTensorParquetFileHandler,
         WeightedTensorParquetFileHandler,
     )
-    from hbt.ml.torch_utils.ignite.metrics import (
-        WeightedROC_AUC, WeightedLoss,
-    )
-    from hbt.ml.torch_utils.utils import (
-        embedding_expected_inputs,
-    )
+    from hbt.ml.torch_utils.ignite.metrics import WeightedROC_AUC, WeightedLoss
+
+    from hbt.ml.torch_utils.utils import embedding_expected_inputs
     from hbt.ml.torch_utils.functions import generate_weighted_loss
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
     from hbt.ml.torch_utils.layers import PaddingLayer, InputLayer, StandardizeLayer
@@ -52,6 +49,8 @@ if not isinstance(torch, MockModule):
                 self.logger.info(f"Creating tensorboard logger at {tensorboard_path}")
                 self.writer = SummaryWriter(log_dir=tensorboard_path)
             self.custom_hooks = list()
+
+
 
     class FeedForwardNet(
         IgniteEarlyStoppingMixin,
@@ -95,7 +94,7 @@ if not isinstance(torch, MockModule):
         def init_layers(self):
             self.padding_layer = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
             self.norm_layer = nn.BatchNorm1d(len(self.inputs))
-            self.linear_relu_stack = nn.Sequential(
+            self.model = nn.Sequential(
                 nn.Linear(len(self.inputs), 512),
                 nn.ReLU(),
                 nn.BatchNorm1d(512),
@@ -209,7 +208,7 @@ if not isinstance(torch, MockModule):
 
         def forward(self, x):
             input_data = self._handle_input(x, norm_layer=getattr(self, "norm_layer", None))
-            logits = self.linear_relu_stack(input_data)
+            logits = self.model(input_data)
             return logits
 
     class TensorFeedForwardNet(FeedForwardNet):
@@ -247,7 +246,7 @@ if not isinstance(torch, MockModule):
         def forward(self, x):
             x = self.padding_layer(x)
             x = self.norm_layer(x.to(torch.float32))
-            logits = self.linear_relu_stack(x)
+            logits = self.model(x)
             return logits
 
         def train_step(self, engine, batch):
@@ -418,7 +417,7 @@ if not isinstance(torch, MockModule):
             self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
             self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
-            self.linear_relu_stack = nn.Sequential(
+            self.model = nn.Sequential(
                 nn.Linear(self.input_layer.ndim, 512),
                 nn.ReLU(),
                 nn.BatchNorm1d(512),
@@ -447,7 +446,7 @@ if not isinstance(torch, MockModule):
 
             # concatenate the continuous and categorical features
 
-            logits = self.linear_relu_stack(features)
+            logits = self.model(features)
             return logits
 
         def validation_step(self, engine, batch):
@@ -493,7 +492,7 @@ if not isinstance(torch, MockModule):
             self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
             self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
-            self.linear_relu_stack = nn.Sequential(
+            self.model = nn.Sequential(
                 nn.Linear(self.input_layer.ndim, 512),
                 nn.ReLU(),
                 nn.BatchNorm1d(512),
@@ -630,7 +629,7 @@ if not isinstance(torch, MockModule):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
-            self.linear_relu_stack = nn.Sequential(
+            self.model = nn.Sequential(
 
                 # nn.Dropout(p=0.2),
                 nn.Linear(len(self.inputs), 512),

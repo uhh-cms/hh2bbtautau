@@ -104,7 +104,7 @@ if not isinstance(torch, MockModule):
             self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
             self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
-            self.linear_relu_stack = nn.Sequential(
+            self.model = nn.Sequential(
                 nn.Linear(self.input_layer.ndim, 512),
                 nn.PReLU(),
                 nn.BatchNorm1d(512),
@@ -211,11 +211,6 @@ if not isinstance(torch, MockModule):
 
             # self.max_val_epoch_length = self._calculate_max_epoch_length(self.validation_loader)
 
-        def to(self, *args, **kwargs):
-            self.std_layer = self.std_layer.to(*args, **kwargs)
-            self.input_layer = self.input_layer.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
-
     class WeightedFeedForwardMultiCls(FeedForwardMultiCls):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -305,7 +300,7 @@ if not isinstance(torch, MockModule):
             self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
             self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
-            self.linear_relu_stack1 = nn.Sequential(
+            self.model1 = nn.Sequential(
                 nn.BatchNorm1d(len(self.inputs)),
                 nn.Linear(len(self.inputs), 512),
                 nn.ReLU(),
@@ -316,7 +311,7 @@ if not isinstance(torch, MockModule):
                 nn.Linear(1024, 512),
                 nn.ReLU(),
             )
-            self.linear_relu_stack2 = nn.Sequential(
+            self.model2 = nn.Sequential(
                 nn.BatchNorm1d(512),
                 nn.Linear(512, 2048),
                 nn.ReLU(),
@@ -331,6 +326,6 @@ if not isinstance(torch, MockModule):
 
         def forward(self, x):
             input_data = self._handle_input(x)
-            logits = self.linear_relu_stack1(input_data.to(torch.float32))
-            logits = self.linear_relu_stack2(logits)
+            logits = self.model1(input_data.to(torch.float32))
+            logits = self.model2(logits)
             return logits

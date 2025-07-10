@@ -120,7 +120,7 @@ if not isinstance(torch, MockModule):
             self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
             self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
-            self.linear_relu_stack = nn.Sequential(
+            self.model = nn.Sequential(
                 nn.Linear(self.input_layer.ndim, 512),
                 nn.PReLU(),
                 nn.BatchNorm1d(512),
@@ -163,7 +163,7 @@ if not isinstance(torch, MockModule):
 
             # concatenate the continuous and categorical features
 
-            logits = self.linear_relu_stack(features)
+            logits = self.model(features)
             return logits
 
         def to(self, *args, **kwargs):
@@ -189,7 +189,7 @@ if not isinstance(torch, MockModule):
             self.padding_layer_cat = PaddingLayer(padding_value=self.input_layer.empty, mask_value=EMPTY_INT)
             self.padding_layer_cont = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
 
-            self.linear_relu_stack = nn.Sequential(
+            self.model = nn.Sequential(
                 nn.Linear(self.input_layer.ndim, 512),
                 nn.PReLU(),
                 nn.BatchNorm1d(512),
@@ -296,7 +296,7 @@ if not isinstance(torch, MockModule):
             self.inputs = set()
             self.inputs.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
 
-            self.linear_relu_stack = nn.Sequential(
+            self.model = nn.Sequential(
                 nn.BatchNorm1d(len(self.inputs)),
                 nn.Linear(len(self.inputs), 512),
                 nn.ReLU(),
