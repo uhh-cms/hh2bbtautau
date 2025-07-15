@@ -108,23 +108,22 @@ def stylize_processes(config: od.Config) -> None:
         dark_green="#269c00",
     )
 
-    ggf_colors = {
-        "0": cfg.x.colors.bright_orange,
-        "1": cfg.x.colors.dark_blue,
-        "2p45": cfg.x.colors.red,
-        "5": cfg.x.colors.green,
-    }
-
-    for kl in ["0", "1", "2p45", "5"]:
+    for kl, *opts in [
+        ("0", cfg.x.colors.bright_orange),
+        ("1", cfg.x.colors.dark_blue),
+        ("2p45", cfg.x.colors.red),
+        ("5", cfg.x.colors.green),
+    ]:
+        # unpack additional options with defaults
+        color, *_ = (opts + [cfg.x.colors.dark_blue])[:1]
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
-            # p.color1 = cfg.x.colors.dark_blue
-            p.color1 = ggf_colors.get(kl, cfg.x.colors.dark_blue)
+            p.color1 = color
             kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"}, group=False)
             p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
-    for kv, k2v, kl in [
-        ("1", "1", "1"),
-        ("1", "0", "1"),
+    for kv, k2v, kl, *opts in [
+        ("1", "1", "1", cfg.x.colors.dark_blue),
+        ("1", "0", "1", cfg.x.colors.bright_orange),
         ("1", "2", "1"),
         ("1", "1", "2"),
         ("1p74", "1p37", "14p4"),
@@ -136,8 +135,10 @@ def stylize_processes(config: od.Config) -> None:
         ("m1p83", "3p57", "m3p39"),
         ("m2p12", "3p87", "m5p96"),
     ]:
+        # unpack additional options with defaults
+        color, *_ = (opts + [cfg.x.colors.brown])[:1]
         if (p := config.get_process(f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}", default=None)):
-            p.color1 = cfg.x.colors.brown
+            p.color1 = color
             kappa_label = create_kappa_label(**{"2V": k2v, r"\lambda": kl, "V": kv})
             p.label = rf"$HH_{{vbf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 

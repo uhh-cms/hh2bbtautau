@@ -642,6 +642,7 @@ def add_config(
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
         "all": [],
+        "none": ["json"],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
         "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
