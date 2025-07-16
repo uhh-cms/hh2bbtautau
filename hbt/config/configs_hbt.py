@@ -144,14 +144,12 @@ def add_config(
         "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        *if_era(year=2022, tag="preEE", values=[
-        ]),
         # additional points besides default basis
         *if_not_era(year=2022, tag="preEE", values=[
-            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
-            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
-            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
+            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
+            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
         ]),
         # "hh_vbf_hbb_htt_kv1_k2v1_kl2",
         # "hh_vbf_hbb_htt_kv1_k2v2_kl1",
