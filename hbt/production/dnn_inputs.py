@@ -25,7 +25,7 @@ ak = maybe_import("awkward")
 
 logger = law.logger.get_logger(__name__)
 
-# helper function
+# helper functionalw r
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
@@ -55,11 +55,10 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "has_fatjet",
         "decay_mode{1,2}",
         "rotated_PuppiMET.*",
-
     }),
     # variable to configure whether to rotate continuous features against lepton system
     do_rotation=True,
-    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_dev.sh"),
+    sandbox=dev_sandbox("bash::$CF_BASE/sandboxes/venv_columnar_dev.sh"),
 )
 def res_net_preprocessing(self, events: ak.Array, **kwargs) -> ak.Array:
     # ensure coffea behavior
