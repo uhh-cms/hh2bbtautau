@@ -707,12 +707,19 @@ def lepton_selection(
                 False,
             )
 
+            # check if the leading (most isolated) tau is isolated
+            leading_tau_isolated = ak.fill_none(
+                ak.firsts(tau_iso_mask[tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]]], axis=1),
+                False,
+            )
+
             # expect 0 veto electrons, 0 veto muons and at least two taus of which one is isolated
             is_tautau = (
                 trigger_fired &
                 (ak.sum(electron_veto_mask, axis=1) == 0) &
                 (ak.sum(muon_veto_mask, axis=1) == 0) &
-                leading_taus_matched
+                leading_taus_matched &
+                leading_tau_isolated
             )
 
             # get selected, sorted taus to obtain quantities

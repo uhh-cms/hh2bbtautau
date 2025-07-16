@@ -3,12 +3,17 @@
 """
 Definition of variables.
 """
+
+from __future__ import annotations
+
 from functools import partial
 
 import order as od
 
 from columnflow.columnar_util import EMPTY_FLOAT, attach_coffea_behavior, default_coffea_collections
 from columnflow.util import maybe_import
+
+from hbt.util import create_lvector_xyz
 
 ak = maybe_import("awkward")
 
@@ -129,6 +134,22 @@ def add_variables(config: od.Config) -> None:
         binning=(66, -3.3, 3.3),
         x_title=r"MET $\phi$",
     )
+    add_variable(
+        config,
+        name="met_px",
+        expression=lambda events: events.PuppiMET.px,
+        aux={"inputs": ["PuppiMET.{pt,phi}"]},
+        binning=(50, -250, 250),
+        x_title=r"MET $p_x$",
+    )
+    add_variable(
+        config,
+        name="met_py",
+        expression=lambda events: events.PuppiMET.py,
+        aux={"inputs": ["PuppiMET.{pt,phi}"]},
+        binning=(50, -250, 250),
+        x_title=r"MET $p_y$",
+    )
     for n in range(1, 2 + 1):
         for v in ["px", "py", "pz"]:
             add_variable(
@@ -146,28 +167,10 @@ def add_variables(config: od.Config) -> None:
             new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
             pt = (px**2 + py**2)**0.5
             return pt * np.cos(new_phi), pt * np.sin(new_phi)
-        nu1_px, nu1_py = rotate_px_py(events.reg_dnn_nu1_px, events.reg_dnn_nu1_py)
-        nu1 = ak.Array(
-            {
-                "px": nu1_px,
-                "py": nu1_py,
-                "pz": events.reg_dnn_nu1_pz,
-                "e": (nu1_px**2 + nu1_py**2 + events.reg_dnn_nu1_pz**2)**0.5,
-            },
-            with_name="PtEtaPhiMLorentzVector",
-            behavior=events.behavior,
-        )
-        nu2_px, nu2_py = rotate_px_py(events.reg_dnn_nu2_px, events.reg_dnn_nu2_py)
-        nu2 = ak.Array(
-            {
-                "px": nu2_px,
-                "py": nu2_py,
-                "pz": events.reg_dnn_nu2_pz,
-                "e": (nu2_px**2 + nu2_py**2 + events.reg_dnn_nu2_pz**2)**0.5,
-            },
-            with_name="PtEtaPhiMLorentzVector",
-            behavior=events.behavior,
-        )
+        nu1 = create_lvector_xyz(*rotate_px_py(events.reg_dnn_nu1_px, events.reg_dnn_nu1_py), events.reg_dnn_nu1_pz)
+        nu2 = create_lvector_xyz(*rotate_px_py(events.reg_dnn_nu2_px, events.reg_dnn_nu2_py), events.reg_dnn_nu2_pz)
+        if which == "nus":
+            return nu1, nu2
         # build the higgs
         h = ak.concatenate([nu1[:, None] * 1, nu2[:, None] * 1, vis_leps], axis=1).sum(axis=1)
         if which is None:
@@ -200,6 +203,32 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_vis_h.inputs},
         binning=(50, 0.0, 250.0),
         x_title=r"Visible $m_{H}$",
+    )
+
+    def build_reg_met(events, which=None):
+        nu1, nu2 = build_reg_h(events, which="nus")
+        if which == "px":
+            return nu1.px + nu2.px
+        if which == "py":
+            return nu1.py + nu2.py
+        raise ValueError(f"Unknown which: {which}")
+    build_reg_met.inputs = build_reg_h.inputs
+
+    add_variable(
+        config,
+        name="reg_met_px",
+        expression=partial(build_reg_met, which="px"),
+        aux={"inputs": build_reg_met.inputs},
+        binning=(50, -250.0, 250.0),
+        x_title=r"Regressed $\nu_1 p_x + \nu_2 p_x$",
+    )
+    add_variable(
+        config,
+        name="reg_met_py",
+        expression=partial(build_reg_met, which="py"),
+        aux={"inputs": build_reg_met.inputs},
+        binning=(50, -250.0, 250.0),
+        x_title=r"Regressed $\nu_1 p_y + \nu_2 p_y$",
     )
 
     # weights

@@ -23,6 +23,8 @@ from columnflow.config_util import (
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 
+from hbt import env_is_cern, force_desy_resources
+
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
@@ -138,16 +140,21 @@ def add_config(
         "hh_ggf_hbb_htt_kl1_kt1_c23",
         "hh_vbf_hbb_htt_kv1_k2v1_kl1",
         "hh_vbf_hbb_htt_kv1_k2v0_kl1",
-        "hh_vbf_hbb_htt_kv1_k2v1_kl2",
-        "hh_vbf_hbb_htt_kv1_k2v2_kl1",
-        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
-        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
-        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
         "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43",
         "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
+        *if_era(year=2022, tag="preEE", values=[
+        ]),
+        # additional points besides default basis
+        *if_not_era(year=2022, tag="preEE", values=[
+            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
+            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
+            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+        ]),
+        # "hh_vbf_hbb_htt_kv1_k2v1_kl2",
+        # "hh_vbf_hbb_htt_kv1_k2v2_kl1",
         "radion_hh_ggf_hbb_htt_m450",
         "radion_hh_ggf_hbb_htt_m1200",
         "graviton_hh_ggf_hbb_htt_m450",
@@ -161,7 +168,7 @@ def add_config(
             from cmsdb.processes.qcd import qcd
             proc = qcd
         else:
-            # development switch in case datasets are not _yet_ there
+            # development switch in case processes are not _yet_ there
             continue
 
         # add tags to processes
@@ -201,20 +208,35 @@ def add_config(
         "hh_ggf_hbb_htt_kl5_kt1_powheg",
 
         # hh vbf
-        "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
-        "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-        *if_era(year=2022, values=[
-            "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",  # Poisson60KeepRAW for 2022post
-            "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",  # Poisson60KeepRAW for 2022post
+        # 2022pre: private produced datasets
+        *if_era(year=2022, tag="preEE", values=[
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
+            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
+            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
+            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
+            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
         ]),
-        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
-        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
-        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
-        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
-        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
-        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
-        "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+        # rest: central datasets
+        *if_not_era(year=2022, tag="preEE", values=[
+            # default basis
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
+            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
+            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
+            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
+            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
+            # additional points
+            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
+            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
+            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+        ]),
+        # test samples, not used right now
+        # *if_era(year=2022, values=[
+        #     "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",  # Poisson60KeepRAW for 2022post
+        #     "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",  # Poisson60KeepRAW for 2022post
+        # ]),
 
         # x -> hh resonances
         *if_era(year=2022, values=[
@@ -604,13 +626,12 @@ def add_config(
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", *backgrounds]),
         "sm": (sm_group := [
             "hh_ggf_hbb_htt_kl1_kt1_powheg",
-            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_*madgraph",
             *backgrounds,
-        ],
-        ),
+        ]),
         "sm_unstitched": (sm_group_unstitched := [
             "hh_ggf_hbb_htt_kl1_kt1_powheg",
-            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_*madgraph",
             *backgrounds_unstitched,
         ]),
         "sm_ggf_data": data_group + sm_ggf_group,
@@ -663,6 +684,7 @@ def add_config(
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
         "all": [],
+        "none": ["json"],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
         "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
@@ -1734,10 +1756,16 @@ def add_config(
             # note: this feature is not yet used as we do not have different prod* versions per dataset yet
             # nanogen_version = dataset_inst.x("nanogen_version", None) or cfg.campaign.x.custom["nanogen_version"]
 
-            # create the lfn base directory, local or remote
-            dir_cls = law.wlcg.WLCGDirectoryTarget
+            # lookup file systems to use
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
             local_fs = f"local_fs_{cfg.campaign.x.custom['name']}"
+            # ammend when located on CERN resources
+            if not force_desy_resources and env_is_cern:
+                fs += "_eos"
+                local_fs += "_eos"
+
+            # create the lfn base directory, local or remote
+            dir_cls = law.wlcg.WLCGDirectoryTarget
             if law.config.has_section(local_fs):
                 base = law.target.file.remove_scheme(law.config.get_expanded(local_fs, "base"))
                 # if os.path.exists(os.path.join(base, nanogen_version)):
