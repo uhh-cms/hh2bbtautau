@@ -469,7 +469,7 @@ def add_config(
         # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2?rev=172#ECal_BadCalibration_Filter_Flag
         # https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
         if year == 2022 and dataset.is_data and dataset.x.era in "FG":
-            dataset.add_tag("broken_ecalBadCalibFilter")
+            dataset.add_tag("needs_custom_ecalBadCalibFilter")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
