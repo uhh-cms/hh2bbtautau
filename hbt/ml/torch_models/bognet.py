@@ -6,13 +6,13 @@ __all__ = [
 from functools import partial
 
 from columnflow.util import MockModule, maybe_import, DotDict
-from columnflow.types import Callable
+from columnflow.types import Callable, Any
 from collections.abc import Container
 
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 
 from hbt.ml.torch_utils.functions import (
-    get_one_hot, preprocess_multiclass_outputs, WeightedCrossEntropySlice,
+    get_one_hot, preprocess_multiclass_outputs, WeightedCrossEntropySlice, normalized_weight_decay,
 )
 
 torch = maybe_import("torch")
@@ -21,7 +21,6 @@ np = maybe_import("numpy")
 ak = maybe_import("awkward")
 import law
 import abc
-import collections
 
 model_clss: DotDict[str, torch.nn.Module] = DotDict()
 
@@ -33,7 +32,9 @@ if not isinstance(torch, MockModule):
     from hbt.ml.torch_utils.datasets.handlers import WeightedTensorParquetFileHandler
     from hbt.ml.torch_utils.loss import WeightedCrossEntropy
     from hbt.ml.torch_utils.utils import embedding_expected_inputs, get_standardization_parameter
-    from hbt.ml.torch_utils.layers import InputLayer, StandardizeLayer, ResNetPreactivationBlock, DenseBlock, PaddingLayer, RotatePhiLayer
+    from hbt.ml.torch_utils.layers import (
+        InputLayer, StandardizeLayer, ResNetPreactivationBlock, DenseBlock, PaddingLayer, RotatePhiLayer,
+    )
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
 
     from ignite.engine import Events
@@ -61,7 +62,7 @@ if not isinstance(torch, MockModule):
         def __init__(
             self,
             *args,
-            **kwargs
+            **kwargs,
         ):
             super().__init__()
             self.custom_hooks = list()
@@ -106,7 +107,6 @@ if not isinstance(torch, MockModule):
             """
             return self._process_columns(self._continuous_features)
 
-
         @classmethod
         def _process_columns(cls, columns: Container[str]) -> list[Route]:
             final_set = set()
@@ -131,9 +131,6 @@ if not isinstance(torch, MockModule):
             ex: {"hh": 0, "tt": 1, "dy": 2}
             """
 
-
-
-
     class BogNet(
         IgniteEarlyStoppingMixin,
         IgniteTrainingMixin,
@@ -141,7 +138,6 @@ if not isinstance(torch, MockModule):
         NetworkBase,
     ):
         def __init__(self, *args, tensorboard_path, logger, task, **kwargs):
-            from IPython import embed; embed(header="BOGNET - 148 in bognet.py ")
             super().__init__(*args, tensorboard_path=tensorboard_path, logger=logger, **task.param_kwargs, **kwargs)
 
             # build network, get commandline arguments
@@ -153,20 +149,20 @@ if not isinstance(torch, MockModule):
             self.input_layer, self.model = self.init_layers()
 
             # trainings settings
-            self.training_epoch_length_cutoff = 200
+            self.training_epoch_length_cutoff = 1000
             self.training_weight_cutoff = 0.05
             self.training_logger_interval = 20
-            self.val_epoch_length_cutoff = None
+            self.val_epoch_length_cutoff = 500
             self.val_weight_cutoff = None
 
             # loss function and metrics
-            self.label_smoothing_coefficient = 0.05
+            self.label_smoothing_coefficient = 0.02
 
             self._loss_fn = WeightedCrossEntropy(label_smoothing=self.label_smoothing_coefficient)
 
             # metrics
             self.validation_metrics = {
-                "loss" : WeightedLoss(self.loss_fn)
+                "loss": WeightedLoss(self.loss_fn),
 
             }
             self.validation_metrics.update({
@@ -199,7 +195,6 @@ if not isinstance(torch, MockModule):
         def categorical_target_map(self):
             return {"hh": 0, "tt": 1, "dy": 2}
 
-
         @property
         def _categorical_features(self) -> list[str]:
             return [
@@ -224,7 +219,6 @@ if not isinstance(torch, MockModule):
                 "PuppiMET.{px,py}",
                 "reg_dnn_nu{1,2}_{px,py,pz}",
             ]
-
 
         def state_dict(self, *args, **kwargs):
             # IMP
@@ -277,7 +271,7 @@ if not isinstance(torch, MockModule):
             continuous_padding = PaddingLayer(padding_value=0, mask_value=EMPTY_FLOAT)
             categorical_padding = PaddingLayer(padding_value=self.empty_value, mask_value=EMPTY_INT)
             rotation_layer = RotatePhiLayer(
-                columns=list(map(str, self.continuous_features))
+                columns=list(map(str, self.continuous_features)),
             )
             input_layer = InputLayer(
                 continuous_inputs=self.continuous_features,
@@ -307,6 +301,7 @@ if not isinstance(torch, MockModule):
 
             # Compute prediction and loss
             (categorical_x, continous_x), y = batch
+
             self.optimizer.zero_grad()
 
             pred = self(categorical_x, continous_x)
@@ -335,6 +330,7 @@ if not isinstance(torch, MockModule):
 
                 if y.dim() == 1:
                     y = y.reshape(-1, 1)
+                # from IPython import embed; embed(header="validation_step - 337 in bognet.py ")
                 y = y.to(torch.float32)
 
                 return pred, y, {"weight": weights}
@@ -394,13 +390,13 @@ if not isinstance(torch, MockModule):
                 task=task,
                 inputs=inputs,
                 continuous_features=getattr(self, "continuous_features", self.continuous_features),
-                categorical_featuress=getattr(self, "categorical_featuress", self.categorical_features),
+                categorical_features=getattr(self, "categorical_features", self.categorical_features),
                 batch_transformations=MoveToDevice(device=device),
                 # global_transformations=PreProcessFloatValues(),
                 build_categorical_target_fn=self._build_categorical_target,
                 group_datasets=group_datasets,
                 device=device,
-                categorical_target_transformation=partial(get_one_hot, nb_classes=3),
+                categorical_target_transformation=partial(get_one_hot, nb_classes=len(self.categorical_target_map)),
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
                 extract_dataset_paths_fn=extract_dataset_paths_fn,
                 extract_probability_fn=extract_probability_fn,
@@ -417,8 +413,9 @@ if not isinstance(torch, MockModule):
                 weight_cutoff=self.training_weight_cutoff,
             )
             # get statistics for standardization from training dataset without oversampling
-            from IPython import embed; embed(header="Iinit datahandling - 337 in bognet.py ")
-            self.dataset_statistics = get_standardization_parameter(self.train_validation_loader.data_map, self.continuous_features)
+            self.dataset_statistics = get_standardization_parameter(
+                self.train_validation_loader.data_map, self.continuous_features,
+            )
 
         def control_plot_1d(self):
             import matplotlib.pyplot as plt
@@ -439,7 +436,16 @@ if not isinstance(torch, MockModule):
                 plt.savefig(f"{cat}_all.png")
 
         def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            no_weight_decay_parameters, weight_decay_parameters = normalized_weight_decay(
+                self.model, decay_factor=weight_decay, normalize=True,
+            )
+
+            # set parameters for optimizer per layer base, if nothing given use global parameters
+            self.optimizer = torch.optim.AdamW(
+                (no_weight_decay_parameters, weight_decay_parameters),
+                lr=learning_rate,
+                weight_decay=None,
+            )
             self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
 
         def forward(self, *inputs):

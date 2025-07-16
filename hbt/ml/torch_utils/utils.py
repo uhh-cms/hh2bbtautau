@@ -21,6 +21,49 @@ onnx = maybe_import("onnx")
 rt = maybe_import("onnxruntime")
 
 
+def normalized_weight_decay(
+    model: torch.nn.Module,
+    decay_factor: float = 1e-1,
+    normalize: bool = True,
+) -> tuple[dict, dict]:
+    """
+    Weight decay should only be applied to the linear layers or convolutional layers.
+    All other layers should not have weight decay applied.
+    Pytorch Optimizers will apply weight decay to all parameters that have `requires_grad=True`.
+    This function can be overwritten by specify the parameters that should have weight decay applied.
+
+    Args:
+        model (torch.nn.Module): The model to apply weight decay to.
+        decay_factor (float): The weight decay factor to apply to the parameters.
+        normalize (bool): If True, the decay factor is normalized by the number of parameters.
+            This ensures that the end L2 loss is about the same size for big and small models.
+
+    Returns:
+
+        tuple: A tuple containing two dictionaries where:
+            - The first dictionary contains parameters that should not have weight decay applied.
+            - The second dictionary contains parameters that should have weight decay applied.
+    """
+    # get list of parameters that should have weight decay applied, and those that should not
+    with_weight_decay = []
+    no_weight_decay = []
+    for module_name, layer in model.named_modules():
+        if isinstance(layer, (torch.nn.Linear)):
+            for param_name, param in layer.named_parameters():
+                if param.requires_grad:
+                    if "weight" in param_name:
+                        print(f"Adding to {module_name}.{param_name} to weight decay")
+                        with_weight_decay.append(param)
+                    else:
+                        no_weight_decay.append(param)
+
+    # decouple lambda choice from number of parameters, by normalizing the decay factor
+    num_weight_decay_params = sum([len(weight.flatten()) for weight in with_weight_decay])
+    if normalize:
+        decay_factor = decay_factor / num_weight_decay_params
+    return {"params": no_weight_decay, "weight_decay": 0.0}, {"params": with_weight_decay, "weight_decay": decay_factor}
+
+
 embedding_expected_inputs = {
     "pair_type": [0, 1, 2],  # see mapping below
     "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
