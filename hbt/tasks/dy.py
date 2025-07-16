@@ -113,7 +113,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         }
 
     def output(self):
-        return self.target(f"hbt_njets_corrections_{self.variable}.json.gz")
+        return self.target(f"hbt_corrections_{self.variable}.json.gz")
 
     def run(self):
         import correctionlib.schemav2 as cs
@@ -346,13 +346,8 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     }
 
     # do the fit per njet (or nbjet) category
-    leaf_cat_names = h.axes["category"]
-    bool_njet = True
-    cats = []
-    if bool_njet:
-        cats = [cat for cat in leaf_cat_names if "j" in cat]
-    else:
-        cats = [cat for cat in leaf_cat_names if "b" in cat]
+    leaf_cats = h.axes["category"]
+    cats = [cat for cat in leaf_cats if "j" in cat]
 
     # hist with all leaf categories
     for cat in cats:
@@ -371,7 +366,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         else:
             h_ = h[cat, ...][{"njets": sum}]
             fit_str = get_fit_str(njet, h_)
-            fit_dict[era]["nominal"][(njet, 11)] = [(-inf, inf, fit_str)]
+            fit_dict[era]["nominal"][(njet, 50)] = [(-inf, inf, fit_str)]
 
     print(fit_dict)
     return fit_dict
