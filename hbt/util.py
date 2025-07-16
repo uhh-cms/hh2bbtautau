@@ -13,6 +13,7 @@ from columnflow.columnar_util import ArrayFunction, deferred_column
 from columnflow.util import maybe_import
 
 np = maybe_import("numpy")
+ak = maybe_import("awkward")
 
 
 @deferred_column
@@ -175,3 +176,51 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
         ak.values_astype(arr.luminosityBlock, np.uint64) * 10**max_digits_event +
         ak.values_astype(arr.event, np.uint64)
     )
+
+
+def with_type(type_name: str, data: dict[str, ak.Array], behavior: dict | None = None) -> ak.Array:
+    """
+    Attaches a named behavior *type_name* to the structured *data* and returns an array with that behavior. The source
+    behavior is extracted from the *behavior* mapping, which is extracted from the first data column if not provided.
+
+    :param type_name: The name of the type to attach.
+    :param data: The structured data to attach the behavior to.
+    :param behavior: The behavior to attach, defaults to the first data column's behavior.
+    :return: Array with the specified behavior.
+    """
+    # extract the behavior from the first data column
+    if behavior is None:
+        behavior = next(iter(data.values())).behavior
+    return ak.Array(data, with_name=type_name, behavior=behavior)
+
+
+def create_lvector_exyz(e: ak.Array, px: ak.Array, py: ak.Array, pz: ak.Array, behavior: dict | None = None) -> ak.Array:
+    """
+    Creates a Lorentz vector with the given energy and momentum components.
+
+    :param e: Energy component.
+    :param px: x-component of momentum.
+    :param py: y-component of momentum.
+    :param pz: z-component of momentum.
+    :return: Lorentz vector as an awkward array.
+    """
+    data = {
+        "e": e,
+        "px": px,
+        "py": py,
+        "pz": pz,
+    }
+    return with_type("PtEtaPhiMLorentzVector", data, behavior=behavior)
+
+
+def create_lvector_xyz(px: ak.Array, py: ak.Array, pz: ak.Array, behavior: dict | None = None) -> ak.Array:
+    """
+    Creates a Lorentz vector with the given momentum components and zero mass.
+
+    :param px: x-component of momentum.
+    :param py: y-component of momentum.
+    :param pz: z-component of momentum.
+    :return: Lorentz vector as an awkward array.
+    """
+    p = (px**2 + py**2 + pz**2)**0.5
+    return create_lvector_exyz(p, px, py, pz, behavior=behavior)

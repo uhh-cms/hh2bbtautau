@@ -96,25 +96,25 @@ def add_config(
 
     # add custom processes
     if not sync_mode:
-        cfg.add_process(
+        procs.add(
             name="v",
             id=7997,
             label="W/Z",
             processes=[procs.n.w, procs.n.z],
         )
-        cfg.add_process(
+        procs.add(
             name="multiboson",
             id=7998,
             label="Multiboson",
             processes=[procs.n.vv, procs.n.vvv],
         )
-        cfg.add_process(
+        procs.add(
             name="all_v",
             id=7996,
             label="Multiboson",
-            processes=[cfg.processes.n.v, cfg.processes.n.multiboson],
+            processes=[procs.n.v, procs.n.multiboson],
         )
-        cfg.add_process(
+        procs.add(
             name="tt_multiboson",
             id=7999,
             label=r"$t\bar{t}$ + Multiboson",
@@ -173,10 +173,8 @@ def add_config(
         "st",
         # "dy_lo",
         "dy",
-        # "dy_nnlo",
-        "v",
-        "multiboson",
         "tt_multiboson",
+        "all_v",
         "qcd",
         "h",
         "hh_ggf_hbb_htt_kl1_kt1",
@@ -187,16 +185,19 @@ def add_config(
         "hh_ggf_hbb_htt_kl1_kt1_c23",
         "hh_vbf_hbb_htt_kv1_k2v1_kl1",
         "hh_vbf_hbb_htt_kv1_k2v0_kl1",
-        "hh_vbf_hbb_htt_kv1_k2v1_kl2",
-        "hh_vbf_hbb_htt_kv1_k2v2_kl1",
-        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
-        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
-        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
         "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43",
         "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
+        # additional points besides default basis
+        *if_not_era(year=2022, tag="preEE", values=[
+            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
+            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
+            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
+        ]),
+        # "hh_vbf_hbb_htt_kv1_k2v1_kl2",
+        # "hh_vbf_hbb_htt_kv1_k2v2_kl1",
         "radion_hh_ggf_hbb_htt_m450",
         "radion_hh_ggf_hbb_htt_m1200",
         "graviton_hh_ggf_hbb_htt_m450",
@@ -210,7 +211,7 @@ def add_config(
             from cmsdb.processes.qcd import qcd
             proc = qcd
         else:
-            # development switch in case datasets are not _yet_ there
+            # development switch in case processes are not _yet_ there
             continue
 
         # add tags to processes
@@ -258,20 +259,35 @@ def add_config(
         "hh_ggf_hbb_htt_kl5_kt1_powheg",
 
         # hh vbf
-        "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
-        "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-        *if_era(year=2022, values=[
-            "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",  # Poisson60KeepRAW for 2022post
-            "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",  # Poisson60KeepRAW for 2022post
+        # 2022pre: private produced datasets
+        *if_era(year=2022, tag="preEE", values=[
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
+            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
+            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
+            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
+            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
         ]),
-        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
-        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
-        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
-        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
-        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
-        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
-        "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+        # rest: central datasets
+        *if_not_era(year=2022, tag="preEE", values=[
+            # default basis
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
+            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
+            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
+            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
+            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
+            # additional points
+            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
+            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
+            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+        ]),
+        # test samples, not used right now
+        # *if_era(year=2022, values=[
+        #     "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",  # Poisson60KeepRAW for 2022post
+        #     "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",  # Poisson60KeepRAW for 2022post
+        # ]),
 
         # x -> hh resonances
         *if_era(year=2022, values=[
@@ -507,7 +523,7 @@ def add_config(
         # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2?rev=172#ECal_BadCalibration_Filter_Flag
         # https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
         if year == 2022 and dataset.is_data and dataset.x.era in "FG":
-            dataset.add_tag("broken_ecalBadCalibFilter")
+            dataset.add_tag("needs_custom_ecalBadCalibFilter")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
@@ -659,13 +675,12 @@ def add_config(
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", *backgrounds]),
         "sm": (sm_group := [
             "hh_ggf_hbb_htt_kl1_kt1_powheg",
-            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_*madgraph",
             *backgrounds,
-        ],
-        ),
+        ]),
         "sm_unstitched": (sm_group_unstitched := [
             "hh_ggf_hbb_htt_kl1_kt1_powheg",
-            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_*madgraph",
             *backgrounds_unstitched,
         ]),
         "sm_ggf_data": data_group + sm_ggf_group,
@@ -728,6 +743,7 @@ def add_config(
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
         "all": [],
+        "none": ["json"],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
         "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
