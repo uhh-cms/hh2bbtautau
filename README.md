@@ -2,6 +2,23 @@
 
 [![Lint and test](https://github.com/uhh-cms/hh2bbtautau/actions/workflows/lint_and_test.yaml/badge.svg)](https://github.com/uhh-cms/hh2bbtautau/actions/workflows/lint_and_test.yaml)
 
+## HHKinFit
+HHKinFit is included in the analysis as a dedicated sandbox. Before running it, ensure that pybind11==2.13.6 is listed in modules/columnflow/sandboxes/columnar.txt.
+
+HHKinFit is implemented as the producer [hhkinfit.py](https://github.com/HEP-KBFI/hh2bbtautau/blob/hhkinfit/hbt/production/hh_kinfit.py) that generates new columns prefixed with "HHKinFit.*". It takes the following as input:
+
+- Lists of b-jets and taus
+- Missing transverse energy (MET)
+- The MET covariance matrix
+- A b-jet resolution value
+
+The b-jet resolution can be set manually in the producer code. It should be specified as a double, and you can choose values such as 0.0 and/or -1.0 depending on your use case.
+
+Internally, HHKinFit uses C++ code with explicit loops for computation.
+
+For more overall details, see the [HHKinFit2 Twiki](https://twiki.cern.ch/twiki/bin/view/CMS/HHKinFit2)
+ 
+
 ## Quickstart
 
 A couple test tasks are listed below.
