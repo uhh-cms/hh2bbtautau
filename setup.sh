@@ -121,31 +121,10 @@ setup_hbt() {
     fi
 
     #
-    # git hooks
+    # additional common cf setup steps
     #
 
-    if ${CF_LOCAL_ENV}; then
-        cf_setup_git_hooks || return "$?"
-    fi
-
-    #
-    # law setup
-    #
-
-    export LAW_HOME="${LAW_HOME:-${HBT_BASE}/.law}"
-    export LAW_CONFIG_FILE="${LAW_CONFIG_FILE:-${HBT_BASE}/law.cfg}"
-
-    # run the indexing when not remote
-    if ! ${CF_REMOTE_ENV} && which law &> /dev/null; then
-        # source law's bash completion scipt
-        source "$( law completion )" ""
-
-        # add completion to the claw command
-        complete -o bashdefault -o default -F _law_complete claw
-
-        # silently index
-        law index -q
-    fi
+    cf_setup_post_install || return "$?"
 
     # update the law config file to switch from mirrored to bare wlcg targets
     # as local mounts are typically not available remotely
@@ -153,7 +132,10 @@ setup_hbt() {
         sed -i -r 's/(.+\: ?)wlcg_mirrored, local_.+, ?(wlcg_[^\s]+)/\1wlcg, \2/g' "${LAW_CONFIG_FILE}"
     fi
 
+    #
     # finalize
+    #
+
     export HBT_SETUP="true"
 }
 

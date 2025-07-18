@@ -14,7 +14,7 @@ ak = maybe_import("awkward")
 
 
 @producer(
-    uses={"PuppiMET.{pt,phi}", "Jet.{pt,eta,phi,neEmEF,chEmEF}"},
+    uses={"run", "PuppiMET.{pt,phi}", "Jet.{pt,eta,phi,neEmEF,chEmEF}"},
     produces={"patchedEcalBadCalibFilter"},
 )
 def patch_ecalBadCalibFilter(
@@ -31,16 +31,22 @@ def patch_ecalBadCalibFilter(
     - TWiki: https://twiki.cern.ch/twiki/bin/viewauth/CMS/MissingETOptionalFiltersRun2?rev=172#ECal_BadCalibration_Filter_Flag
     """  # noqa
     reject = (
+        (events.run >= 362433) & (events.run <= 367144) &
         (events.PuppiMET.pt > 100) &
         ak.any(
             (events.Jet.pt > 50) &
-            (events.Jet.eta >= -0.5) &
-            (events.Jet.eta <= -0.1) &
-            (events.Jet.phi >= -2.1) &
-            (events.Jet.phi <= -1.8) &
+            (events.Jet.eta >= -0.5) & (events.Jet.eta <= -0.1) &
+            (events.Jet.phi >= -2.1) & (events.Jet.phi <= -1.8) &
             ((events.Jet.neEmEF > 0.9) | (events.Jet.chEmEF > 0.9)) &
             (events.Jet.delta_phi(events.PuppiMET) > 2.9),
             axis=1,
         )
     )
     return set_ak_column(events, "patchedEcalBadCalibFilter", ~reject)
+
+
+@patch_ecalBadCalibFilter.init
+def patch_ecalBadCalibFilter_init(self: Producer, **kwargs) -> None:
+    # only meant to be configured to run on data
+    if not self.dataset_inst.is_data:
+        raise Exception(f"{self} is only meant to run on data, but running on dataset {self.dataset_inst}")

@@ -13,6 +13,7 @@ import order as od
 import scinum as sn
 
 from columnflow.util import maybe_import, DotDict
+from columnflow.types import Any
 
 np = maybe_import("numpy")
 hist = maybe_import("hist")
@@ -41,23 +42,34 @@ def integrate_num(num: sn.Number, axis=None) -> sn.Number:
     )
 
 
-def add_hooks(config: od.Config) -> None:
-    """
-    Add histogram hooks to a configuration.
-    """
-    def qcd_estimation(task, hists):
-        if not hists:
-            return hists
+# helper to ensure that a specific category exists on the "category" axis of a histogram
+def ensure_category(h: hist.Histogram, category_name: str) -> hist.Histogram:
+    cat_axis = h.axes["category"]
+    if category_name in cat_axis:
+        return h
+    dummy_fill = {ax.name: ax[0] for ax in h.axes if ax.name != "category"}
+    h.fill(**dummy_fill, category=category_name, weight=0.0)
+    return h
 
+
+def add_hooks(analysis_inst: od.Analysis) -> None:
+    """
+    Add histogram hooks to a analysis.
+    """
+    def qcd_estimation_per_config(
+        task: law.Task,
+        config_inst: od.Config,
+        hists: dict[od.Process, Any],
+    ) -> dict[od.Process, Any]:
         # get the qcd process
-        qcd_proc = config.get_process("qcd", default=None)
+        qcd_proc = config_inst.get_process("qcd", default=None)
         if not qcd_proc:
             return hists
 
-        # extract all unique category ids and verify that the axis order is exactly
+        # extract all unique category names and verify that the axis order is exactly
         # "category -> shift -> variable" which is needed to insert values at the end
         CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
-        category_ids = set()
+        category_names = set()
         for proc, h in hists.items():
             # validate axes
             assert len(h.axes) == 3
@@ -65,13 +77,12 @@ def add_hooks(config: od.Config) -> None:
             assert h.axes[SHIFT_AXIS].name == "shift"
             # get the category axis
             cat_ax = h.axes["category"]
-            for cat_index in range(cat_ax.size):
-                category_ids.add(cat_ax.value(cat_index))
+            category_names.update(list(cat_ax))
 
         # create qcd groups
         qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
-        for cat_id in category_ids:
-            cat_inst = config.get_category(cat_id)
+        for cat_name in category_names:
+            cat_inst = config_inst.get_category(cat_name)
             if cat_inst.has_tag({"os", "iso"}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
             elif cat_inst.has_tag({"os", "noniso"}, mode=all):
@@ -101,10 +112,12 @@ def add_hooks(config: od.Config) -> None:
         for group_name in complete_groups:
             group = qcd_groups[group_name]
 
-            # get the corresponding histograms and convert them to number objects,
-            # each one storing an array of values with uncertainties
+            # get the corresponding histograms and convert them to number objects, each one storing an array of values
+            # with uncertainties
             # shapes: (SHIFT, VAR)
-            get_hist = lambda h, region_name: h[{"category": hist.loc(group[region_name].id)}]
+            def get_hist(h: hist.Histogram, region_name: str) -> hist.Histogram:
+                h = ensure_category(h, group[region_name].name)
+                return h[{"category": hist.loc(group[region_name].name)}]
             os_noniso_mc = hist_to_num(get_hist(mc_hist, "os_noniso"), "os_noniso_mc")
             ss_noniso_mc = hist_to_num(get_hist(mc_hist, "ss_noniso"), "ss_noniso_mc")
             ss_iso_mc = hist_to_num(get_hist(mc_hist, "ss_iso"), "ss_iso_mc")
@@ -142,14 +155,14 @@ def add_hooks(config: od.Config) -> None:
             int_ss_noniso_neg = int_ss_noniso <= 0
             if int_ss_iso_neg.any():
                 shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_ss_iso_neg)[0]))
-                shifts = list(map(config.get_shift, shift_ids))
+                shifts = list(map(config_inst.get_shift, shift_ids))
                 logger.warning(
                     f"negative QCD integral in ss_iso region for group {group_name} and shifts: "
                     f"{', '.join(map(str, shifts))}",
                 )
             if int_ss_noniso_neg.any():
                 shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_ss_noniso_neg)[0]))
-                shifts = list(map(config.get_shift, shift_ids))
+                shifts = list(map(config_inst.get_shift, shift_ids))
                 logger.warning(
                     f"negative QCD integral in ss_noniso region for group {group_name} and shifts: "
                     f"{', '.join(map(str, shifts))}",
@@ -191,17 +204,26 @@ def add_hooks(config: od.Config) -> None:
             # insert values into the qcd histogram
             cat_axis = qcd_hist.axes["category"]
             for cat_index in range(cat_axis.size):
-                if cat_axis.value(cat_index) == group.os_iso.id:
+                if cat_axis.value(cat_index) == group.os_iso.name:
                     qcd_hist.view().value[cat_index, ...] = os_iso_qcd_values
                     qcd_hist.view().variance[cat_index, ...] = os_iso_qcd_variances
                     break
             else:
                 raise RuntimeError(
-                    f"could not find index of bin on 'category' axis of qcd histogram {qcd_hist} "
-                    f"for category {group.os_iso}",
+                    f"could not find index of bin on 'category' axis of qcd histogram {qcd_hist} for category "
+                    f"{group.os_iso}",
                 )
 
         return hists
 
+    def qcd_estimation(
+        task: law.Task,
+        hists: dict[od.Config, dict[od.Process, Any]],
+    ) -> dict[od.Config, dict[od.Process, Any]]:
+        return {
+            config_inst: qcd_estimation_per_config(task, config_inst, hists[config_inst])
+            for config_inst in hists.keys()
+        }
+
     # add the hook
-    config.x.hist_hooks.qcd = qcd_estimation
+    analysis_inst.x.hist_hooks.qcd = qcd_estimation
