@@ -1249,7 +1249,7 @@ def add_config(
         # met phi correction
         add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on Run2 UL samples
-        add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v2"))  # noqa
+        add_external("hh_btag_repo", ("/afs/cern.ch/user/t/tolange/public/hh-btag-master.tar.gz", "v2"))  # noqa
 
     elif run == 3:
         # muon scale factors
@@ -1257,7 +1257,7 @@ def add_config(
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
-        add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v3"))  # noqa
+        add_external("hh_btag_repo", ("/afs/cern.ch/user/t/tolange/public/hh-btag-master.tar.gz", "v3"))  # noqa
 
         # TODO: electron (and photon) energy corrections and smearing are only available for 2022
         #       include them when available
