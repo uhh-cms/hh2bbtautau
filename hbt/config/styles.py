@@ -122,8 +122,8 @@ def stylize_processes(config: od.Config) -> None:
             p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
     for kv, k2v, kl, *opts in [
-        ("1", "1", "1", cfg.x.colors.dark_blue),
-        ("1", "0", "1", cfg.x.colors.bright_orange),
+        ("1", "1", "1", cfg.x.colors.bright_orange),
+        ("1", "0", "1", cfg.x.colors.dark_blue),
         ("1", "2", "1"),
         ("1", "1", "2"),
         ("1p74", "1p37", "14p4"),

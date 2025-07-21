@@ -41,6 +41,7 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="eq2j", id="+", selection="cat_eq2j", label="2 jets")
     _add_category(config, name="eq3j", id="+", selection="cat_eq3j", label="3 jets")
     _add_category(config, name="eq4j", id="+", selection="cat_eq4j", label="4 jets")
+    _add_category(config, name="ge5j", id="+", selection="cat_ge5j", label=r"$\ge$5 jets")
     _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
     _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
     _add_category(config, name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
@@ -106,7 +107,7 @@ def add_categories(config: od.Config) -> None:
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
         "kin": CategoryGroup(["incl", "dy", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
-        "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "eq4j"], is_complete=False, has_overlap=False),
+        "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "ge5j"], is_complete=True, has_overlap=False),
         # relative sign last
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
