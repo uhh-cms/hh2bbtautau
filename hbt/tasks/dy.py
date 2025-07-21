@@ -30,7 +30,7 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             --version prod8_dy \
             --hist-producer no_dy_weight \
             --categories mumu__dyc__os \
-            --variables njets-dilep_pt
+            --variables njets-dilep_pt or njets-jet1_pt
     """
 
     single_config = True
@@ -51,11 +51,11 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             raise ValueError(f"{self.task_family} requires exactly one variable, got {self.variables}")
         self.variable = self.variables[0]
         # for now, variable must be "njets-dilep_pt"
-        if self.variable not in ["njets-dilep_pt", "njets-gen_dilepton_pt"]:
-            raise ValueError(f"variable must be 'njets-dilep_pt' or 'njets-gen_dilepton_pt', got {self.variable}")
+        if self.variable not in ["njets-dilep_pt", "njets-jet1_pt"]:
+            raise ValueError(f"variable must be either 'njets-dilep_pt' or 'njets-jet1_pt', got {self.variable}")
 
     def output(self):
-        return self.target(f"dy_weight_data_{self.categories[0]}_{self.variables[0]}.pkl")
+        return self.target(f"dy_weight_data_{self.categories[0]}_{self.variables[0]}_pol2.pkl")
 
     def run(self):
         # prepare categories to sum over
@@ -68,7 +68,6 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
 
             # select leaf categories
             h_ = h_[{"category": [hist.loc(cat.name) for cat in leaf_category_insts if cat.name in h_.axes["category"]]}]
-            # h_ = h_[{"category": sum}]
 
             # use the nominal shift only
             h_ = h_[{"shift": hist.loc("nominal")}]
@@ -213,11 +212,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         s: sign of erf function (+1 to active second fit function, -1 to active first fit function)
         """
 
-        sci_erf = 0.5 * (special.erf(s * 0.1 * (x - r)) + 1)
+        sci_erf = 0.5 * (special.erf(s * 0.08 * (x - r)) + 1)
 
         return sci_erf
 
-    def fit_function(x, c, n, mu, sigma, a, b, r):
+    def fit_function(x, c, n, mu, sigma, a, b, d, r):
 
         """
         A fit function.
@@ -225,14 +224,16 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         c: Gaussian offset
         n: Gaussian normalization
         mu and sigma: Gaussian parameters
-        a and b: slope parameters
+        a, b, d: polinomial parameters
         r: regime boundary between Guassian and linear fits
         """
 
         gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
-        pol = a + b * x
+        # pol = a + b * x
+        pol2 = a + b * x + d * (x ** 2)
 
-        return window(x, r, -1) * gauss + window(x, r, 1) * pol
+        # return window(x, r, -1) * gauss + window(x, r, 1) * pol
+        return window(x, r, -1) * gauss + window(x, r, 1) * pol2
 
     # build fit function string
     def get_fit_str(njet: int, h: hist.Hist) -> dict:
@@ -268,10 +269,10 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         ratio_err = np.where(np.isinf(ratio_err), 0.0, ratio_err)
         ratio_err = np.where(ratio_err < 0, 0.0, ratio_err)
 
-        # define starting values for c, n, mu, sigma, a, b, r with respective bounds
-        starting_values = [1, 1, 10, 3, 1, 0, 50]
-        lower_bounds = [0.8, 0, 0, 0, 0, -1, 0]
-        upper_bounds = [1.2, 10, 50, 20, 2, 2, 60]
+        # define starting values for c, n, mu, sigma, a, b, d, r with respective bounds
+        starting_values = [1, 1, 10, 3, 1, 0, 0, 50]
+        lower_bounds = [0.6, 0, 0, 0, 0, -2, -2, 20]
+        upper_bounds = [1.2, 10, 50, 20, 2, 3, 3, 100]
 
         # perform the fit with both functions
         param_fit, _ = optimize.curve_fit(
@@ -285,7 +286,8 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         )
 
         # get post fit parameter and convert to strings
-        c, n, mu, sigma, a, b, r = param_fit
+        # c, n, mu, sigma, a, b, r = param_fit
+        c, n, mu, sigma, a, b, d, r = param_fit
 
         c = f"{c:.9f}"
         n = f"{n:.9f}"
@@ -293,18 +295,23 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         sigma = f"{sigma:.9f}"
         a = f"{a:.9f}"
         b = f"{b:.9f}"
+        d = f"{d:.9f}"
         r = f"{r:.9f}"
 
         # create Gaussian and polinomial strings
         gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})^2)))"
-        pol = f"(({a})+({b})*x)"
+        # pol = f"(({a})+({b})*x)"
+        pol2 = f"(({a})+({b})*x+({d})*(x^2))"
 
-        # full fit function string
-        fit_string = f"(0.5*(erf(-0.1*(x-{r}))+1))*{gauss}+(0.5*(erf(0.1*(x-{r}))+1))*{pol}"
+        # full fit function string for dilep_pt
+        # fit_string = f"(0.5*(erf(-0.1*(x-{r}))+1))*{gauss}+(0.5*(erf(0.1*(x-{r}))+1))*{pol}"
+        # alternative fit function string
+        fit_string = f"(0.5*(erf(-0.08*(x-{r}))+1))*{gauss}+(0.5*(erf(0.08*(x-{r}))+1))*{pol2}"
 
         # -------------------------------
         #  plot the fit functions‚
         s = np.linspace(0, 200, 1000)
+        # s = np.linspace(0, 400, 1000)
         y = [fit_function(v, *param_fit) for v in s]
         fig, ax = plt.subplots()
         ax.plot(s, y, color="grey", label="fit")
@@ -320,15 +327,18 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         )
         ax.legend(loc="upper right")
         ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
+        # ax.set_xlabel(r"Leading jet $p_T \;[\mathrm{GeV}]$")
         ax.set_ylabel("Ratio (data-non DY MC)/DY")
         ax.grid(True)
 
         if njet != 4:
             title = f"2022preEE, njets = {njet}"
-            file_name = f"plot_njets_eq{njet}j.pdf"
+            file_name = f"plot_dilep_eq{njet}j_gauss_pol2_0.08.pdf"
+            # file_name = f"plot_jet1_eq{njet}j.pdf"
         else:
             title = f"2022preEE, njets >= {njet}"
-            file_name = f"plot_njets_ge{njet}j.pdf"
+            file_name = f"plot_dilep_ge{njet}j_gauss_pol2_0.08.pdf"
+            # file_name = f"plot_jet1_ge{njet}j.pdf"
 
         ax.set_title(title)
         fig.savefig(file_name)
@@ -368,5 +378,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             fit_str = get_fit_str(njet, h_)
             fit_dict[era]["nominal"][(njet, 50)] = [(-inf, inf, fit_str)]
 
+    print("----------")
     print(fit_dict)
     return fit_dict

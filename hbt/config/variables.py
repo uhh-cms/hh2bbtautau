@@ -71,6 +71,24 @@ def add_variables(config: od.Config) -> None:
     )
     add_variable(
         config,
+        name="ht_binned",
+        expression=partial(build_ht),
+        aux={"inputs": build_ht.inputs},
+        binning=[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240],
+        unit="GeV",
+        x_title="HT",
+    )
+    add_variable(
+        config,
+        name="ht_binned_fine",
+        expression=partial(build_ht),
+        aux={"inputs": build_ht.inputs},
+        binning=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60],
+        unit="GeV",
+        x_title="HT",
+    )
+    add_variable(
+        config,
         name="jet_pt",
         expression="Jet.pt",
         binning=(40, 0.0, 400.0),
