@@ -41,11 +41,15 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="eq2j", id="+", selection="cat_eq2j", label="2 jets")
     _add_category(config, name="eq3j", id="+", selection="cat_eq3j", label="3 jets")
     _add_category(config, name="eq4j", id="+", selection="cat_eq4j", label="4 jets")
+<<<<<<< HEAD
     _add_category(config, name="ge4j", id="+", selection="cat_ge4j", label=">= 4 jets")
     _add_category(config, name="eq0b", id="+", selection="cat_eq0b", label="0 b-jets")
     _add_category(config, name="eq1b", id="+", selection="cat_eq1b", label="1 b-jet")
     _add_category(config, name="eq2b", id="+", selection="cat_eq2b", label="2 b-jets")
     _add_category(config, name="ge3b", id="+", selection="cat_ge3b", label=">= 3 b-jets")
+=======
+    _add_category(config, name="ge5j", id="+", selection="cat_ge5j", label=r"$\ge$5 jets")
+>>>>>>> master
     _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
     _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY enriched (CCLUB)")
     _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
@@ -114,9 +118,14 @@ def add_categories(config: od.Config) -> None:
         # channels first
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
+<<<<<<< HEAD
         "kin": CategoryGroup(["incl", "dyc", "tt"], is_complete=True, has_overlap=True),
         "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "ge4j"], is_complete=True, has_overlap=False),
         # "bjets": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),
+=======
+        "kin": CategoryGroup(["incl", "dy", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
+        "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "ge5j"], is_complete=True, has_overlap=False),
+>>>>>>> master
         # relative sign last
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }

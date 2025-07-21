@@ -190,7 +190,7 @@ def add_config(
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
         # additional points besides default basis
-        *if_not_era(year=2022, tag="preEE", values=[
+        *if_era(year=2023, values=[
             "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
             "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
             "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
@@ -259,8 +259,8 @@ def add_config(
         "hh_ggf_hbb_htt_kl5_kt1_powheg",
 
         # hh vbf
-        # 2022pre: private produced datasets
-        *if_era(year=2022, tag="preEE", values=[
+        # 2022: private produced datasets
+        *if_era(year=2022, values=[
             "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
             "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
@@ -268,8 +268,8 @@ def add_config(
             "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
             "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
         ]),
-        # rest: central datasets
-        *if_not_era(year=2022, tag="preEE", values=[
+        # 2023: central datasets
+        *if_era(year=2023, values=[
             # default basis
             "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
@@ -1671,7 +1671,7 @@ def add_config(
             # event info
             "deterministic_seed",
             # object info
-            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed,chHEF,neHEF,chEmEF,neEmEF,muEF,chMultiplicity,neMultiplicity}",  # noqa: E501
             "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
             "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
             "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",

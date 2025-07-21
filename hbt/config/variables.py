@@ -101,6 +101,20 @@ def add_variables(config: od.Config) -> None:
     )
     add_variable(
         config,
+        name="jet1_chEmEF",
+        expression="Jet.chEmEF[:,0]",
+        binning=(40, 0.0, 0.2),
+        x_title="Leading jet chEmEF",
+    )
+    add_variable(
+        config,
+        name="jet1_muEF",
+        expression="Jet.muEF[:,0]",
+        binning=(40, 0.6, 1.0),
+        x_title="Leading jet muEF",
+    )
+    add_variable(
+        config,
         name="jet2_pt",
         expression="Jet.pt[:,1]",
         binning=(40, 0.0, 400.0),
@@ -533,6 +547,15 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": build_dilep.inputs},
         binning=(40, 0, 200),
         # binning=np.linspace(0, 80, 33).tolist() + np.linspace(80, 200, 25).tolist()[1:],
+        unit="GeV",
+        x_title=r"$p_{T,ll}$",
+    )
+    add_variable(
+        config,
+        name="dilep_pt_low",
+        expression=partial(build_dilep, which="pt"),
+        aux={"inputs": build_dilep.inputs, "overflow": False, "underflow": False},
+        binning=(50, 0, 50),
         unit="GeV",
         x_title=r"$p_{T,ll}$",
     )

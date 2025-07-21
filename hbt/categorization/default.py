@@ -132,6 +132,11 @@ def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, ak.num(events.Jet, axis=1) >= 4
 
 
+@categorizer(uses={"Jet.pt"})
+def cat_ge5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) >= 5
+
+
 def get_bjets(events: ak.Array, config_inst):
     wp = config_inst.x.btag_working_points["particleNet"]["medium"]
     return ak.sum(events.Jet.btagPNetB > wp, axis=-1)
