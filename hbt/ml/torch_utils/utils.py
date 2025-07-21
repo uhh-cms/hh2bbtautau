@@ -52,7 +52,7 @@ def normalized_weight_decay(
             for param_name, param in layer.named_parameters():
                 if param.requires_grad:
                     if "weight" in param_name:
-                        print(f"Adding to {module_name}.{param_name} to weight decay")
+                        print(f"Adding {module_name}/{layer}/{param_name} to weight decay")
                         with_weight_decay.append(param)
                     else:
                         no_weight_decay.append(param)
