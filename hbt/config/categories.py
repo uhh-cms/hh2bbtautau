@@ -118,14 +118,9 @@ def add_categories(config: od.Config) -> None:
         # channels first
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-<<<<<<< HEAD
         "kin": CategoryGroup(["incl", "dyc", "tt"], is_complete=True, has_overlap=True),
         "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "ge4j"], is_complete=True, has_overlap=False),
         # "bjets": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),
-=======
-        "kin": CategoryGroup(["incl", "dy", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
-        "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "ge5j"], is_complete=True, has_overlap=False),
->>>>>>> master
         # relative sign last
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
