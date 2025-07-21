@@ -391,6 +391,7 @@ if not isinstance(torch, MockModule):
             activation_functions: str = "LeakyReLu",
             skip_connection_init: float = 1,
             freeze_skip_connection: float = False,
+            eps: float = 1e-5,
         ):
             """
             ResNetBlock consisting of a linear layer, batch normalization, and an activation function.
@@ -416,7 +417,7 @@ if not isinstance(torch, MockModule):
                 self.skip_connection_amplifier.requires_grad = False
             self.layers = torch.nn.Sequential(
                 torch.nn.Linear(self.nodes, self.nodes, bias=False),
-                torch.nn.BatchNorm1d(self.nodes),
+                torch.nn.BatchNorm1d(self.nodes, eps=eps),
                 self.act_func,
             )
 
@@ -439,6 +440,7 @@ if not isinstance(torch, MockModule):
             input_nodes: float,
             output_nodes: float,
             activation_functions: str = "LeakyReLu",
+            eps: float = 1e-5,
         ):
             """
             DenseBlock is a dense block that consists of a linear layer, batch normalization, and an activation function.
@@ -454,7 +456,7 @@ if not isinstance(torch, MockModule):
 
             self.layers = torch.nn.Sequential(
                 torch.nn.Linear(self.input_nodes, self.output_nodes, bias=False),
-                torch.nn.BatchNorm1d(self.output_nodes),
+                torch.nn.BatchNorm1d(self.output_nodes, eps=eps),
                 self._get_attr(torch.nn.modules.activation, activation_functions)(),
             )
 
@@ -475,6 +477,7 @@ if not isinstance(torch, MockModule):
             activation_functions: str = "PReLu",
             skip_connection_init: float = 1,
             freeze_skip_connection: bool = False,
+            eps=1e-5,
         ):
             """
             Residual block that consists of a linear layer, batch normalization, and an activation function.
@@ -501,12 +504,13 @@ if not isinstance(torch, MockModule):
             if freeze_skip_connection:
                 self.skip_connection_amplifier.requires_grad = False
 
+
             self.layers = torch.nn.Sequential(
                 torch.nn.Linear(self.nodes, self.nodes, bias=False),
-                torch.nn.BatchNorm1d(self.nodes),
+                torch.nn.BatchNorm1d(self.nodes, eps=eps),
                 self.act_func,
                 torch.nn.Linear(self.nodes, self.nodes, bias=False),
-                torch.nn.BatchNorm1d(self.nodes),
+                torch.nn.BatchNorm1d(self.nodes, eps=eps),
             )
             self.last_activation = self.act_func
 
