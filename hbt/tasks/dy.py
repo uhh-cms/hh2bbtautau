@@ -30,7 +30,7 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             --version prod8_dy \
             --hist-producer no_dy_weight \
             --categories mumu__dyc__os \
-            --variables njets-dilep_pt or njets-jet1_pt
+            --variables njets-dilep_pt or njets
     """
 
     single_config = True
@@ -51,11 +51,11 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             raise ValueError(f"{self.task_family} requires exactly one variable, got {self.variables}")
         self.variable = self.variables[0]
         # for now, variable must be "njets-dilep_pt"
-        if self.variable not in ["njets-dilep_pt", "njets-jet1_pt"]:
-            raise ValueError(f"variable must be either 'njets-dilep_pt' or 'njets-jet1_pt', got {self.variable}")
+        if self.variable not in ["njets-dilep_pt", "njets"]:
+            raise ValueError(f"variable must be either 'njets-dilep_pt' or 'njets', got {self.variable}")
 
     def output(self):
-        return self.target(f"dy_weight_data_{self.categories[0]}_{self.variables[0]}_pol2.pkl")
+        return self.target(f"dy_weight_data_{self.categories[0]}_{self.variables[0]}.pkl")
 
     def run(self):
         # prepare categories to sum over
@@ -76,7 +76,8 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             h = h_ if h is None else (h + h_)
 
         # compute the dy weight data
-        dy_weight_data = compute_weight_data(self, h)
+        # dy_weight_data = compute_weight_data(self, h)
+        dy_weight_data = compute_njet_norm_data(self, h)
 
         # store them
         self.output().dump(dy_weight_data, formatter="pickle")
@@ -96,15 +97,17 @@ class ExportDYWeights(HBTTask, ConfigTask):
     single_config = False
 
     categories = ("mumu__dyc__os",)
-    variable = "njets-dilep_pt"
+    # variable = "njets-dilep_pt"
+    variable = "njets"
 
     def requires(self):
         return {
             config: ComuteDYWeights.req(
                 self,
                 config=config,
-                processes=("sm_bkg",),  # supports groups
-                hist_producer="no_dy_weight",
+                processes=("sm_data",),  # supports groups
+                # hist_producer="no_dy_weight",
+                hist_producer="default",
                 categories=self.categories,
                 variables=(self.variable,),
             )
@@ -140,6 +143,44 @@ class ExportDYWeights(HBTTask, ConfigTask):
             law.util.interruptable_popen(f"correction summary {outp.abspath}", shell=True)
 
 
+def get_ratio_values(h: hist.Hist) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
+
+    import numpy as np
+
+    # get and sum process histograms
+    dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
+    data_names = [name for name in h.axes["process"] if name.startswith("data")]
+    mc_names = [name for name in h.axes["process"] if not name.startswith(("dy", "data"))]
+    dy_h = h[{"process": list(map(hist.loc, dy_names))}][{"process": sum}]
+    data_h = h[{"process": list(map(hist.loc, data_names))}][{"process": sum}]
+    mc_h = h[{"process": list(map(hist.loc, mc_names))}][{"process": sum}]
+
+    # get bin centers
+    bin_centers = dy_h.axes[-1].centers
+
+    # get histogram values and errors
+    dy_values = dy_h.view().value
+    data_values = data_h.view().value
+    mc_values = mc_h.view().value
+    dy_err = dy_h.view().variance**0.5
+    data_err = data_h.view().variance**0.5
+    mc_err = mc_h.view().variance**0.5
+
+    # calculate (data-mc)/dy ratio and its error
+    ratio_values = (data_values - mc_values) / dy_values
+    ratio_err = (1 / dy_values) * np.sqrt(data_err**2 + mc_err**2 + (ratio_values * dy_err)**2)
+
+    # fill nans/infs and negative errors with 0
+    ratio_values = np.nan_to_num(ratio_values, nan=0.0)
+    ratio_values = np.where(np.isinf(ratio_values), 0.0, ratio_values)
+    ratio_values = np.where(ratio_values < 0, 0.0, ratio_values)
+    ratio_err = np.nan_to_num(ratio_err, nan=0.0)
+    ratio_err = np.where(np.isinf(ratio_err), 0.0, ratio_err)
+    ratio_err = np.where(ratio_err < 0, 0.0, ratio_err)
+
+    return (ratio_values, ratio_err, bin_centers)
+
+
 def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     """
     Compute the DY weight data from the given histogram *h* that supposed to contain the following axis:
@@ -163,46 +204,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     from scipy import optimize, special
     from matplotlib import pyplot as plt
     era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
-
-    # hardcode erf function definition
-    def erf(x):
-        x = np.asarray(x)
-        # Constants in the approximation formula
-        a1 = 0.254829592
-        a2 = -0.284496736
-        a3 = 1.421413741
-        a4 = -1.453152027
-        a5 = 1.061405429
-        p = 0.3275911
-
-        # Save the sign of x
-        sign = np.sign(x)
-        abs_x = np.abs(x)
-
-        # Abramowitz and Stegun approximation
-        t = 1.0 / (1.0 + p * abs_x)
-        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * np.exp(-abs_x * abs_x)
-
-        return sign * y
-
-    def my_fit_function(x, c, n, mu, sigma, a, b, r):
-
-        """
-        A fit function.
-        x: dependent variable (i.g., dilep_pt)
-        c: Gaussian offset
-        n: Gaussian normalization
-        mu and sigma: Gaussian parameters
-        a and b: slope parameters
-        r: regime boundary between Guassian and linear fits
-        """
-
-        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
-        pol = a + b * x
-
-        my_fit_function = (0.5 * (erf(-0.1 * (x - r)) + 1)) * gauss + (0.5 * (erf(0.1 * (x - r)) + 1)) * pol
-
-        return my_fit_function
 
     # use scipy erf function definition
     def window(x, r, s):
@@ -238,43 +239,14 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     # build fit function string
     def get_fit_str(njet: int, h: hist.Hist) -> dict:
 
-        # get and sum process histograms
-        dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
-        data_names = [name for name in h.axes["process"] if name.startswith("data")]
-        mc_names = [name for name in h.axes["process"] if not name.startswith(("dy", "data"))]
-        dy_h = h[{"process": list(map(hist.loc, dy_names))}][{"process": sum}]
-        data_h = h[{"process": list(map(hist.loc, data_names))}][{"process": sum}]
-        mc_h = h[{"process": list(map(hist.loc, mc_names))}][{"process": sum}]
-
-        # get bin centers
-        bin_centers = dy_h.axes[-1].centers
-
-        # get histogram values and errors
-        dy_values = dy_h.view().value
-        data_values = data_h.view().value
-        mc_values = mc_h.view().value
-        dy_err = dy_h.view().variance**0.5
-        data_err = data_h.view().variance**0.5
-        mc_err = mc_h.view().variance**0.5
-
-        # calculate (data-mc)/dy ratio and its error
-        ratio_values = (data_values - mc_values) / dy_values
-        ratio_err = (1 / dy_values) * np.sqrt(data_err**2 + mc_err**2 + (ratio_values * dy_err)**2)
-
-        # fill nans/infs and negative errors with 0
-        ratio_values = np.nan_to_num(ratio_values, nan=0.0)
-        ratio_values = np.where(np.isinf(ratio_values), 0.0, ratio_values)
-        ratio_values = np.where(ratio_values < 0, 0.0, ratio_values)
-        ratio_err = np.nan_to_num(ratio_err, nan=0.0)
-        ratio_err = np.where(np.isinf(ratio_err), 0.0, ratio_err)
-        ratio_err = np.where(ratio_err < 0, 0.0, ratio_err)
+        ratio_values, ratio_err, bin_centers = get_ratio_values(h)
 
         # define starting values for c, n, mu, sigma, a, b, d, r with respective bounds
         starting_values = [1, 1, 10, 3, 1, 0, 0, 50]
         lower_bounds = [0.6, 0, 0, 0, 0, -2, -2, 20]
         upper_bounds = [1.2, 10, 50, 20, 2, 3, 3, 100]
 
-        # perform the fit with both functions
+        # perform the fit and get post-fit parameters
         param_fit, _ = optimize.curve_fit(
             fit_function,
             bin_centers,
@@ -285,33 +257,18 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             bounds=(lower_bounds, upper_bounds),
         )
 
-        # get post fit parameter and convert to strings
-        # c, n, mu, sigma, a, b, r = param_fit
         c, n, mu, sigma, a, b, d, r = param_fit
 
-        c = f"{c:.9f}"
-        n = f"{n:.9f}"
-        mu = f"{mu:.9f}"
-        sigma = f"{sigma:.9f}"
-        a = f"{a:.9f}"
-        b = f"{b:.9f}"
-        d = f"{d:.9f}"
-        r = f"{r:.9f}"
-
-        # create Gaussian and polinomial strings
+        # define string expression of the fit funtion
+        for var_name in ['c', 'n', 'mu', 'sigma', 'a', 'b', 'd', 'r']:
+            locals()[var_name] = f"{locals()[var_name]:.9f}"
         gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((x-{mu})/{sigma})^2)))"
-        # pol = f"(({a})+({b})*x)"
         pol2 = f"(({a})+({b})*x+({d})*(x^2))"
-
-        # full fit function string for dilep_pt
-        # fit_string = f"(0.5*(erf(-0.1*(x-{r}))+1))*{gauss}+(0.5*(erf(0.1*(x-{r}))+1))*{pol}"
-        # alternative fit function string
         fit_string = f"(0.5*(erf(-0.08*(x-{r}))+1))*{gauss}+(0.5*(erf(0.08*(x-{r}))+1))*{pol2}"
 
         # -------------------------------
         #  plot the fit functions‚
         s = np.linspace(0, 200, 1000)
-        # s = np.linspace(0, 400, 1000)
         y = [fit_function(v, *param_fit) for v in s]
         fig, ax = plt.subplots()
         ax.plot(s, y, color="grey", label="fit")
@@ -327,22 +284,18 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         )
         ax.legend(loc="upper right")
         ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
-        # ax.set_xlabel(r"Leading jet $p_T \;[\mathrm{GeV}]$")
         ax.set_ylabel("Ratio (data-non DY MC)/DY")
         ax.grid(True)
 
         if njet != 4:
             title = f"2022preEE, njets = {njet}"
             file_name = f"plot_dilep_eq{njet}j_gauss_pol2_0.08.pdf"
-            # file_name = f"plot_jet1_eq{njet}j.pdf"
         else:
             title = f"2022preEE, njets >= {njet}"
             file_name = f"plot_dilep_ge{njet}j_gauss_pol2_0.08.pdf"
-            # file_name = f"plot_jet1_ge{njet}j.pdf"
 
         ax.set_title(title)
         fig.savefig(file_name)
-        # -------------------------------
 
         return fit_string
 
@@ -355,14 +308,13 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         },
     }
 
-    # do the fit per njet (or nbjet) category
+    # do the fit per njet category
     leaf_cats = h.axes["category"]
-    cats = [cat for cat in leaf_cats if "j" in cat]
 
     # hist with all leaf categories
-    for cat in cats:
+    for cat in leaf_cats:
         # Extract njet number from category name (e.g., "eq2j" -> 2)
-        match = re.search(r'(\d+)', cat)
+        match = re.search(r'(\d+)j', cat)
         if match:
             njet = int(match.group(1))
         else:
@@ -377,6 +329,100 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             h_ = h[cat, ...][{"njets": sum}]
             fit_str = get_fit_str(njet, h_)
             fit_dict[era]["nominal"][(njet, 50)] = [(-inf, inf, fit_str)]
+
+    print("----------")
+    print(fit_dict)
+    return fit_dict
+
+
+def compute_njet_norm_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
+
+    # prepare constants
+    inf = float("inf")
+    import numpy as np
+    era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
+
+    fit_dict = {
+        era: {
+            "nominal": {},
+            "up": {},
+            "down": {},
+        },
+    }
+
+    # do the fit per njet (or nbjet) category
+    leaf_cats = h.axes["category"]
+
+    # hist with all leaf categories
+    for cat in leaf_cats:
+        print("############################")
+        print(f"cat: {cat}")
+        # Extract njet number from category name
+        match = re.search(r'eq(\d+)j', cat)
+        if match:
+            njet = int(match.group(1))
+        elif re.search(r'ge6j', cat):
+            njet = 6
+        else:
+            continue
+
+        # slice the histogram for the selected njets bin
+        if njet in [4, 5]:
+            h_ = h[cat, ...]
+            ratio_values, ratio_err, bin_centers = get_ratio_values(h_)
+            up_shift = ratio_values + ratio_err
+            down_shift = ratio_values - ratio_err
+
+            norm_factor = ratio_values.max()
+            norm_factor_up = up_shift.max()
+            norm_factor_down = down_shift.max()
+
+            fit_str = f"x*0+{norm_factor:.9f}"
+            fit_str_up = f"x*0+{norm_factor_up:.9f}"
+            fit_str_down = f"x*0+{norm_factor_down:.9f}"
+
+            fit_dict[era]["nominal"][(njet, njet + 1)] = [(-inf, inf, fit_str)]
+            fit_dict[era]["up"][(njet, njet + 1)] = [(-inf, inf, fit_str_up)]
+            fit_dict[era]["down"][(njet, njet + 1)] = [(-inf, inf, fit_str_down)]
+
+            print(f"ratio_values: {ratio_values}")
+            print(f"ratio_err: {ratio_err}")
+            print(f"norm_factor: {norm_factor}")
+            print(f"norm_factor_up: {norm_factor_up}")
+            print(f"norm_factor_down: {norm_factor_down}")
+
+        elif njet == 6:
+            h_ = h[cat, ...]
+            ratio_values, ratio_err, bin_centers = get_ratio_values(h_)
+            up_shift = ratio_values + ratio_err
+            down_shift = ratio_values - ratio_err
+
+            n_bins_nonzero = np.sum(ratio_values != 0)
+            # use the factor at njet==6 for all njet>=6 categories
+            if n_bins_nonzero != 0:
+                norm_factor = ratio_values[njet]
+                norm_factor_up = up_shift[njet]
+                norm_factor_down = down_shift[njet]
+            else:
+                raise ValueError("No non-zero bins found in ratio_values!")
+
+            fit_str = f"x*0+{norm_factor:.9f}"
+            fit_str_up = f"x*0+{norm_factor_up:.9f}"
+            fit_str_down = f"x*0+{norm_factor_down:.9f}"
+
+            fit_dict[era]["nominal"][(njet, 50)] = [(-inf, inf, fit_str)]
+            fit_dict[era]["up"][(njet, 50)] = [(-inf, inf, fit_str_up)]
+            fit_dict[era]["down"][(njet, 50)] = [(-inf, inf, fit_str_down)]
+
+            print(f"ratio_values: {ratio_values}")
+            print(f"ratio_err: {ratio_err}")
+            print(f"n_bins_nonzero: {n_bins_nonzero}")
+            print(f"norm_factor: {norm_factor}")
+            print(f"norm_factor_up: {norm_factor_up}")
+            print(f"norm_factor_down: {norm_factor_down}")
+
+        else:
+            continue
 
     print("----------")
     print(fit_dict)
