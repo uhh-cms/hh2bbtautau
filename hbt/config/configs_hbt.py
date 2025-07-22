@@ -96,25 +96,25 @@ def add_config(
 
     # add custom processes
     if not sync_mode:
-        cfg.add_process(
+        procs.add(
             name="v",
             id=7997,
             label="W/Z",
             processes=[procs.n.w, procs.n.z],
         )
-        cfg.add_process(
+        procs.add(
             name="multiboson",
             id=7998,
             label="Multiboson",
             processes=[procs.n.vv, procs.n.vvv],
         )
-        cfg.add_process(
+        procs.add(
             name="all_v",
             id=7996,
             label="Multiboson",
-            processes=[cfg.processes.n.v, cfg.processes.n.multiboson],
+            processes=[procs.n.v, procs.n.multiboson],
         )
-        cfg.add_process(
+        procs.add(
             name="tt_multiboson",
             id=7999,
             label=r"$t\bar{t}$ + Multiboson",
@@ -127,9 +127,8 @@ def add_config(
         "tt",
         "st",
         "dy",
-        "v",
-        "multiboson",
         "tt_multiboson",
+        "all_v",
         "qcd",
         "h",
         "hh_ggf_hbb_htt_kl1_kt1",
@@ -145,7 +144,7 @@ def add_config(
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
         # additional points besides default basis
-        *if_not_era(year=2022, tag="preEE", values=[
+        *if_era(year=2023, values=[
             "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
             "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
             "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
@@ -206,8 +205,8 @@ def add_config(
         "hh_ggf_hbb_htt_kl5_kt1_powheg",
 
         # hh vbf
-        # 2022pre: private produced datasets
-        *if_era(year=2022, tag="preEE", values=[
+        # 2022: private produced datasets
+        *if_era(year=2022, values=[
             "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
             "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
@@ -215,8 +214,8 @@ def add_config(
             "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
             "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
         ]),
-        # rest: central datasets
-        *if_not_era(year=2022, tag="preEE", values=[
+        # 2023: central datasets
+        *if_era(year=2023, values=[
             # default basis
             "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
             "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
@@ -470,7 +469,7 @@ def add_config(
         # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2?rev=172#ECal_BadCalibration_Filter_Flag
         # https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
         if year == 2022 and dataset.is_data and dataset.x.era in "FG":
-            dataset.add_tag("broken_ecalBadCalibFilter")
+            dataset.add_tag("needs_custom_ecalBadCalibFilter")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
@@ -1598,7 +1597,7 @@ def add_config(
             # event info
             "deterministic_seed",
             # object info
-            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed,chHEF,neHEF,chEmEF,neEmEF,muEF,chMultiplicity,neMultiplicity}",  # noqa: E501
             "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
             "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
             "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",

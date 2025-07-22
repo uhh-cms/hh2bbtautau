@@ -128,6 +128,16 @@ def cat_eq4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, ak.num(events.Jet, axis=1) == 4
 
 
+@categorizer(uses={"Jet.pt"})
+def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) >= 4
+
+
+@categorizer(uses={"Jet.pt"})
+def cat_ge5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) >= 5
+
+
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
 def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})

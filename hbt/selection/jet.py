@@ -71,8 +71,10 @@ def jet_selection(
 
     # common ak4 jet mask for normal and vbf jets
     ak4_mask = (
-        (events.Jet.jetId == 6) &  # tight plus lepton veto
-        ak.all(events.Jet.metric_table(lepton_results.x.leading_taus) > 0.5, axis=2)
+        (events.Jet.jetId & (1 << 1) != 0) &  # tight (2nd bit set)
+        # (events.Jet.jetId & (1 << 2) != 0) &  # tight plus lepton veto (3rd bit set)
+        ak.all(events.Jet.metric_table(lepton_results.x.leading_taus) > 0.5, axis=2) &
+        ak.all(events.Jet.metric_table(lepton_results.x.leading_e_mu) > 0.5, axis=2)
     )
 
     # puId for run 2

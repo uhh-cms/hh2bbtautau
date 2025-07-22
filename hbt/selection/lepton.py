@@ -1039,6 +1039,15 @@ def lepton_selection(
             # save the leading taus for the duration of the selection
             # exactly 1 for etau/mutau and exactly 2 for tautau
             "leading_taus": leading_taus,
+
+            # save the leading e/mu's for the duration of the selection
+            "leading_e_mu": ak.concatenate(
+                [
+                    events.Electron[sel_electron_indices] * 1,
+                    events.Muon[sel_muon_indices] * 1,
+                ],
+                axis=1,
+            )[:, :2],
         },
     )
 
