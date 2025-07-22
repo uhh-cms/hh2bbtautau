@@ -600,9 +600,7 @@ def add_config(
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
-
-        "sm_bkg_signal": ["data"] + sm_group,
-        "sm_bkg": ["data", *backgrounds],
+        "sm_data": ["data"] + sm_group,
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
@@ -725,7 +723,8 @@ def add_config(
         "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1", "tau1"] for var in ["pt", "eta"]]),
         "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
         "dy_variables": [
-            "njets", "ht", "njets-dilep_pt", *nbjets, *jet, *lep, *dilep, *dibjet, *hh,
+            "njets", "ht", *nbjets, *jet, *lep, *dilep, *dibjet, *hh,
+            # "njets-dilep_pt",
         ],
     }
 
