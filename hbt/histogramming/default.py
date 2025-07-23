@@ -95,6 +95,10 @@ no_tau_weight = default.derive("no_tau_weight", cls_dict={
     "drop_weights": {"normalization_weight_inclusive", "tau_weight"},
 })
 
-no_dy_weight = default.derive("no_dy_weight", cls_dict={
-    "drop_weights": {"normalization_weight_inclusive", "dy_weight"},
+no_dy_weights = default.derive("no_dy_weights", cls_dict={
+    "drop_weights": {"normalization_weight_inclusive", "dy_weight", "dy_njet_weight"},
+})
+
+no_dy_njet_weight = default.derive("no_dy_njet_weight", cls_dict={
+    "drop_weights": {"normalization_weight_inclusive", "dy_njet_weight"},
 })
