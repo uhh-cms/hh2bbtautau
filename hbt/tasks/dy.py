@@ -89,7 +89,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
         > law run hbt.ExportDYWeights \
             --configs 22pre_v14,22post_v14,... \
-            --version prod8_dy
+            --version prod12_nody
     """
 
     sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/venv_columnar.sh")
@@ -367,7 +367,12 @@ def compute_njet_norm_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             continue
 
         # slice the histogram for the selected njets bin
-        if njet in [4, 5]:
+        if njet < 4:
+            fit_dict[era]["nominal"][(njet, njet + 1)] = [(-inf, inf, "x*0+1.0")]
+            fit_dict[era]["up"][(njet, njet + 1)] = [(-inf, inf, "x*0+1.0")]
+            fit_dict[era]["down"][(njet, njet + 1)] = [(-inf, inf, "x*0+1.0")]
+
+        elif njet in [4, 5]:
             h_ = h[cat, ...]
             ratio_values, ratio_err, bin_centers = get_ratio_values(h_)
             up_shift = ratio_values + ratio_err
