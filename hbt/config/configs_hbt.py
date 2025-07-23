@@ -723,7 +723,7 @@ def add_config(
         "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1", "tau1"] for var in ["pt", "eta"]]),
         "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
         "dy_variables": [
-            "njets", "ht", *nbjets, *jet, *lep, *dilep, *dibjet, *hh,
+            "ht", *nbjets, *jet, *lep, *dilep, *dibjet, *hh, "njets",
             # "njets-dilep_pt",
         ],
     }
@@ -1629,7 +1629,7 @@ def add_config(
 
         # UHH dy weight
         add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod12_nody/hbt_corrections_njets-dilep_pt.json.gz", "v1"))  # noqa: E501
-        add_external("dy_njet_weight", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod12_dy_njet/hbt_corrections_njets.json.gz", "v1"))  # noqa: E501
+        add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod12_dy_njet/hbt_corrections_njets.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
@@ -1717,7 +1717,7 @@ def add_config(
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
+            dataset.x.event_weights = {"dy_weight": [], "dy_njet_weight": []}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [
