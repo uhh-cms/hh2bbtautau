@@ -604,6 +604,25 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$\Delta R_{ll}$",
     )
 
+    # dijet variables (for Peter's chekcs...)
+    """
+    add_variable(
+        config,
+        name="dijet_pt",
+        expression= lambda events: events.Jet.pt[:,0]+events.Jet.pt[:,1],
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"$p_{T,jet1+jet2}$",
+    )
+    add_variable(
+        config,
+        name="dijet_diff_pt",
+        expression= lambda events: events.Jet.pt[:,0]-events.Jet.pt[:,1],
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"$p_{T,jet1-jet2}$",
+    )
+    """
     # DY wegithts
     add_variable(
         config,
@@ -842,7 +861,43 @@ def add_variables(config: od.Config) -> None:
         expression=lambda events: ak.num(events.Jet["pt"], axis=1),
         aux={"inputs": {"Jet.pt"}},
         binning=(11, -0.5, 10.5),
-        x_title=r"Number of jets",
+        x_title="Number of jets",
+    )
+
+    add_variable(
+        config,
+        name="nvbf_jets",
+        expression=lambda events: ak.num(events.VBFJet["pt"], axis=1),
+        aux={"inputs": {"VBFJet.pt"}},
+        binning=(11, -0.5, 10.5),
+        x_title="Number of VBF jets",
+    )
+
+    add_variable(
+        config,
+        name="vbfjet1_pt",
+        expression="VBFJet.pt[:,0]",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Leading VBF jet $p_{T}$",
+    )
+
+    add_variable(
+        config,
+        name="vbfjet2_pt",
+        expression="VBFJet.pt[:,1]",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Subleading VBF jet $p_{T}$",
+    )
+
+    add_variable(
+        config,
+        name="ntotal_jets",
+        expression=lambda events: ak.num(events.Jet["pt"], axis=1) + ak.num(events.VBFJet["pt"], axis=1),
+        aux={"inputs": {"Jet.pt", "VBFJet.pt"}},
+        binning=(11, -0.5, 10.5),
+        x_title="Number of jets (total)",
     )
 
     for proc in ["hh", "tt", "dy"]:
