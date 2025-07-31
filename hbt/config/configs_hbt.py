@@ -727,10 +727,14 @@ def add_config(
     else:
         assert False
 
-    # name of the MET phi correction set
-    # (used in the met_phi calibrator)
-    if run == 2:
-        cfg.x.met_phi_correction_set = r"{variable}_metphicorr_pfmet_{data_source}"
+    # met phi correction config
+    from columnflow.calibration.cms.met import METPhiConfig
+    cfg.x.met_phi_correction = METPhiConfig(
+        met_name=cfg.x.met_name,
+        correction_set="met_xy_corrections" if run == 3 else r"{variable}_metphicorr_pfmet_{data_source}",
+        keep_uncorrected=True,
+        variable_config={"phi": ("phi",)},  # not added pt here, just interested in phi correction
+    )
 
     ################################################################################################
     # jet settings
@@ -1426,10 +1430,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-b7a48c75"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-406118ec"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-b7a48c75"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-406118ec"
         trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
@@ -1503,7 +1507,8 @@ def add_config(
         add_external("jet_id", (f"{json_mirror}/POG/JME/{json_pog_era}/jetid.json.gz", "v1"))
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
-
+        # met phi correction
+        add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz", "v1"))  # noqa: E501
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # electron energy correction and smearing
