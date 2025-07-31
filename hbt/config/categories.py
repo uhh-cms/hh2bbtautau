@@ -46,10 +46,18 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="ge4j", id="+", selection="cat_ge4j", label=r"$>=$ 4 jets")
     _add_category(config, name="ge6j", id="+", selection="cat_ge6j", label=r"$>=$ 6 jets")
 
+    _add_category(config, name="eq2vbfj", id="+", selection="cat_eq2vbfj", label="2 VBF jets")
+    _add_category(config, name="eq3vbfj", id="+", selection="cat_eq3vbfj", label="3 VBF jets")
+    _add_category(config, name="ge4vbfj", id="+", selection="cat_ge4vbfj", label=r"$>=$ 4 VBF jets")
+
+    _add_category(config, name="eq2totalj", id="+", selection="cat_eq2totalj", label="2 jets (total)")
+    _add_category(config, name="eq3totalj", id="+", selection="cat_eq3totalj", label="3 jets (total)")
+    _add_category(config, name="ge4totalj", id="+", selection="cat_ge4totalj", label=r"$>=$ 4 jets (total)")
+
     _add_category(config, name="eq0b", id="+", selection="cat_eq0b", label="0 b-jets")
     _add_category(config, name="eq1b", id="+", selection="cat_eq1b", label="1 b-jet")
     _add_category(config, name="eq2b", id="+", selection="cat_eq2b", label="2 b-jets")
-    _add_category(config, name="ge3b", id="+", selection="cat_ge3b", label=r"$>=$ 3 jets")
+    _add_category(config, name="ge3b", id="+", selection="cat_ge3b", label=r"$>=$ 3 b-jets")
 
     _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
     _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY enriched (CCLUB)")
@@ -121,7 +129,9 @@ def add_categories(config: od.Config) -> None:
         # kinematic regions in the middle (to be extended)
         "kin": CategoryGroup(["incl", "dyc", "tt"], is_complete=True, has_overlap=True),
         "jets": CategoryGroup(
-            ["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j"],
+            ["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j",
+            "eq2vbfj", "eq3vbfj", "ge4vbfj",
+            "eq2totalj", "eq3totalj", "ge4totalj"],
             is_complete=True, has_overlap=True
         ),
         # "bjets": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),

@@ -142,6 +142,36 @@ def cat_ge6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, ak.num(events.Jet, axis=1) >= 6
 
 
+@categorizer(uses={"VBFJet.pt"})
+def cat_eq2vbfj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.VBFJet, axis=1) == 2
+
+
+@categorizer(uses={"VBFJet.pt"})
+def cat_eq3vbfj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.VBFJet, axis=1) == 3
+
+
+@categorizer(uses={"VBFJet.pt"})
+def cat_ge4vbfj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.VBFJet, axis=1) >= 4
+
+
+@categorizer(uses={"Jet.pt", "VBFJet.pt"})
+def cat_eq2totalj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, (ak.num(events.Jet, axis=1) + ak.num(events.VBFJet, axis=1)) == 2
+
+
+@categorizer(uses={"Jet.pt", "VBFJet.pt"})
+def cat_eq3totalj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, (ak.num(events.Jet, axis=1) + ak.num(events.VBFJet, axis=1)) == 3
+
+
+@categorizer(uses={"Jet.pt", "VBFJet.pt"})
+def cat_ge4totalj(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, (ak.num(events.Jet, axis=1) + ak.num(events.VBFJet, axis=1)) >= 4
+
+
 def get_bjets(events: ak.Array, config_inst):
     wp = config_inst.x.btag_working_points["particleNet"]["medium"]
     return ak.sum(events.Jet.btagPNetB > wp, axis=-1)
