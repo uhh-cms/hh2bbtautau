@@ -159,7 +159,7 @@ def stylize_processes(config: od.Config) -> None:
         ("m2p12", "3p87", "m5p96"),
     ]:
         if (p := config.get_process(f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}", default=None)):
-            p.color1 = cfg.x.colors.brown
+            p.color1 = cfg.x.colors.dark_blue  # brown
             kappa_label = create_kappa_label(**{"2V": k2v, r"\lambda": kl, "V": kv})
             p.label = rf"$HH_{{vbf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 

@@ -24,6 +24,9 @@ logger = law.logger.get_logger(__name__)
 
 # define helper functions
 def general_read_coupling_values(couplings, poi=["kl", "kt", "c2"]):
+    # HOTFIX: change m2p12 to 2p12 for CV in VBFHHto2B2Tau_CV-2p12_C2V-3p87_C3-m5p96_TuneCP5_13p6TeV_madgraph
+    if couplings == "kvm2p12_k2v3p87_klm5p96":
+        couplings = "kv2p12_k2v3p87_klm5p96"
     coupling_list = couplings.split("_")
     coupling_dict = {}
     for coupling in coupling_list:
@@ -51,7 +54,7 @@ def general_read_coupling_values(couplings, poi=["kl", "kt", "c2"]):
     return coupling_dict
 
 
-def add_hooks(config: od.Config) -> None:
+def add_hooks(analysis_inst: od.Analysis) -> None:
     """
     Add histogram hooks to a configuration.
     """
@@ -147,6 +150,14 @@ def add_hooks(config: od.Config) -> None:
         # }
 
         # get all model processes
+
+        # TODO: update for multiconfigs hists... Meaning just adding a loop over everything
+        # since we won't morph across configs, but only within one config
+
+        # config = task.config_inst
+        config = list(hists.keys())[0]
+        hists_one_config = hists[config]
+
         model_procs = []
         for sample in guidance_points:
             model_proc = config.get_process(f"hh_{production_channel}_hbb_htt_{sample}", default=None)
@@ -157,14 +168,14 @@ def add_hooks(config: od.Config) -> None:
         # verify that the axis order is exactly "category -> shift -> variable"
         # which is needed to insert values at the end
         CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
-        for h in hists.values():
+        for h in hists_one_config.values():
             # validate axes
             assert len(h.axes) == 3
             assert h.axes[CAT_AXIS].name == "category"
             assert h.axes[SHIFT_AXIS].name == "shift"
 
         # get model histograms
-        model_hists = [h for p, h in hists.items() if p in model_procs]
+        model_hists = [h for p, h in hists_one_config.items() if p in model_procs]
         if len(model_hists) != len(guidance_points):
             raise Exception("not all model histograms present, morphing cannot occur")
 
@@ -173,11 +184,18 @@ def add_hooks(config: od.Config) -> None:
         target_params_oi_float = {key: float(target_params_oi[key]) for key in target_params_oi.keys()}
         new_coefficients = np.array(get_coeffs(target_params_oi_float, parameters_oi))
 
+        # make customized ids
+        from law.util import create_hash
+        custom_id = create_hash(
+            f"{target_point}_{morphing_type}",
+            to_int=True,
+            l=3,
+        )
         if production_channel == "ggf":
             # create the new process for the morphed histogram, TODO: make customized id?
             new_proc = od.Process(
                 f"hh_{production_channel}_hbb_htt_{target_point}_{morphing_type}_morphed",
-                id=21130,
+                id=21130 + custom_id,
                 label=r"morphed $HH_{ggf} \rightarrow bb\tau\tau$ ",
                 # "\n"
                 # r"($\kappa_{\lambda}=$" + target_params_oi["kl"] + r", $\kappa_{t}=$" + target_params_oi["kt"] + ")",
@@ -186,20 +204,19 @@ def add_hooks(config: od.Config) -> None:
             # create the new process for the morphed histogram, TODO: make customized id?
             new_proc = od.Process(
                 f"hh_{production_channel}_hbb_htt_{target_point}_{morphing_type}_morphed",
-                id=21130,
+                id=21130 + custom_id,
                 label=r"morphed $HH_{vbf} \rightarrow bb\tau\tau$ "
                 "\n"
                 r"($C_{V}=$" + target_params_oi["kv"] + r", $C_{2V}=$" + target_params_oi["k2v"] +
                 r", $C_{3}=$" + target_params_oi["kl"] + ")",
             )
 
-        # fill all histograms with an empty axis if some are missing
-        all_categories = task.config_inst.get_leaf_categories()
+        all_categories = config.get_leaf_categories()
         for h in model_hists:
             if len(h.axes[0]) != len(all_categories):
-                set_all_categories_id = set([cat.id for cat in all_categories])
-                set_h_categories_id = set(list(h.axes[0]))
-                missing_categories = list(set_all_categories_id - set_h_categories_id)
+                set_all_categories_names = set([cat.name for cat in all_categories])
+                set_h_categories_names = set(list(h.axes[0]))
+                missing_categories = list(set_all_categories_names - set_h_categories_names)
                 filling_dict = {
                     "category": missing_categories,  # missing category indices to add as axes
                     "shift": h.axes[1][0],  # reuse existing shift to avoid creating a new axis
@@ -596,58 +613,58 @@ def add_hooks(config: od.Config) -> None:
         # so maybe add as a separate histogram?
         # new_proc.x.chi2_infos = chi2_infos
 
-        hists[new_proc] = new_hist
+        hists[config][new_proc] = new_hist
 
         # insert values into the new histogram
-        hists[new_proc].view().value = morphed_values_correct_categorization
-        hists[new_proc].view().variance = morphed_variances_correct_categorization
+        hists[config][new_proc].view().value = morphed_values_correct_categorization
+        hists[config][new_proc].view().variance = morphed_variances_correct_categorization
 
         return hists
 
     # add the hooks
-    config.x.hist_hooks.hh_ggf_exact_morphing_kl0_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_exact_morphing_kl0_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl0_kt1",
         morphing_type="exact",
     )
-    config.x.hist_hooks.hh_ggf_exact_morphing_kl1_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_exact_morphing_kl1_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl1_kt1",
         morphing_type="exact",
     )
-    config.x.hist_hooks.hh_ggf_exact_morphing_kl2_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_exact_morphing_kl2_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1"],
         target_point="kl2_kt1",
         morphing_type="exact",
     )
-    config.x.hist_hooks.hh_ggf_exact_morphing_kl2p45_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_exact_morphing_kl2p45_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl5_kt1"],
         target_point="kl2p45_kt1",
         morphing_type="exact",
     )
-    config.x.hist_hooks.hh_ggf_exact_morphing_kl3_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_exact_morphing_kl3_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1"],
         target_point="kl3_kt1",
         morphing_type="exact",
     )
-    config.x.hist_hooks.hh_ggf_exact_morphing_kl4_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_exact_morphing_kl4_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1"],
         target_point="kl4_kt1",
         morphing_type="exact",
     )
-    config.x.hist_hooks.hh_ggf_exact_morphing_kl5_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_exact_morphing_kl5_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1"],
@@ -655,63 +672,63 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_ggf_average_morphing_kl0_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_kl0_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl0_kt1",
         morphing_type="average",
     )
-    config.x.hist_hooks.hh_ggf_average_morphing_kl1_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_kl1_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl1_kt1",
         morphing_type="average",
     )
-    config.x.hist_hooks.hh_ggf_average_morphing_kl2_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_kl2_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl2_kt1",
         morphing_type="average",
     )
-    config.x.hist_hooks.hh_ggf_average_morphing_kl2p45_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_kl2p45_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl2p45_kt1",
         morphing_type="average",
     )
-    config.x.hist_hooks.hh_ggf_average_morphing_kl3_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_kl3_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl3_kt1",
         morphing_type="average",
     )
-    config.x.hist_hooks.hh_ggf_average_morphing_kl4_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_kl4_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl4_kt1",
         morphing_type="average",
     )
-    config.x.hist_hooks.hh_ggf_average_morphing_kl5_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_kl5_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl5_kt1",
         morphing_type="average",
     )
-    config.x.hist_hooks.hh_ggf_average_morphing_klm1p7_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_klm1p7_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="klm1p7_kt1",
         morphing_type="average",
     )
-    config.x.hist_hooks.hh_ggf_average_morphing_kl8p7_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_average_morphing_kl8p7_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -719,7 +736,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_ggf_weight_morphing_kl0_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_weight_morphing_kl0_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -728,7 +745,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_ggf_weight_morphing_kl1_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_weight_morphing_kl1_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -737,7 +754,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_ggf_weight_morphing_kl2_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_weight_morphing_kl2_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -746,7 +763,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_ggf_weight_morphing_kl2p45_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_weight_morphing_kl2p45_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -755,7 +772,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_ggf_weight_morphing_kl3_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_weight_morphing_kl3_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -764,7 +781,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_ggf_weight_morphing_kl4_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_weight_morphing_kl4_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -773,7 +790,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_ggf_weight_morphing_kl5_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_weight_morphing_kl5_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -782,63 +799,63 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_ggf_fit_morphing_kl0_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_kl0_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl0_kt1",
         morphing_type="fit",
     )
-    config.x.hist_hooks.hh_ggf_fit_morphing_kl1_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_kl1_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl1_kt1",
         morphing_type="fit",
     )
-    config.x.hist_hooks.hh_ggf_fit_morphing_kl2_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_kl2_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl2_kt1",
         morphing_type="fit",
     )
-    config.x.hist_hooks.hh_ggf_fit_morphing_kl2p45_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_kl2p45_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl2p45_kt1",
         morphing_type="fit",
     )
-    config.x.hist_hooks.hh_ggf_fit_morphing_kl3_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_kl3_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl3_kt1",
         morphing_type="fit",
     )
-    config.x.hist_hooks.hh_ggf_fit_morphing_kl4_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_kl4_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl4_kt1",
         morphing_type="fit",
     )
-    config.x.hist_hooks.hh_ggf_fit_morphing_kl5_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_kl5_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="kl5_kt1",
         morphing_type="fit",
     )
-    config.x.hist_hooks.hh_ggf_fit_morphing_klm1p7_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_klm1p7_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
         target_point="klm1p7_kt1",
         morphing_type="fit",
     )
-    config.x.hist_hooks.hh_ggf_fit_morphing_kl8p7_kt1 = partial(
+    analysis_inst.x.hist_hooks.hh_ggf_fit_morphing_kl8p7_kt1 = partial(
         general_higgs_morphing,
         production_channel="ggf",
         guidance_points=["kl0_kt1", "kl1_kt1", "kl2p45_kt1", "kl5_kt1"],
@@ -846,7 +863,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v1_kl2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v1_kl2 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -858,7 +875,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v1_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v1_kl1 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -872,7 +889,7 @@ def add_hooks(config: od.Config) -> None:
     )
 
     # exact morphing using first 6 points except if the one to be morphed is inside, then use other first 6 points
-    config.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v0_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v0_kl1 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -884,7 +901,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v1_kl2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v1_kl2 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -896,7 +913,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v2_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kv1_k2v2_kl1 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -908,7 +925,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kv1p74_k2v1p37_kl14p4 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kv1p74_k2v1p37_kl14p4 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -920,7 +937,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kvm0p758_k2v1p44_klm19p3 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm0p758_k2v1p44_klm19p3 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -932,7 +949,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kvm0p012_k2v0p03_kl10p2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm0p012_k2v0p03_kl10p2 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -943,7 +960,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kvm0p962_k2v0p959_klm1p43 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm0p962_k2v0p959_klm1p43 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -954,7 +971,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kvm1p21_k2v1p94_klm0p94 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm1p21_k2v1p94_klm0p94 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -965,7 +982,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kvm1p6_k2v2p72_klm1p36 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm1p6_k2v2p72_klm1p36 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -976,7 +993,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kvm1p83_k2v3p57_klm3p39 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm1p83_k2v3p57_klm3p39 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -987,7 +1004,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="exact",
     )
 
-    config.x.hist_hooks.hh_vbf_exact_morphing_kvm2p12_k2v3p87_klm5p96 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm2p12_k2v3p87_klm5p96 = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -999,7 +1016,7 @@ def add_hooks(config: od.Config) -> None:
     )
 
     # all points
-    # config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5 = partial(
+    # analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5 = partial(
     #     general_higgs_morphing,
     #     production_channel="vbf",
     #     guidance_points=[
@@ -1018,7 +1035,7 @@ def add_hooks(config: od.Config) -> None:
     ###############################################################################################################
 
     # all points except SM
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1032,7 +1049,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl5",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1046,7 +1077,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1061,7 +1106,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl5 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl5_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1075,11 +1135,39 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl5 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl5",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
             "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v0_kl1",
             "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
             "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
             "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
@@ -1090,7 +1178,7 @@ def add_hooks(config: od.Config) -> None:
     )
 
     # all points except the one to be morphed
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v0_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v0_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1104,7 +1192,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v0_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v0_kl1 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v0_kl1",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v0_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1119,7 +1221,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v0_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v0_kl1 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v0_kl1",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v0_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1133,7 +1250,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v0_kl1 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v0_kl1",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl2_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1147,7 +1278,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl2_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1162,7 +1293,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl2_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1176,7 +1307,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v2_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v2_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1190,7 +1321,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v2_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v2_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1205,7 +1336,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v2_kl1 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v2_kl1_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1219,7 +1350,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1p74_k2v1p37_kl14p4 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1p74_k2v1p37_kl14p4_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1233,7 +1364,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1p74_k2v1p37_kl14p4 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1p74_k2v1p37_kl14p4 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1p74_k2v1p37_kl14p4",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1p74_k2v1p37_kl14p4_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1248,7 +1393,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1p74_k2v1p37_kl14p4 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1p74_k2v1p37_kl14p4 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1p74_k2v1p37_kl14p4",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1p74_k2v1p37_kl14p4_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1262,7 +1422,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p758_k2v1p44_klm19p3 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1p74_k2v1p37_kl14p4 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1p74_k2v1p37_kl14p4",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p758_k2v1p44_klm19p3_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1276,7 +1450,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p758_k2v1p44_klm19p3 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p758_k2v1p44_klm19p3 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p758_k2v1p44_klm19p3",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p758_k2v1p44_klm19p3_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1291,7 +1479,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p758_k2v1p44_klm19p3 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p758_k2v1p44_klm19p3 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p758_k2v1p44_klm19p3",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p758_k2v1p44_klm19p3_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1305,7 +1508,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p012_k2v0p03_kl10p2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p758_k2v1p44_klm19p3 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p758_k2v1p44_klm19p3",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p012_k2v0p03_kl10p2_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1319,7 +1536,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p012_k2v0p03_kl10p2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p012_k2v0p03_kl10p2 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p012_k2v0p03_kl10p2",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p012_k2v0p03_kl10p2_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1334,7 +1565,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p012_k2v0p03_kl10p2 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p012_k2v0p03_kl10p2 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p012_k2v0p03_kl10p2",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p012_k2v0p03_kl10p2_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1348,7 +1594,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p962_k2v0p959_klm1p43 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p012_k2v0p03_kl10p2 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p012_k2v0p03_kl10p2",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p962_k2v0p959_klm1p43_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1362,7 +1622,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p962_k2v0p959_klm1p43 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p962_k2v0p959_klm1p43 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p962_k2v0p959_klm1p43",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p962_k2v0p959_klm1p43_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1377,7 +1651,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p962_k2v0p959_klm1p43 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p962_k2v0p959_klm1p43 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p962_k2v0p959_klm1p43",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p962_k2v0p959_klm1p43_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1391,7 +1680,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p21_k2v1p94_klm0p94 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p962_k2v0p959_klm1p43 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm0p962_k2v0p959_klm1p43",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p21_k2v1p94_klm0p94_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1405,7 +1708,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p21_k2v1p94_klm0p94 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p21_k2v1p94_klm0p94 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p21_k2v1p94_klm0p94",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p21_k2v1p94_klm0p94_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1420,7 +1737,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p21_k2v1p94_klm0p94 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p21_k2v1p94_klm0p94 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p21_k2v1p94_klm0p94",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p21_k2v1p94_klm0p94_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1434,7 +1766,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p6_k2v2p72_klm1p36 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p21_k2v1p94_klm0p94 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p21_k2v1p94_klm0p94",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p6_k2v2p72_klm1p36_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1448,7 +1794,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p6_k2v2p72_klm1p36 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p6_k2v2p72_klm1p36 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p6_k2v2p72_klm1p36",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p6_k2v2p72_klm1p36_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1463,7 +1823,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p6_k2v2p72_klm1p36 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p6_k2v2p72_klm1p36 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p6_k2v2p72_klm1p36",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p6_k2v2p72_klm1p36_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1477,7 +1852,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p83_k2v3p57_klm3p39 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p6_k2v2p72_klm1p36 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p6_k2v2p72_klm1p36",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p83_k2v3p57_klm3p39_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1491,7 +1880,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p83_k2v3p57_klm3p39 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p83_k2v3p57_klm3p39 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p83_k2v3p57_klm3p39",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p83_k2v3p57_klm3p39_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1506,7 +1909,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p83_k2v3p57_klm3p39 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p83_k2v3p57_klm3p39 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p83_k2v3p57_klm3p39",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p83_k2v3p57_klm3p39_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1520,7 +1938,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm2p12_k2v3p87_klm5p96 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p83_k2v3p57_klm3p39 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p83_k2v3p57_klm3p39",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm2p12_k2v3p87_klm5p96_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1534,7 +1966,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm2p12_k2v3p87_klm5p96 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm2p12_k2v3p87_klm5p96 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm2p12_k2v3p87_klm5p96",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm2p12_k2v3p87_klm5p96_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1549,11 +1995,40 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm2p12_k2v3p87_klm5p96 = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm2p12_k2v3p87_klm5p96 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm2p12_k2v3p87_klm5p96",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm2p12_k2v3p87_klm5p96_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
             "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39",
+        ],
+        target_point="kvm2p12_k2v3p87_klm5p96",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm2p12_k2v3p87_klm5p96 = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
             "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
             "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
             "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
@@ -1568,7 +2043,7 @@ def add_hooks(config: od.Config) -> None:
     ###############################################################################################################
 
     # all points
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl0_all_points = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl0_all_points_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1582,7 +2057,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl0_all_points = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl0_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl0",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl0_all_points_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1596,7 +2085,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1_all_points = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl0_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl0",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1_all_points_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1610,7 +2113,21 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1_all_points = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1_all_points_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1625,7 +2142,22 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1_all_points = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="average",
+        weights=True,
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1_all_points_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1639,11 +2171,39 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5_all_points = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl1",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5_all_points_2022_pre = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
             "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1_k2v1_kl2", "kv1_k2v2_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kv1_k2v1_kl5",
+        morphing_type="average",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl5_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
             "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
             "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
             "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
@@ -1658,7 +2218,7 @@ def add_hooks(config: od.Config) -> None:
     ###############################################################################################################
 
     # all points except the one to be morphed and kvm2p12_k2v3p87_klm5p96
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1672,7 +2232,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1687,7 +2247,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1701,7 +2261,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v0_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v0_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1715,7 +2275,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v0_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v0_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1730,7 +2290,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v0_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v0_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1744,7 +2304,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl2_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v1_kl2_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1758,7 +2318,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl2_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v1_kl2_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1773,7 +2333,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl2_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v1_kl2_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1787,7 +2347,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v2_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1_k2v2_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1801,7 +2361,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v2_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1_k2v2_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1816,7 +2376,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v2_kl1_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1_k2v2_kl1_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1830,7 +2390,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1844,7 +2404,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1859,7 +2419,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kv1p74_k2v1p37_kl14p4_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1873,7 +2433,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1887,7 +2447,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1902,7 +2462,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p758_k2v1p44_klm19p3_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1916,7 +2476,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1930,7 +2490,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1945,7 +2505,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p012_k2v0p03_kl10p2_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1959,7 +2519,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1973,7 +2533,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -1988,7 +2548,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm0p962_k2v0p959_klm1p43_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2002,7 +2562,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2016,7 +2576,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2031,7 +2591,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p21_k2v1p94_klm0p94_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2045,7 +2605,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2059,7 +2619,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2074,7 +2634,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p6_k2v2p72_klm1p36_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2088,7 +2648,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
-    config.x.hist_hooks.hh_vbf_average_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_average_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2102,7 +2662,7 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="average",
     )
 
-    config.x.hist_hooks.hh_vbf_weight_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_weight_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2117,7 +2677,7 @@ def add_hooks(config: od.Config) -> None:
         weights=True,
     )
 
-    config.x.hist_hooks.hh_vbf_fit_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p83_k2v3p57_klm3p39_test = partial(
         general_higgs_morphing,
         production_channel="vbf",
         guidance_points=[
@@ -2131,6 +2691,82 @@ def add_hooks(config: od.Config) -> None:
         morphing_type="fit",
     )
 
+    ###############################################################################
+    # basis tests
+    ###############################################################################
+    basis_resolved = [
+        "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        "kvm0p012_k2v0p03_kl10p2", "kvm1p21_k2v1p94_klm0p94",
+    ]
+    basis_boosted = [
+        "kv1_k2v1_kl1", "kv1_k2v0_kl1", "kv1p74_k2v1p37_kl14p4", "kvm0p962_k2v0p959_klm1p43",
+        "kvm0p758_k2v1p44_klm19p3", "kvm1p6_k2v2p72_klm1p36",
+    ]
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm1p6_k2v2p72_klm1p36_basis_resolved = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=basis_resolved,
+        target_point="kvm1p6_k2v2p72_klm1p36",
+        morphing_type="exact",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm1p21_k2v1p94_klm0p94_basis_boosted = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=basis_boosted,
+        target_point="kvm1p21_k2v1p94_klm0p94",
+        morphing_type="exact",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_exact_morphing_kvm2p12_k2v3p87_klm5p96_basis_boosted = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=basis_boosted,
+        target_point="kvm2p12_k2v3p87_klm5p96",
+        morphing_type="exact",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p6_k2v2p72_klm1p36_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p6_k2v2p72_klm1p36",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm1p21_k2v1p94_klm0p94_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm1p21_k2v1p94_klm0p94",
+        morphing_type="fit",
+    )
+
+    analysis_inst.x.hist_hooks.hh_vbf_fit_morphing_kvm2p12_k2v3p87_klm5p96_all_points = partial(
+        general_higgs_morphing,
+        production_channel="vbf",
+        guidance_points=[
+            "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+            "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+            "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+            "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+            "kvm1p83_k2v3p57_klm3p39", "kvm2p12_k2v3p87_klm5p96",
+        ],
+        target_point="kvm2p12_k2v3p87_klm5p96",
+        morphing_type="fit",
+    )
 
 # Remark on new Process for morphing: single ID for all morphed processes, but different names
 # in order to be able to distinguish them in the plot functions, maybe need to find a way to create

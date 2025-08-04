@@ -10,7 +10,8 @@ from columnflow.util import maybe_import
 from columnflow.plotting.plot_all import plot_all
 from columnflow.plotting.plot_util import (
     # prepare_stack_plot_config,
-    _remove_residual_axis,
+    remove_residual_axis_single,
+    get_attr_or_aux,
     prepare_style_config,
     remove_residual_axis,
     apply_variable_settings,
@@ -22,8 +23,6 @@ from columnflow.plotting.plot_util import (
     # get_profile_variations,
     blind_sensitive_bins,
     # join_labels,
-    check_nominal_shift,
-    equal_distance_bin_width,
 )
 
 from columnflow.types import Callable
@@ -49,8 +48,6 @@ def prepare_plot_config_custom_ratio(
     data entrys with errorbars.
     """
 
-    check_nominal_shift(shift_insts)
-
     # separate histograms into stack, lines and data hists
     mc_hists, mc_colors, mc_edgecolors, mc_labels = [], [], [], []
     mc_syst_hists = []
@@ -58,22 +55,24 @@ def prepare_plot_config_custom_ratio(
     data_hists, data_hide_stat_errors = [], []
     data_label = None
 
+    default_shift = shift_insts[0].name if len(shift_insts) == 1 else "nominal"
+
     # not necessary since we are not using any data, but kept for now
     for process_inst, h in hists.items():
         # if given, per-process setting overrides task parameter
-        proc_hide_stat_errors = getattr(process_inst, "hide_stat_errors", hide_stat_errors)
+        proc_hide_stat_errors = get_attr_or_aux(process_inst, "hide_stat_errors", hide_stat_errors)
         if process_inst.is_data:
-            data_hists.append(_remove_residual_axis(h, "shift", select_value=0))
+            data_hists.append(remove_residual_axis_single(h, "shift", select_value=default_shift))
             data_hide_stat_errors.append(proc_hide_stat_errors)
             if data_label is None:
                 data_label = process_inst.label
-        elif getattr(process_inst, "unstack", False):
-            line_hists.append(_remove_residual_axis(h, "shift", select_value=0))
+        elif get_attr_or_aux(process_inst, "unstack", False):
+            line_hists.append(remove_residual_axis_single(h, "shift", select_value=default_shift))
             line_colors.append(process_inst.color1)
             line_labels.append(process_inst.label)
             line_hide_stat_errors.append(proc_hide_stat_errors)
         else:
-            mc_hists.append(_remove_residual_axis(h, "shift", select_value=0))
+            mc_hists.append(remove_residual_axis_single(h, "shift", select_value=default_shift))
             mc_colors.append(process_inst.color1)
             mc_edgecolors.append(process_inst.color2)
             mc_labels.append(process_inst.label)
@@ -85,9 +84,10 @@ def prepare_plot_config_custom_ratio(
         h_data = sum(data_hists[1:], data_hists[0].copy())
     if mc_hists:
         h_mc = sum(mc_hists[1:], mc_hists[0].copy())
-        # reverse hists when building MC stack so that the
-        # first process is on top
-        h_mc_stack = hist.Stack(*mc_hists[::-1])
+        h_mc_stack = hist.Stack(*mc_hists)
+        # # reverse hists when building MC stack so that the
+        # # first process is on top
+        # h_mc_stack = hist.Stack(*mc_hists[::-1])
 
     # setup plotting configs
     plot_config = OrderedDict()
@@ -100,10 +100,10 @@ def prepare_plot_config_custom_ratio(
             "hist": h_mc_stack,
             "kwargs": {
                 "norm": mc_norm,
-                "label": mc_labels[::-1],
-                "color": mc_colors[::-1],
-                "edgecolor": mc_edgecolors[::-1],
-                "linewidth": [(0 if c is None else 1) for c in mc_colors[::-1]],
+                "label": mc_labels,  # [::-1],
+                "color": mc_colors,  # [::-1],
+                "edgecolor": mc_edgecolors,  # [::-1],
+                "linewidth": [(0 if c is None else 1) for c in mc_colors],  # [(0 if c is None else 1) for c in mc_colors[::-1]],  # noqa: E501
             },
         }
 
@@ -118,6 +118,7 @@ def prepare_plot_config_custom_ratio(
                 "norm": line_norm,
                 "label": line_labels[i],
                 "color": line_colors[i],
+                "error_type": "variance",
             },
             # "ratio_kwargs": {
             #     "norm": h.values(),
@@ -262,33 +263,33 @@ def plot_morphing_comparison(
 
     hists = hists_to_plot
 
-    check_nominal_shift(shift_insts)
     variable_inst = variable_insts[0]
 
     # process-based settings (styles and attributes)
-    hists = apply_process_settings(hists, process_settings)
+    hists, process_style_config = apply_process_settings(hists, process_settings)
     # variable-based settings (rebinning, slicing, flow handling)
-    hists = apply_variable_settings(hists, variable_insts, variable_settings)
-    # process scaling
-    hists = apply_process_scaling(hists)
+    hists, variable_style_config = apply_variable_settings(hists, variable_insts, variable_settings)
     # remove data in bins where sensitivity exceeds some threshold
     blinding_threshold = kwargs.get("blinding_threshold", None)
     if blinding_threshold:
         hists = blind_sensitive_bins(hists, config_inst, blinding_threshold)
+    # process scaling
+    hists = apply_process_scaling(hists)
     # density scaling per bin
     if density:
         hists = apply_density(hists, density)
-    # remove shift axis of histograms that are not to be stacked
-    unstacked_hists = {
-        proc_inst: h
-        for proc_inst, h in hists.items()
-        if proc_inst.is_mc and getattr(proc_inst, "unstack", False)
-    }
-    hists |= remove_residual_axis(unstacked_hists, "shift", select_value=0)
 
-    # replace hist with version that has the same binning space between bins
-    if "equal_bin_width" in kwargs:
-        hists, kwargs["equal_distant_ticks_label"] = equal_distance_bin_width(hists, variable_inst)
+    if len(shift_insts) == 1:
+        # when there is exactly one shift bin, we can remove the shift axis
+        hists = remove_residual_axis(hists, "shift", select_value=shift_insts[0].name)
+    else:
+        # remove shift axis of histograms that are not to be stacked
+        unstacked_hists = {
+            proc_inst: h
+            for proc_inst, h in hists.items()
+            if proc_inst.is_mc and getattr(proc_inst, "unstack", False)
+        }
+        hists |= remove_residual_axis(unstacked_hists, "shift", select_value="nominal")
 
     plot_config = prepare_plot_config_custom_ratio(
         hists,
@@ -305,12 +306,18 @@ def plot_morphing_comparison(
         density,
         shape_norm,
         yscale,
-        xtick_rotation=kwargs.get("rotate_xticks", None),
     )
 
-    style_config = law.util.merge_dicts(default_style_config, style_config, deep=True)
+    style_config = law.util.merge_dicts(
+        default_style_config,
+        process_style_config,
+        variable_style_config[variable_inst],
+        style_config,
+        deep=True,
+    )
+
     if shape_norm:
-        style_config["ax_cfg"]["ylabel"] = r"$\Delta N/N$"
+        style_config["ax_cfg"]["ylabel"] = "Normalized entries"
 
     # add custom ylim params to style_config due to partially huge error bars
     whitespace_fraction = 0.3
@@ -905,6 +912,7 @@ def plot_3d_morphing(
     for vbf_point in points:
         if "kv" not in vbf_point or "k2v" not in vbf_point or "kl" not in vbf_point:
             raise ValueError("Not all points have the correct keys.")
+
         for key, hist in hists.items():
             if f"hh_vbf_hbb_htt_{vbf_point['name']}" in key.name and vbf_point["type"] in key.name:
                 if vbf_point["name"] in hists_to_plot.keys():
@@ -1061,8 +1069,8 @@ def plot_3d_morphing(
             respective_p_values[vbf_point["name"]] = p_value
 
             value_to_plot = np.array([chi2_ndf, 0])  # no error for chi2
-            if vbf_point["name"] == "kvm1p83_k2v3p57_klm3p39":
-                from IPython import embed; embed(header="chi2 value")
+            # if vbf_point["name"] == "kvm1p83_k2v3p57_klm3p39":
+            #     from IPython import embed; embed(header="chi2 value")
         values_to_plot[vbf_point["name"]] = value_to_plot
 
     # plot the values
@@ -1297,7 +1305,7 @@ plot_3d_morphing_2022_pre_chi2_sm_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
-        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
     ],
     distance_measure="chi2",
 )
@@ -1317,7 +1325,7 @@ plot_3d_morphing_2022_pre_binval_sm_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
-        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
     ],
     distance_measure="bin_val",
 )
@@ -1337,7 +1345,7 @@ plot_3d_morphing_2022_pre_ratio_sm_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
-        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
     ],
     distance_measure="ratio",
 )
@@ -1357,7 +1365,7 @@ plot_3d_morphing_2022_pre_chi2_all_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": "morphed"},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
-        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
     ],
     distance_measure="chi2",
 )
@@ -1377,7 +1385,7 @@ plot_3d_morphing_2022_pre_ratio_all_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": "morphed"},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
-        {"kv": -2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
     ],
     distance_measure="ratio",
 )
