@@ -14,7 +14,7 @@ from columnflow.util import maybe_import
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 
 from hbt.production.weights import (
-    stitched_normalization_weights, normalized_pu_weight, normalized_pdf_weight,  # TODO: add back _dy_tautau_drop
+    stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_pdf_weight,
     normalized_murmuf_weight, normalized_ps_weights,
 )
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
@@ -30,13 +30,13 @@ top_pt_weight = cf_top_pt_weight.derive("top_pt_weight", cls_dict={"require_data
 
 @producer(
     uses={
-        category_ids, stitched_normalization_weights, normalized_pu_weight, normalized_ps_weights,
+        category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
     produces={
-        category_ids, stitched_normalization_weights, normalized_pu_weight, normalized_ps_weights,
+        category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,
         normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
@@ -55,7 +55,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # mc-only weights
     if self.dataset_inst.is_mc:
         # normalization weights
-        events = self[stitched_normalization_weights](events, **kwargs)
+        events = self[stitched_normalization_weights_dy_tautau_drop](events, **kwargs)
 
         # normalized pdf weight
         if self.has_dep(normalized_pdf_weight):
