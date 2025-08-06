@@ -8,6 +8,8 @@ from __future__ import annotations
 
 __all__ = []
 
+import functools
+
 from columnflow.types import Any
 from columnflow.columnar_util import ArrayFunction, deferred_column
 from columnflow.util import maybe_import
@@ -66,68 +68,27 @@ def IF_RUN_3_2022(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> An
     return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2022) else None
 
 
-@deferred_column
-def IF_DATASET_HAS_LHE_WEIGHTS(
-    self: ArrayFunction.DeferredColumn,
-    func: ArrayFunction,
-) -> Any | set[Any]:
-    return self.get() if not func.dataset_inst.has_tag("no_lhe_weights") else None
+def IF_DATASET_HAS_TAG(*args, negate: bool = False, **kwargs) -> ArrayFunction.DeferredColumn:
+    @deferred_column
+    def deferred(
+        self: ArrayFunction.DeferredColumn,
+        func: ArrayFunction,
+    ) -> Any | set[Any]:
+        return self.get() if func.dataset_inst.has_tag(*args, **kwargs) is not negate else None
+
+    return deferred
 
 
-@deferred_column
-def IF_DATASET_HAS_TOP(
-    self: ArrayFunction.DeferredColumn,
-    func: ArrayFunction,
-) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("has_top") else None
+IF_DATASET_NOT_HAS_TAG = functools.partial(IF_DATASET_HAS_TAG, negate=True)
 
-
-@deferred_column
-def IF_DATASET_IS_TT(
-    self: ArrayFunction.DeferredColumn,
-    func: ArrayFunction,
-) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("ttbar") else None
-
-
-@deferred_column
-def IF_DATASET_IS_DY(
-    self: ArrayFunction.DeferredColumn,
-    func: ArrayFunction,
-) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("dy") else None
-
-
-@deferred_column
-def IF_DATASET_IS_DY_MADGRAPH(
-    self: ArrayFunction.DeferredColumn,
-    func: ArrayFunction,
-) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("dy_madgraph") else None
-
-
-@deferred_column
-def IF_DATASET_IS_DY_AMCATNLO(
-    self: ArrayFunction.DeferredColumn,
-    func: ArrayFunction,
-) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("dy_amcatnlo") else None
-
-
-@deferred_column
-def IF_DATASET_IS_DY_POWHEG(
-    self: ArrayFunction.DeferredColumn,
-    func: ArrayFunction,
-) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("dy_powheg") else None
-
-
-@deferred_column
-def IF_DATASET_IS_W_LNU(
-    self: ArrayFunction.DeferredColumn,
-    func: ArrayFunction,
-) -> Any | set[Any]:
-    return self.get() if func.dataset_inst.has_tag("w_lnu") else None
+IF_DATASET_HAS_LHE_WEIGHTS = IF_DATASET_NOT_HAS_TAG("no_lhe_weights")
+IF_DATASET_HAS_TOP = IF_DATASET_HAS_TAG("has_top")
+IF_DATASET_IS_TT = IF_DATASET_HAS_TAG("ttbar")
+IF_DATASET_IS_DY = IF_DATASET_HAS_TAG("dy")
+IF_DATASET_IS_DY_MADGRAPH = IF_DATASET_HAS_TAG("dy_madgraph")
+IF_DATASET_IS_DY_AMCATNLO = IF_DATASET_HAS_TAG("dy_amcatnlo")
+IF_DATASET_IS_DY_POWHEG = IF_DATASET_HAS_TAG("dy_powheg")
+IF_DATASET_IS_W_LNU = IF_DATASET_HAS_TAG("w_lnu")
 
 
 @deferred_column

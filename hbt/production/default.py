@@ -5,7 +5,6 @@ Wrappers for some default sets of producers.
 """
 
 from columnflow.production import Producer, producer
-from columnflow.production.normalization import stitched_normalization_weights
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
@@ -15,7 +14,8 @@ from columnflow.util import maybe_import
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 
 from hbt.production.weights import (
-    normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight, normalized_ps_weights,
+    stitched_normalization_weights, normalized_pu_weight, normalized_pdf_weight,  # TODO: add back _dy_tautau_drop
+    normalized_murmuf_weight, normalized_ps_weights,
 )
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
 from hbt.production.tau import tau_weights

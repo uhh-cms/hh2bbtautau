@@ -262,9 +262,9 @@ def add_config(
         "ttzz_madgraph",
 
         # dy, amcatnlo
-        "dy_m4to10_amcatnlo",
-        "dy_m10to50_amcatnlo",
-        "dy_m50toinf_amcatnlo",
+        # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned
+        # "dy_m10to50_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned
+        "dy_m50toinf_amcatnlo",  # also affected by the pythia bug in 22+23, need to stitch lepton decays below
         "dy_m50toinf_0j_amcatnlo",
         "dy_m50toinf_1j_amcatnlo",
         "dy_m50toinf_2j_amcatnlo",
@@ -278,6 +278,15 @@ def add_config(
         "dy_m50toinf_2j_pt200to400_amcatnlo",
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
+        # specific tau filtered datasets
+        # "dy_tautau_m50toinf_0j_amcatnlo",
+        # # TODO: still missing for 22post
+        # *if_not_era(year=2022, tag="postEE", values=[
+        #     "dy_tautau_m50toinf_1j_amcatnlo",
+        # ]),
+        # # TODO: missing for 22post and 23pre
+        # *if_era(year=2022, tag="preEE", values=["dy_tautau_m50toinf_2j_amcatnlo"]),
+        # *if_era(year=2023, tag="postBPix", values=["dy_tautau_m50toinf_2j_amcatnlo"]),
 
         # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
@@ -416,12 +425,20 @@ def add_config(
                 dataset.add_tag("dy_amcatnlo")
             elif dataset.name.endswith("_powheg"):
                 dataset.add_tag("dy_powheg")
-        if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
-            dataset.add_tag("dy_stitched")
+            # tags for advanced, lepton based stitching in amcatnlo
+            # (not adding the tags will result in the default selection and stitching behavior)
+            # if dataset.name.endswith("_amcatnlo"):
+            #     dataset.add_tag("dy_lep_amcatnlo")  # trigges the lepton channel stitching in the default selector
+            #     if re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
+            #         dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
         if (
-            "dy_ee_m50toinf_powheg" in cfg.datasets and
-            re.match(r"^dy_ee_m.*_powheg$", dataset.name) and
-            dataset.name not in {"dy_ee_m50toinf_powheg", "dy_ee_m10to50_powheg"}
+            re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name) or
+            re.match(r"^dy_tautau_m50toinf_\dj_amcatnlo$", dataset.name) or
+            (
+                "dy_ee_m50toinf_powheg" in cfg.datasets and
+                re.match(r"^dy_ee_m.*_powheg$", dataset.name) and
+                dataset.name not in {"dy_ee_m50toinf_powheg", "dy_ee_m10to50_powheg"}
+            )
         ):
             dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):
@@ -513,22 +530,6 @@ def add_config(
             "h",
             "ewk",
         ]),
-        "dy_split": [
-            "dy_m4to10", "dy_m10to50",
-            "dy_m50toinf_0j",
-            "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
-            "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
-            "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
-            "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
-        ],
-        "dy_split_no_incl": [
-            "dy_m4to10", "dy_m10to50",
-            "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
-            "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
-            "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
-            "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
-            "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
-        ],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
@@ -539,21 +540,45 @@ def add_config(
     if run == 3 and not sync_mode:
         # drell-yan, amcatnlo
         if "dy_m50toinf_amcatnlo" in cfg.datasets:
-            cfg.x.dy_amcatnlo_stitching = {
-                "m50toinf": {
-                    "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-                    "leaf_processes": [
-                        # the following processes cover the full njet and pt phasespace
-                        procs.n.dy_m50toinf_0j,
-                        *(
-                            procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
-                            for nj in [1, 2]
-                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                        ),
-                        procs.n.dy_m50toinf_ge3j,
-                    ],
-                },
-            }
+            if not cfg.datasets.n.dy_m50toinf_amcatnlo.has_tag("dy_drop_tautau"):
+                # default stitching, without lepton enriched datasets
+                cfg.x.dy_amcatnlo_stitching = {
+                    "m50toinf": {
+                        "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace
+                            cfg.get_process("dy_m50toinf_0j"),
+                            *(
+                                cfg.get_process(f"dy_m50toinf_{nj}j_pt{pt}")
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ),
+                            cfg.get_process("dy_m50toinf_ge3j"),
+                        ],
+                    },
+                }
+            else:
+                # more involved stitching with additional lepton enriched datasets
+                expand_lep = lambda names: [
+                    procs.get(f"dy_{ll}_{name}")
+                    for ll in ["ee", "mumu", "tautau"]
+                    for name in law.util.make_list(names)
+                ]
+                cfg.x.dy_lep_amcatnlo_stitching = {
+                    "m50toinf": {
+                        "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace per lepton channel
+                            *expand_lep("m50toinf_0j"),
+                            *expand_lep([
+                                f"m50toinf_{nj}j_pt{pt}"
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ]),
+                            *expand_lep("m50toinf_ge3j"),
+                        ],
+                    },
+                }
         # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
             cfg.x.dy_powheg_stitching = {
@@ -562,25 +587,28 @@ def add_config(
                     "leaf_processes": [
                         # the following processes cover the full inv mass phasespace
                         *(
-                            procs.get(f"dy_ee_m{mass}")
-                            for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]  # noqa: E501
+                            cfg.get_process(f"dy_ee_m{mass}")
+                            for mass in [
+                                "50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000",
+                                "4000to6000", "6000toinf",
+                            ]
                         ),
                     ],
                 },
             }
-        # w+jets
+        # w + jets
         cfg.x.w_lnu_stitching = {
             "incl": {
                 "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
                 "leaf_processes": [
                     # the following processes cover the full njet and pt phasespace
-                    procs.n.w_lnu_0j,
+                    cfg.get_process("w_lnu_0j"),
                     *(
-                        procs.get(f"w_lnu_{nj}j_pt{pt}")
+                        cfg.get_process(f"w_lnu_{nj}j_pt{pt}")
                         for nj in [1, 2]
                         for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
                     ),
-                    procs.n.w_lnu_ge3j,
+                    cfg.get_process("w_lnu_ge3j"),
                 ],
             },
         }
@@ -646,9 +674,9 @@ def add_config(
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
         "all": [],
-        "none": ["json"],
-        "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
-        "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
+        "none": ["mc_filter", "json"],
+        "default": ["mc_filter", "json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
+        "no_jet": ["mc_filter", "json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
     cfg.x.default_selector_steps = "all"
 
@@ -1601,8 +1629,8 @@ def add_config(
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
         "normalization_weight_inclusive": [],
-        "pdf_weight": get_shifts("pdf"),
-        "murmuf_weight": get_shifts("murmuf"),
+        "normalized_pdf_weight": get_shifts("pdf"),
+        "normalized_murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
