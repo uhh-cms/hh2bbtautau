@@ -76,8 +76,8 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             h = h_ if h is None else (h + h_)
 
         # compute the dy weight data
-        # dy_weight_data = compute_weight_data(self, h)
-        dy_weight_data = compute_njet_norm_data(self, h)
+        dy_weight_data = compute_weight_data(self, h)  # use --variables njets-dilep_pt
+        # dy_weight_data = compute_njet_norm_data(self, h)  # use --variables njets
 
         # store them
         self.output().dump(dy_weight_data, formatter="pickle")
@@ -203,6 +203,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     import numpy as np
     from scipy import optimize, special
     from matplotlib import pyplot as plt
+    from scipy.interpolate import UnivariateSpline
     era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
 
     # use scipy erf function definition
@@ -230,10 +231,8 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         """
 
         gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
-        # pol = a + b * x
         pol2 = a + b * x + d * (x ** 2)
 
-        # return window(x, r, -1) * gauss + window(x, r, 1) * pol
         return window(x, r, -1) * gauss + window(x, r, 1) * pol2
 
     # build fit function string
@@ -247,7 +246,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         upper_bounds = [1.2, 10, 50, 20, 2, 3, 3, 100]
 
         # perform the fit and get post-fit parameters
-        param_fit, _ = optimize.curve_fit(
+        popt, pcov = optimize.curve_fit(
             fit_function,
             bin_centers,
             ratio_values,
@@ -257,7 +256,7 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             bounds=(lower_bounds, upper_bounds),
         )
 
-        c, n, mu, sigma, a, b, d, r = param_fit
+        c, n, mu, sigma, a, b, d, r = popt
 
         # define string expression of the fit funtion
         for var_name in ['c', 'n', 'mu', 'sigma', 'a', 'b', 'd', 'r']:
@@ -266,12 +265,35 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         pol2 = f"(({a})+({b})*x+({d})*(x^2))"
         fit_string = f"(0.5*(erf(-0.08*(x-{r}))+1))*{gauss}+(0.5*(erf(0.08*(x-{r}))+1))*{pol2}"
 
-        # -------------------------------
-        #  plot the fit functions‚
+        # generate toy fits
         s = np.linspace(0, 200, 1000)
-        y = [fit_function(v, *param_fit) for v in s]
+        y_samples = np.random.multivariate_normal(popt, pcov, size=1000)
+        y_vals = []
+        from IPython import embed; embed(header="debugger")
+        for sample in y_samples:
+            y = fit_function(s, *sample)
+            y_vals.append(y)
+
+        y_up_95, y_nom_95, y_down_95 = np.quantile(y_vals, [0.025, 0.50, 0.975], axis=0)
+        y_up, y_nom, y_down = np.quantile(y_vals, [0.16, 0.50, 0.84], axis=0)
+
+        # Get smooth function by linear interpolation between points
+        smoothing_factor = 50
+        spline_low = UnivariateSpline(s, y_up, s=smoothing_factor)
+        spline_high = UnivariateSpline(s, y_down, s=smoothing_factor)
+
+        # -------------------------------
+        #  plot the fit function + toys
+        y = [fit_function(v, *popt) for v in s]
+
         fig, ax = plt.subplots()
-        ax.plot(s, y, color="grey", label="fit")
+        for i in y_vals:
+            ax.plot(s, i, color='purple', lw=0.5, alpha=0.1)
+
+        ax.plot(s, y, color="black", label="Fit", lw=0.8, linestyle="--")
+        ax.plot(s, y_nom, label="Mean of toys", color='grey', lw=0.5)
+        ax.fill_between(s, y_up, y_nom, color='red', alpha=0.3, label='Envelope at 68% (sys) up')
+        ax.fill_between(s, y_down, y_nom, color='blue', alpha=0.3, label='Envelope at 68% (sys) down')
         ax.errorbar(
             bin_centers,
             ratio_values,
@@ -285,16 +307,23 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         ax.legend(loc="upper right")
         ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
         ax.set_ylabel("Ratio (data-non DY MC)/DY")
+        ax.set_title(f"Fit Function and Systematics in njet {njet}")
         ax.grid(True)
+        title = f"Systematics for 2022preEE, njets >= {njet}"
+        ax.set_title(title)
 
         if njet != 4:
+            if njet == 2:
+                ax.set_ylim(0.75, 1.05)
+            else:
+                ax.set_ylim(0.8, 1.2)
             title = f"2022preEE, njets = {njet}"
             file_name = f"plot_dilep_eq{njet}j_gauss_pol2_0.08.pdf"
         else:
+            ax.set_ylim(0.8, 1.5)
             title = f"2022preEE, njets >= {njet}"
             file_name = f"plot_dilep_ge{njet}j_gauss_pol2_0.08.pdf"
 
-        ax.set_title(title)
         fig.savefig(file_name)
 
         return fit_string
@@ -311,7 +340,6 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     # do the fit per njet category
     leaf_cats = h.axes["category"]
 
-    # hist with all leaf categories
     for cat in leaf_cats:
         # Extract njet number from category name (e.g., "eq2j" -> 2)
         match = re.search(r'(\d+)j', cat)
@@ -332,6 +360,99 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
     print("----------")
     print(fit_dict)
+
+    def get_syst_unc(njet: int, h: hist.Hist):
+        """
+        Plot systematic uncertainty from the fit function.
+        """
+        from scipy.interpolate import UnivariateSpline
+        from scipy.signal import savgol_filter
+        from scipy import optimize
+
+        ratio_values, ratio_err, bin_centers = get_ratio_values(h)
+
+        # define starting values for c, n, mu, sigma, a, b, d, r with respective bounds
+        starting_values = [1, 1, 10, 3, 1, 0, 0, 50]
+        lower_bounds = [0.6, 0, 0, 0, 0, -2, -2, 20]
+        upper_bounds = [1.2, 10, 50, 20, 2, 3, 3, 100]
+
+        # perform the fit and get post-fit parameters
+        popt, pcov = optimize.curve_fit(
+            fit_function,
+            bin_centers,
+            ratio_values,
+            p0=starting_values, method="trf",
+            sigma=np.maximum(ratio_err, 1e-5),
+            absolute_sigma=True,
+            bounds=(lower_bounds, upper_bounds),
+        )
+
+        # for plotting the fit function
+        s = np.linspace(0, 200, 1000)
+        y_fit_function = [fit_function(v, *popt) for v in s]
+
+        # generate toy fits
+        y_samples = np.random.multivariate_normal(popt, pcov, size=1000)
+        y_vals = []
+        for sample in y_samples:
+            y = fit_function(s, *sample)
+            y_vals.append(y)
+
+        y_up_95, y_nom_95, y_down_95 = np.quantile(y_vals, [0.025, 0.50, 0.975], axis=0)
+        y_up, y_nom, y_down = np.quantile(y_vals, [0.16, 0.50, 0.84], axis=0)
+
+        # Get smooth function by linear interpolation between points
+        smoothing_factor = 500
+        spline_low = UnivariateSpline(s, y_up, s=smoothing_factor)
+        spline_high = UnivariateSpline(s, y_down, s=smoothing_factor)
+
+        fig, ax = plt.subplots()
+        for i in y_vals:
+            ax.plot(s, i, color='purple', lw=0.5, alpha=0.1)
+
+        ax.plot(s, y_nom, label="Mean of toys", color='grey', lw=0.5)
+        ax.fill_between(s, y_up, y_nom, color='red', alpha=0.3, label='Envelope at 68% (sys) up')
+        ax.fill_between(s, y_down, y_nom, color='blue', alpha=0.3, label='Envelope at 68% (sys) down')
+
+        ax.errorbar(
+            bin_centers,
+            ratio_values,
+            yerr=ratio_err,
+            fmt=".",
+            color="black",
+            linestyle="none",
+            ecolor="black",
+            elinewidth=0.5,
+        )
+        ax.legend(loc="upper right")
+        ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
+        ax.set_ylabel("Ratio (data-non DY MC)/DY")
+        ax.grid(True)
+        # ax.set_ylim(-2, 2)
+        ax.set_title(f"Fit Function and Systematics in njet {njet}")
+        file_name = f"plot_dilep_eq{njet}j_toys.pdf"
+        title = f"Systematics for 2022preEE, njets >= {njet}"
+        ax.set_title(title)
+        # fig.savefig(file_name)
+
+    """
+    # plot fit toys to get uncertainty bands per njet category
+    for cat in leaf_cats:
+        # Extract njet number from category name (e.g., "eq2j" -> 2)
+        match = re.search(r'(\d+)j', cat)
+        if match:
+            njet = int(match.group(1))
+        else:
+            raise ValueError("No njets digit found in category name!")
+
+        # slice the histogram for the selected njets bin
+        if njet != 4:
+            h_ = h[cat, :, njet, ...]
+            get_syst_unc(njet, h_)
+        else:
+            h_ = h[cat, ...][{"njets": sum}]
+            get_syst_unc(njet, h_)
+    """
     return fit_dict
 
 
