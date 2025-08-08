@@ -151,3 +151,21 @@ if not isinstance(torch, MockModule):
             ax.annotate(f"sensitivity: {sensitivity:.2f}", (0.5, 0.45), xycoords="axes fraction")
 
         return fig, ax
+
+    def control_plot_1d(train_loader, dataset_handler):
+        import matplotlib.pyplot as plt
+        d = {}
+        for dataset, file_handler in training_loader.data_map.items():
+            d[dataset] = ak.concatenate(list(map(lambda x: x.data, file_handler)))
+
+        for cat in dataset_handler.categorical_featuress:
+            plt.clf()
+            data = []
+            labels = []
+            for dataset, arrays in d.items():
+                data.append(Route(cat).apply(arrays))
+                labels.append(dataset)
+            plt.hist(data, histtype="barstacked", alpha=0.5, label=labels)
+            plt.xlabel(cat)
+            plt.legend()
+            plt.savefig(f"{cat}_all.png")
