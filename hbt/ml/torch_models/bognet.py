@@ -365,10 +365,13 @@ if not isinstance(torch, MockModule):
             **kwargs,
         ) -> None:
             all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
+            # build group datasets from processes, remove empty sets
             group_datasets = {
                 "ttbar": [d for d in all_datasets if d.startswith("tt_")],
                 "dy": [d for d in all_datasets if d.startswith("dy_")],
             }
+            group_datasets = {k: v for k, v in group_datasets.items() if v}
+
             # from IPython import embed; embed(header="HANDLING - 389 in bognet.py ")
             self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
