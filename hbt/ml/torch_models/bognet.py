@@ -12,7 +12,7 @@ from collections.abc import Container
 from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 
 from hbt.ml.torch_utils.functions import (
-    get_one_hot, preprocess_multiclass_outputs, WeightedCrossEntropySlice, normalized_weight_decay,
+    get_one_hot, preprocess_multiclass_outputs, WeightedCrossEntropySlice,
 )
 
 torch = maybe_import("torch")
@@ -31,7 +31,9 @@ if not isinstance(torch, MockModule):
     from hbt.ml.torch_utils.transforms import MoveToDevice
     from hbt.ml.torch_utils.datasets.handlers import WeightedTensorParquetFileHandler
     from hbt.ml.torch_utils.loss import WeightedCrossEntropy
-    from hbt.ml.torch_utils.utils import embedding_expected_inputs, get_standardization_parameter
+    from hbt.ml.torch_utils.utils import (
+    embedding_expected_inputs, get_standardization_parameter, normalized_weight_decay
+    )
     from hbt.ml.torch_utils.layers import (
         InputLayer, StandardizeLayer, ResNetPreactivationBlock, DenseBlock, PaddingLayer, RotatePhiLayer,
     )
@@ -80,32 +82,44 @@ if not isinstance(torch, MockModule):
             """
 
         @property
-        @abc.abstractmethod
-        def _continuous_features(self) -> set[Route]:
-            """
-            Returns a set of continuous features used in the model.
-            """
+        def num_cat(self):
+            return len(self.categorical_features)
 
         @property
-        @abc.abstractmethod
-        def _categorical_features(self) -> set[Route]:
-            """
-            Returns a set of continuous features used in the model.
-            """
+        def num_cont(self):
+            return len(self.continuous_features)
 
         @property
-        def categorical_features(self) -> set[Route]:
-            """
-            Returns a set of continuous features used in the model.
-            """
-            return self._process_columns(self._categorical_features)
+        def num_features(self):
+            return self.num_cat + self.num_cont
 
-        @property
-        def continuous_features(self) -> set[Route]:
-            """
-            Returns a set of continuous features used in the model.
-            """
-            return self._process_columns(self._continuous_features)
+        # @property
+        # @abc.abstractmethod
+        # def _continuous_features(self) -> set[Route]:
+        #     """
+        #     Returns a set of continuous features used in the model.
+        #     """
+
+        # @property
+        # @abc.abstractmethod
+        # def _categorical_features(self) -> set[Route]:
+        #     """
+        #     Returns a set of continuous features used in the model.
+        #     """
+
+        # @property
+        # def categorical_features(self) -> set[Route]:
+        #     """
+        #     Returns a set of continuous features used in the model.
+        #     """
+        #     return self._process_columns(self._categorical_features)
+
+        # @property
+        # def continuous_features(self) -> set[Route]:
+        #     """
+        #     Returns a set of continuous features used in the model.
+        #     """
+        #     return self._process_columns(self._continuous_features)
 
         @classmethod
         def _process_columns(cls, columns: Container[str]) -> list[Route]:
@@ -121,15 +135,15 @@ if not isinstance(torch, MockModule):
             """
             return list(dict.fromkeys(self.continuous_features + self.categorical_features))
 
-        @property
-        @abc.abstractmethod
-        def categorical_target_map(self) -> dict[str, int]:
-            """
-            Returns a mapping of categorical targets to integers.
-            This is used for classification tasks.
+        # @property
+        # @abc.abstractmethod
+        # def categorical_target_map(self) -> dict[str, int]:
+        #     """
+        #     Returns a mapping of categorical targets to integers.
+        #     This is used for classification tasks.
 
-            ex: {"hh": 0, "tt": 1, "dy": 2}
-            """
+        #     ex: {"hh": 0, "tt": 1, "dy": 2}
+        #     """
 
     class BogNet(
         IgniteEarlyStoppingMixin,
@@ -137,27 +151,25 @@ if not isinstance(torch, MockModule):
         TensorBoardLogger,
         NetworkBase,
     ):
+
         def __init__(self, *args, tensorboard_path, logger, task, **kwargs):
             super().__init__(*args, tensorboard_path=tensorboard_path, logger=logger, **task.param_kwargs, **kwargs)
-
+            # self.categorical_target_map: dict[str, int] = kwargs["categorical_target_map"]
+            # self.continuous_features = kwargs["continuous_features"]
+            # self.categorical_features = kwargs["categorical_features"]
+            # self.batchsize = kwargs["batch_size"]
             # build network, get commandline arguments
-            self.nodes = kwargs.get("nodes", 128)
-            self.activation_functions = kwargs.get("activation_functions", "PReLu")
-            self.skip_connection_init = kwargs.get("skip_connection_init", 1)
-            self.freeze_skip_connection = kwargs.get("freeze_skip_connection", False)
+            self.passed_parameters = tuple(kwargs.keys())
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+            self.nodes = 64
+            self.activation_functions = "PReLu"
+            self.skip_connection_init = 1
+            self.freeze_skip_connection = False
             self.empty_value = 15
             self.input_layer, self.model = self.init_layers()
-
-            # trainings settings
-            self.training_epoch_length_cutoff = 1000
-            self.training_weight_cutoff = 0.05
-            self.training_logger_interval = 20
-            self.val_epoch_length_cutoff = 500
-            self.val_weight_cutoff = None
-
-            # loss function and metrics
             self.label_smoothing_coefficient = 0.02
-
             self._loss_fn = WeightedCrossEntropy(label_smoothing=self.label_smoothing_coefficient)
 
             # metrics
@@ -191,34 +203,34 @@ if not isinstance(torch, MockModule):
             if "add_checkpoints" in self.custom_hooks:
                 self.custom_hooks.remove("add_checkpoints")
 
-        @property
-        def categorical_target_map(self):
-            return {"hh": 0, "tt": 1, "dy": 2}
+        # @property
+        # def categorical_target_map(self):
+        #     return {"hh": 0, "tt": 1, "dy": 2}
 
-        @property
-        def _categorical_features(self) -> list[str]:
-            return [
-                "pair_type",
-                "decay_mode1",
-                "decay_mode2",
-                "lepton1.charge",
-                "lepton2.charge",
-                "has_fatjet",
-                "has_jet_pair",
-                "year_flag",
-            ]
+        # @property
+        # def _categorical_features(self) -> list[str]:
+        #     return [
+        #         "pair_type",
+        #         "decay_mode1",
+        #         "decay_mode2",
+        #         "lepton1.charge",
+        #         "lepton2.charge",
+        #         "has_fatjet",
+        #         "has_jet_pair",
+        #         "year_flag",
+        #     ]
 
-        @property
-        def _continuous_features(self) -> list[str]:
-            return [
-                "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
-                "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
-                "fatjet.{energy,mass,px,py,pz}",
-                "lepton1.{energy,mass,px,py,pz}",
-                "lepton2.{energy,mass,px,py,pz}",
-                "PuppiMET.{px,py}",
-                "reg_dnn_nu{1,2}_{px,py,pz}",
-            ]
+        # @property
+        # def _continuous_features(self) -> list[str]:
+        #     return [
+        #         "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+        #         "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+        #         "fatjet.{energy,mass,px,py,pz}",
+        #         "lepton1.{energy,mass,px,py,pz}",
+        #         "lepton2.{energy,mass,px,py,pz}",
+        #         "PuppiMET.{px,py}",
+        #         "reg_dnn_nu{1,2}_{px,py,pz}",
+        #     ]
 
         def state_dict(self, *args, **kwargs):
             # IMP
@@ -234,9 +246,10 @@ if not isinstance(torch, MockModule):
                     self.scheduler.step()
                     logger.info(f"Performing scheduler step, last lr: {self.scheduler.get_last_lr()}")
 
+                # TODO better scheduling
                 self.train_evaluator.add_event_handler(
-                    event_name="EPOCH_COMPLETED",
-                    handler=do_step,
+                    Events.EPOCH_COMPLETED,
+                    do_step,
                 )
 
         def add_checkpoints(self):
@@ -251,19 +264,13 @@ if not isinstance(torch, MockModule):
                 save_checkpoint,
             )
 
-        @property
-        def num_cat(self):
-            return len(self.categorical_features)
-
-        @property
-        def num_cont(self):
-            return len(self.continuous_features)
-
-        @property
-        def num_features(self):
-            return self.num_cat + self.num_cont
 
         def init_layers(self):
+            # batch norm and L2 reg counterplay when used together.
+            # increasing eps helps to stabilize training
+            eps = 1e-3
+            normalize = False
+
             # helper where all layers are defined
             # std layers are filled when statitics are known
             std_layer = StandardizeLayer()
@@ -287,10 +294,10 @@ if not isinstance(torch, MockModule):
 
             model = torch.nn.Sequential(
                 input_layer,
-                DenseBlock(input_nodes = input_layer.ndim, output_nodes = self.nodes, activation_functions=self.activation_functions), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
+                DenseBlock(input_nodes = input_layer.ndim, output_nodes = self.nodes, activation_functions=self.activation_functions, eps=eps, normalize=normalize), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
                 torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
                 # no softmax since this is already part of loss
             )
@@ -342,7 +349,7 @@ if not isinstance(torch, MockModule):
             if not device:
                 device = next(self.model.parameters()).device
             for _input in self.continuous_features:
-                input_statistics = self.dataset_statistics[_input.column]
+                input_statistics = self.dataset_statistics[_input]
                 mean.append(torch.from_numpy(input_statistics["mean"]))
                 std.append(torch.from_numpy(input_statistics["std"]))
 
@@ -385,14 +392,13 @@ if not isinstance(torch, MockModule):
                 "ttbar": [d for d in all_datasets if d.startswith("tt_")],
                 "dy": [d for d in all_datasets if d.startswith("dy_")],
             }
-
+            # from IPython import embed; embed(header="HANDLING - 389 in bognet.py ")
             self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
                 inputs=inputs,
                 continuous_features=getattr(self, "continuous_features", self.continuous_features),
                 categorical_features=getattr(self, "categorical_features", self.categorical_features),
                 batch_transformations=MoveToDevice(device=device),
-                # global_transformations=PreProcessFloatValues(),
                 build_categorical_target_fn=self._build_categorical_target,
                 group_datasets=group_datasets,
                 device=device,
@@ -400,53 +406,43 @@ if not isinstance(torch, MockModule):
                 datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_", "dy_"])],
                 extract_dataset_paths_fn=extract_dataset_paths_fn,
                 extract_probability_fn=extract_probability_fn,
-                # categorical_target_transformation=,
-                # data_type_transformation=AkToTensor,
             )
 
             self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets()  # noqa
 
-            # define lenght of training epoch
+            # define lenght of training epoch and of all other datasets
             self.max_epoch_length = self._calculate_max_epoch_length(
                 self.training_loader,
                 cutoff=self.training_epoch_length_cutoff,
                 weight_cutoff=self.training_weight_cutoff,
             )
+
+            len_dataloader = lambda x: sum([len(d.data) for d in x.data_map])
+            self.unsampeled_training_length = len_dataloader(self.train_validation_loader)
+            self.unsampeled_validation_length = len_dataloader(self.validation_loader)
+
+            # from IPython import embed; embed(header="string - 423 in bognet.py ")
             # get statistics for standardization from training dataset without oversampling
+            # from IPython import embed; embed(header="string - 417 in bognet.py ")
             self.dataset_statistics = get_standardization_parameter(
                 self.train_validation_loader.data_map, self.continuous_features,
             )
 
-        def control_plot_1d(self):
-            import matplotlib.pyplot as plt
-            d = {}
-            for dataset, file_handler in self.training_loader.data_map.items():
-                d[dataset] = ak.concatenate(list(map(lambda x: x.data, file_handler)))
-
-            for cat in self.dataset_handler.categorical_featuress:
-                plt.clf()
-                data = []
-                labels = []
-                for dataset, arrays in d.items():
-                    data.append(Route(cat).apply(arrays))
-                    labels.append(dataset)
-                plt.hist(data, histtype="barstacked", alpha=0.5, label=labels)
-                plt.xlabel(cat)
-                plt.legend()
-                plt.savefig(f"{cat}_all.png")
-
-        def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
+        def init_optimizer(self, optimizer_config, scheduler_config=None) -> None:
             no_weight_decay_parameters, weight_decay_parameters = normalized_weight_decay(
-                self.model, decay_factor=weight_decay, normalize=True,
+                self.model,
+                decay_factor=optimizer_config["decay_factor"],
+                normalize=optimizer_config["normalize"],
+                # apply_to="weight.original0",
+                apply_to=optimizer_config["apply_to"],
             )
 
             # set parameters for optimizer per layer base, if nothing given use global parameters
             self.optimizer = torch.optim.AdamW(
                 (no_weight_decay_parameters, weight_decay_parameters),
-                lr=learning_rate,
-                weight_decay=None,
+                lr=optimizer_config["learning_rate"],
             )
-            self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
+            self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, **scheduler_config)
 
         def forward(self, *inputs):
             return self.model(inputs)
@@ -462,8 +458,21 @@ if not isinstance(torch, MockModule):
             composite_loader,
             weight_cutoff: float | None = None,
             cutoff: int | None = None,
-            # priority_list: list[str] | None = None,
         ):
+            """
+            Calculate number of iterations per epoch based on the given dataset composition.
+            If *weight_cutoff* is given, only datasets with a weight contribution larger than this value are considered.
+            If *cutoff* is given, the maximum number of iterations is limited to this value, otherwise full epoch is used.
+
+            Args:
+                composite_loader (_type_): DataLoader/Sampler containing the dataset composition
+                weight_cutoff (float | None, optional): Lower threshold for datasets to consider. Defaults to None.
+                cutoff (int | None, optional): Upper threshold for iterations. Defaults to None.
+
+            Returns:
+                float: Number of iterations per epoch, based on the dataset composition.
+            """
+
             global_max = 0
             max_key = None
             weight_cutoff = weight_cutoff or 0.
@@ -471,6 +480,7 @@ if not isinstance(torch, MockModule):
             # composition_length = {}
             if not batch_comp:
                 batch_comp = {key: 1. for key in composite_loader.data_map.keys()}
+            # tree level
             for key, batchsize in batch_comp.items():
                 weights = composite_loader.weight_dict[key]
                 if isinstance(weights, float):
@@ -483,8 +493,7 @@ if not isinstance(torch, MockModule):
                     if local_max > global_max:
                         max_key = key
                         global_max = local_max
-                    # composition_length[key] = local_max
-
+                # subtree level
                 elif isinstance(weights, dict):
                     for subkey, weight in weights.items():
                         data = composite_loader.data_map[subkey]
@@ -500,5 +509,13 @@ if not isinstance(torch, MockModule):
 
             if cutoff:
                 global_max = np.min([global_max, cutoff])
-            self.logger.info(f"epoch dominated by  '{max_key}': expect {global_max} batches/iteration")
+                self.logger.warning(
+                    f"Set max training iterations from {self.max_epoch_length} to {self.training_epoch_length_cutoff}"
+                )
+
+            self.logger.info(f"epoch dominated by  '{max_key}': expect {float(global_max)} batches/iteration")
             return global_max
+
+    class BogNetLBN(BogNet):
+        def __init__(self):
+            super.__init__()
