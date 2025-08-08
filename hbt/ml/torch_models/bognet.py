@@ -166,10 +166,10 @@ if not isinstance(torch, MockModule):
             self.nodes = 64
             self.activation_functions = "PReLu"
             self.skip_connection_init = 1
-            self.freeze_skip_connection = False
+            self.freeze_skip_connection = True
             self.empty_value = 15
             self.input_layer, self.model = self.init_layers()
-            self.label_smoothing_coefficient = 0.02
+            self.label_smoothing_coefficient = 0.01
             self._loss_fn = WeightedCrossEntropy(label_smoothing=self.label_smoothing_coefficient)
 
             # metrics
@@ -237,9 +237,9 @@ if not isinstance(torch, MockModule):
 
 
         def init_layers(self):
-            # batch norm and L2 reg counterplay when used together.
-            # increasing eps helps to stabilize training
-            eps = 1e-3
+            # increasing eps helps to stabilize training to counter batch norm and L2 reg counterplay when used together.
+            eps = 0.5e-4
+            # activate weight normalization on linear layer weights
             normalize = False
 
             # helper where all layers are defined
@@ -263,12 +263,18 @@ if not isinstance(torch, MockModule):
                 padding_continous_layer=continuous_padding,
             )
 
+            resnet_blocks = [
+                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize)
+                for num_blocks in range(3)
+                ]
+
             model = torch.nn.Sequential(
                 input_layer,
                 DenseBlock(input_nodes = input_layer.ndim, output_nodes = self.nodes, activation_functions=self.activation_functions, eps=eps, normalize=normalize), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
-                ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
+                *resnet_blocks,
+                # ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
+                # ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
+                # ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
                 torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
                 # no softmax since this is already part of loss
             )
