@@ -446,7 +446,7 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
         train_val_composite_loader = self._create_validation_dataloader(
             training_data_map,
             shuffle_rowgroups=False,
-            shuffle_indices=True,
+            shuffle_indices=False,
             shuffle_list=True,
         )
         validation_composite_loader = self._create_validation_dataloader(validation_data_map)
@@ -568,8 +568,9 @@ class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
         max_training_idx = int(total_rows * ratio)
         training_idx = total_indices[:max_training_idx]
 
-        final_options = self.open_options or dict()
+        dataset_name = target_paths
 
+        final_options = self.open_options or dict()
         logger.info(f"Constructing training dataset with {max_training_idx} events")
 
         training = self.create_dataset(
@@ -648,6 +649,8 @@ class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
 
 class WeightedTensorParquetFileHandler(TensorParquetFileHandler):
     def __init__(self, *args, **kwargs):
+        """Function to handle weighted tensor parquet files.
+        """
         super().__init__(*args, **kwargs)
         self.dataset_cls = WeightedTensorParquetDataset
         self.training_map_and_collate_cls = NestedTensorMapAndCollate
