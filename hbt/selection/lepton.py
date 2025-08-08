@@ -150,7 +150,8 @@ def electron_selection(
             )
 
         # control mask for the electron selection
-        control_mask = default_mask & (events.Electron.pt > 24.0)
+        # updated to 12 GeV for VBF strategy in 2023, but applied for all channels and eras
+        control_mask = default_mask & (events.Electron.pt > 12.0)
         analysis_mask = default_mask & (events.Electron.pt > min_pt)
 
     # veto electron mask (must be trigger independent!)
@@ -243,7 +244,9 @@ def muon_selection(
             (abs(events.Muon.dz) < 0.2) &
             (events.Muon.pfRelIso04_all < 0.15)
         )
-        control_mask = default_mask & (events.Muon.pt > 20.0)
+        # pt control mask cut updated to 6 GeV for VBF strategy in 2023,
+        # but applied for all channels and eras
+        control_mask = default_mask & (events.Muon.pt > 6.0)
         analysis_mask = default_mask & (events.Muon.pt > min_pt)
 
     # veto muon mask (must be trigger independent!)
@@ -253,7 +256,7 @@ def muon_selection(
         (abs(events.Muon.dxy) < 0.045) &
         (abs(events.Muon.dz) < 0.2) &
         (events.Muon.pfRelIso04_all < 0.3) &
-        (events.Muon.pt > 10.0)
+        (events.Muon.pt > 6.0)
     )
 
     return analysis_mask, control_mask, veto_mask
