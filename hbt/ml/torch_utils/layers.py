@@ -31,10 +31,38 @@ ResNetPreactivationBlock = MockModule("ResNetPreactivationBlock")  # type: ignor
 StandardizeLayer = MockModule("StandardizeLayer")  # type: ignore[assignment]
 RotatePhiLayer = MockModule("RotatePhiLayer")  # type: ignore[assignment]
 AggregationLayer = MockModule("AggregationLayer")  # type: ignore[assignment]
+LBN = MockModule("LBN")
 
 
 if not isinstance(torch, MockModule):
     import torch
+    class WeightNormalizedLinear(torch.nn.Linear):  # noqa: F811
+        def __init__(self,*args, normalize=True ,**kwargs):
+            """
+            If normalize is set to True, Linear layer is replaced by weight normalized layer as described in https://arxiv.org/abs/1602.07868.
+            If false, the layer is a normal linear layer.
+
+            WeightNormalizedLayer decouple the length of the weight vector from its direction.
+            This is done by convert weights from Lienar Layer to weight_original0 and 1.
+            0 stands for the magnitude parameter g, while 1 is for the direction v.
+
+            Args:
+                normalize (bool, optional): True to replace Linear Layer with WeightNormalizedLayer. Defaults to True.
+            """
+            super().__init__(*args, **kwargs)
+            if normalize:
+                self = torch.nn.utils.parametrizations.weight_norm(self, name='weight', dim=0)
+
+    class WeightStandardizationLinear(torch.nn.Linear):
+        def __init__(self, *args, **kwargs):
+            super().__init__(self, *args, **kwargs)
+
+        def forward(self, input):
+            weight = self.weight
+            weight_mean = weight.mean(dim=-1, keepdim=True)
+            std = weight.std(dim=-1 + 1e-5)
+            self.weight = (weight - weight_mean)/ std
+            return super().forward(input)
 
     class PaddingLayer(torch.nn.Module):  # noqa: F811
         def __init__(
@@ -114,6 +142,14 @@ if not isinstance(torch, MockModule):
                 if empty in set([item for sublist in expected_inputs.values() for item in sublist]):
                     raise ValueError(f"Empty value {empty} is already used in on the categories")
                 return empty
+
+            # check if cateogries are part of expected_inputs at least one
+            if not set(categories) & set(expected_inputs.keys()):
+                sep = "\n"
+                raise ValueError(
+                    f"Categories must not be part of Expected categories:\n"
+                    f"categories:\n{sep.join(categories)}\nexpected categories:\n{sep.join(expected_inputs.keys())}"
+                )
 
             if expected_inputs is None:
                 return {}, None
@@ -392,6 +428,7 @@ if not isinstance(torch, MockModule):
             skip_connection_init: float = 1,
             freeze_skip_connection: float = False,
             eps: float = 1e-5,
+            normalize = True,
         ):
             """
             ResNetBlock consisting of a linear layer, batch normalization, and an activation function.
@@ -410,13 +447,14 @@ if not isinstance(torch, MockModule):
                 freeze_skip_connection (bool, optional): Freeze leanable skipconnection parameter. Defaults to False.
             """
             super().__init__()
+
             self.nodes = nodes
             self.act_func = self._get_attr(torch.nn.modules.activation, activation_functions)()
             self.skip_connection_amplifier = torch.nn.Parameter(torch.ones(1) * skip_connection_init)
             if freeze_skip_connection:
                 self.skip_connection_amplifier.requires_grad = False
             self.layers = torch.nn.Sequential(
-                torch.nn.Linear(self.nodes, self.nodes, bias=False),
+                WeightNormalizedLinear(self.nodes, self.nodes, bias=False, normalize=normalize),
                 torch.nn.BatchNorm1d(self.nodes, eps=eps),
                 self.act_func,
             )
@@ -441,6 +479,7 @@ if not isinstance(torch, MockModule):
             output_nodes: float,
             activation_functions: str = "LeakyReLu",
             eps: float = 1e-5,
+            normalize: bool = True,
         ):
             """
             DenseBlock is a dense block that consists of a linear layer, batch normalization, and an activation function.
@@ -455,7 +494,7 @@ if not isinstance(torch, MockModule):
             self.output_nodes = output_nodes
 
             self.layers = torch.nn.Sequential(
-                torch.nn.Linear(self.input_nodes, self.output_nodes, bias=False),
+                WeightNormalizedLinear(self.input_nodes, self.output_nodes, bias=False, normalize=normalize),
                 torch.nn.BatchNorm1d(self.output_nodes, eps=eps),
                 self._get_attr(torch.nn.modules.activation, activation_functions)(),
             )
@@ -478,6 +517,7 @@ if not isinstance(torch, MockModule):
             skip_connection_init: float = 1,
             freeze_skip_connection: bool = False,
             eps=1e-5,
+            normalize: bool = True,
         ):
             """
             Residual block that consists of a linear layer, batch normalization, and an activation function.
@@ -506,10 +546,10 @@ if not isinstance(torch, MockModule):
 
 
             self.layers = torch.nn.Sequential(
-                torch.nn.Linear(self.nodes, self.nodes, bias=False),
+                WeightNormalizedLinear(self.nodes, self.nodes, bias=False, normalize=normalize),
                 torch.nn.BatchNorm1d(self.nodes, eps=eps),
                 self.act_func,
-                torch.nn.Linear(self.nodes, self.nodes, bias=False),
+                WeightNormalizedLinear(self.nodes, self.nodes, bias=False, normalize=normalize),
                 torch.nn.BatchNorm1d(self.nodes, eps=eps),
             )
             self.last_activation = self.act_func
