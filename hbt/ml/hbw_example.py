@@ -547,11 +547,12 @@ class MLClassifierBase(MLModel):
             ),
             "model_architecture": task.target("model_architecture", type="f", dir=False),
         }
+
         output["aux_files"] = {
             "input_features": target.child("input_features.pkl", type="f"),
             "parameter_summary": target.child(f"parameter_summary{suffix}.yaml", type="f"),
         }
-        return DotDict.wrap(output)
+        return law.FileCollection(output, optional_existing=True)
 
     def load_data(
         self,
@@ -561,7 +562,6 @@ class MLClassifierBase(MLModel):
         device: torch.device | str = "cpu",
     ):
         datasets = set(x.name for config in self.used_datasets for x in self.used_datasets[config])
-
         # the task is expected to know a couple of details of data loading, so add this information
         task.batch_size = self.batchsize
         task.load_parallel_cores = 0
@@ -571,6 +571,7 @@ class MLClassifierBase(MLModel):
             input=input,
         )
 
+        # init construct training and validation datasets
         self.model.init_dataset_handler(
             task=task,
             inputs=input,
@@ -585,7 +586,7 @@ class MLClassifierBase(MLModel):
 
         out_dict = {k: sort_set(k) for k in ("continuous_features", "categorical_features")}
         # store input features as an output
-        output.aux_files.input_features.dump(out_dict, formatter="pickle")
+        output.targets["aux_files"]["input_features"].dump(out_dict, formatter="pickle")
 
     @property
     def model(self) -> torch.nn.Module:
@@ -639,7 +640,7 @@ class MLClassifierBase(MLModel):
             self.model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
 
             # hyperparameter bookkeeping
-            output.aux_files.parameter_summary.dump(dict(self.parameters), formatter="yaml")
+            output.targets["aux_files"]["parameter_summary"].dump(dict(self.parameters), formatter="yaml")
             logger.info(f"Training will be run with the following parameters: \n{self.parameters}")
             #
             # model preparation
