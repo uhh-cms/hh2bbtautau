@@ -263,19 +263,6 @@ class MLClassifierBase(MLModel):
         configs_to_use = law.util.flatten(list(map(law.util.brace_expand, configs_to_use)))
         return configs_to_use
 
-    # @property
-    # def config_insts(self) -> list[od.Config]:
-
-    # def _setup_configs(self, configs: list[str | od.Config]):
-    #     # call setup for specific set, overriding the configs provided by the
-    #     # task instance
-    #     configs_to_use = getattr(self, "configs_to_use", configs)
-
-    #     config_insts = super()._setup_configs(configs_to_use)
-    #     from IPython import embed
-    #     embed(header=f"in {self.__class__.__name__}._setup_configs, {config_insts=}")
-    #     return config_insts
-
     def cast_ml_param_values(self):
         """
         Resolve the values of the parameters that are used in the MLModel
@@ -466,12 +453,6 @@ class MLClassifierBase(MLModel):
         # venv_ml_tf sandbox but with scikit-learn and restricted to tf 2.11.0
         return dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_torch.sh")
 
-    def init_optimizer(self, learning_rate=1e-3, weight_decay=1e-5, model=None) -> None:
-        from torch.optim import AdamW
-        if not model:
-            model = self
-        self.optimizer = AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-
     def datasets(self, config_inst: od.Config) -> set[od.Dataset]:
         used_datasets = set()
         for i, proc in enumerate(self.processes):
@@ -547,12 +528,7 @@ class MLClassifierBase(MLModel):
 
         target = task.target(f"mlmodel_f{fold}of{self.folds}", dir=True)
         # declare the main target
-
-        # from IPython import embed
-        # embed(header=f"in {self.__class__.__name__}.output")
         ml_name = self.__class__.__name__
-        # from IPython import embed
-        # embed(header=f"check output path for local_target")
         output = {
             "model": target.child(f"torch_model_{ml_name}_f{fold}of{self.folds}{suffix}.pt", type="f"),
             "tensorboard": task.local_target(
@@ -652,7 +628,10 @@ class MLClassifierBase(MLModel):
 
             self.load_data(task, inp, output, device=device)
 
-            self.model.init_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
+            self.model.init_optimizer(
+                optimizer_config=self.optimizer_config,
+                scheduler_config=self.scheduler_config,
+                )
 
             # hyperparameter bookkeeping
             output.targets["aux_files"]["parameter_summary"].dump(dict(self.parameters), formatter="yaml")
@@ -673,8 +652,8 @@ class MLClassifierBase(MLModel):
 
             self.model.start_training(run_name=run_name, max_epochs=self.epochs)
             logger.info(f"Saving model to {output['model'].abspath}")
-            torch.save(self.model.state_dict(), output["model"].abspath)
-            torch.save(self.model, output["model_architecture"].abspath)
+            torch.save(self.model.model.state_dict(), output["model"].abspath)
+            torch.save(self.model.model, output["model_architecture"].abspath)
         return
 
     @abstractmethod
@@ -727,7 +706,6 @@ class MLClassifierBase(MLModel):
         template: ak.Array,
     ):
         from hbt.ml.torch_utils.utils import MLEnsembleWrapper
-
         step_size = 1
         deterministic_seeds = getattr(self, "deterministic_seeds", None)
         if isinstance(deterministic_seeds, list):
@@ -776,7 +754,6 @@ class MLClassifierBase(MLModel):
         Evaluation function that is run as part of the MLEvaluation task
         """
         from hbt.ml.torch_utils.datasets import TensorParquetDataset
-
         # create place holders for the mean and std of the model predictions
         n_classes = len(self.categorical_target_map)
         template = np.array([EMPTY_FLOAT] * n_classes, ndmin=2)
@@ -852,192 +829,65 @@ class MLClassifierBase(MLModel):
         return sum(expected_events)
 
 
-class BinaryMLBase(MLClassifierBase):
-    """ Example class how to implement a DNN from the MLClassifierBase """
+class BogNetBase(MLClassifierBase):
+    preparation_producer_in_ml_evaluation: bool = False
 
-    # optionally overwrite input parameters
+    # set some defaults, can be overwritten by subclasses or via cls_dict
+    # NOTE: the order of processes is crucial! Do not change after training
+    # configs_to_use: tuple[str] = ("22pre_v14_larger_limited", "22post_v14_larger_limited")
+
+    # identifier of the PrepareMLEvents and MergeMLEvents outputs. Needs to be changed when producing new input features
+    store_name: str = "inputs_base"
+
+    # Class for data loading and it's dependencies.
+    data_loader = None
+    # NOTE: we might want to use the data_loader.hyperparameter_deps instead
+    preml_params: set[str] = {"data_loader", "categorical_features", "continuous_features", "train_val_test_split"}
+
+    # NOTE: we split each fold into train, val, test + do k-folding, so we have a 4-way split in total
+    # TODO: test whether setting "test" to 0 is working
+    train_val_test_split: tuple = (0.75, 0.15, 0.10)
+    folds: int = 4
+
+    # training-specific parameters. Only need to re-run training when changing these
+    # _default__processes: tuple[str] = ("dy", "tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", )
+    _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", )
+    _default__class_factors: dict = {"st": 1, "tt": 1}
+    _default__sub_process_class_factors: dict = {"st": 2, "tt": 1}
+    _default__negative_weights: str = "handle"
     _default__epochs: int = 10
-    ml_cls = None
-
-    @property
-    def continuous_features(self) -> list[Route | str]:
-        if not self._continuous_features:
-            columns = {
-                "lepton1.{px,py,pz,energy,mass}",
-                "lepton2.{px,py,pz,energy,mass}",
-                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "fatjet.{px,py,pz,energy,mass}",
-            }
-            self._continuous_features = set()
-            self._continuous_features.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
-            self._continuous_features = sorted(self._continuous_features, key=str)
-        return self._continuous_features
-
-    @property
-    def categorical_features(self) -> set[Route | str]:
-        return set()
-
-    @property
-    def eval_activation(self) -> Callable | str:
-        return lambda x: x
-
-    def prepare_ml_model(
-        self,
-        task: law.Task | None = None,
-    ):
-        """
-        Minimal implementation of a ML model
-        """
-        from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
-
-        logger_path = None
-        if task and not isinstance(task, DotDict):
-            logger_target = self.output(task).get("tensorboard", None)
-            logger_path = logger_target.abspath if logger_target else None
-
-        # fake the task to propagate to the model and initialize the model instance
-        # in case there is no task instance provided
-        dummy_task = DotDict.wrap({"param_kwargs": dict()})
-        model = WeightedTensorFeedForwardNet(tensorboard_path=logger_path, logger=logger, task=(task or dummy_task))
-        model.categorical_target_map = self.categorical_target_map
-        model.continuous_features = self.continuous_features
-        model.categorical_features = self.categorical_features
-
-        return model
-
-    def open_model(self, task, *args, **kwargs):
-        model = self.prepare_ml_model(task)
-
-        from IPython import embed
-        embed(header=f"in {self.__class__.__name__}.open_model")
-
-    def start_training(self, run_name, max_epochs) -> None:
-        return self.model.start_training(run_name, max_epochs)
-
-
-class MultiClsMLBase(MLClassifierBase):
-    _default__epochs: int = 10
-    ml_cls = None
-
-    _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1", "dy")
-    categorical_target_map: dict[str, int] = {
-        "hh": 0,
-        "tt": 1,
-        "dy": 2,
-    }
-
-    @property
-    def continuous_features(self) -> set[Route | str]:
-        columns = {
-            "lepton1.{px,py,pz,energy,mass}",
-            "lepton2.{px,py,pz,energy,mass}",
-            "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            "fatjet.{px,py,pz,energy,mass}",
-        }
-        final_set = set()
-        final_set.update(*list(map(str, law.util.brace_expand(obj)) for obj in columns))
-        return final_set
-
-    @property
-    def categorical_features(self) -> list[Route | str]:
-        columns = {
-            "pair_type",
-            "decay_mode1",
-            "decay_mode2",
-            "lepton1.charge",
-            "lepton2.charge",
-            "has_fatjet",
-            "has_jet_pair",
-            "year_flag",
-        }
-        self._categorical_features = set()
-        self._categorical_features.update(*list(map(str, law.util.brace_expand(obj)) for obj in columns))
-        self._categorical_features = sorted(self._categorical_features, key=str)
-        return self._categorical_features
-
-    @property
-    def eval_activation(self) -> Callable | str:
-        return torch.nn.functional.softmax
-
-    def prepare_ml_model(
-        self,
-        task: law.Task | None = None,
-    ):
-        """
-        Minimal implementation of a ML model
-        """
-        from hbt.ml.torch_models.resnet import WeightedResnetTest
-        logger_path = None
-        if task and not isinstance(task, DotDict):
-            logger_target = self.output(task).get("tensorboard", None)
-            logger_path = logger_target.abspath if logger_target else None
-
-        # fake the task to propagate to the model and initialize the model instance
-        # in case there is no task instance provided
-        dummy_task = DotDict.wrap({"param_kwargs": dict()})
-
-        model = WeightedResnetTest(tensorboard_path=logger_path, logger=logger, task=(task or dummy_task))
-        model.categorical_target_map = self.categorical_target_map
-        model.continuous_features = self.continuous_features
-        model.categorical_features = self.categorical_features
-
-        return model
-
-    def open_model(self, inputs, *args, **kwargs):
-
-        # from IPython import embed
-        # embed(header=f"in {self.__class__.__name__}.open_model")
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        model = self.prepare_ml_model()
-
-        # load paths to the model state dicts and load the weights
-        model_path = inputs.model.abspath
-        logger.info(f"Loading model from {model_path}")
-        model.load_state_dict(torch.load(model_path, map_location=device))
-        return model
-
-    def start_training(self, run_name, max_epochs) -> None:
-        return self.model.start_training(run_name, max_epochs)
-
-
-class BogNetBase(MultiClsMLBase):
+    _default__batchsize: int = 2048 * 3
+    _default__early_stopping_patience: int = 10
+    _default__early_stopping_min_epochs: int = 4
+    _default__early_stopping_min_diff: float = 0.0
+    _default__deterministic_seeds: list[int] | int | None = None
+    _default__configs_to_use: tuple[str] = ("{22,23}{pre,post}_v14",)
 
     def training_producers(self, analysis_inst: od.Analysis, requested_producers: Sequence[str]) -> list[str]:
         # fix MLTraining Phase Space
         # NOTE: might be nice to keep the "pre_ml_cats" for consistency, but running two
-        # categorization Producers in the same workflow is messy, so we skip it for now
-        # return requested_producers or ["event_weights", "pre_ml_cats", analysis_inst.x.ml_inputs_producer]
-        # return requested_producers or ["event_weights", analysis_inst.x.ml_inputs_producer]
-        return ["default", f"{analysis_inst.x.ml_inputs_producer}_no_rotation"]
+        return ["default", f"{analysis_inst.x.ml_inputs_producer}_no_rotation","res_dnn","reg_dnn_moe"]
 
     def prepare_ml_model(self, task: law.Task | None = None):
-        from hbt.ml.torch_models.bognet import UpdatedBogNet
+        from hbt.ml.torch_models.bognet import BogNet
 
         logger_path = None
         if task and not isinstance(task, DotDict):
-            logger_target = self.output(task).get("tensorboard", None)
+            logger_target = self.output(task).targets.get("tensorboard", None)
             logger_path = logger_target.abspath if logger_target else None
 
         # fake the task to propagate to the model and initialize the model instance
         # in case there is no task instance provided
         dummy_task = DotDict.wrap({"param_kwargs": dict()})
-        model = UpdatedBogNet(tensorboard_path=logger_path, logger=logger, task=(task or dummy_task))
-        model.categorical_target_map = self.categorical_target_map
+        # pass all ml-settings to model
+
+        model = BogNet(
+            tensorboard_path=logger_path,
+            logger=logger,
+            task=(task or dummy_task),
+            **self.parameters
+        )
         # check if input feature set is set consistently
-        def compare_features(feature_set_name):
-            ml_inst_set = sorted(map(str, self.continuous_features), key=str)
-            model_inst_set = sorted(map(str, model.continuous_features), key=str)
-            if not all(x == y for x, y in zip(ml_inst_set, model_inst_set)):
-                raise ValueError(
-                    f"Input feature set {feature_set_name} is not consistent between MLModel and BogNet model. "
-                    f"{self.__class__.__name__}: {ml_inst_set}, {model.__class__.__name__}: {model_inst_set}",
-                )
-
-        compare_features("continuous_features")
-        compare_features("categorical_features")
-
         return model
 
     def _process_columns(self, columns: Container[str]) -> list[str]:
@@ -1089,7 +939,6 @@ class BogNetBase(MultiClsMLBase):
         return torch.nn.functional.softmax
 
     def open_model(self, inputs, *args, **kwargs):
-        # from IPython import embed; embed(header="OPENMODEL - 1081 in hbw_example.py ")
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = self.prepare_ml_model()
         # load paths to the model state dicts and load the weights
