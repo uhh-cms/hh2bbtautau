@@ -19,6 +19,7 @@ from columnflow.columnar_util import (
 from columnflow.util import maybe_import
 
 from hbt.production.hhbtag import hhbtag
+from hbt.production.vbfjtag import vbfjtag
 from hbt.selection.lepton import trigger_object_matching
 from hbt.util import IF_RUN_2
 
@@ -28,15 +29,14 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
-        jet_id, fatjet_id, hhbtag,
+        jet_id, fatjet_id, hhbtag, vbfjtag,
         "fired_trigger_ids", "TrigObj.{pt,eta,phi}",
         "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
-        "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
-        "SubJet.{pt,eta,phi,mass,btagDeepB}",
+        "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,particleNet_XbbVsQCD}",
     },
     produces={
-        hhbtag,
-        "Jet.hhbtag", "matched_trigger_ids",
+        hhbtag, vbfjtag,
+        "Jet.hhbtag", "Jet.vbfjtag", "matched_trigger_ids",
     },
 )
 def jet_selection(
@@ -71,7 +71,7 @@ def jet_selection(
 
     # common ak4 jet mask for normal and vbf jets
     ak4_mask = (
-        (events.Jet.jetId & (1 << 1) != 0) &  # tight (2nd bit set)
+        (events.Jet.jetId & (1 << 1) != 0) &  # tight (2nd bit set)  # TODO: check with CCLUB, they do >0
         # (events.Jet.jetId & (1 << 2) != 0) &  # tight plus lepton veto (3rd bit set)
         ak.all(events.Jet.metric_table(lepton_results.x.leading_taus) > 0.5, axis=2) &
         ak.all(events.Jet.metric_table(lepton_results.x.leading_e_mu) > 0.5, axis=2)
@@ -83,6 +83,9 @@ def jet_selection(
             ak4_mask &
             ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
         )
+
+    # TODO: Horn removal recommendation? https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHJetsInterface.cc?ref_type=heads#L372
+    # originally from https://twiki.cern.ch/twiki/bin/view/CMS/JetMET?rev=293#Run3_recommendations
 
     # default jets
     default_mask = (
@@ -269,25 +272,41 @@ def jet_selection(
     # fat jets
     #
 
+    # new definition for run3 requires only one AK8 jet, no subjet matching
     fatjet_mask = (
-        (events.FatJet.jetId == 6) &  # tight plus lepton veto
+        (events.FatJet.jetId == 6) &  # tight plus lepton veto  # TODO: check with CCLUB, they do >0, maybe we also only want tight?
         (events.FatJet.msoftdrop > 30.0) &
         (events.FatJet.pt > 250.0) &  # ParticleNet not trained for lower values
-        (abs(events.FatJet.eta) < 2.5) &
-        ak.all(events.FatJet.metric_table(lepton_results.x.leading_taus) > 0.8, axis=2) &
-        (events.FatJet.subJetIdx1 >= 0) &
-        (events.FatJet.subJetIdx2 >= 0)
+        (abs(events.FatJet.eta) < 2.5) &  # TODO: from Nathan: why? not 4.7?
+        ak.all(events.FatJet.metric_table(lepton_results.x.leading_taus) > 0.8, axis=2)
+        # (events.FatJet.subJetIdx1 >= 0) &   # removed in run3
+        # (events.FatJet.subJetIdx2 >= 0). # removed in run3
     )
+
+    # CCLUB also allows for fatjettautau cleaning here, but since we don't have this kind of boosted regime,
+    # we do not apply this selection here
 
     # store fatjet and subjet indices
     fatjet_indices = ak.local_index(events.FatJet.pt)[fatjet_mask]
-    subjet_indices = ak.concatenate(
-        [
-            events.FatJet[fatjet_mask].subJetIdx1[..., None],
-            events.FatJet[fatjet_mask].subJetIdx2[..., None],
-        ],
-        axis=2,
-    )
+
+    # store the one fatjet with the highest ParticleNet_XbbVsQCD score
+
+    # indices for sorting fatjets first by particleNet score, then by pt
+    # for this, combine pNet score and pt values, e.g. pNet 255 and pt 32.3 -> 2550032.3
+    f = 10**(np.ceil(np.log10(ak.max(events.FatJet.pt))) + 2)
+    fatjet_sorting_key = events.FatJet.particleNet_XbbVsQCD * f + events.FatJet.pt
+    fatjet_sorting_indices = ak.argsort(fatjet_sorting_key, axis=-1, ascending=False)
+
+    selected_fatjets = ak.firsts(events.FatJet[fatjet_sorting_indices][fatjet_mask[fatjet_sorting_indices]], axis=1)
+
+    # removed in run3:
+    # subjet_indices = ak.concatenate(
+    #     [
+    #         events.FatJet[fatjet_mask].subJetIdx1[..., None],
+    #         events.FatJet[fatjet_mask].subJetIdx2[..., None],
+    #     ],
+    #     axis=2,
+    # )
 
     # check subjet btags (only deepcsv available)
     # note: skipped for now as we do not have a final strategy for run 3 yet
@@ -298,13 +317,20 @@ def jet_selection(
     # vbf jets
     #
 
-    vbf_mask = (
+    vbf_mask_with_hhbjets = (
         ak4_mask &
         (events.Jet.pt > 20.0) &
-        (abs(events.Jet.eta) < 4.7) &
-        (~hhbjet_mask) &
-        ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 0]]) > 0.4, axis=2) &
-        ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 1]]) > 0.4, axis=2)
+        (abs(events.Jet.eta) < 4.7)
+    )
+
+    # old selection contained:
+    # ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 0]]) > 0.4, axis=2) &
+    # ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 1]]) > 0.4, axis=2)
+    # now, the vbfjets are cross cleaned with the selected fatjet in the vbfjtagger
+
+    vbf_mask = (
+        vbf_mask_with_hhbjets &
+        (~hhbjet_mask)  # do not select hhbjets as vbf jets
     )
 
     # build vectors of vbf jets representing all combinations and apply selections
@@ -315,6 +341,27 @@ def jet_selection(
         (vbfjj.mass > 500.0) &
         (abs(vbf1.eta - vbf2.eta) > 3.0)
     )
+
+    from IPython import embed; embed(header="vbf_pair_mask")
+
+    #
+    # vbf-jet identification
+    #
+
+    # get the vbfjtag values per jet per event
+    events = self[vbfjtag](
+        events,
+        vbf_mask_with_hhbjets,
+        lepton_results.x.lepton_pair,
+        hhbjet_mask,
+        selected_fatjets,
+        **kwargs,
+    )
+    vbfjtag_scores = events.vbfjtag_score
+    # create a mask where only the two highest scoring vbfjets are selected
+    score_indices = ak.argsort(vbfjtag_scores, axis=1, ascending=False)
+    vbfjet_mask = mask_from_indices(score_indices[:, :2], vbfjtag_scores)
+    # TODO: trigger matching on these jets, select them specifically and store the scores
 
     # redefine the trigger matched list after it was updated with tautaujet ids
     matched_trigger_ids_list = [events.matched_trigger_ids]
