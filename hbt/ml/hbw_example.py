@@ -62,7 +62,7 @@ class MLClassifierBase(MLModel):
 
     # set some defaults, can be overwritten by subclasses or via cls_dict
     # NOTE: the order of processes is crucial! Do not change after training
-    _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1")
+    _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1")
     # configs_to_use: tuple[str] = ("22pre_v14_larger_limited", "22post_v14_larger_limited")
     categorical_target_map: dict[str, int] = {
         "tt": 0,
@@ -80,7 +80,7 @@ class MLClassifierBase(MLModel):
     # NOTE: we split each fold into train, val, test + do k-folding, so we have a 4-way split in total
     # TODO: test whether setting "test" to 0 is working
     train_val_test_split: tuple = (0.75, 0.15, 0.10)
-    folds: int = 5
+    folds: int = 4
 
     # training-specific parameters. Only need to re-run training when changing these
     _default__class_factors: dict = {"st": 1, "tt": 1}
@@ -88,40 +88,55 @@ class MLClassifierBase(MLModel):
     _default__negative_weights: str = "handle"
     _default__epochs: int = 50
     _default__batchsize: int = 2 ** 10
-    _default__learning_rate: float = 1e-1
-    _default__weight_decay: float = 1e-3
     _default__early_stopping_patience: int = 10
     _default__early_stopping_min_epochs: int = 4
     _default__early_stopping_min_diff: float = 0.0
     _default__deterministic_seeds: list[int] | int | None = None
-    _default__configs_to_use: tuple[str] = ("22{pre,post}_v14_larger_limited",)
+    _default__configs_to_use: tuple[str] = ("{22,23}{pre,post}_v14",)
 
     # parameters to add into the `parameters` attribute to determine the 'parameters_repr' and to store in a yaml file
     bookkeep_params: set[str] = {
         "data_loader", "categorical_features", "continuous_features", "train_val_test_split",
         "processes", "categorical_target_map", "class_factors", "sub_process_class_factors",
         "negative_weights", "epochs", "batchsize", "folds",
-        "learning_rate",
-        "weight_decay",
+        "training_epoch_length_cutoff",
         "early_stopping_patience",
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
         "configs_to_use",
-        # "deterministic_seeds",
-        # "configs_to_use",
+        "deterministic_seeds",
+        "num_iterations_plots",
+        "training_weight_cutoff",
+        "training_logger_interval",
+        "val_epoch_length_cutoff",
+        "val_weight_cutoff",
+        "scheduler_config",
+        "optimizer_config",
+        "linear_layer_weight_normalization",
+
+
     }
 
     # parameters that can be overwritten via command line
     settings_parameters: set[str] = {
         "processes", "class_factors", "sub_process_class_factors",
         "negative_weights", "epochs", "batchsize",
-        "learning_rate",
-        "weight_decay",
         "early_stopping_patience",
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
         "deterministic_seeds",
         "configs_to_use",
+        "num_iterations_plots",
+        "training_weight_cutoff",
+        "training_logger_interval",
+        "val_epoch_length_cutoff",
+        "val_weight_cutoff",
+        "scheduler_config",
+        "optimizer_config",
+        "linear_layer_weight_normalization",
+
+
+
     }
 
     settings_list_delimiter = ":"
@@ -646,7 +661,7 @@ class MLClassifierBase(MLModel):
             # model preparation
             #
 
-            run_name = f"{self.parameters_repr}_{task.version}"
+            run_name = f"{self.parameters_repr}_{task.version}_{task.branch}"
 
             # How many batches to wait before logging training status
 
@@ -1031,6 +1046,14 @@ class BogNetBase(MultiClsMLBase):
         return sorted(final_set, key=str)
 
     @property
+    def categorical_target_map(self) -> dict[str, int]:
+        return {
+        "hh": 0,
+        "tt": 1,
+        # "dy": 2,
+        }
+
+    @property
     def categorical_features(self) -> list[str]:
         columns = {
             "pair_type",
@@ -1047,50 +1070,115 @@ class BogNetBase(MultiClsMLBase):
     @property
     def continuous_features(self) -> list[str]:
         columns = {
-            "lepton1.{px,py,pz,energy,mass}",
-            "lepton2.{px,py,pz,energy,mass}",
-            "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-            "fatjet.{px,py,pz,energy,mass}",
+            "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+            "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+            "fatjet.{energy,mass,px,py,pz}",
+            "lepton1.{energy,mass,px,py,pz}",
+            "lepton2.{energy,mass,px,py,pz}",
+            "PuppiMET.{px,py}",
+            "reg_dnn_nu{1,2}_{px,py,pz}",
         }
         return self._process_columns(columns)
 
-    # @property
-    # def model(self):
-    #     if not self._model:
-    #         self.model = self.prepare_ml_model(self.task)
-    #     return self._model
+
+    def start_training(self, run_name, max_epochs) -> None:
+        return self.model.start_training(run_name, max_epochs)
+
+    @property
+    def eval_activation(self) -> Callable | str:
+        return torch.nn.functional.softmax
+
+    def open_model(self, inputs, *args, **kwargs):
+        # from IPython import embed; embed(header="OPENMODEL - 1081 in hbw_example.py ")
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        model = self.prepare_ml_model()
+        # load paths to the model state dicts and load the weights
+        model_path = inputs.targets["model"].abspath
+        logger.info(f"Loading model from {model_path}")
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        return model
+
 
 
 # dervive another model from the ExampleDNN class with different class attributes
 # from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
-example_test = BinaryMLBase.derive("example_test", cls_dict={
-    "epochs": 5,
-    # "ml_cls": WeightedTensorFeedForwardNet,
-})
-
-resnet_test = MultiClsMLBase.derive("resnet_test", cls_dict={
-    "epochs": 10,
-    # "ml_cls": WeightedResnetTest,
-})
-
-bognet_test = BogNetBase.derive("bognet_test", cls_dict={
-    "epochs": 10,
-    # "ml_cls": UpdatedBogNet,
-})
 
 bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
-    "epochs": 10,
-    "deterministic_seeds": [0, 1, 2, 3, 4],
+    "epochs": 3,
+    "deterministic_seeds": [0],
+    "processes": ("tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", ),
+    # "processes": ("dy", "tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", ),
+
+    # "label_smoothing_coefficient": 0.02,
+    # "data_loader",
+    "training_epoch_length_cutoff": 3000,
+    # "categorical_features",
+    # "continuous_features",
+    "train_val_test_split": (0.75, 0.15, 0.1),
+    # "processes",
+    # "categorical_target_map",
+    # "class_factors",
+    # "sub_process_class_factors",
+    # "negative_weights",
+    "batchsize" : (4096*2),
+    "folds": 4,
+    # "early_stopping_patience",
+    # "early_stopping_min_epochs",
+    # "early_stopping_min_diff",
+    # "configs_to_use",
+        # "deterministic_seeds",
+        # "configs_to_use",
+    "num_iterations_plots" : 1000,
+    "training_weight_cutoff": 0.05,
+    "training_logger_interval": 20,
+    "val_epoch_length_cutoff": 500,
+    "val_weight_cutoff": None,
+    "scheduler_config": {"step_size": 1, "gamma": 0.8},
+    "optimizer_config": {"learning_rate":0.5e-2, "decay_factor":0.4, "normalize": True, "apply_to": "weight"},
+    "linear_layer_weight_normalization": False,
+
+
+    # set kwargs as properties and save keys separatly to identify
+    # which parameter was passed from outside
+    # loss functions
     # "ml_cls": UpdatedBogNet,
 })
 
-bognet_ensemble_full_stats = BogNetBase.derive("bognet_ensemble_full_stats", cls_dict={
-    "epochs": 100,
-    "deterministic_seeds": [0, 1, 2, 3, 4],
-    "configs_to_use": ("{22,23}{pre,post}_v14",),
-    # "ml_cls": UpdatedBogNet,
+
+bognet_ensemble_v2 = BogNetBase.derive("bognet_ensemble_v2", cls_dict={
+    "epochs": 3,
+    "deterministic_seeds": [0],
+    # "label_smoothing_coefficient": 0.02,
+    # "data_loader",
+    "training_epoch_length_cutoff": 3000,
+    # "categorical_features",
+    # "continuous_features",
+    "train_val_test_split": (0.75, 0.15, 0.1),
+    # "processes",
+    # "categorical_target_map",
+    # "class_factors",
+    # "sub_process_class_factors",
+    # "negative_weights",
+    "batchsize" : (4096*2),
+    "folds": 4,
+    # "early_stopping_patience",
+    # "early_stopping_min_epochs",
+    # "early_stopping_min_diff",
+    # "configs_to_use",
+        # "deterministic_seeds",
+        # "configs_to_use",
+    "num_iterations_plots" : 1000,
+    "training_weight_cutoff": 0.05,
+    "training_logger_interval": 20,
+    "val_epoch_length_cutoff": 500,
+    "val_weight_cutoff": None,
+    "scheduler_config": {"step_size": 1, "gamma": 0.8},
+    "optimizer_config": {"learning_rate":0.5e-2, "decay_factor":0.4, "normalize": True, "apply_to": "weight"},
 })
+
+    # set kwargs as properties and save keys separatly to identify
+    # which parameter was passed from outside
+
 
 # load all ml modules here
 if law.config.has_option("analysis", "ml_modules"):
