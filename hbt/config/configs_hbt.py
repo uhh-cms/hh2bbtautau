@@ -1519,6 +1519,14 @@ def add_config(
             subpaths=DotDict(even="hh-btag-master/models/HHbtag_v3_par_0", odd="hh-btag-master/models/HHbtag_v3_par_1"),
             version="v3",
         ))
+        add_external("vbf_jtag_repo", Ext(
+            "/data/dust/user/prouvost/hh2bbtautau/external_files/VBFjtag-CCLUB_v1.0_4b5c6e8.tar.gz",
+            subpaths=DotDict(
+                even="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_0",
+                odd="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_1",
+            ),
+            version="v1",
+        ))
         # tau energy correction and scale factors
         if year == 2022:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
