@@ -21,10 +21,16 @@ onnx = maybe_import("onnx")
 rt = maybe_import("onnxruntime")
 
 
+def expand_columns(columns: Container[str]) -> list[Route]:
+    final_set = set()
+    final_set.update(*list(map(Route, law.util.brace_expand(obj)) for obj in columns))
+    return sorted(final_set, key=str)
+
 def normalized_weight_decay(
     model: torch.nn.Module,
     decay_factor: float = 1e-1,
     normalize: bool = True,
+    apply_to: str = "weight",
 ) -> tuple[dict, dict]:
     """
     Weight decay should only be applied to the linear layers or convolutional layers.
@@ -51,7 +57,7 @@ def normalized_weight_decay(
         if isinstance(layer, (torch.nn.Linear)):
             for param_name, param in layer.named_parameters():
                 if param.requires_grad:
-                    if "weight" in param_name:
+                    if apply_to in param_name:
                         print(f"Adding {module_name}/{layer}/{param_name} to weight decay")
                         with_weight_decay.append(param)
                     else:
@@ -76,6 +82,11 @@ embedding_expected_inputs = {
     "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
     "channel_id": [1, 2, 3],
 }
+
+def clip_gradients(parameters: Iterable[torch.nn.Parameter], clip_value: float = 1.0):
+    for p in parameters:
+        p.register_hook(lambda grad: torch.clamp(grad, -clip_value, clip_value))
+
 
 
 def export_ensemble_onnx(
