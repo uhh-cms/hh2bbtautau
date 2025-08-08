@@ -203,35 +203,6 @@ if not isinstance(torch, MockModule):
             if "add_checkpoints" in self.custom_hooks:
                 self.custom_hooks.remove("add_checkpoints")
 
-        # @property
-        # def categorical_target_map(self):
-        #     return {"hh": 0, "tt": 1, "dy": 2}
-
-        # @property
-        # def _categorical_features(self) -> list[str]:
-        #     return [
-        #         "pair_type",
-        #         "decay_mode1",
-        #         "decay_mode2",
-        #         "lepton1.charge",
-        #         "lepton2.charge",
-        #         "has_fatjet",
-        #         "has_jet_pair",
-        #         "year_flag",
-        #     ]
-
-        # @property
-        # def _continuous_features(self) -> list[str]:
-        #     return [
-        #         "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
-        #         "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
-        #         "fatjet.{energy,mass,px,py,pz}",
-        #         "lepton1.{energy,mass,px,py,pz}",
-        #         "lepton2.{energy,mass,px,py,pz}",
-        #         "PuppiMET.{px,py}",
-        #         "reg_dnn_nu{1,2}_{px,py,pz}",
-        #     ]
-
         def state_dict(self, *args, **kwargs):
             # IMP
             return self.model.state_dict(*args, **kwargs)
@@ -451,7 +422,7 @@ if not isinstance(torch, MockModule):
             for key in self.categorical_target_map.keys():
                 if dataset.startswith(key):
                     return self.categorical_target_map[key]
-            raise ValueError(f"Dataset {dataset} not in categorical target map")
+            raise ValueError(f"Dataset {dataset} is not present in categorical target map {self.categorical_target_map}.")
 
         def _calculate_max_epoch_length(
             self,
