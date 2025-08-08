@@ -278,13 +278,16 @@ def add_config(
         "dy_m50toinf_2j_pt200to400_amcatnlo",
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
-        # specific tau filtered datasets
+        # specific tautau datasets with pythia bug fix
+        *if_era(year=2022, tag="preEE", values=[
+            "dy_tautau_m50toinf_0j_amcatnlo",
+            "dy_tautau_m50toinf_1j_amcatnlo",
+            "dy_tautau_m50toinf_2j_amcatnlo",
+        ]),
         # "dy_tautau_m50toinf_0j_amcatnlo",
-        # # TODO: still missing for 22post
         # *if_not_era(year=2022, tag="postEE", values=[
         #     "dy_tautau_m50toinf_1j_amcatnlo",
         # ]),
-        # # TODO: missing for 22post and 23pre
         # *if_era(year=2022, tag="preEE", values=["dy_tautau_m50toinf_2j_amcatnlo"]),
         # *if_era(year=2023, tag="postBPix", values=["dy_tautau_m50toinf_2j_amcatnlo"]),
 
@@ -427,10 +430,10 @@ def add_config(
                 dataset.add_tag("dy_powheg")
             # tags for advanced, lepton based stitching in amcatnlo
             # (not adding the tags will result in the default selection and stitching behavior)
-            # if dataset.name.endswith("_amcatnlo"):
-            #     dataset.add_tag("dy_lep_amcatnlo")  # trigges the lepton channel stitching in the default selector
-            #     if re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
-            #         dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
+            if dataset.name.endswith("_amcatnlo"):
+                dataset.add_tag("dy_lep_amcatnlo")  # trigges the lepton channel stitching in the default selector
+                if re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
         if (
             re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name) or
             re.match(r"^dy_tautau_m50toinf_\dj_amcatnlo$", dataset.name) or
@@ -530,6 +533,14 @@ def add_config(
             "h",
             "ewk",
         ]),
+        "dy_split": [
+            "dy_m50toinf_0j",
+            "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
+            "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
+            "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
+            "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+            "dy_m50toinf_ge3j",
+        ],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,

@@ -7,6 +7,7 @@ Style definitions.
 from __future__ import annotations
 
 import re
+import random
 from collections import defaultdict
 
 import order as od
@@ -194,6 +195,21 @@ def stylize_processes(config: od.Config) -> None:
 
     if (p := config.get_process("qcd", default=None)):
         p.color1 = cfg.x.colors.red
+
+    seed_orig = random.seed()
+    random.seed(1)
+    for i, n in enumerate([
+        "dy_m50toinf_0j",
+        "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
+        "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
+        "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
+        "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+        "dy_m50toinf_ge3j",
+    ]):
+        if (p := config.get_process(n, default=None)):
+            # random color with values in the range 0 to 255
+            p.color1 = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    random.seed(seed_orig)
 
 
 def legend_entries_per_column(ax, handles: list, labels: list, n_cols: int) -> list[int]:
