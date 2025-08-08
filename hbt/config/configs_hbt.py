@@ -283,13 +283,38 @@ def add_config(
             "dy_tautau_m50toinf_0j_amcatnlo",
             "dy_tautau_m50toinf_1j_amcatnlo",
             "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
         ]),
-        # "dy_tautau_m50toinf_0j_amcatnlo",
-        # *if_not_era(year=2022, tag="postEE", values=[
-        #     "dy_tautau_m50toinf_1j_amcatnlo",
-        # ]),
-        # *if_era(year=2022, tag="preEE", values=["dy_tautau_m50toinf_2j_amcatnlo"]),
-        # *if_era(year=2023, tag="postBPix", values=["dy_tautau_m50toinf_2j_amcatnlo"]),
+        *if_era(year=2022, tag="postEE", values=[
+            # "dy_tautau_m50toinf_0j_amcatnlo",
+            # "dy_tautau_m50toinf_1j_amcatnlo",
+            # "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        ]),
+        *if_era(year=2023, tag="preBPix", values=[
+            # "dy_tautau_m50toinf_0j_amcatnlo",
+            # "dy_tautau_m50toinf_1j_amcatnlo",
+            # "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        ]),
+        *if_era(year=2023, tag="postBPix", values=[
+            "dy_tautau_m50toinf_0j_amcatnlo",
+            "dy_tautau_m50toinf_1j_amcatnlo",
+            # "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        ]),
 
         # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
@@ -436,7 +461,7 @@ def add_config(
                     dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
         if (
             re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name) or
-            re.match(r"^dy_tautau_m50toinf_\dj_amcatnlo$", dataset.name) or
+            re.match(r"^dy_tautau_m50toinf_\dj_(|filtered_)amcatnlo$", dataset.name) or
             (
                 "dy_ee_m50toinf_powheg" in cfg.datasets and
                 re.match(r"^dy_ee_m.*_powheg$", dataset.name) and
