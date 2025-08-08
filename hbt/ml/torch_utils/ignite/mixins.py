@@ -55,7 +55,7 @@ if not isinstance(ignite, MockModule):
             self.max_epoch_length = None
             self.max_val_epoch_length = None
             self.training_logger_interval = 20
-            self.training_printout_interval = 100
+            self.training_printout_interval = 50
             self.validation_nonscalar_metrics = getattr(self, "validation_nonscalar_metrics", dict())
             self.validation_metrics = getattr(self, "validation_metrics", dict())
 
@@ -83,18 +83,67 @@ if not isinstance(ignite, MockModule):
 
             self.init_metrics()
 
+            # ignite.handlers.tqdm_logger.ProgressBar
+
+            pbar_train_validation = ignite.handlers.tqdm_logger.ProgressBar(
+                 desc=None,)
+            pbar_train_validation.attach(self.train_evaluator)
+            pbar_validation = ignite.handlers.tqdm_logger.ProgressBar(
+                desc="Validation Evaluation", )
+            pbar_validation.attach(self.val_evaluator)
+
             # store the outputs of the evaluators separately for visualization
             self.epoch_outputs = StoreEpochOutput()
             self.epoch_outputs.attach(self.train_evaluator, "training_outputs")
             self.epoch_outputs.attach(self.val_evaluator, "validation_outputs")
 
+            # unsampeled data events
+            # metric plots (prediction, confusion matrix)
             self.val_evaluator.add_event_handler(
+                # Events.ITERATION_COMPLETED(every=self.metric_interval),
                 Events.EPOCH_COMPLETED,
                 partial(self.log_plots, mode="validation", trainer_engine=self.trainer),
             )
             self.train_evaluator.add_event_handler(
+                # Events.ITERATION_COMPLETED(every=self.metric_interval),
                 Events.EPOCH_COMPLETED,
-                partial(self.log_plots, mode="training", trainer_engine=self.trainer),
+                partial(
+                    self.log_plots,
+                    mode="training",
+                    trainer_engine=self.trainer
+                ),
+            )
+            # training and validation results after certain intervals
+            self.trainer.add_event_handler(
+                Events.ITERATION_COMPLETED(every=self._fraction_helper(self.training_epoch_length_cutoff, self.max_epoch_length)),
+                partial(
+                    self.log_results,
+                    evaluator=self.train_evaluator,
+                    data_loader=self.train_validation_loader.data_loader,
+                    max_epoch_length=np.floor(self.unsampeled_training_length / self.batchsize),
+                    mode="training",
+                ),
+            )
+            # ZZZ problem list object has not to
+            # compare with github what was before and why this was a tensor
+            self.trainer.add_event_handler(
+                Events.ITERATION_COMPLETED(every=self._fraction_helper(self.training_epoch_length_cutoff, self.max_epoch_length)),
+                partial(
+                    self.log_results,
+                    evaluator=self.val_evaluator,
+                    data_loader=self.validation_loader.data_loader,
+                    max_epoch_length=np.floor(self.unsampeled_validation_length / self.batchsize),
+                    mode="validation",
+                ),
+            )
+
+            # oversampeled events
+            # true training loss
+
+            # save model every x intervals
+            self.trainer.add_event_handler(
+                Events.ITERATION_COMPLETED(every=500),
+                self.save_model,
             )
 
             self.trainer.add_event_handler(
@@ -105,6 +154,7 @@ if not isinstance(ignite, MockModule):
                 Events.ITERATION_COMPLETED(every=self.training_printout_interval),
                 self.print_training_loss,
             )
+
             if self.writer:
                 self.trainer.add_event_handler(
                     Events.ITERATION_COMPLETED(once=2),
@@ -119,33 +169,31 @@ if not isinstance(ignite, MockModule):
                 Events.EPOCH_COMPLETED,
                 self._log_timing,
             )
-            self.trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                partial(
-                    self.log_results,
-                    evaluator=self.train_evaluator,
-                    data_loader=getattr(self, "train_validation_loader", self.training_loader).data_loader,
-                    max_epoch_length=self.max_val_epoch_length,
-                    mode="training",
-                ),
-            )
-            self.trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                partial(
-                    self.log_results,
-                    evaluator=self.val_evaluator,
-                    data_loader=self.validation_loader.data_loader,
-                    max_epoch_length=self.max_val_epoch_length,
-                    mode="validation",
-                ),
-            )
-
             for custom_hook in self.custom_hooks:
                 fn = getattr(self, custom_hook, None)
                 if not fn or not callable(fn):
                     self.logger.warning(f"Could not find custom hook '{custom_hook}', skipping")
                 else:
                     fn()
+
+        def _fraction_helper(self, number, true):
+            # helper to return fraction of a number or just the absolute number
+            if 0 <= number < 1.0:
+                true = np.ceil(number * true)
+            return true.astype(int)
+
+
+        def save_model(self, engine):
+            """Save the model weights."""
+            if self.writer:
+                self.writer.add_text(
+                    "model_weights",
+                    f"Epoch: {engine.state.epoch}, Iteration: {engine.state.iteration}",
+                    engine.state.epoch,
+                )
+            # TODO add model repr to path
+            DUST_PATH = "/data/dust/user/wiedersb"
+            torch.save(self.state_dict(), f"{DUST_PATH}/{self.run_name}_{engine.state.epoch}_{engine.state.iteration}_model.pth")
 
         def _log_timing(self, engine, round_precision: int = 3) -> None:
             time_per_epoch = engine.state.times[Events.EPOCH_COMPLETED.name] / engine.state.epoch_length
@@ -314,7 +362,7 @@ if not isinstance(ignite, MockModule):
         def __init__(
             self,
             *args,
-            early_stopping_patience: int = 10,
+            early_stopping_patience: int = 3,
             early_stopping_min_epochs: int = 1,
             early_stopping_min_diff: float = 0.0,
             **kwargs,
