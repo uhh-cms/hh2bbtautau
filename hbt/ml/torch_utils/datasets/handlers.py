@@ -382,6 +382,7 @@ class FlatListRowgroupParquetFileHandler(BaseParquetFileHandler):
 
 
 class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHandler):
+    # IS RUN FOR MLTRAINING
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.dataset_cls = WeightedFlatRowgroupParquetDataset
@@ -390,7 +391,6 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
         self.validation_map_and_collate_cls = FlatListRowgroupMapAndCollate
         self.training_sampler_cls = ListRowgroupSampler
         self.validation_sampler_cls = ListRowgroupSampler
-
     def _create_validation_dataloader(
         self,
         validation_data_map,
@@ -423,7 +423,6 @@ class WeightedFlatListRowgroupParquetFileHandler(FlatListRowgroupParquetFileHand
         training_data_map, validation_data_map = self._init_training_validation_map()
 
         self._get_weights()
-
         sampler_fn = partial(
             self.sampler_factory,
             cls=self.training_sampler_cls,
@@ -604,48 +603,6 @@ class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
         else:
             return cls(datasets)
 
-    # def _create_validation_dataloader(
-    #     self,
-    #     validation_data_map,
-    #     weights: dict[str, float] | None = None,
-    #     **sampler_kwargs,
-    # ) -> CompositeDataLoader:
-    #     # create merged validation dataset since it's ok to simply evaluate the
-    #     # events one by one
-    #     validation_data: list[ParquetDataset] = list()
-
-    #     for key, x in validation_data_map.items():
-    #         if not isinstance(x, (list, tuple, set)):
-    #             if weights is not None:
-    #                 x.cls_weight = weights[key]
-    #             validation_data.append(x)
-
-    #         else:
-    #             if weights is not None:
-    #                 for sub_x in x:
-    #                     sub_x.cls_weight = weights[key]
-    #             validation_data.extend(x)
-    #     from IPython import embed
-    #     embed(header="in _create_validation_dataloader with flattend validation_data")
-    #     return CompositeDataLoader(
-    #         validation_data,
-    #         batch_sampler_cls=tn.Batcher,
-    #         shuffle=False,
-    #         batch_size=self.batch_size,
-    #         batcher_options={
-    #             "source": tn.SamplerWrapper(
-    #                 self.sampler_factory(
-    #                     validation_data,
-    #                     cls=self.validation_sampler_cls,
-    #                     **sampler_kwargs,
-    #                 ),
-    #             ),
-    #         },
-    #         map_and_collate_cls=self.validation_map_and_collate_cls,
-    #         device=self.device,
-    #         collate_fn=torch.cat,
-    #     )
-
 
 class WeightedTensorParquetFileHandler(TensorParquetFileHandler):
     def __init__(self, *args, **kwargs):
@@ -676,7 +633,7 @@ class FlatArrowParquetFileHandler(BaseParquetFileHandler):
             "categorical_target_transform": self.categorical_target_transformation,
             "data_type_transform": self.data_type_transform,
         }
-    
+
 class DatasetHandlerMixin:
     parameters: dict[str, torch.Tensor]
     dataset_handler: BaseParquetFileHandler
