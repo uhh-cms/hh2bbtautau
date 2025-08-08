@@ -259,6 +259,36 @@ class BaseParquetFileHandler(object):
             # read this in a gready way
             training_data_map[dataset] = training
             validation_data_map[dataset] = validation
+
+            # check if all fields are really the same
+        def check_fields_equal(data_map: dict[str, list[ParquetDataset]]):
+            # check if all datasets have the same fields
+            # returns the superposition of all fields and a dict with dataset and missing fields
+
+            fields = {}
+            super_position = set()
+            for dataset, file_handler in data_map.items():
+                    field = set(file_handler.data.fields)
+                    super_position = super_position.union(field)
+                    fields[dataset] = field
+
+            # check what is missing from superposition
+            missing_fields = {}
+            for dataset, field_set in fields.items():
+                missing = super_position - field_set
+                if missing:
+                    missing_fields[dataset] = missing
+            return super_position, missing_fields
+
+        super_position, missing_fields = check_fields_equal(training_data_map)
+        if missing_fields:
+            logger.warning(
+                f"Some datasets are missing fields in training data: {missing_fields}. "
+                f"Superposition of all fields is {super_position}. "
+                "This might lead to problems during training.",
+            )
+            from IPython import embed; embed(header="Going interactive missing fields in training data")
+
         return training_data_map, validation_data_map
 
     def _create_validation_dataloader(
