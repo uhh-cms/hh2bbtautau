@@ -39,6 +39,7 @@ def vbfjtag(
 ) -> ak.Array:
     """
     Returns the VBFjTag score per passed jet.
+    Clean the scores from the selected fatjets and bjets before returning them.
     """
     # get a mask of events where there are at least two tau candidates and at least two jets
     # and only get the scores for jets in these events
@@ -46,50 +47,29 @@ def vbfjtag(
     event_mask = (
         (ak.num(lepton_pair, axis=1) >= 2) &
         (ak.sum(vbfjet_mask, axis=1) >= 2)
+        # maybe just 3 since two of them would be the hhbjets if they are there?
+        # maybe add hhbjet_mask >=2, such that only these events are considered?
     )
     # & (ak.sum(is_bjet_mask, axis=1) < ak.sum(vbfjet_mask, axis=1) >= 2) to have at least one jet to give a score to?
     # additional criteria?
 
-    # TODO: ordering by decreasing eta
+    # ordering by decreasing eta then pt
+    f = 10**(np.ceil(np.log10(ak.max(events.Jet.pt))) + 2)
+    jet_sorting_key = events.Jet.eta * f + events.Jet.pt
+    jet_sorting_indices = ak.argsort(jet_sorting_key, axis=-1, ascending=False)
+
+    # back transformations for the saving of the scores
+    back_transformation = ak.argsort(jet_sorting_indices)
 
     # prepare objects
     n_jets_max = 10
-    jets = events.Jet[vbfjet_mask][event_mask][..., :n_jets_max]
+    jets = events.Jet[jet_sorting_indices][vbfjet_mask[jet_sorting_indices]][event_mask][..., :n_jets_max]
     leps = lepton_pair[event_mask][..., [0, 1]]
     htt = leps[..., 0] + leps[..., 1]
     met = events[event_mask][self.config_inst.x.met_name]
     jet_shape = abs(jets.pt) >= 0
     n_jets_capped = ak.num(jets, axis=1)
-    # is_bjet = ak.fill_none(
-    #     ak.from_iter(
-    #         [i in is_bjet_indices for i in ak.flatten(jets.jetId, axis
-    #             =1)],
-    #         highlevel=False,
-    #     ),
-    #     False,
-    #     axis=-1,
-    # )
-    # TODO: check where the is_bjet_mask applies, all events or less?
-    is_bjet = ak.values_astype(is_bjet_mask[event_mask][..., :n_jets_max], np.int32)
-
-
-
-    # jet_pt: pT of each of the jets.
-    # jet_eta: eta of each of the jets.
-    # rel_jet_M_pt: Relative mass of the b-jet candidate: jet M / jet pT.
-    # rel_jet_E_pt Relative energy of the b-jet candidate: jet E / jet pT.
-    # jet_htt_deta: Eta between the b-jet and the visible 4-momentum of the HTT.
-    # jet_btagScore: The score of the b-jet candidate given by the b-tagger : ParticleNet
-    # jet_htt_dphi: Phi between the b-jet and the visible 4-momentum of the HTT.
-    # jet_isbjet: 1 for jets tagged as b-jet; 0 for non tagged b-jets
-    # era_id: 0 - 2022preEE, 1 - 2022postEE, 2 - 2023preBPix, 3 - 2023postBPix
-    # channelId: 0 - MuTau, 1 - ETau, 2 - TauTau, 3 - MuMu, 4 - EE, 5 - EMu
-    # htt_pt: pT of visible 4-momentum of the HTT candidate.
-    # htt_eta: eta of HTT visible 4-momentum of the HTT candidate.
-    # htt_met_dphi: Phi between the visible 4-momentum of the HTT candidate and the MET.
-    # rel_met_pt_htt_pt: Relative MET: MET / pT of the visible 4-momentum of the HTT candidate.
-    # htt_scalar_pt: Sum of the pT of the 2 selected taus.
-
+    is_bjet = ak.values_astype(is_bjet_mask[jet_sorting_indices][vbfjet_mask[jet_sorting_indices]][event_mask][..., :n_jets_max], np.float32)  # noqa: E501
 
     # get input features
     input_features = [
@@ -159,16 +139,32 @@ def vbfjtag(
         scores_ext = layout_ak_array(np.zeros(len(ak.flatten(layout_ext)), dtype=np.int32), layout_ext)
     scores = ak.concatenate([scores, scores_ext], axis=1)
 
-    # TODO: remove scores for hhbjets and vbfjets matching the fatjet with highest particleNet_XbbVsQCD score
-    from IPython import embed; embed(header="vbfjtag debug scores, cross_cleaning")
-    cross_cleaning_fatjet_mask = ak.firsts(events.Jet[vbfjet_mask][event_mask].metric_table(selected_fatjets) > 0.8, axis=2)
+    # remove scores for vbfjets matching the fatjet with highest particleNet_XbbVsQCD score
+    metric_table_fatjet = (events.Jet[jet_sorting_indices][vbfjet_mask[jet_sorting_indices]][event_mask].metric_table(selected_fatjets[event_mask]) > 0.8)  # noqa: E501
+
+    # since only one selected fatjet, take the first element of the metric table on the last axis
+    # this works even if no selected fatjets are in the event mask
+    cross_cleaned_fatjet_mask = ak.fill_none(ak.firsts(metric_table_fatjet, axis=-1), True, axis=1)
+
+    # bring mask back to full array to merge it with the vbfjet_mask once reordered
+    full_cross_cleaned_fatjet_mask = full_like(events.Jet.pt, True, dtype=bool)
+    flat_np_view(full_cross_cleaned_fatjet_mask)[ak.flatten(vbfjet_mask[jet_sorting_indices] & event_mask)] = flat_np_view(cross_cleaned_fatjet_mask)  # noqa: E501
 
     # prevent Memory Corruption Error
     vbfjet_mask = ak.fill_none(vbfjet_mask, False, axis=-1)
 
     # insert scores into an array with same shape as input jets (without vbfjet_mask and event_mask)
     all_scores = ak.fill_none(full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
-    flat_np_view(all_scores, axis=1)[ak.flatten(vbfjet_mask & event_mask, axis=1)] = flat_np_view(scores)
+    flat_np_view(all_scores, axis=1)[ak.flatten(vbfjet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)  # noqa: E501
+
+    # bring the scores and the fatjet cleaned mask back to the original ordering
+    all_scores = all_scores[back_transformation]
+    full_cross_cleaned_fatjet_mask = full_cross_cleaned_fatjet_mask[back_transformation]
+
+    # remove scores where the cross cleaning reveals "wrong" vbf jet (either a fatjet or a bjet)
+    cross_cleaned_fatjet_hhbjet_mask = vbfjet_mask & full_cross_cleaned_fatjet_mask & ~is_bjet_mask
+    empty_mask = full_like(events.Jet.pt[~cross_cleaned_fatjet_hhbjet_mask], EMPTY_FLOAT, dtype=np.float32)
+    flat_np_view(all_scores)[ak.flatten(~cross_cleaned_fatjet_hhbjet_mask)] = flat_np_view(empty_mask)
 
     events = set_ak_column(events, "vbfjtag_score", all_scores)
 
@@ -235,8 +231,8 @@ def vbfjtag_setup(
     # unpack the external files bundle and setup the evaluator
     bundle = reqs["external_files"]
     self.evaluator = TFEvaluator()
-    self.evaluator.add_model("vbfjtag_even", bundle.files.hh_btag_repo.even.abspath)
-    self.evaluator.add_model("vbfjtag_odd", bundle.files.hh_btag_repo.odd.abspath)
+    self.evaluator.add_model("vbfjtag_even", bundle.files.vbf_jtag_repo.even.abspath)
+    self.evaluator.add_model("vbfjtag_odd", bundle.files.vbf_jtag_repo.odd.abspath)
 
     # get the model version (coincides with the external file version)
     self.vbfjtag_version = self.config_inst.x.external_files.vbf_jtag_repo.version

@@ -342,7 +342,12 @@ def jet_selection(
         (abs(vbf1.eta - vbf2.eta) > 3.0)
     )
 
-    from IPython import embed; embed(header="vbf_pair_mask")
+    # TODO: can't find these cuts in CCLUB, don't seem to be applied on the jets for the vbftagger
+    # so do we apply the vbfjtagger on all jets as long as they are ak4 and below 4.7 eta?
+    # or is it only on those which can build a pair such that these criteria are fulfilled?
+    # and if it's on all, do we apply these cuts on the selected vbf pair?
+
+    # from IPython import embed; embed(header="vbf_pair_mask")
 
     #
     # vbf-jet identification
