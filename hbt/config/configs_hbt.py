@@ -726,6 +726,9 @@ def add_config(
             "ht", *nbjets, *jet, *lep, *dilep, *dibjet, *hh, "njets",
             # "njets-dilep_pt",
         ],
+        "dy_vbf": [
+            "nvbf_jets", "ntotal_jets", "vbfjet1_pt", "vbfjet2_pt",
+        ],
     }
 
     # shift groups for conveniently looping over certain shifts
@@ -1699,8 +1702,8 @@ def add_config(
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
         "normalization_weight_inclusive": [],
-        "pdf_weight": get_shifts("pdf"),
-        "murmuf_weight": get_shifts("murmuf"),
+        # "pdf_weight": get_shifts("pdf"),
+        # "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
