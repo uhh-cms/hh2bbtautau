@@ -295,7 +295,7 @@ def add_config(
             # disabled for now
             # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
             # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
         ]),
         *if_era(year=2023, tag="preBPix", values=[
             # "dy_tautau_m50toinf_0j_amcatnlo",
@@ -309,7 +309,7 @@ def add_config(
         *if_era(year=2023, tag="postBPix", values=[
             "dy_tautau_m50toinf_0j_amcatnlo",
             "dy_tautau_m50toinf_1j_amcatnlo",
-            # "dy_tautau_m50toinf_2j_amcatnlo",
+            "dy_tautau_m50toinf_2j_amcatnlo",
             # disabled for now
             # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
             # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
