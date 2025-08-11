@@ -23,6 +23,7 @@ from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
 from columnflow.production.cms.parton_shower import ps_weights
+from columnflow.production.cms.dy import gen_dilepton
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import Route, set_ak_column, full_like
 from columnflow.hist_util import create_hist_from_variables, fill_hist
@@ -35,7 +36,7 @@ import hbt.production.processes as process_producers
 from hbt.production.btag import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATA
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATA, IF_DATASET_HAS_TAG
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -67,11 +68,20 @@ def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
 
 
 @selector(
+    uses={gen_dilepton},
+    exposed=False,
+)
+def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    events = self[gen_dilepton](events, **kwargs)
+    return events, events.gen_dilepton_pdgid != 15
+
+
+@selector(
     uses={
         json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
         mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
@@ -98,6 +108,15 @@ def default(
     bad_mask = get_bad_events(self, events)
     no_sel = ~bad_mask
     results += SelectionResult(steps={"bad": no_sel})
+
+    # MC filtering (e.g. for overlap cleaning in background estimations, DY decay channel selection, etc)
+    mc_filter_mask = full_like(events.event, True, dtype=bool)
+    # 1. drop tautau events in DY if necessary
+    if self.has_dep(dy_drop_tautau):
+        events, dy_drop_tautau_mask = self[dy_drop_tautau](events, **kwargs)
+        mc_filter_mask = mc_filter_mask & dy_drop_tautau_mask
+    # join to selection result
+    results += SelectionResult(steps={"mc_filter": mc_filter_mask})
 
     # filter bad data events according to golden lumi mask
     if self.dataset_inst.is_data:
@@ -175,12 +194,10 @@ def default(
             )
 
     # create process ids
-    if self.process_ids_dy_amcatnlo is not None:
-        events = self[self.process_ids_dy_amcatnlo](events, **kwargs)
-    elif self.process_ids_dy_powheg is not None:
-        events = self[self.process_ids_dy_powheg](events, **kwargs)
-    elif self.process_ids_w_lnu is not None:
-        events = self[self.process_ids_w_lnu](events, **kwargs)
+    for tag in self.stitch_tags:
+        if (prod_cls := getattr(self, f"process_ids_{tag}", None)) is not None:
+            events = self[prod_cls](events, **kwargs)
+            break
     else:
         events = self[process_ids](events, **kwargs)
 
@@ -229,7 +246,8 @@ def default(
 @default.init
 def default_init(self: Selector, **kwargs) -> None:
     # build and store derived process id producers
-    for tag in {"dy_amcatnlo", "dy_powheg", "w_lnu"}:
+    self.stitch_tags = ["dy_amcatnlo", "dy_lep_amcatnlo", "dy_powheg", "w_lnu"]
+    for tag in self.stitch_tags:
         prod_name = f"process_ids_{tag}"
         setattr(self, prod_name, None)
         if not self.dataset_inst.has_tag(tag):
@@ -335,6 +353,21 @@ def empty_call(
     no_sel = ~bad_mask
     results += SelectionResult(steps={"bad": no_sel})
 
+    # MC filtering (e.g. for overlap cleaning in background estimations, DY decay channel selection, etc)
+    mc_filter_mask = full_like(events.event, True, dtype=bool)
+    # 1. drop tautau events in DY if necessary
+    if self.has_dep(dy_drop_tautau):
+        mc_filter_mask = mc_filter_mask & self[dy_drop_tautau](events, **kwargs)
+    # join to selection result
+    results += SelectionResult(steps={"mc_filter": mc_filter_mask})
+
+    # filter bad data events according to golden lumi mask
+    if self.dataset_inst.is_data:
+        events, json_filter_results = self[json_filter](events, **kwargs)
+        results += json_filter_results
+    else:
+        results += SelectionResult(steps={"json": full_like(events.event, True, dtype=bool)})
+
     # mc-only functions
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
@@ -370,12 +403,10 @@ def empty_call(
             )
 
     # create process ids
-    if self.process_ids_dy_amcatnlo is not None:
-        events = self[self.process_ids_dy_amcatnlo](events, **kwargs)
-    elif self.process_ids_dy_powheg is not None:
-        events = self[self.process_ids_dy_powheg](events, **kwargs)
-    elif self.process_ids_w_lnu is not None:
-        events = self[self.process_ids_w_lnu](events, **kwargs)
+    for tag in self.stitch_tags:
+        if (prod_cls := getattr(self, f"process_ids_{tag}", None)) is not None:
+            events = self[prod_cls](events, **kwargs)
+            break
     else:
         events = self[process_ids](events, **kwargs)
 

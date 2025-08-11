@@ -46,14 +46,13 @@ def hhbtag(
         (ak.sum(jet_mask, axis=1) >= 2)
     )
 
-    # ordering by decreasing btagscore and then pt
+    # ordering by decreasing btag score, then pt
     f = 10**(np.ceil(np.log10(ak.max(events.Jet.pt))) + 2)
     tagging_key = (events.Jet.btagDeepFlavB if self.hhbtag_version == "v2" else events.Jet.btagPNetB)
     jet_sorting_key = tagging_key * f + events.Jet.pt
     jet_sorting_indices = ak.argsort(jet_sorting_key, axis=-1, ascending=False)
-
     # back transformations for the saving of the scores
-    back_transformation = ak.argsort(jet_sorting_indices)
+    jet_unsorting_indices = ak.argsort(jet_sorting_indices)
 
     # prepare objects
     n_jets_max = 10
@@ -139,7 +138,7 @@ def hhbtag(
     flat_np_view(all_scores, axis=1)[ak.flatten(jet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)  # noqa: E501
 
     # bring the scores back to the original ordering
-    all_scores = all_scores[back_transformation]
+    all_scores = all_scores[jet_unsorting_indices]
     events = set_ak_column(events, "hhbtag_score", all_scores)
 
     if self.config_inst.x.sync:
