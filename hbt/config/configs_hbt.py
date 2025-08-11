@@ -189,13 +189,14 @@ def add_config(
         "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        # additional points besides default basis
-        *if_era(year=2023, values=[
-            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
-            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
-            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
-            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
-        ]),
+        # additional points besides default basis for central (broken) datasets
+        # *if_era(year=2023, values=[
+        #     "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
+        #     "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
+        #     "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
+        #     "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
+        # ]),
+        # processes from test samples, not used right now
         # "hh_vbf_hbb_htt_kv1_k2v1_kl2",
         # "hh_vbf_hbb_htt_kv1_k2v2_kl1",
         "radion_hh_ggf_hbb_htt_m450",
@@ -259,30 +260,17 @@ def add_config(
         "hh_ggf_hbb_htt_kl5_kt1_powheg",
 
         # hh vbf
-        # 2022: private produced datasets
-        *if_era(year=2022, values=[
-            "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
-            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
-            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
-            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
-            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
-        ]),
-        # 2023: central datasets
-        *if_era(year=2023, values=[
-            # default basis
-            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
-            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
-            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
-            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
-            # additional points
-            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
-            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
-            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
-        ]),
+        "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
+        "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
+        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
+        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
+        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
+        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
+        # additional points of central (broken) datasets
+        # "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+        # "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
+        # "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
+        # "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
         # test samples, not used right now
         # *if_era(year=2022, values=[
         #     "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",  # Poisson60KeepRAW for 2022post
@@ -328,9 +316,9 @@ def add_config(
         "ttzz_madgraph",
 
         # dy, amcatnlo
-        "dy_m4to10_amcatnlo",
-        "dy_m10to50_amcatnlo",
-        "dy_m50toinf_amcatnlo",
+        # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned
+        # "dy_m10to50_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned
+        "dy_m50toinf_amcatnlo",  # also affected by the pythia bug in 22+23, need to stitch lepton decays below
         "dy_m50toinf_0j_amcatnlo",
         "dy_m50toinf_1j_amcatnlo",
         "dy_m50toinf_2j_amcatnlo",
@@ -344,6 +332,43 @@ def add_config(
         "dy_m50toinf_2j_pt200to400_amcatnlo",
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
+        # specific tautau datasets with pythia bug fix
+        *if_era(year=2022, tag="preEE", values=[
+            "dy_tautau_m50toinf_0j_amcatnlo",
+            "dy_tautau_m50toinf_1j_amcatnlo",
+            "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        ]),
+        *if_era(year=2022, tag="postEE", values=[
+            # "dy_tautau_m50toinf_0j_amcatnlo",
+            # "dy_tautau_m50toinf_1j_amcatnlo",
+            # "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        ]),
+        *if_era(year=2023, tag="preBPix", values=[
+            # "dy_tautau_m50toinf_0j_amcatnlo",
+            # "dy_tautau_m50toinf_1j_amcatnlo",
+            # "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        ]),
+        *if_era(year=2023, tag="postBPix", values=[
+            "dy_tautau_m50toinf_0j_amcatnlo",
+            "dy_tautau_m50toinf_1j_amcatnlo",
+            "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        ]),
 
         # # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
@@ -482,12 +507,20 @@ def add_config(
                 dataset.add_tag("dy_amcatnlo")
             elif dataset.name.endswith("_powheg"):
                 dataset.add_tag("dy_powheg")
-        if re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name):
-            dataset.add_tag("dy_stitched")
+            # tags for advanced, lepton based stitching in amcatnlo
+            # (not adding the tags will result in the default selection and stitching behavior)
+            if dataset.name.endswith("_amcatnlo"):
+                dataset.add_tag("dy_lep_amcatnlo")  # trigges the lepton channel stitching in the default selector
+                if re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
         if (
-            "dy_ee_m50toinf_powheg" in cfg.datasets and
-            re.match(r"^dy_ee_m.*_powheg$", dataset.name) and
-            dataset.name not in {"dy_ee_m50toinf_powheg", "dy_ee_m10to50_powheg"}
+            re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name) or
+            re.match(r"^dy_tautau_m50toinf_\dj_(|filtered_)amcatnlo$", dataset.name) or
+            (
+                "dy_ee_m50toinf_powheg" in cfg.datasets and
+                re.match(r"^dy_ee_m.*_powheg$", dataset.name) and
+                dataset.name not in {"dy_ee_m50toinf_powheg", "dy_ee_m10to50_powheg"}
+            )
         ):
             dataset.add_tag("dy_stitched")
         if dataset.name.startswith("w_lnu_"):
@@ -581,20 +614,12 @@ def add_config(
         ]),
         """
         "dy_split": [
-            "dy_m4to10", "dy_m10to50",
             "dy_m50toinf_0j",
-            "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
-            "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
-            "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
-            "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
-        ],
-        "dy_split_no_incl": [
-            "dy_m4to10", "dy_m10to50",
-            "dy_m50toinf_0j", "dy_m50toinf_1j", "dy_m50toinf_2j",
             "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
             "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
             "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
             "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+            "dy_m50toinf_ge3j",
         ],
         """
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
@@ -607,21 +632,45 @@ def add_config(
     if run == 3 and not sync_mode:
         # drell-yan, amcatnlo
         if "dy_m50toinf_amcatnlo" in cfg.datasets:
-            cfg.x.dy_amcatnlo_stitching = {
-                "m50toinf": {
-                    "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-                    "leaf_processes": [
-                        # the following processes cover the full njet and pt phasespace
-                        procs.n.dy_m50toinf_0j,
-                        *(
-                            procs.get(f"dy_m50toinf_{nj}j_pt{pt}")
-                            for nj in [1, 2]
-                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                        ),
-                        procs.n.dy_m50toinf_ge3j,
-                    ],
-                },
-            }
+            if not cfg.datasets.n.dy_m50toinf_amcatnlo.has_tag("dy_drop_tautau"):
+                # default stitching, without lepton enriched datasets
+                cfg.x.dy_amcatnlo_stitching = {
+                    "m50toinf": {
+                        "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace
+                            cfg.get_process("dy_m50toinf_0j"),
+                            *(
+                                cfg.get_process(f"dy_m50toinf_{nj}j_pt{pt}")
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ),
+                            cfg.get_process("dy_m50toinf_ge3j"),
+                        ],
+                    },
+                }
+            else:
+                # more involved stitching with additional lepton enriched datasets
+                expand_lep = lambda names: [
+                    procs.get(f"dy_{ll}_{name}")
+                    for ll in ["ee", "mumu", "tautau"]
+                    for name in law.util.make_list(names)
+                ]
+                cfg.x.dy_lep_amcatnlo_stitching = {
+                    "m50toinf": {
+                        "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace per lepton channel
+                            *expand_lep("m50toinf_0j"),
+                            *expand_lep([
+                                f"m50toinf_{nj}j_pt{pt}"
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ]),
+                            *expand_lep("m50toinf_ge3j"),
+                        ],
+                    },
+                }
         # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
             cfg.x.dy_powheg_stitching = {
@@ -630,25 +679,28 @@ def add_config(
                     "leaf_processes": [
                         # the following processes cover the full inv mass phasespace
                         *(
-                            procs.get(f"dy_ee_m{mass}")
-                            for mass in ["50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000", "4000to6000", "6000toinf"]  # noqa: E501
+                            cfg.get_process(f"dy_ee_m{mass}")
+                            for mass in [
+                                "50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000",
+                                "4000to6000", "6000toinf",
+                            ]
                         ),
                     ],
                 },
             }
-        # w+jets
+        # w + jets
         cfg.x.w_lnu_stitching = {
             "incl": {
                 "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
                 "leaf_processes": [
                     # the following processes cover the full njet and pt phasespace
-                    procs.n.w_lnu_0j,
+                    cfg.get_process("w_lnu_0j"),
                     *(
-                        procs.get(f"w_lnu_{nj}j_pt{pt}")
+                        cfg.get_process(f"w_lnu_{nj}j_pt{pt}")
                         for nj in [1, 2]
                         for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
                     ),
-                    procs.n.w_lnu_ge3j,
+                    cfg.get_process("w_lnu_ge3j"),
                 ],
             },
         }
@@ -739,9 +791,9 @@ def add_config(
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
         "all": [],
-        "none": ["json"],
-        "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
-        "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
+        "none": ["mc_filter", "json"],
+        "default": ["mc_filter", "json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
+        "no_jet": ["mc_filter", "json", "trigger", "met_filter", "jet_veto_map", "lepton"],
     }
     cfg.x.default_selector_steps = "all"
 
@@ -820,10 +872,14 @@ def add_config(
     else:
         assert False
 
-    # name of the MET phi correction set
-    # (used in the met_phi calibrator)
-    if run == 2:
-        cfg.x.met_phi_correction_set = r"{variable}_metphicorr_pfmet_{data_source}"
+    # met phi correction config
+    from columnflow.calibration.cms.met import METPhiConfig
+    cfg.x.met_phi_correction = METPhiConfig(
+        met_name=cfg.x.met_name,
+        correction_set="met_xy_corrections" if run == 3 else r"{variable}_metphicorr_pfmet_{data_source}",
+        keep_uncorrected=True,
+        variable_config={"phi": ("phi",)},  # not added pt here, just interested in phi correction
+    )
 
     ################################################################################################
     # jet settings
@@ -1528,10 +1584,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-b7a48c75"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-406118ec"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-b7a48c75"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-406118ec"
         trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
@@ -1605,7 +1661,8 @@ def add_config(
         add_external("jet_id", (f"{json_mirror}/POG/JME/{json_pog_era}/jetid.json.gz", "v1"))
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
-
+        # met phi correction
+        add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz", "v1"))  # noqa: E501
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # electron energy correction and smearing
