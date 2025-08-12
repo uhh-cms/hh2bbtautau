@@ -271,8 +271,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         # generate toy parameteres for uncertainty estimation
         # -----------------------------------------------------
 
-        pcov_norm = pcov / np.outer(popt, popt)
-        eigvals, eigvecs = np.linalg.eigh(pcov_norm)
+        psigma = np.sqrt(np.diag(pcov))
+        pcorr = pcov / np.outer(psigma, psigma)
+        pcorr[pcov == 0] = 0
+
+        eigvals, eigvecs = np.linalg.eigh(pcorr)
         idx = np.argsort(eigvals)[::-1]
         eigvals = eigvals[idx]
         eigvecs = eigvecs[:, idx]
@@ -282,20 +285,41 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         threshold = 0.95
         k = np.searchsorted(explained, threshold) + 1
 
-        # Vk = eigvecs[:, :k]  # (8,k) matrix of eigenvectors
-        # from IPython import embed; embed(header="debugger")
-
-        #  plot the fit function + toys
+        #  plot the fit function
         s = np.linspace(0, 200, 1000)
         y = [fit_function(v, *popt) for v in s]
 
-        for i in range(k):
-            y_up = fit_function(s, *(popt * (1 + eigvecs[:, i] * np.sqrt(eigvals[i]))))
-            y_down = fit_function(s, *(popt * (1 - eigvecs[:, i] * np.sqrt(eigvals[i]))))
+        # compute fit uncertainties
+        corr_unc = [[0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 1, 0]]
+
+        corr_gauss = np.array(pcorr[1, :])
+        corr_gauss[corr_gauss > 0.8] = 1
+        corr_gauss[corr_gauss < -0.8] = -1
+        corr_gauss[abs(corr_gauss) <= 0.8] = 0
+        corr_gauss[-3:] = 0
+
+        corr_unc.insert(0, corr_gauss)
+
+        for i in range(len(corr_unc)):
+            if i == 0:
+                param_name = "gaussian"
+            elif i == 1:
+                param_name = "boundary"
+            elif i == 2:
+                param_name = "slope"
+
+            if njet == 3:
+                print(pcorr[:4, :4])
+                print(corr_unc)
+                from IPython import embed; embed(header="debugger")
+
+            delta = psigma * corr_unc[i]
+            y_up = fit_function(s, *(popt + delta))
+            y_down = fit_function(s, *(popt - delta))
             fig, ax = plt.subplots()
-            ax.plot(s, y, color="black", label="Fit", lw=0.8, linestyle="--")
-            ax.fill_between(s, y_up, y, color='red', alpha=0.5, label='95% (sys) up')
-            ax.fill_between(s, y_down, y, color='blue', alpha=0.5, label='95% (sys) down')
+            ax.plot(s, y, color="black", label="Fit", lw=1, linestyle="--")
+            ax.fill_between(s, y_up, y, color='red', alpha=0.2, label='95% (sys) up')
+            ax.fill_between(s, y_down, y, color='blue', alpha=0.2, label='95% (sys) down')
             ax.errorbar(
                 bin_centers,
                 ratio_values,
@@ -311,20 +335,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             ax.set_ylabel("Ratio (data-non DY MC)/DY")
             ax.grid(True)
 
-            if njet != 4:
-                if njet == 2:
-                    ax.set_ylim(0.75, 1.05)
-                else:
-                    ax.set_ylim(0.8, 1.2)
-                title = f"2022preEE, njets = {njet}, k={i+1}(/{k})"
-                file_name = f"plot_dilep_eq{njet}j_gauss_pol2_0.08_k{i+1}.pdf"
-            else:
-                ax.set_ylim(0.8, 1.5)
-                title = f"2022preEE, njets >= {njet}, k={i+1}(/{k})"
-                file_name = f"plot_dilep_ge{njet}j_gauss_pol2_0.08_k{i+1}.pdf"
-
-            ax.set_title(title)
-            fig.savefig(file_name)
+            if njet in [2, 3, 4]:
+                title = f"2022preEE, njets >= {njet}, {param_name} uncertainty"
+                file_name = f"dilep_{njet}j_unc_{param_name}.pdf"
+                ax.set_title(title)
+                fig.savefig(file_name)
 
         return fit_string
 
@@ -346,7 +361,8 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
         if match:
             njet = int(match.group(1))
         else:
-            raise ValueError("No njets digit found in category name!")
+            continue
+            # raise ValueError("No njets digit found in category name!")
 
         # slice the histogram for the selected njets bin
         if njet != 4:
