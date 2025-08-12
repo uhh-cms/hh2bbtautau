@@ -57,7 +57,7 @@ def vbfjtag(
     jet_sorting_indices = ak.argsort(jet_sorting_key, axis=-1, ascending=False)
 
     # back transformations for the saving of the scores
-    back_transformation = ak.argsort(jet_sorting_indices)
+    jet_unsorting_indices = ak.argsort(jet_sorting_indices)
 
     # prepare objects
     n_jets_max = 10
@@ -156,8 +156,8 @@ def vbfjtag(
     flat_np_view(all_scores, axis=1)[ak.flatten(vbfjet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)  # noqa: E501
 
     # bring the scores and the fatjet cleaned mask back to the original ordering
-    all_scores = all_scores[back_transformation]
-    full_cross_cleaned_fatjet_mask = full_cross_cleaned_fatjet_mask[back_transformation]
+    all_scores = all_scores[jet_unsorting_indices]
+    full_cross_cleaned_fatjet_mask = full_cross_cleaned_fatjet_mask[jet_unsorting_indices]
 
     # remove scores where the cross cleaning reveals "wrong" vbf jet (either a fatjet or a hhbjet)
     cross_cleaned_fatjet_hhbjet_mask = vbfjet_mask & full_cross_cleaned_fatjet_mask & ~is_hhbjet_mask
@@ -185,7 +185,7 @@ def vbfjtag(
             value_placeholder = ak.fill_none(
                 ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1,
             )
-            values = ak.concatenate([values, scores_ext], axis=1)[back_transformation]
+            values = ak.concatenate([values, scores_ext], axis=1)[jet_unsorting_indices]
 
             # fill placeholder
             np.asarray(ak.flatten(value_placeholder))[ak.flatten(vbfjet_mask & event_mask, axis=1)] = (
