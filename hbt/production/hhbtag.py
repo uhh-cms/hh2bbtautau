@@ -161,7 +161,8 @@ def hhbtag(
             value_placeholder = ak.fill_none(
                 ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1,
             )
-            values = ak.concatenate([values, scores_ext], axis=1)
+            values = ak.concatenate([values, scores_ext], axis=1)[back_transformation]
+
             # fill placeholder
             np.asarray(ak.flatten(value_placeholder))[ak.flatten(jet_mask & event_mask, axis=1)] = (
                 np.asarray(ak.flatten(values))

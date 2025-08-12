@@ -33,7 +33,7 @@ def vbfjtag(
     events: ak.Array,
     vbfjet_mask: ak.Array,
     lepton_pair: ak.Array,
-    is_bjet_mask: ak.Array,  # whether the jet was tagged by the hhbjet tagger
+    is_hhbjet_mask: ak.Array,  # whether the jet was tagged by the hhbjet tagger
     selected_fatjets: ak.Array,
     **kwargs,
 ) -> ak.Array:
@@ -50,8 +50,6 @@ def vbfjtag(
         # maybe just 3 since two of them would be the hhbjets if they are there?
         # maybe add hhbjet_mask >=2, such that only these events are considered?
     )
-    # & (ak.sum(is_bjet_mask, axis=1) < ak.sum(vbfjet_mask, axis=1) >= 2) to have at least one jet to give a score to?
-    # additional criteria?
 
     # ordering by decreasing eta then pt
     f = 10**(np.ceil(np.log10(ak.max(events.Jet.pt))) + 2)
@@ -69,7 +67,7 @@ def vbfjtag(
     met = events[event_mask][self.config_inst.x.met_name]
     jet_shape = abs(jets.pt) >= 0
     n_jets_capped = ak.num(jets, axis=1)
-    is_bjet = ak.values_astype(is_bjet_mask[jet_sorting_indices][vbfjet_mask[jet_sorting_indices]][event_mask][..., :n_jets_max], np.float32)  # noqa: E501
+    is_hhbjet = ak.values_astype(is_hhbjet_mask[jet_sorting_indices][vbfjet_mask[jet_sorting_indices]][event_mask][..., :n_jets_max], np.float32)  # noqa: E501
 
     # get input features
     input_features = [
@@ -81,7 +79,7 @@ def vbfjtag(
         abs(jets.eta - htt.eta),
         jets.btagPNetB,
         jets.delta_phi(htt),
-        is_bjet,
+        is_hhbjet,
         jet_shape * (self.vbfjtag_campaign),
         jet_shape * self.vbfjtag_channel_map[events[event_mask].channel_id],
         jet_shape * htt.pt,
@@ -161,8 +159,8 @@ def vbfjtag(
     all_scores = all_scores[back_transformation]
     full_cross_cleaned_fatjet_mask = full_cross_cleaned_fatjet_mask[back_transformation]
 
-    # remove scores where the cross cleaning reveals "wrong" vbf jet (either a fatjet or a bjet)
-    cross_cleaned_fatjet_hhbjet_mask = vbfjet_mask & full_cross_cleaned_fatjet_mask & ~is_bjet_mask
+    # remove scores where the cross cleaning reveals "wrong" vbf jet (either a fatjet or a hhbjet)
+    cross_cleaned_fatjet_hhbjet_mask = vbfjet_mask & full_cross_cleaned_fatjet_mask & ~is_hhbjet_mask
     empty_mask = full_like(events.Jet.pt[~cross_cleaned_fatjet_hhbjet_mask], EMPTY_FLOAT, dtype=np.float32)
     flat_np_view(all_scores)[ak.flatten(~cross_cleaned_fatjet_hhbjet_mask)] = flat_np_view(empty_mask)
 
@@ -187,7 +185,8 @@ def vbfjtag(
             value_placeholder = ak.fill_none(
                 ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1,
             )
-            values = ak.concatenate([values, scores_ext], axis=1)
+            values = ak.concatenate([values, scores_ext], axis=1)[back_transformation]
+
             # fill placeholder
             np.asarray(ak.flatten(value_placeholder))[ak.flatten(vbfjet_mask & event_mask, axis=1)] = (
                 np.asarray(ak.flatten(values))
