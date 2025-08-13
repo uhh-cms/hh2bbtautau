@@ -324,8 +324,9 @@ def jet_selection(
     score_indices = ak.argsort(vbfjtag_scores, axis=1, ascending=False)
     vbfjet_mask = mask_from_indices(score_indices[:, :2], vbfjtag_scores)
     # due to the original jet ordering, applying this mask gives the vbf jets pt ordered
-    # deselect jets in events with less than one valid scores
-    vbfjet_mask = vbfjet_mask & (ak.sum(vbfjtag_scores != EMPTY_FLOAT, axis=1) >= 1)
+
+    # remove the jets without a valid score
+    vbfjet_mask = vbfjet_mask & (~(vbfjtag_scores == EMPTY_FLOAT))
 
     # TODO: trigger matching on these jets + trigger selection for parking triggers
     # TODO: overlap removal of events based on trigger matched objects
