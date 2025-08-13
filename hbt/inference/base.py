@@ -55,6 +55,22 @@ class HBTInferenceModelBase(InferenceModel):
         self.init_parameters()
         self.init_cleanup()
 
+    def init_objects(self) -> None:
+        # gather campaign identifier keys per config
+        self.single_config = len(self.config_insts) == 1
+        for config_inst in self.config_insts:
+            assert config_inst.campaign.x.year in {2022, 2023}
+            self.campaign_keys[config_inst] = config_inst.x.full_postfix
+
+        # overall campaign key
+        self.campaign_key = "_".join(self.campaign_keys.values())
+
+        # setup the process_map
+        self.init_proc_map()
+
+    def init_cleanup(self) -> None:
+        self.cleanup(keep_parameters="THU_HH")
+
     def inject_era(self, config_inst: od.Config, combine_name: str) -> str:
         # helper to inject era info into combine process names
         campaign_key = self.campaign_keys[config_inst]
@@ -66,19 +82,3 @@ class HBTInferenceModelBase(InferenceModel):
             return f"{m.group(1)}_{campaign_key}_{m.group(2)}"
         # for all other processes, just append the campaign key
         return f"{combine_name}_{campaign_key}"
-
-    def init_objects(self) -> None:
-        # gather campaign identifier keys per config
-        self.single_config = len(self.config_insts) == 1
-        for config_inst in self.config_insts:
-            year2 = config_inst.campaign.x.year % 100
-            self.campaign_keys[config_inst] = f"{year2}{config_inst.campaign.x.postfix}"
-
-        # overall campaign key
-        self.campaign_key = "_".join(self.campaign_keys.values())
-
-        # setup the process_map
-        self.init_proc_map()
-
-    def init_cleanup(self) -> None:
-        self.cleanup(keep_parameters="THU_HH")

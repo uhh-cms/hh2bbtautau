@@ -61,6 +61,11 @@ def add_config(
         },
     )
 
+    # store a full postfix
+    for tag in {2022: ["preEE", "postEE"], 2023: ["preBPix", "postBPix"]}.get(year, []):
+        if campaign.has_tag(tag):
+            cfg.x.full_postfix = f"{year2}{tag}"
+
     ################################################################################################
     # helpers
     ################################################################################################
