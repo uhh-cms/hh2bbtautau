@@ -333,42 +333,13 @@ def add_config(
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
         # specific tautau datasets with pythia bug fix
-        *if_era(year=2022, tag="preEE", values=[
-            "dy_tautau_m50toinf_0j_amcatnlo",
-            "dy_tautau_m50toinf_1j_amcatnlo",
-            "dy_tautau_m50toinf_2j_amcatnlo",
-            # disabled for now
-            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        ]),
-        *if_era(year=2022, tag="postEE", values=[
-            # "dy_tautau_m50toinf_0j_amcatnlo",
-            # "dy_tautau_m50toinf_1j_amcatnlo",
-            # "dy_tautau_m50toinf_2j_amcatnlo",
-            # disabled for now
-            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        ]),
-        *if_era(year=2023, tag="preBPix", values=[
-            # "dy_tautau_m50toinf_0j_amcatnlo",
-            # "dy_tautau_m50toinf_1j_amcatnlo",
-            # "dy_tautau_m50toinf_2j_amcatnlo",
-            # disabled for now
-            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        ]),
-        *if_era(year=2023, tag="postBPix", values=[
-            "dy_tautau_m50toinf_0j_amcatnlo",
-            "dy_tautau_m50toinf_1j_amcatnlo",
-            "dy_tautau_m50toinf_2j_amcatnlo",
-            # disabled for now
-            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        ]),
+        "dy_tautau_m50toinf_0j_amcatnlo",
+        "dy_tautau_m50toinf_1j_amcatnlo",
+        "dy_tautau_m50toinf_2j_amcatnlo",
+        # disabled for now
+        # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+        # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+        # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
 
         # # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
