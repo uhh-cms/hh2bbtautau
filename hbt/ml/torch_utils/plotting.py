@@ -16,7 +16,44 @@ plt = maybe_import("matplotlib.pyplot")
 
 if not isinstance(torch, MockModule):
 
-    def network_predictions(y_true, y_pred, target_map, **kwargs):
+    def plot_input_features(data_map, columns):
+        from columnflow.columnar_util import Route, EMPTY_INT, EMPTY_FLOAT
+        all_data = ak.concatenate([x.data for x in data_map])
+        columns = list(map(Route, columns))
+        # layout plots
+        num_features = len(columns)
+        num_cols = 4
+        num_row = int(np.ceil(num_features / num_cols))
+        fig_size = (5 * num_cols, 4 * num_row) # wide, tall
+
+        fig, axes = plt.subplots(nrows=num_row, ncols=num_cols, figsize=fig_size)
+        for ax, _route in zip(axes.flatten(), columns):
+            data = _route.apply(all_data).to_numpy().astype(np.float32)
+            # mask NaNs
+            empty_mask = data == EMPTY_FLOAT
+
+            ax.set_xlabel(_route.column)
+            ax.set_ylabel("frequency")
+            ax.set_yscale("log")
+
+            # get lowest value without empty values and add offset
+            _bin = 20
+            bins = np.linspace(
+                np.min(data[~empty_mask]),
+                data.max(),
+                _bin,
+            )
+            # set offset to 3 bins to display underflow, clip data to lower edge and preserve bin width
+            lower_edge = bins[0] - 3 * (bins[1] - bins[0])
+            bins = np.linspace(lower_edge, bins[-1], _bin + 3)
+
+            # plot without empty values, set empty values to underflow bin
+            _ = ax.hist(np.clip(data, a_min=lower_edge, a_max=None), bins=bins)
+        return fig, axes
+
+
+
+    def _network_predictions(y_true, y_pred, target_map, **kwargs):
         # swap axes to get (num_samples, cls) shape
         fig, ax = plt.subplots()
         ax.set_xlabel(kwargs.pop("xlabel", "score"))
@@ -43,6 +80,44 @@ if not isinstance(torch, MockModule):
 
         fig.legend(title="predicted class")
         return fig, ax
+
+    def network_predictions(y_true, y_pred, target_map, **kwargs):
+        # create a figure with subplots for each node, where the score is shown
+        # nodes are defined over target_map order
+
+        fig, axes = plt.subplots(1,len(target_map), figsize=(8 * len(target_map), 8))
+        fig.suptitle(kwargs.pop("title", None))
+
+        # get events that are predicted correctly for each class
+        for node, node_idx in target_map.items():
+            for data_cls, data_idx in target_map.items():
+                axes[node_idx].set_xlabel(f"{node} node")
+                axes[node_idx].set_ylabel("frequency")
+                axes[node_idx].set_yscale("log")
+
+                # get events of specific cls (e.g. hh)
+                correct_cls_mask = y_true[:, data_idx] == 1
+                # get predictions for cls
+                filtered_predictions = y_pred[correct_cls_mask][:, node_idx]
+
+
+                _ = axes[node_idx].hist(
+                    filtered_predictions,
+                    bins=kwargs.get("bins", 20),
+                    histtype=kwargs.get("histtype", "step"),
+                    alpha=kwargs.get("alpha", 0.7),
+                    label=data_cls,
+                    **kwargs,
+            )
+            axes[node_idx].set_ylim(top=len(y_pred))
+
+
+
+        lines_labels = [fig.axes[0].get_legend_handles_labels()]
+        lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+        fig.legend(lines, labels)
+        return fig, axes
+
 
     def confusion_matrix(y_true, y_pred, target_map, sample_weight=None, cmap="Blues", **kwargs):
         cm = sklearn.metrics.confusion_matrix(
