@@ -6,11 +6,14 @@ Column production methods related to generic event weights.
 
 from __future__ import annotations
 
+import re
+import copy
 import functools
 
 import law
 
 from columnflow.production import Producer, producer
+from columnflow.production.normalization import stitched_normalization_weights
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights
 from columnflow.production.cms.scale import murmuf_weights
@@ -25,6 +28,52 @@ hist = maybe_import("hist")
 
 # helper
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
+
+
+class stitched_normalization_weights_dy_tautau_drop(stitched_normalization_weights):
+    """
+    Same as the standard :py:class:`stitched_normalization_weights` producer, but it adjusts the dataset selection stats
+    for DY datasets if needed to accommodate for the dropped tautau events in certain datasets.
+    """
+
+    def update_dataset_selection_stats_sum_weights(
+        self,
+        dataset_selection_stats: dict[str, dict[str, float | dict[str, float]]],
+    ) -> dict[str, dict[str, float]]:
+        # this only applies to dy datasets with the dy_lep_amcatnlo tag
+        if not self.dataset_inst.has_tag("dy_lep_amcatnlo"):
+            return dataset_selection_stats
+
+        # start from a copy
+        dataset_selection_stats = copy.deepcopy(dataset_selection_stats)
+
+        # cached decisions on which tautau process ids to drop
+        drop_ids = {}
+
+        def drop_id(proc_id_str: str) -> bool:
+            if proc_id_str not in drop_ids:
+                proc = self.config_inst.get_process(int(proc_id_str))
+                drop_ids[proc_id_str] = proc.x.lep_id == 15
+            return drop_ids[proc_id_str]
+
+        # start traversing the nested stats
+        for dataset_name, stats in dataset_selection_stats.items():
+            # the corresponding dataset needs to have the dy_drop_tautau tag
+            if not self.config_inst.get_dataset(dataset_name).has_tag("dy_drop_tautau"):
+                continue
+            for entry_name, _stats in stats.items():
+                # only consider dictionaries that map process ids (as strings) to other values
+                if not isinstance(_stats, dict):
+                    continue
+                # only consider certain entries
+                if not re.match(r"^(sum|num)_.+_per_process$", entry_name):
+                    continue
+                # loop over entries and potentially set to zero
+                for proc_id_str in _stats:
+                    if isinstance(_stats[proc_id_str], (int, float)) and drop_id(proc_id_str):
+                        _stats[proc_id_str] = type(_stats[proc_id_str])()  # produces 0 with correct type
+
+        return dataset_selection_stats
 
 
 @producer(
