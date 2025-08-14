@@ -219,8 +219,6 @@ if not isinstance(ignite, MockModule):
                 y_true=y,
                 y_pred=pred_probablity,
                 target_map=self.categorical_target_map,
-                xlabel="score",
-                ylabel="frequency",
                 title=f"epoch: {epoch}, iterations: {iteration}",
             )
 

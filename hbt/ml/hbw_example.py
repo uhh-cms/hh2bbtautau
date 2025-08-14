@@ -719,6 +719,7 @@ class MLClassifierBase(MLModel):
             flat_bc_mask = ak.flatten(ak.broadcast_arrays(fold_mask[..., None], template)[0])
             fold_data = data[fold_mask]
 
+            # from IPython import embed; embed(header="EVALUATE inside FOLD - 759 in hbw_example.py ")
             with torch.no_grad():
                 output_mean, output_std = eval_wrapper(fold_data)
 
@@ -770,6 +771,10 @@ class MLClassifierBase(MLModel):
             continuous_features=self.continuous_features,
             input=events,
         )
+
+        # set models to eval mode
+        for model in models:
+            model.eval()
 
         if events_used_in_training:
             self.evaluate_training_events(
@@ -997,11 +1002,11 @@ bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
 
 
 bognet_ensemble_v2 = BogNetBase.derive("bognet_ensemble_v2", cls_dict={
-    "epochs": 3,
+    "epochs": 1,
     "deterministic_seeds": [0],
     # "label_smoothing_coefficient": 0.02,
     # "data_loader",
-    "training_epoch_length_cutoff": 3000,
+    "training_epoch_length_cutoff": 2000,
     # "categorical_features",
     # "continuous_features",
     "train_val_test_split": (0.75, 0.15, 0.1),

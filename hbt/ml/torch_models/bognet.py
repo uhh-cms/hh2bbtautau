@@ -272,32 +272,26 @@ if not isinstance(torch, MockModule):
                 input_layer,
                 DenseBlock(input_nodes = input_layer.ndim, output_nodes = self.nodes, activation_functions=self.activation_functions, eps=eps, normalize=normalize), # noqa
                 *resnet_blocks,
-                # ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
-                # ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
-                # ResNetPreactivationBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection, eps=eps, normalize=normalize), # noqa
                 torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
-                # no softmax since this is already part of loss
+                # ATTENTION: no softmax since this is already part of loss
             )
             return input_layer, model
 
         def train_step(self, engine, batch):
             self.model.train()
 
-            # Compute prediction and loss
             (categorical_x, continous_x), y = batch
-
             self.optimizer.zero_grad()
-
             pred = self(categorical_x, continous_x)
             target = y.to(torch.float32)
             if target.dim() == 1:
                 target = target.reshape(-1, 1)
 
             loss = self.loss_fn(pred, target)
-            # Backpropagation
             loss.backward()
             self.optimizer.step()
-
+            if engine.state.iteration % 500 == 0:
+                from IPython import embed; embed(header="string - 293 in bognet.py ")
             return loss.item()
 
         def validation_step(self, engine, batch):
@@ -365,14 +359,13 @@ if not isinstance(torch, MockModule):
             **kwargs,
         ) -> None:
             all_datasets = datasets or getattr(task, "resolved_datasets", task.datasets)
-            # build group datasets from processes, remove empty sets
+            # build group datasets from processes, remove empty datasets
             group_datasets = {
                 "ttbar": [d for d in all_datasets if d.startswith("tt_")],
                 "dy": [d for d in all_datasets if d.startswith("dy_")],
             }
             group_datasets = {k: v for k, v in group_datasets.items() if v}
 
-            # from IPython import embed; embed(header="HANDLING - 389 in bognet.py ")
             self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
                 inputs=inputs,
@@ -401,9 +394,7 @@ if not isinstance(torch, MockModule):
             self.unsampeled_training_length = len_dataloader(self.train_validation_loader)
             self.unsampeled_validation_length = len_dataloader(self.validation_loader)
 
-            # from IPython import embed; embed(header="string - 423 in bognet.py ")
             # get statistics for standardization from training dataset without oversampling
-            # from IPython import embed; embed(header="string - 417 in bognet.py ")
             self.dataset_statistics = get_standardization_parameter(
                 self.train_validation_loader.data_map, self.continuous_features,
             )

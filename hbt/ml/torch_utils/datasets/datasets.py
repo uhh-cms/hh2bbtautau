@@ -530,50 +530,58 @@ if not isinstance(torchdata, MockModule):
             """
 
             # overwrite the columns to load
-            self.continuous_features = continuous_features or {}
-            self.categorical_features = categorical_features or {}
-            columns = set(self.continuous_features) | set(self.categorical_features)
+            self.continuous_features = continuous_features
+            self.categorical_features = categorical_features
             if getattr(kwargs, "columns", None) is not None:
                 logger.warning(
                     f"{self.__class__.__name__} only supports input feature columns "
                     "that are split by categorical and continuous features. Will ignore "
                     f"columns={kwargs['columns']} and use columns={columns} instead.",
                 )
-            kwargs["columns"] = columns
+            kwargs["columns"] = list(self.continuous_features) + list(self.categorical_features)
             super().__init__(*args, **kwargs)
 
-            # resolve continuous and categorical features
-            tmp_cont_fetures = set()
-            tmp_cat_features = set()
+            # # resolve continuous and categorical features
+            # tmp_cont_fetures = set()
+            # tmp_cat_features = set()
 
-            for col in self.all_columns:
-                if self.target_columns and col in self.target_columns:
-                    continue
-                if (
-                    any(self._check_against_pattern(str(cont_feature), col.string_column)
-                    for cont_feature in self.continuous_features)
-                ):
-                    tmp_cont_fetures.add(col)
-                elif (
-                    any(self._check_against_pattern(str(cat_feature), col.string_column)
-                    for cat_feature in self.categorical_features)
-                ):
-                    tmp_cat_features.add(col)
-            self.continuous_features = tmp_cont_fetures
-            self.categorical_features = tmp_cat_features
-
+            # for col in self.all_columns:
+            #     if self.target_columns and col in self.target_columns:
+            #         continue
+            #     if (
+            #         any(self._check_against_pattern(str(cont_feature), col.string_column)
+            #         for cont_feature in self.continuous_features)
+            #     ):
+            #         tmp_cont_fetures.add(col)
+            #     elif (
+            #         any(self._check_against_pattern(str(cat_feature), col.string_column)
+            #         for cat_feature in self.categorical_features)
+            #     ):
+            #         tmp_cat_features.add(col)
+            # from IPython import embed; embed(header="string - 561 in datasets.py ")
+            # self.continuous_features = tmp_cont_fetures
+            # self.categorical_features = tmp_cat_features
             self._input_data: torch.Tensor | list[torch.Tensor] | None = None
             self._target_data: torch.Tensor | list[torch.Tensor] | None = None
             self.class_target_name: str = "categorical_target"
 
         def _array_set_to_tensor(self, features: list[str | Route]) -> torch.Tensor:
-            return torch.cat(
-                [
-                    ak.to_torch(self._extract_columns(self.data, r)).reshape(-1, 1)
-                    for r in sorted(features, key=lambda x: str(x))
-                ],
-                axis=-1,
-            )
+            print("Converting features to torch tensor:")
+            features = list(map(Route, features))
+            columns = []
+            for feature in features:
+                print(feature)
+                columns.append(ak.to_torch(self._extract_columns(self.data, feature)).reshape(-1, 1))
+            return torch.cat(columns, axis=-1)
+
+            # return torch.cat(
+            #     [
+            #         ak.to_torch(self._extract_columns(self.data, feature)).reshape(-1, 1)
+            #         for feature in features
+
+            #     ],
+            #     axis=-1,
+            # )
 
         @property
         def input_data(self) -> torch.Tensor | list[torch.Tensor]:
