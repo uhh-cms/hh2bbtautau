@@ -18,7 +18,7 @@ from columnflow.production.cms.seeds import (
 )
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_2, IF_RUN_3, IF_DATA, IF_MC
+from hbt.util import IF_RUN_3, IF_DATA, IF_MC
 
 ak = maybe_import("awkward")
 
@@ -167,9 +167,7 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "with_uncertainties": False,
         })
         # derive met_phi calibrator (currently only used in run 2)
-        add_calib_cls("met_phi", met_phi, cls_dict={
-            "met_name": met_name,
-        })
+        add_calib_cls("met_phi", met_phi)
 
         # change the flag
         self.config_inst.set_aux(flag, True)
@@ -199,7 +197,7 @@ def default_init(self: Calibrator, **kwargs) -> None:
         IF_RUN_3(self.eec_nominal_cls),
         IF_RUN_3(self.deterministic_eer_full_cls),
         IF_RUN_3(self.deterministic_eer_nominal_cls),
-        IF_RUN_2(self.met_phi_cls),
+        self.met_phi_cls,
     }
     self.uses |= derived_calibrators
     self.produces |= derived_calibrators

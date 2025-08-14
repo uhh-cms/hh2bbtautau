@@ -64,6 +64,7 @@ no_weight = default.derive("no_weight", cls_dict={
     "drop_weights": {"*"},
 })
 
+# weight producer for cross checking histograms without stitching
 normalization_inclusive = default.derive("normalization_inclusive", cls_dict={
     "drop_weights": {"normalization_weight"},
 })

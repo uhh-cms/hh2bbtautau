@@ -45,14 +45,24 @@ def hhbtag(
         (ak.num(lepton_pair, axis=1) >= 2) &
         (ak.sum(jet_mask, axis=1) >= 2)
     )
+
+    # ordering by decreasing btag score, then pt
+    f = 10**(np.ceil(np.log10(ak.max(events.Jet.pt))) + 2)
+    tagging_key = (events.Jet.btagDeepFlavB if self.hhbtag_version == "v2" else events.Jet.btagPNetB)
+    jet_sorting_key = tagging_key * f + events.Jet.pt
+    jet_sorting_indices = ak.argsort(jet_sorting_key, axis=-1, ascending=False)
+    # back transformations for the saving of the scores
+    jet_unsorting_indices = ak.argsort(jet_sorting_indices)
+
     # prepare objects
     n_jets_max = 10
-    jets = events.Jet[jet_mask][event_mask][..., :n_jets_max]
+    jets = events.Jet[jet_sorting_indices][jet_mask[jet_sorting_indices]][event_mask][..., :n_jets_max]
     leps = lepton_pair[event_mask][..., [0, 1]]
     htt = leps[..., 0] + leps[..., 1]
     met = events[event_mask][self.config_inst.x.met_name]
     jet_shape = abs(jets.pt) >= 0
     n_jets_capped = ak.num(jets, axis=1)
+
     # get input features
     input_features = [
         jet_shape * 1,
@@ -125,8 +135,10 @@ def hhbtag(
 
     # insert scores into an array with same shape as input jets (without jet_mask and event_mask)
     all_scores = ak.fill_none(full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
-    flat_np_view(all_scores, axis=1)[ak.flatten(jet_mask & event_mask, axis=1)] = flat_np_view(scores)
+    flat_np_view(all_scores, axis=1)[ak.flatten(jet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)  # noqa: E501
 
+    # bring the scores back to the original ordering
+    all_scores = all_scores[jet_unsorting_indices]
     events = set_ak_column(events, "hhbtag_score", all_scores)
 
     if self.config_inst.x.sync:
