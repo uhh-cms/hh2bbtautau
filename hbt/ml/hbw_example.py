@@ -104,7 +104,7 @@ class MLClassifierBase(MLModel):
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
         "configs_to_use",
-        "deterministic_seeds",
+        # "deterministic_seeds",
         "num_iterations_plots",
         "training_weight_cutoff",
         "training_logger_interval",
@@ -112,7 +112,7 @@ class MLClassifierBase(MLModel):
         "val_weight_cutoff",
         "scheduler_config",
         "optimizer_config",
-        "linear_layer_weight_normalization",
+        # "linear_layer_weight_normalization",
 
 
     }
@@ -124,7 +124,7 @@ class MLClassifierBase(MLModel):
         "early_stopping_patience",
         "early_stopping_min_epochs",
         "early_stopping_min_diff",
-        "deterministic_seeds",
+        # "deterministic_seeds",
         "configs_to_use",
         "num_iterations_plots",
         "training_weight_cutoff",
@@ -133,7 +133,7 @@ class MLClassifierBase(MLModel):
         "val_weight_cutoff",
         "scheduler_config",
         "optimizer_config",
-        "linear_layer_weight_normalization",
+        # "linear_layer_weight_normalization",
 
 
 
@@ -953,17 +953,18 @@ class BogNetBase(MLClassifierBase):
 # from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
 
 bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
-    "epochs": 3,
+    "epochs": 8,
     "deterministic_seeds": [0],
-    "processes": ("tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", ),
-    # "processes": ("dy", "tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", ),
-
+    # "processes": ("tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", ),
+    "processes": ("dy", "tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", ),
+    "categorical_target_map": {"hh": 0, "tt": 1,"dy": 2,},
     # "label_smoothing_coefficient": 0.02,
     # "data_loader",
-    "training_epoch_length_cutoff": 3000,
+    "training_epoch_length_cutoff": 8000,
     # "categorical_features",
     # "continuous_features",
     "train_val_test_split": (0.75, 0.15, 0.1),
+    "class_factors": {"st": 1, "tt": 1},
     # "processes",
     # "categorical_target_map",
     # "class_factors",
@@ -984,7 +985,8 @@ bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
     "val_weight_cutoff": None,
     "scheduler_config": {"step_size": 1, "gamma": 0.8},
     "optimizer_config": {"learning_rate":0.5e-2, "decay_factor":0.4, "normalize": True, "apply_to": "weight"},
-    "linear_layer_weight_normalization": False,
+    # "optimizer_config": {"learning_rate":0.5e-2, "decay_factor":0.4, "normalize": True, "apply_to": "weight"},
+    # "linear_layer_weight_normalization": False,
 
 
     # set kwargs as properties and save keys separatly to identify
