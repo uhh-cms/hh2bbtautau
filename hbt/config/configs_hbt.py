@@ -61,6 +61,11 @@ def add_config(
         },
     )
 
+    # store a full postfix
+    for tag in {2022: ["preEE", "postEE"], 2023: ["preBPix", "postBPix"]}.get(year, []):
+        if campaign.has_tag(tag):
+            cfg.x.full_postfix = f"{year2}{tag}"
+
     ################################################################################################
     # helpers
     ################################################################################################
@@ -139,20 +144,14 @@ def add_config(
         "hh_ggf_hbb_htt_kl1_kt1_c23",
         "hh_vbf_hbb_htt_kv1_k2v1_kl1",
         "hh_vbf_hbb_htt_kv1_k2v0_kl1",
+        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
+        "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96",
+        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
+        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
         "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43",
         "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        # additional points besides default basis for central (broken) datasets
-        # *if_era(year=2023, values=[
-        #     "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
-        #     "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
-        #     "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
-        #     "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96",
-        # ]),
-        # processes from test samples, not used right now
-        # "hh_vbf_hbb_htt_kv1_k2v1_kl2",
-        # "hh_vbf_hbb_htt_kv1_k2v2_kl1",
         "radion_hh_ggf_hbb_htt_m450",
         "radion_hh_ggf_hbb_htt_m1200",
         "graviton_hh_ggf_hbb_htt_m450",
@@ -206,22 +205,25 @@ def add_config(
         "hh_ggf_hbb_htt_kl5_kt1_powheg",
 
         # hh vbf
-        "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
-        "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
-        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
-        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
-        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
-        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
-        # additional points of central (broken) datasets
-        # "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-        # "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
-        # "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
-        # "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
-        # test samples, not used right now
-        # *if_era(year=2022, values=[
-        #     "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",  # Poisson60KeepRAW for 2022post
-        #     "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",  # Poisson60KeepRAW for 2022post
-        # ]),
+        "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+        *if_not_era(year=2023, tag="preBPix", values=[
+            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
+        ]),
+        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+        "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96_madgraph",
+        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
+        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
+        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
+        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
+        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
+        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
+        # privately produced datasets
+        # "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
+        # "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
+        # "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
+        # "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
+        # "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
+        # "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
 
         # x -> hh resonances
         *if_era(year=2022, values=[
@@ -279,42 +281,13 @@ def add_config(
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
         # specific tautau datasets with pythia bug fix
-        *if_era(year=2022, tag="preEE", values=[
-            "dy_tautau_m50toinf_0j_amcatnlo",
-            "dy_tautau_m50toinf_1j_amcatnlo",
-            "dy_tautau_m50toinf_2j_amcatnlo",
-            # disabled for now
-            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        ]),
-        *if_era(year=2022, tag="postEE", values=[
-            # "dy_tautau_m50toinf_0j_amcatnlo",
-            # "dy_tautau_m50toinf_1j_amcatnlo",
-            # "dy_tautau_m50toinf_2j_amcatnlo",
-            # disabled for now
-            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        ]),
-        *if_era(year=2023, tag="preBPix", values=[
-            # "dy_tautau_m50toinf_0j_amcatnlo",
-            # "dy_tautau_m50toinf_1j_amcatnlo",
-            # "dy_tautau_m50toinf_2j_amcatnlo",
-            # disabled for now
-            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        ]),
-        *if_era(year=2023, tag="postBPix", values=[
-            "dy_tautau_m50toinf_0j_amcatnlo",
-            "dy_tautau_m50toinf_1j_amcatnlo",
-            "dy_tautau_m50toinf_2j_amcatnlo",
-            # disabled for now
-            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        ]),
+        "dy_tautau_m50toinf_0j_amcatnlo",
+        "dy_tautau_m50toinf_1j_amcatnlo",
+        "dy_tautau_m50toinf_2j_amcatnlo",
+        # disabled for now
+        # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+        # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+        # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
 
         # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
