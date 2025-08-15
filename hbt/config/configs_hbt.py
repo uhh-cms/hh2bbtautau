@@ -1557,7 +1557,7 @@ def add_config(
             version="v3",
         ))
         add_external("vbf_jtag_repo", Ext(
-            "/data/dust/user/prouvost/hh2bbtautau/external_files/VBFjtag-CCLUB_v1.0_4b5c6e8.tar.gz",
+            "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/VBFjtag-CCLUB_v1.0_4b5c6e8.tar.gz",
             subpaths=DotDict(
                 even="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_0",
                 odd="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_1",

@@ -13,7 +13,7 @@ from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column, full_like, flat_np_view
 from columnflow.types import Any
 
-from hbt.util import IF_RUN_2, MET_COLUMN
+from hbt.util import MET_COLUMN
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -24,7 +24,7 @@ logger = law.logger.get_logger(__name__)
 @producer(
     uses={
         "event", "channel_id",
-        "Jet.{pt,eta,phi,mass,jetId,btagDeepFlavB}", IF_RUN_2("Jet.puId"),
+        "Jet.{pt,eta,phi,mass}",
         MET_COLUMN("{pt,phi}"),
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
@@ -176,6 +176,10 @@ def hhbtag_init(self: Producer, **kwargs) -> None:
     # produce input columns
     if self.config_inst.x.sync:
         self.produces.add("sync_*")
+    if self.hhbtag_version == "v2":
+        self.uses.add("Jet.btagDeepFlavB")
+    if self.hhbtag_version == "v3":
+        self.uses.add("Jet.btagPNetB")
 
 
 @hhbtag.requires

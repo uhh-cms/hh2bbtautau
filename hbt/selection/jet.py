@@ -36,7 +36,7 @@ ak = maybe_import("awkward")
     },
     produces={
         hhbtag, vbfjtag,
-        "Jet.hhbtag", "Jet.vbfjtag", "Jet.bits", "matched_trigger_ids",
+        "Jet.hhbtag", "Jet.vbfjtag", "Jet.assignment_bits", "matched_trigger_ids",
     },
 )
 def jet_selection(
@@ -439,7 +439,7 @@ def jet_selection(
     # store some columns
     events = set_ak_column(events, "Jet.hhbtag", hhbtag_scores)
     events = set_ak_column(events, "Jet.vbfjtag", vbfjtag_scores)
-    events = set_ak_column(events, "Jet.bits", bits)
+    events = set_ak_column(events, "Jet.assignment_bits", bits)
 
     # build selection results plus new columns (src -> dst -> indices)
     result = SelectionResult(

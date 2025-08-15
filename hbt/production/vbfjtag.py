@@ -23,7 +23,7 @@ logger = law.logger.get_logger(__name__)
 @producer(
     uses={
         "event", "channel_id",
-        "Jet.{pt,eta,phi,mass,jetId,btagDeepFlavB}",
+        "Jet.{pt,eta,phi,mass,btagPNetB}",
         MET_COLUMN("{pt,phi}"),
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
@@ -59,15 +59,18 @@ def vbfjtag(
     # back transformations for the saving of the scores
     jet_unsorting_indices = ak.argsort(jet_sorting_indices)
 
+    # sorted vbfmask to avoid repetition
+    vbfjet_mask_sorted = vbfjet_mask[jet_sorting_indices]
+
     # prepare objects
     n_jets_max = 10
-    jets = events.Jet[jet_sorting_indices][vbfjet_mask[jet_sorting_indices]][event_mask][..., :n_jets_max]
+    jets = events.Jet[jet_sorting_indices][vbfjet_mask_sorted][event_mask][..., :n_jets_max]
     leps = lepton_pair[event_mask][..., [0, 1]]
     htt = leps[..., 0] + leps[..., 1]
     met = events[event_mask][self.config_inst.x.met_name]
     jet_shape = abs(jets.pt) >= 0
     n_jets_capped = ak.num(jets, axis=1)
-    is_hhbjet = ak.values_astype(is_hhbjet_mask[jet_sorting_indices][vbfjet_mask[jet_sorting_indices]][event_mask][..., :n_jets_max], np.float32)  # noqa: E501
+    is_hhbjet = ak.values_astype(is_hhbjet_mask[jet_sorting_indices][vbfjet_mask_sorted][event_mask][..., :n_jets_max], np.float32)  # noqa: E501
 
     # get input features
     input_features = [
@@ -138,7 +141,7 @@ def vbfjtag(
     scores = ak.concatenate([scores, scores_ext], axis=1)
 
     # remove scores for vbfjets matching the fatjet with highest particleNet_XbbVsQCD score
-    metric_table_fatjet = (events.Jet[jet_sorting_indices][vbfjet_mask[jet_sorting_indices]][event_mask].metric_table(selected_fatjets[event_mask]) > 0.8)  # noqa: E501
+    metric_table_fatjet = (events.Jet[jet_sorting_indices][vbfjet_mask_sorted][event_mask].metric_table(selected_fatjets[event_mask]) > 0.8)  # noqa: E501
 
     # since only one selected fatjet, take the first element of the metric table on the last axis
     # this works even if no selected fatjets are in the event mask
@@ -146,14 +149,15 @@ def vbfjtag(
 
     # bring mask back to full array to merge it with the vbfjet_mask once reordered
     full_cross_cleaned_fatjet_mask = full_like(events.Jet.pt, True, dtype=bool)
-    flat_np_view(full_cross_cleaned_fatjet_mask)[ak.flatten(vbfjet_mask[jet_sorting_indices] & event_mask)] = flat_np_view(cross_cleaned_fatjet_mask)  # noqa: E501
+    flat_np_view(full_cross_cleaned_fatjet_mask)[ak.flatten(vbfjet_mask_sorted & event_mask)] = flat_np_view(cross_cleaned_fatjet_mask)  # noqa: E501
 
     # prevent Memory Corruption Error
     vbfjet_mask = ak.fill_none(vbfjet_mask, False, axis=-1)
+    vbfjet_mask_sorted = ak.fill_none(vbfjet_mask_sorted, False, axis=-1)
 
     # insert scores into an array with same shape as input jets (without vbfjet_mask and event_mask)
     all_scores = ak.fill_none(full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
-    flat_np_view(all_scores, axis=1)[ak.flatten(vbfjet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)  # noqa: E501
+    flat_np_view(all_scores, axis=1)[ak.flatten(vbfjet_mask_sorted & event_mask, axis=1)] = flat_np_view(scores)
 
     # bring the scores and the fatjet cleaned mask back to the original ordering
     all_scores = all_scores[jet_unsorting_indices]
