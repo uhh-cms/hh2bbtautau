@@ -57,6 +57,7 @@ def get_task_infos(task: law.Task, config) -> dict[str, Any]:
 
     # plotting task
     if "category" in task.branch_data:
+        # TODO: this might fail for multi-config tasks
         return {
             "category_name": task.branch_data.category,
             "variable_name": task.branch_data.variable,
@@ -88,13 +89,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             n_bins: int = 10,
         ) -> tuple[np.ndarray, np.ndarray]:
             """
-            Determine new bin edges that result in a flat signal distribution. The edges are determined by the signal
-            distribution, while the background distribution is used to ensure that the background yield in each bin is
-            sufficient.
+            Determine new bin edges that result in a flat signal distribution.
+            The edges are determined by the signal distribution, while the background distribution
+            is used to ensure that the background yield in each bin is sufficient.
             """
             # prepare parameters
             low_edge, max_edge = 0, 1
             bin_edges = [max_edge]
+            indices_gathering = [0]
 
             # bookkeep reasons for stopping binning
             stop_reason = ""
@@ -113,7 +115,9 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             if neg_mask.any():
                 y[neg_mask] = 0
                 if neg_mask.mean() > 0.05:
-                    logger.warning(f"found {neg_mask.mean() * 100:.1f}% of the signal bins to be negative")
+                    logger.warning(
+                        f"found {neg_mask.mean() * 100:.1f}% of the signal bins to be negative",
+                    )
 
             # calculate cumulative of reversed signal yield and yield per bin
             y_cumsum = np.cumsum(y, axis=0)
@@ -175,8 +179,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                             # TODO: maybe also check if the background conditions are just barely met and advance
                             # stop_idx to the middle between the current value and the next one that would change
                             # anything about the background predictions; this might be more stable as the current
-                            # implementation can highly depend on the exact value of a single event (the one that tips
-                            # the constraints over the edge to fulfillment)
+                            # implementation can highly depend on the exact value of a single event (the one that
+                            # tips the constraints over the edge to fulfillment)
                             break
 
                         # constraints not met, advance index to include the next bin and try again
@@ -195,12 +199,12 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 else:
                     # calculate bin center as new edge
                     edge_value = float(dnn_score_signal[stop_idx - 1:stop_idx + 1].mean())
-
                 # prevent out of bounds values and push them to the boundaries
                 bin_edges.append(max(min(edge_value, max_edge), low_edge))
 
                 y_already_binned += y[start_idx:stop_idx].sum()
                 start_idx = stop_idx
+                indices_gathering.append(stop_idx)
 
             # make sure the lower dnn_output (max events) is included
             if bin_edges[-1] != low_edge:
@@ -209,6 +213,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                         f"number of bins reached and initial bin edge is not minimal bin edge (edges: {bin_edges})",
                     )
                 bin_edges.append(low_edge)
+                indices_gathering.append(num_bins_orig)
 
             # some debugging output
             n_bins_actual = len(bin_edges) - 1
@@ -219,9 +224,41 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                     f"  started from {num_bins_orig} bins, targeted {n_bins} but ended at {n_bins_actual} bins\n"
                     f"    -> reason: {stop_reason or 'NO REASON!?'}",
                 )
+                n_bins = n_bins_actual
 
-            # flip back
-            return np.flip(np.array(bin_edges), axis=-1)
+            # flip indices to the right order
+            indices_gathering = (np.flip(indices_gathering) - num_bins_orig) * -1
+            return np.flip(np.array(bin_edges), axis=-1), indices_gathering
+
+        # rebinning helper
+        def apply_edges(
+            h: hist.Hist,
+            edges: np.ndarray,
+            indices: np.ndarray,
+        ) -> hist.Hist:
+            """
+            Rebin the content axes of a given hist histogram *h* to given *edges* and their *indices*. The rebinned
+            histogram is returned.
+            """
+            # sort edges and indices, by default they are sorted
+            ascending_order = np.argsort(edges)
+            edges, indices = edges[ascending_order], indices[ascending_order]
+
+            # create new hist and add axes with coresponding edges
+            # define new axes, from old histogram and rebinned variable with new axis
+            variable = h.axes[-1].name
+            axes = list(h.axes[:-1]) + [hist.axis.Variable(edges, name=variable, label=f"{variable}_flat_s")]
+            new_hist = hist.Hist(*axes, storage=hist.storage.Weight())
+
+            # slice the old histogram storage view with new edges
+            # sum over sliced bin contents to get rebinned content
+            slices = [slice(int(indices[index]), int(indices[index + 1])) for index in range(0, len(indices) - 1)]
+            slice_array = [np.sum(h.view()[..., _slice], axis=-1, keepdims=True) for _slice in slices]
+            # concatenate the slices to get the new bin content
+            # store in new histogram storage view
+            np.concatenate(slice_array, axis=-1, out=new_hist.view())
+
+            return new_hist
 
         # find signal and background histograms
         signal_hist: dict[od.Config, hist.Hist] = {}
@@ -268,17 +305,20 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # note: for signal, this assumes that variable axes have the same name, but they probably always will
         signal_sum = sum((signal_hists := list(signal_hist.values()))[1:], signal_hists[0].copy())
         background_sum = sum((list(proc_hists.items()) for proc_hists in background_hists.values()), [])
-        flat_s_edges = find_edges(
+        flat_s_edges, flat_s_indices = find_edges(
             signal_hist=signal_sum,
             background_hists=background_sum,
             n_bins=n_bins,
         )
-        print(f"edges in {task_infos[config_inst]['category_name']}: {flat_s_edges.tolist()}")
 
         # 3. apply to hists
         for config_inst, proc_hists in hists.items():
             for process_inst, h in proc_hists.items():
-                proc_hists[process_inst] = h[{h.axes[-1].name: hist.rebin(edges=flat_s_edges)}]
+                proc_hists[process_inst] = apply_edges(
+                    h=h,
+                    edges=flat_s_edges,
+                    indices=flat_s_indices,
+                )
 
         return hists
 

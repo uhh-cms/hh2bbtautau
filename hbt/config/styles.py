@@ -128,13 +128,13 @@ def stylize_processes(config: od.Config) -> None:
         ("1", "2", "1"),
         ("1", "1", "2"),
         ("1p74", "1p37", "14p4"),
+        ("2p12", "3p87", "m5p96"),
         ("m0p012", "0p03", "10p2"),
         ("m0p758", "1p44", "m19p3"),
         ("m0p962", "0p959", "m1p43"),
         ("m1p21", "1p94", "m0p94"),
         ("m1p6", "2p72", "m1p36"),
         ("m1p83", "3p57", "m3p39"),
-        ("m2p12", "3p87", "m5p96"),
     ]:
         # unpack additional options with defaults
         color, *_ = (opts + [cfg.x.colors.brown])[:1]
