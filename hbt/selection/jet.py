@@ -19,6 +19,7 @@ from columnflow.columnar_util import (
 from columnflow.util import maybe_import
 
 from hbt.production.hhbtag import hhbtag
+from hbt.production.vbfjtag import vbfjtag
 from hbt.selection.lepton import trigger_object_matching
 from hbt.util import IF_RUN_2
 
@@ -28,15 +29,14 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
-        jet_id, fatjet_id, hhbtag,
+        jet_id, fatjet_id, hhbtag, vbfjtag,
         "fired_trigger_ids", "TrigObj.{pt,eta,phi}",
         "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
-        "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,subJetIdx1,subJetIdx2}",
-        "SubJet.{pt,eta,phi,mass,btagDeepB}",
+        "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,particleNet_XbbVsQCD}",
     },
     produces={
-        hhbtag,
-        "Jet.hhbtag", "matched_trigger_ids",
+        hhbtag, vbfjtag,
+        "Jet.hhbtag", "Jet.vbfjtag", "Jet.assignment_bits", "matched_trigger_ids",
     },
 )
 def jet_selection(
@@ -57,9 +57,6 @@ def jet_selection(
     """
     is_2016 = self.config_inst.campaign.x.year == 2016
     ch_tautau = self.config_inst.get_channel("tautau")
-
-    # local jet index
-    li = ak.local_index(events.Jet)
 
     # recompute jet ids
     events = self[jet_id](events, **kwargs)
@@ -83,6 +80,10 @@ def jet_selection(
             ak4_mask &
             ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
         )
+    else:
+        # Horn removal recommendation : remove all jets below 50 GeV if they are in the eta range ]2.5, 3.0[
+        # from https://twiki.cern.ch/twiki/bin/view/CMS/JetMET?rev=293#Run3_recommendations
+        ak4_mask = ak4_mask & ~((events.Jet.pt <= 50) & (abs(events.Jet.eta) > 2.5) & ((events.Jet.eta) < 3.0))
 
     # default jets
     default_mask = (
@@ -281,60 +282,75 @@ def jet_selection(
     # fat jets
     #
 
+    # new definition for run3 requires only one AK8 jet, no subjet matching
     fatjet_mask = (
-        (events.FatJet.jetId == 6) &  # tight plus lepton veto
+        (events.FatJet.jetId & (1 << 1) != 0) &  # tight
         (events.FatJet.msoftdrop > 30.0) &
         (events.FatJet.pt > 250.0) &  # ParticleNet not trained for lower values
         (abs(events.FatJet.eta) < 2.5) &
-        ak.all(events.FatJet.metric_table(lepton_results.x.leading_taus) > 0.8, axis=2) &
-        (events.FatJet.subJetIdx1 >= 0) &
-        (events.FatJet.subJetIdx2 >= 0)
+        ak.all(events.FatJet.metric_table(lepton_results.x.leading_taus) > 0.8, axis=2)
     )
+
+    # We could also allow for fatjettautau cleaning here, but since we don't have this kind of boosted regime,
+    # we do not apply this selection here
 
     # store fatjet and subjet indices
     fatjet_indices = ak.local_index(events.FatJet.pt)[fatjet_mask]
-    subjet_indices = ak.concatenate(
-        [
-            events.FatJet[fatjet_mask].subJetIdx1[..., None],
-            events.FatJet[fatjet_mask].subJetIdx2[..., None],
-        ],
-        axis=2,
-    )
 
-    # check subjet btags (only deepcsv available)
-    # note: skipped for now as we do not have a final strategy for run 3 yet
-    # wp = ...
-    # subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
+    # store the one fatjet with the highest ParticleNet_XbbVsQCD score
+
+    # indices for sorting fatjets first by particleNet score, then by pt
+    # for this, combine pNet score and pt values, e.g. pNet 255 and pt 32.3 -> 2550032.3
+    f = 10**(np.ceil(np.log10(ak.max(events.FatJet.pt))) + 2)
+    fatjet_sorting_key = events.FatJet.particleNet_XbbVsQCD * f + events.FatJet.pt
+    fatjet_sorting_indices = ak.argsort(fatjet_sorting_key, axis=-1, ascending=False)
+
+    selected_fatjets = ak.firsts(events.FatJet[fatjet_sorting_indices][fatjet_mask[fatjet_sorting_indices]], axis=1)
 
     #
     # vbf jets
     #
 
-    vbf_mask = (
+    vbf_mask_with_hhbjets = (
         ak4_mask &
         (events.Jet.pt > 20.0) &
-        (abs(events.Jet.eta) < 4.7) &
-        (~hhbjet_mask) &
-        ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 0]]) > 0.4, axis=2) &
-        ak.all(events.Jet.metric_table(events.SubJet[subjet_indices[..., 1]]) > 0.4, axis=2)
+        (abs(events.Jet.eta) < 4.7)
     )
 
-    # build vectors of vbf jets representing all combinations and apply selections
-    vbf1, vbf2 = ak.unzip(ak.combinations(events.Jet[vbf_mask], 2, axis=1))
-    vbf_pair = ak.concatenate([vbf1[..., None], vbf2[..., None]], axis=2)
-    vbfjj = vbf1 + vbf2
-    vbf_pair_mask = (
-        (vbfjj.mass > 500.0) &
-        (abs(vbf1.eta - vbf2.eta) > 3.0)
+    #
+    # vbf-jet identification
+    #
+
+    # get the vbfjtag values per jet per event
+    events = self[vbfjtag](
+        events,
+        vbf_mask_with_hhbjets,
+        lepton_results.x.lepton_pair,
+        hhbjet_mask,
+        selected_fatjets,
+        **kwargs,
     )
+
+    vbfjtag_scores = events.vbfjtag_score
+    # create a mask where only the two highest scoring vbfjets are selected
+    score_indices = ak.argsort(vbfjtag_scores, axis=1, ascending=False)
+    vbfjet_mask = mask_from_indices(score_indices[:, :2], vbfjtag_scores)
+    # due to the original jet ordering, applying this mask gives the vbf jets pt ordered
+
+    # remove the jets without a valid score
+    vbfjet_mask = vbfjet_mask & (~(vbfjtag_scores == EMPTY_FLOAT))
+
+    # TODO: trigger matching on these jets + trigger selection for parking triggers
+    # TODO: overlap removal of events based on trigger matched objects
 
     # redefine the trigger matched list after it was updated with tautaujet ids
     matched_trigger_ids_list = [events.matched_trigger_ids]
 
     # extra requirements for events for which only the tau tau vbf cross trigger fired
-    if not self.trigger_ids_ttv:
-        cross_vbf_mask = full_like(events.event, False, dtype=bool)
-    else:
+    # if not self.trigger_ids_ttv:
+    #     cross_vbf_mask = full_like(events.event, False, dtype=bool)
+    # else:
+    if self.trigger_ids_ttv:
         ttv_fired_all_matched = full_like(events.event, False, dtype=bool)
         for trigger, _, leg_masks in trigger_results.x.trigger_data:
             if trigger.id in self.trigger_ids_ttv:
@@ -353,9 +369,9 @@ def jet_selection(
         matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
         events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
 
-        # update the "ttv only" mask
-        cross_vbf_masks = [events.matched_trigger_ids == tid for tid in self.trigger_ids_ttv]
-        cross_vbf_mask = ak.all(reduce(or_, cross_vbf_masks), axis=1)
+        # # update the "ttv only" mask
+        # cross_vbf_masks = [events.matched_trigger_ids == tid for tid in self.trigger_ids_ttv]
+        # cross_vbf_mask = ak.all(reduce(or_, cross_vbf_masks), axis=1)
 
         # remove all events that fired only vbf trigger but were not matched or
         # that fired vbf and tautaujet triggers and matched the taus but not the jets
@@ -387,32 +403,6 @@ def jet_selection(
 
         match_at_least_one_trigger = ak.where(ttv_fired_v_not_matched, False, match_at_least_one_trigger)
 
-    # impose additional cuts on the vbf pair in case only a ttv trigger fired (and all objects
-    # matched), but no other trigger
-    vbf_pair_mask = vbf_pair_mask & (
-        (~cross_vbf_mask) | (
-            (vbfjj.mass > 800) &
-            (ak.max(vbf_pair.pt, axis=2) > 140.0) &
-            (ak.min(vbf_pair.pt, axis=2) > 60.0)
-        )
-    )
-
-    # get the index to the pair with the highest pass
-    vbf_mass_indices = ak.argsort(vbfjj.mass, axis=1, ascending=False)
-    vbf_pair_index = vbf_mass_indices[vbf_pair_mask[vbf_mass_indices]][..., :1]
-
-    # get the two indices referring to jets passing vbf_mask
-    # and change them so that they point to jets in the full set, sorted by pt
-    vbf_indices_local = ak.concatenate(
-        [
-            ak.singletons(idx) for idx in
-            ak.unzip(ak.firsts(ak.argcombinations(events.Jet[vbf_mask], 2, axis=1)[vbf_pair_index]))
-        ],
-        axis=1,
-    )
-    vbfjet_indices = li[vbf_mask][vbf_indices_local]
-    vbfjet_indices = vbfjet_indices[ak.argsort(events.Jet[vbfjet_indices].pt, axis=1, ascending=False)]
-
     #
     # final selection and object construction
     #
@@ -420,8 +410,8 @@ def jet_selection(
     # pt sorted indices to convert mask
     jet_indices = sorted_indices_from_mask(default_mask, events.Jet.pt, ascending=False)
 
-    # get indices of the two hhbjets
-    hhbjet_indices = sorted_indices_from_mask(hhbjet_mask, hhbtag_scores, ascending=False)
+    # get indices of the two hhbjets, sorted by pt
+    hhbjet_indices = sorted_indices_from_mask(hhbjet_mask, events.Jet.pt, ascending=False)
 
     # keep indices of default jets that are explicitly not selected as hhbjets for easier handling
     non_hhbjet_indices = sorted_indices_from_mask(
@@ -429,6 +419,9 @@ def jet_selection(
         events.Jet.pt,
         ascending=False,
     )
+
+    # get indices of the two vbfjets, sorted by pt
+    vbfjet_indices = sorted_indices_from_mask(vbfjet_mask, events.Jet.pt, ascending=False)
 
     # final event selection (only looking at number of default jets for now)
     # perform a cut on ≥1 jet and all other cuts first, and then cut on ≥2, resulting in an
@@ -440,15 +433,25 @@ def jet_selection(
     )
     jet_sel2 = jet_sel & (ak.sum(default_mask, axis=1) >= 2)
 
+    # create bits for jets
+    first_hhbjet = mask_from_indices(hhbjet_indices[:, :1], events.Jet.pt)
+    second_hhbjet = mask_from_indices(hhbjet_indices[:, 1:2], events.Jet.pt)
+    vbfjet1 = mask_from_indices(vbfjet_indices[:, :1], events.Jet.pt)
+    vbfjet2 = mask_from_indices(vbfjet_indices[:, 1:2], events.Jet.pt)
+    bits = first_hhbjet + 2 * second_hhbjet + 4 * vbfjet1 + 8 * vbfjet2
+
     # some final type conversions
     jet_indices = ak.values_astype(ak.fill_none(jet_indices, 0), np.int32)
     hhbjet_indices = ak.values_astype(hhbjet_indices, np.int32)
     non_hhbjet_indices = ak.values_astype(ak.fill_none(non_hhbjet_indices, 0), np.int32)
     fatjet_indices = ak.values_astype(fatjet_indices, np.int32)
     vbfjet_indices = ak.values_astype(ak.fill_none(vbfjet_indices, 0), np.int32)
+    bits = ak.values_astype(bits, np.uint8)
 
     # store some columns
     events = set_ak_column(events, "Jet.hhbtag", hhbtag_scores)
+    events = set_ak_column(events, "Jet.vbfjtag", vbfjtag_scores)
+    events = set_ak_column(events, "Jet.assignment_bits", bits)
 
     # build selection results plus new columns (src -> dst -> indices)
     result = SelectionResult(
@@ -464,16 +467,12 @@ def jet_selection(
         objects={
             "Jet": {
                 "Jet": jet_indices,
-                "HHBJet": hhbjet_indices,
+                "HHBJet": hhbjet_indices,  # sorted by pt
                 "NonHHBJet": non_hhbjet_indices,
-                "VBFJet": vbfjet_indices,
+                "VBFJet": vbfjet_indices,  # sorted by pt
             },
             "FatJet": {
                 "FatJet": fatjet_indices,
-            },
-            "SubJet": {
-                "SubJet1": subjet_indices[..., 0],
-                "SubJet2": subjet_indices[..., 1],
             },
         },
         aux={
