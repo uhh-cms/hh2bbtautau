@@ -566,11 +566,9 @@ if not isinstance(torchdata, MockModule):
             self.class_target_name: str = "categorical_target"
 
         def _array_set_to_tensor(self, features: list[str | Route]) -> torch.Tensor:
-            print("Converting features to torch tensor:")
             features = list(map(Route, features))
             columns = []
             for feature in features:
-                print(feature)
                 columns.append(ak.to_torch(self._extract_columns(self.data, feature)).reshape(-1, 1))
             return torch.cat(columns, axis=-1)
 
