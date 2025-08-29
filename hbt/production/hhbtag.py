@@ -174,6 +174,7 @@ def hhbtag(
 @hhbtag.init
 def hhbtag_init(self: Producer, **kwargs) -> None:
     # produce input columns
+    self.hhbtag_version = self.config_inst.x.external_files.hh_btag_repo.version
     if self.config_inst.x.sync:
         self.produces.add("sync_*")
     if self.hhbtag_version == "v2":
