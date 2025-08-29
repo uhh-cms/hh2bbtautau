@@ -53,6 +53,11 @@ torch = maybe_import("torch")
 logger = law.logger.get_logger(__name__)
 
 
+def expand_braces(*columns: Container[str]) -> list[str]:
+    final_set = set()
+    final_set.update(*list(map(str, law.util.brace_expand(obj)) for obj in columns))
+    return sorted(final_set, key=str)
+
 class MLClassifierBase(MLModel):
     """
     Provides a base structure to implement Multiclass Classifier in Columnflow
@@ -60,14 +65,6 @@ class MLClassifierBase(MLModel):
     # flag denoting whether the preparation_producer is invoked before evaluate()
     preparation_producer_in_ml_evaluation: bool = False
 
-    # set some defaults, can be overwritten by subclasses or via cls_dict
-    # NOTE: the order of processes is crucial! Do not change after training
-    _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1")
-    # configs_to_use: tuple[str] = ("22pre_v14_larger_limited", "22post_v14_larger_limited")
-    categorical_target_map: dict[str, int] = {
-        "tt": 0,
-        "hh": 1,
-    }
 
     # identifier of the PrepareMLEvents and MergeMLEvents outputs. Needs to be changed when producing new input features
     store_name: str = "inputs_base"
@@ -77,63 +74,128 @@ class MLClassifierBase(MLModel):
     # NOTE: we might want to use the data_loader.hyperparameter_deps instead
     preml_params: set[str] = {"data_loader", "categorical_features", "continuous_features", "train_val_test_split"}
 
+
+    ### DEFAULT PARAMETERS - can be overwritten by subclasses via cls_dict ###
+    ### A small explanation of the parameters is given next to the parameter ###
+    ###
+
+
+    ### default hash parameters -> Only need to re-run training when changing these
+    ## meta and inputs parameters
+    _default__configs_to_use: tuple[str] = ("{22,23}{pre,post}_v14",)
+    _default__deterministic_seeds: list[int] | int | None = [0,1,2,3],
+    # _default__deterministic_seeds: list[int] | int | None = [0] # use None for non-deterministic training
+    # NOTE: the order of processes is crucial! Do not change after training
+    _default__processes: tuple[str] = ("dy", "tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1" )
+
+    ## input features
+    _default__categorical_features = expand_braces(
+        "pair_type",
+        "decay_mode1",
+        "decay_mode2",
+        "lepton1.charge",
+        "lepton2.charge",
+        "has_fatjet",
+        "has_jet_pair",
+        "year_flag",
+    )
+    _default__continuous_features = expand_braces(
+        "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+        "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+        "fatjet.{energy,mass,px,py,pz}",
+        "lepton1.{energy,mass,px,py,pz}",
+        "lepton2.{energy,mass,px,py,pz}",
+        "PuppiMET.{px,py}",
+        "reg_dnn_nu{1,2}_{px,py,pz}",
+    )
+
+    _default__lbn_features = expand_braces(
+        "bjet1.{energy,mass,px,py,pz}",
+        "bjet2.{energy,mass,px,py,pz}",
+        "fatjet.{energy,mass,px,py,pz}",
+        "lepton1.{energy,mass,px,py,pz}",
+        "lepton2.{energy,mass,px,py,pz}",
+        "PuppiMET.{energy,mass,px,py}",
+        "reg_dnn_nu{1,2}_{px,py,pz}",
+        )
+
+    ## dataset specific targets and oversampling
     # NOTE: we split each fold into train, val, test + do k-folding, so we have a 4-way split in total
     # TODO: test whether setting "test" to 0 is working
-    train_val_test_split: tuple = (0.75, 0.15, 0.10)
-    folds: int = 4
-
-    # training-specific parameters. Only need to re-run training when changing these
+    _default__folds: int = 4
+    _default__train_val_test_split: tuple = (0.75, 0.15, 0.10)
+    _default__categorical_target_map: dict[str, int] = {"hh": 0, "tt": 1, "dy": 2,}
     _default__class_factors: dict = {"st": 1, "tt": 1}
     _default__sub_process_class_factors: dict = {"st": 2, "tt": 1}
-    _default__negative_weights: str = "handle"
-    _default__epochs: int = 50
-    _default__batchsize: int = 2 ** 10
-    _default__early_stopping_patience: int = 10
-    _default__early_stopping_min_epochs: int = 4
-    _default__early_stopping_min_diff: float = 0.0
-    _default__deterministic_seeds: list[int] | int | None = None
-    _default__configs_to_use: tuple[str] = ("{22,23}{pre,post}_v14",)
+    _default__negative_weights: str = "handle" # options "ignore", "abs", "handle"
+    _default__training_weight_cutoff: float =  0.05 # do not resample phase spaces with low contribution
+    _default__val_weight_cutoff: float | None = None
+
+    ## traning specific parameters
+    _default__epochs: int = 20
+    _default__batchsize : int = 2 ** 12
+    _default__label_smoothing_coefficient = 0.00, # default labelsmoothing is off
+    _default__early_stopping_config: dict = {
+        "patience": 4, # wait n events before taking action
+        "min_epochs": 2, # minimum number of epochs to run before early stopping can be considered
+        "min_diff": 0.01, #
+        }
+    _default__optimizer_config : dict = {
+        "learning_rate":0.5e-2,
+        "decay_factor":0.4, # which factor of
+        "normalize": True, # normalize decay factor to number of weights
+        "apply_to": "weight" # options: "weight", "bias", "all" - which parameters to consider for decay
+    }
+    _default__scheduler_config = {"step_size": 1, "gamma": 0.9}
+    _default__linear_layer_weight_normalization: bool = False # apply weight normalization to linear layers
+
+    ## logging related parameters
+    _default__training_logger_interval = 20 # print log every n iterations
+    _default__val_epoch_length_cutoff = None # after how many iterations to stop the validation epoch
 
     # parameters to add into the `parameters` attribute to determine the 'parameters_repr' and to store in a yaml file
     bookkeep_params: set[str] = {
-        "data_loader", "categorical_features", "continuous_features", "train_val_test_split",
+        "data_loader", "categorical_features", "continuous_features", "lbn_features", "train_val_test_split",
         "processes", "categorical_target_map", "class_factors", "sub_process_class_factors",
         "negative_weights", "epochs", "batchsize", "folds",
         "training_epoch_length_cutoff",
-        "early_stopping_patience",
-        "early_stopping_min_epochs",
-        "early_stopping_min_diff",
         "configs_to_use",
-        # "deterministic_seeds",
-        "num_iterations_plots",
+        "deterministic_seeds",
         "training_weight_cutoff",
         "training_logger_interval",
         "val_epoch_length_cutoff",
         "val_weight_cutoff",
         "scheduler_config",
         "optimizer_config",
-        # "linear_layer_weight_normalization",
-
-
+        "linear_layer_weight_normalization",
+        "early_stopping_config",
+        "label_smoothing_coefficient",
     }
 
     # parameters that can be overwritten via command line
     settings_parameters: set[str] = {
-        "processes", "class_factors", "sub_process_class_factors",
-        "negative_weights", "epochs", "batchsize",
-        "early_stopping_patience",
-        "early_stopping_min_epochs",
-        "early_stopping_min_diff",
-        # "deterministic_seeds",
+        "processes",
+        "class_factors",
+        "sub_process_class_factors",
+        "negative_weights",
+        "epochs",
+        "batchsize",
+        "deterministic_seeds",
         "configs_to_use",
-        "num_iterations_plots",
         "training_weight_cutoff",
         "training_logger_interval",
         "val_epoch_length_cutoff",
         "val_weight_cutoff",
         "scheduler_config",
         "optimizer_config",
-        # "linear_layer_weight_normalization",
+        "early_stopping_config",
+        "linear_layer_weight_normalization",
+        "label_smoothing_coefficient",
+        "train_val_test_split",
+        "categorical_target_map",
+        "categorical_features",
+        "continuous_features",
+        "lbn_features",
 
 
 
@@ -170,7 +232,7 @@ class MLClassifierBase(MLModel):
         """
         Initialization function of the MLModel. We first set properties using values from the
         *self.parameters* dictionary that is obtained via the `--ml-model-settings` parameter. If
-        the parameter is not set via command line,cthe "_default__{attr}" classattribute is used as
+        the parameter is not set via command line,the "_default__{attr}" classattribute is used as
         fallback. Then we cast the parameters to the correct types and store them as individual
         class attributes. Finally, we store the parameters in the `self.parameters` attribute,
         which is used both to create a hash for the output path and to store the parameters in a yaml file.
@@ -182,7 +244,6 @@ class MLClassifierBase(MLModel):
         Similarly, a parameter starting with "_default__" must be part of the `settings_parameters`.
         """
         super().__init__(*args, **kwargs)
-
         # logger.warning("Running MLModel init")
         # checks
         if diff := self.settings_parameters.difference(self.bookkeep_params):
@@ -244,7 +305,6 @@ class MLClassifierBase(MLModel):
 
         # sort the self.settings_parameters
         self.parameters = DotDict(sorted(self.parameters.items()))
-
         self._model = None
         # sanity check: for each process in "train_nodes", we need to have 1 process with "ml_id" in config
 
@@ -391,22 +451,38 @@ class MLClassifierBase(MLModel):
                 if f"mlscore.{proc}" not in config_inst.variables:
                     proc_inst = config_inst.get_process(proc, default=None)
                     config_inst.add_variable(
-                        name=f"mlscore.{proc}",
+                        name=f"mlscore_{proc}_fine",
                         expression=f"mlscore.{proc}",
                         null_value=EMPTY_FLOAT,
                         binning=(1000, 0., 1.),
                         x_title=f"DNN output score {proc_inst.x('ml_label', proc) if proc_inst else proc}",
-                        aux={
-                            "rebin": 25,
-                            "rebin_config": {
-                                "processes": [proc],
-                                "n_bins": 4,
-                            },
-                        },  # automatically rebin to 40 bins for plotting tasks
+                        # aux={
+                        #     "rebin": 25,
+                        #     "rebin_config": {
+                        #         "processes": [proc],
+                        #         "n_bins": 4,
+                        #     },
+                        # },  # automatically rebin to 40 bins for plotting tasks
                     )
 
                     config_inst.add_variable(
-                        name=f"best_mlscore.{proc}",
+                        name=f"mlscore.{proc}",
+                        expression=f"mlscore.{proc}",
+                        null_value=EMPTY_FLOAT,
+                        binning=(25., 0., 1.),
+                        x_title=f"DNN output score {proc_inst.x('ml_label', proc) if proc_inst else proc}",
+                        # aux={
+                        #     "rebin": 25,
+                        #     "rebin_config": {
+                        #         "processes": [proc],
+                        #         "n_bins": 4,
+                        #     },
+                        # },  # automatically rebin to 40 bins for plotting tasks
+                    )
+
+
+                    config_inst.add_variable(
+                        name=f"best_mlscore_{proc}",
                         expression=f"best_mlscore.{proc}",
                         null_value=EMPTY_FLOAT,
                         binning=(1000, 0., 1.),
@@ -483,15 +559,15 @@ class MLClassifierBase(MLModel):
 
         return used_datasets
 
-    @property
-    @abstractmethod
-    def continuous_features(self):
-        pass
+    # @property
+    # @abstractmethod
+    # def continuous_features(self):
+    #     pass
 
-    @property
-    @abstractmethod
-    def categorical_features(self):
-        pass
+    # @property
+    # @abstractmethod
+    # def categorical_features(self):
+    #     pass
 
     def uses(self, config_inst: od.Config) -> set[Route | str]:
         columns = set(self.categorical_features) | set(self.continuous_features)
@@ -839,7 +915,6 @@ class BogNetBase(MLClassifierBase):
 
     # set some defaults, can be overwritten by subclasses or via cls_dict
     # NOTE: the order of processes is crucial! Do not change after training
-    # configs_to_use: tuple[str] = ("22pre_v14_larger_limited", "22post_v14_larger_limited")
 
     # identifier of the PrepareMLEvents and MergeMLEvents outputs. Needs to be changed when producing new input features
     store_name: str = "inputs_base"
@@ -851,22 +926,38 @@ class BogNetBase(MLClassifierBase):
 
     # NOTE: we split each fold into train, val, test + do k-folding, so we have a 4-way split in total
     # TODO: test whether setting "test" to 0 is working
-    train_val_test_split: tuple = (0.75, 0.15, 0.10)
-    folds: int = 4
 
     # training-specific parameters. Only need to re-run training when changing these
-    # _default__processes: tuple[str] = ("dy", "tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", )
-    _default__processes: tuple[str] = ("tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", )
-    _default__class_factors: dict = {"st": 1, "tt": 1}
-    _default__sub_process_class_factors: dict = {"st": 2, "tt": 1}
-    _default__negative_weights: str = "handle"
-    _default__epochs: int = 10
-    _default__batchsize: int = 2048 * 3
-    _default__early_stopping_patience: int = 10
-    _default__early_stopping_min_epochs: int = 4
-    _default__early_stopping_min_diff: float = 0.0
     _default__deterministic_seeds: list[int] | int | None = None
     _default__configs_to_use: tuple[str] = ("{22,23}{pre,post}_v14",)
+    _default_categorical_features = expand_braces(
+        "pair_type",
+        "decay_mode1",
+        "decay_mode2",
+        "lepton1.charge",
+        "lepton2.charge",
+        "has_fatjet",
+        "has_jet_pair",
+        "year_flag",
+    )
+    _default_continuous_features = expand_braces(
+        "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+        "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+        "fatjet.{energy,mass,px,py,pz}",
+        "lepton1.{energy,mass,px,py,pz}",
+        "lepton2.{energy,mass,px,py,pz}",
+        "PuppiMET.{px,py}",
+        "reg_dnn_nu{1,2}_{px,py,pz}",
+    )
+    _default_lbn_features = expand_braces(
+        "bjet1.{energy,mass,px,py,pz}",
+        "bjet2.{energy,mass,px,py,pz}",
+        "fatjet.{energy,mass,px,py,pz}",
+        "lepton1.{energy,mass,px,py,pz}",
+        "lepton2.{energy,mass,px,py,pz}",
+        "PuppiMET.{energy,mass,px,py}",
+        "reg_dnn_nu{1,2}_{px,py,pz}",
+        )
 
     def training_producers(self, analysis_inst: od.Analysis, requested_producers: Sequence[str]) -> list[str]:
         # fix MLTraining Phase Space
@@ -895,46 +986,13 @@ class BogNetBase(MLClassifierBase):
         # check if input feature set is set consistently
         return model
 
-    def _process_columns(self, columns: Container[str]) -> list[str]:
-        final_set = set()
-        final_set.update(*list(map(str, law.util.brace_expand(obj)) for obj in columns))
-        return sorted(final_set, key=str)
-
-    @property
-    def categorical_target_map(self) -> dict[str, int]:
-        return {
-        "hh": 0,
-        "tt": 1,
-        # "dy": 2,
-        }
-
-    @property
-    def categorical_features(self) -> list[str]:
-        columns = {
-            "pair_type",
-            "decay_mode1",
-            "decay_mode2",
-            "lepton1.charge",
-            "lepton2.charge",
-            "has_fatjet",
-            "has_jet_pair",
-            "year_flag",
-        }
-        return self._process_columns(columns)
-
-    @property
-    def continuous_features(self) -> list[str]:
-        columns = {
-            "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
-            "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
-            "fatjet.{energy,mass,px,py,pz}",
-            "lepton1.{energy,mass,px,py,pz}",
-            "lepton2.{energy,mass,px,py,pz}",
-            "PuppiMET.{px,py}",
-            "reg_dnn_nu{1,2}_{px,py,pz}",
-        }
-        return self._process_columns(columns)
-
+    # @property
+    # def categorical_target_map(self) -> dict[str, int]:
+    #     return {
+    #     "hh": 0,
+    #     "tt": 1,
+    #     # "dy": 2,
+    #     }
 
     def start_training(self, run_name, max_epochs) -> None:
         return self.model.start_training(run_name, max_epochs)
@@ -954,35 +1012,31 @@ class BogNetBase(MLClassifierBase):
 
 
 
+
 # dervive another model from the ExampleDNN class with different class attributes
 # from hbt.ml.torch_models.binary import WeightedTensorFeedForwardNet
 
 bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
-    "epochs": 8,
+    "epochs": 7,
     "deterministic_seeds": [0],
-    # "processes": ("tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", ),
     "processes": ("dy", "tt", "hh_ggf_hbb_htt_kl1_kt1", "hh_ggf_hbb_htt_kl0_kt1", ),
     "categorical_target_map": {"hh": 0, "tt": 1,"dy": 2,},
-    # "label_smoothing_coefficient": 0.02,
-    # "data_loader",
-    "training_epoch_length_cutoff": 8000,
-    # "categorical_features",
-    # "continuous_features",
+    "label_smoothing_coefficient": 0.00,
+    "training_epoch_length_cutoff": 30000,
     "train_val_test_split": (0.75, 0.15, 0.1),
     "class_factors": {"st": 1, "tt": 1},
-    # "processes",
-    # "categorical_target_map",
+    "categorical_target_map": {"hh": 0, "tt": 1, "dy": 2,},
     # "class_factors",
-    # "sub_process_class_factors",
+    "sub_process_class_factors":{"st":2,    },
     # "negative_weights",
     "batchsize" : (4096*2),
     "folds": 4,
-    # "early_stopping_patience",
-    # "early_stopping_min_epochs",
-    # "early_stopping_min_diff",
-    # "configs_to_use",
-        # "deterministic_seeds",
-        # "configs_to_use",
+    "early_stopping_config" :{
+        "patience" : 2,
+        "min_epochs" : 2,
+        "min_diff": 0.01,
+    },
+    "deterministic_seeds" : 0,
     "num_iterations_plots" : 1000,
     "training_weight_cutoff": 0.05,
     "training_logger_interval": 20,
@@ -990,50 +1044,65 @@ bognet_ensemble_test = BogNetBase.derive("bognet_ensemble_test", cls_dict={
     "val_weight_cutoff": None,
     "scheduler_config": {"step_size": 1, "gamma": 0.8},
     "optimizer_config": {"learning_rate":0.5e-2, "decay_factor":0.4, "normalize": True, "apply_to": "weight"},
-    # "optimizer_config": {"learning_rate":0.5e-2, "decay_factor":0.4, "normalize": True, "apply_to": "weight"},
-    # "linear_layer_weight_normalization": False,
+    "linear_layer_weight_normalization": False,
 
 
     # set kwargs as properties and save keys separatly to identify
     # which parameter was passed from outside
     # loss functions
     # "ml_cls": UpdatedBogNet,
+    "categorical_features": expand_braces(
+        "pair_type",
+        "decay_mode1",
+        "decay_mode2",
+        "lepton1.charge",
+        "lepton2.charge",
+        "has_fatjet",
+        "has_jet_pair",
+        "year_flag",
+    ),
+    "continuous_features": expand_braces(
+        "bjet1.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+        "bjet2.{btagPNetB,btagPNetCvB,btagPNetCvL,energy,hhbtag,mass,px,py,pz}",
+        "fatjet.{energy,mass,px,py,pz}",
+        "lepton1.{energy,mass,px,py,pz}",
+        "lepton2.{energy,mass,px,py,pz}",
+        "PuppiMET.{px,py}",
+        "reg_dnn_nu{1,2}_{px,py,pz}",
+    ),
+    "lbn_features": expand_braces(
+        "bjet1.{energy,mass,px,py,pz}",
+        "bjet2.{energy,mass,px,py,pz}",
+        "fatjet.{energy,mass,px,py,pz}",
+        "lepton1.{energy,mass,px,py,pz}",
+        "lepton2.{energy,mass,px,py,pz}",
+        "PuppiMET.{energy,mass,px,py}",
+        "reg_dnn_nu{1,2}_{px,py,pz}",
+        ),
+
 })
 
-
-bognet_ensemble_v2 = BogNetBase.derive("bognet_ensemble_v2", cls_dict={
-    "epochs": 1,
-    "deterministic_seeds": [0],
-    # "label_smoothing_coefficient": 0.02,
-    # "data_loader",
-    "training_epoch_length_cutoff": 2000,
-    # "categorical_features",
-    # "continuous_features",
-    "train_val_test_split": (0.75, 0.15, 0.1),
-    # "processes",
-    # "categorical_target_map",
-    # "class_factors",
-    # "sub_process_class_factors",
-    # "negative_weights",
-    "batchsize" : (4096*2),
+# version where only default parameters are used (means most features are deactivated)
+bognet_base = BogNetBase.derive("bognet_basic", cls_dict={
+    "training_epoch_length_cutoff": 8000,
     "folds": 4,
-    # "early_stopping_patience",
-    # "early_stopping_min_epochs",
-    # "early_stopping_min_diff",
-    # "configs_to_use",
-        # "deterministic_seeds",
-        # "configs_to_use",
-    "num_iterations_plots" : 1000,
-    "training_weight_cutoff": 0.05,
-    "training_logger_interval": 20,
-    "val_epoch_length_cutoff": 500,
-    "val_weight_cutoff": None,
-    "scheduler_config": {"step_size": 1, "gamma": 0.8},
-    "optimizer_config": {"learning_rate":0.5e-2, "decay_factor":0.4, "normalize": True, "apply_to": "weight"},
+
 })
 
-    # set kwargs as properties and save keys separatly to identify
-    # which parameter was passed from outside
+# see if less weight cutoff helps
+bognet_bigger_split = BogNetBase.derive("0_1_cutoff", cls_dict={
+    "training_epoch_length_cutoff": 30000,
+    # "train_val_test_split": (0.9, 0.05, 0.05),
+    "training_weight_cutoff" : 0.1, # do not resample phase spaces with low contribution
+    "folds": 4,
+})
+
+bognet_bigger_split = BogNetBase.derive("0_2_cutoff", cls_dict={
+    "training_epoch_length_cutoff": 30000,
+    # "train_val_test_split": (0.9, 0.05, 0.05),
+    "training_weight_cutoff" : 0.2, # do not resample phase spaces with low contribution
+    "folds": 4,
+})
 
 
 # load all ml modules here
