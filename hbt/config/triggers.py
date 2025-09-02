@@ -1544,7 +1544,7 @@ def add_triggers_2023(config: od.Config) -> None:
         name="HLT_VBF_DiPFJet105_40_Mjj1000_Detajj3p5",
         id=605,
         legs=dict(
-            jet1=TriggerLeg(
+            vbf1=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1553,7 +1553,7 @@ def add_triggers_2023(config: od.Config) -> None:
                     "VBFincl" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
-            jet2=TriggerLeg(
+            vbf2=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1571,7 +1571,7 @@ def add_triggers_2023(config: od.Config) -> None:
         name="HLT_VBF_DiPFJet90_40_Mjj600_Detajj2p5_Mu3_TrkIsoVVL",
         id=606,
         legs=dict(
-            jet1=TriggerLeg(
+            vbf1=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1580,7 +1580,7 @@ def add_triggers_2023(config: od.Config) -> None:
                     "VBFmu" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
-            jet2=TriggerLeg(
+            vbf2=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1589,12 +1589,12 @@ def add_triggers_2023(config: od.Config) -> None:
                     "VBFmu" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
-            muon=TriggerLeg(
+            mu=TriggerLeg(
                 pdg_id=13,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
                 # hltMuon3RelTrkIsoVVLFiltered -> bit 0, "*RelTrkIsoVVLFiltered", "TrkIsoVVL"
-                trigger_bits=get_bit_sum_v("muon", [
+                trigger_bits=get_bit_sum_v("mu", [
                     "TrkIsoVVL",  # -> CCLUB has none here on 05.08.2025
                 ]),
             ),
@@ -1607,7 +1607,7 @@ def add_triggers_2023(config: od.Config) -> None:
         name="HLT_VBF_DiPFJet45_Mjj500_Detajj2p5_Ele12_eta2p1_WPTight_Gsf",
         id=607,
         legs=dict(
-            jet1=TriggerLeg(
+            vbf1=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1616,7 +1616,7 @@ def add_triggers_2023(config: od.Config) -> None:
                     "VBFele" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
-            jet2=TriggerLeg(
+            vbf2=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1625,28 +1625,28 @@ def add_triggers_2023(config: od.Config) -> None:
                     "VBFele" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
-            electron=TriggerLeg(
+            e=TriggerLeg(
                 pdg_id=11,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
                 # hltEle12erWPTightGsfTrackIsoFilterNoRhoCorrectionForVBF
-                trigger_bits=get_bit_sum_v("electron", [
+                trigger_bits=get_bit_sum_v("e", [
                     "VBFWPTightGsfTrackIso" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
         ),
         applies_to_dataset=(
-            (lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
-            campaign_postfix == "preBPIX",
+            (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
+            campaign_postfix == "preBPIX")
         ),
-        tags={"cross_trigger", "cross_electron_vbf"},
+        tags={"cross_trigger", "cross_e_vbf"},
     )
 
     config.x.triggers.add(
         name="HLT_VBF_DiPFJet45_Mjj500_Detajj2p5_Ele17_eta2p1_WPTight_Gsf",
         id=608,
         legs=dict(
-            jet1=TriggerLeg(
+            vbf1=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1655,7 +1655,7 @@ def add_triggers_2023(config: od.Config) -> None:
                     "VBFele" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
-            jet2=TriggerLeg(
+            vbf2=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1664,28 +1664,28 @@ def add_triggers_2023(config: od.Config) -> None:
                     "VBFele" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
-            electron=TriggerLeg(
+            e=TriggerLeg(
                 pdg_id=11,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
                 # hltEle17erWPTightGsfTrackIsoFilterNoRhoCorrectionForVBF
-                trigger_bits=get_bit_sum_v("electron", [
+                trigger_bits=get_bit_sum_v("e", [
                     "VBFWPTightGsfTrackIso" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
         ),
         applies_to_dataset=(
-            (lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
-            campaign_postfix == "postBPIX"
+            (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
+            campaign_postfix == "postBPIX")
         ),
-        tags={"cross_trigger", "cross_electron_vbf"},
+        tags={"cross_trigger", "cross_e_vbf"},
     )
 
     config.x.triggers.add(
         name="HLT_VBF_DiPFJet45_Mjj500_Detajj2p5_MediumDeepTauPFTauHPS45_L2NN_eta2p1",
         id=609,
         legs=dict(
-            jet1=TriggerLeg(
+            vbf1=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1696,7 +1696,7 @@ def add_triggers_2023(config: od.Config) -> None:
 
                 ]),
             ),
-            jet2=TriggerLeg(
+            vbf2=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
