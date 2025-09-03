@@ -54,7 +54,7 @@ def jet_trigger_matching(
     is_cross_tau_tau_jet = trigger.has_tag("cross_tau_tau_jet")
     is_cross_tau_vbf = trigger.has_tag("cross_tau_vbf")
     is_cross_vbf = trigger.has_tag("cross_vbf")
-    is_cross_e_vbf = trigger.has_tag("cross_electron_vbf")
+    is_cross_e_vbf = trigger.has_tag("cross_e_vbf")
     is_cross_mu_vbf = trigger.has_tag("cross_mu_vbf")
     assert is_cross_e_vbf or is_cross_mu_vbf or is_cross_tau_vbf or is_cross_tau_tau_jet or is_cross_vbf or is_cross_tau_tau_vbf  # noqa: E501
     # start per-jet mask with trigger object matching per leg
@@ -516,7 +516,7 @@ def jet_selection(
                 _trigger_fired_all_matched = (
                     trigger_fired_leptons_matched &
                     trig_req_mask &
-                    ak.sum(trigger_matching_jets[vbfjet_mask], axis=1) == n_required_jets
+                    (ak.sum(trigger_matching_jets[vbfjet_mask], axis=1) == n_required_jets)
                 )
                 vbf_trigger_fired_all_matched = vbf_trigger_fired_all_matched | _trigger_fired_all_matched
                 ids = ak.where(_trigger_fired_all_matched, np.float32(trigger.id), np.float32(np.nan))
@@ -568,6 +568,7 @@ def jet_selection(
                 false_mask,
             ), axis=1)
         )
+
         vbf_fired_j_not_matched = (
             # need to match either only vbf or vbf and tautaujet triggers
             ~lep_trigger_matched_mask &  # need to not match any of the lepton triggers
@@ -713,7 +714,7 @@ def jet_selection_setup(self: Selector, task: law.Task, **kwargs) -> None:
     ]
     self.trigger_ids_ev = [
         trigger.id for trigger in self.config_inst.x.triggers
-        if trigger.has_tag("cross_electron_vbf")
+        if trigger.has_tag("cross_e_vbf")
     ]
     self.trigger_ids_mv = [
         trigger.id for trigger in self.config_inst.x.triggers

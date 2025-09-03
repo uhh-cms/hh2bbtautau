@@ -396,8 +396,11 @@ def add_config(
         *if_era(year=2023, tag="preBPix", values=[
             f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
         ]),
+        *if_era(year=2023, tag="preBPix", values=[
+            f"data_{stream}_c{v}" for stream in ["parking_vbf"] for v in "34"
+        ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau"] for v in "12"
+            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau", "parking_vbf"] for v in "12"
         ]),
     ]
     for dataset_name in dataset_names:
@@ -414,6 +417,8 @@ def add_config(
             dataset.add_tag({"mutau", "emu_from_mu", "mumu"})
         if dataset.name.startswith("data_tau_"):
             dataset.add_tag({"tautau"})
+        if dataset.name.startswith("data_parking_vbf_"):
+            dataset.add_tag({"parking_vbf"})
         if dataset.name.startswith("tt_"):
             dataset.add_tag({"has_top", "ttbar", "tt"})
         if dataset.name.startswith("st_"):

@@ -1637,7 +1637,7 @@ def add_triggers_2023(config: od.Config) -> None:
         ),
         applies_to_dataset=(
             (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
-            campaign_postfix == "preBPIX")
+            campaign_postfix == "preBPix")
         ),
         tags={"cross_trigger", "cross_e_vbf"},
     )
@@ -1676,7 +1676,7 @@ def add_triggers_2023(config: od.Config) -> None:
         ),
         applies_to_dataset=(
             (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
-            campaign_postfix == "postBPIX")
+            campaign_postfix == "postBPix")
         ),
         tags={"cross_trigger", "cross_e_vbf"},
     )
