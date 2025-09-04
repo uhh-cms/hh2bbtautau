@@ -1631,7 +1631,20 @@ def add_config(
             "cutflow.*",
         },
         "cf.UniteColumns": {
+            # all columns except for shifts
             "*", *skip_column("*_{up,down}"),
+            # columns for typical dnn training
+            # ColumnCollection.MANDATORY_COFFEA,
+            # "tau2_isolated", "leptons_os", "process_id", "channel_id", "*_weight*",
+            # "Electron.{eta,phi,pt,mass,charge}",
+            # "Muon.{eta,phi,pt,mass,charge}",
+            # "Tau.{eta,phi,pt,mass,charge,decayMode}",
+            # "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+            # "FatJet.{eta,phi,pt,mass}",
+            # f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
+            # "reg_dnn_nu{1,2}_p{x,z}",
+            # "res_dnn_pnet_*",
+            # *skip_column("*_{up,down}"),
         },
     })
 
