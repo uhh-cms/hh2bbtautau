@@ -115,6 +115,10 @@ class _res_dnn_evaluation(Producer):
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
         from hbt.ml.tf_evaluator import TFEvaluator
 
+        if not getattr(task, "taf_tf_evaluator", None):
+            task.taf_tf_evaluator = TFEvaluator()
+        self.evaluator = task.taf_tf_evaluator
+
         # some checks
         if not isinstance(self.parametrized, bool):
             raise AttributeError("'parametrized' must be set in the producer configuration")
@@ -126,7 +130,6 @@ class _res_dnn_evaluation(Producer):
         getattr(bundle.files, self.bundle_name).load(model_dir, formatter="tar")
 
         # setup the evaluator
-        self.evaluator = TFEvaluator()
         self.evaluator.add_model(self.cls_name, model_dir.child(self.dir_name).abspath, signature_key="serving_default")
 
         # categorical values handled by the network
@@ -168,17 +171,20 @@ class _res_dnn_evaluation(Producer):
             (2023, "BPix"): 3,
         }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
 
-        # start the evaluator
-        self.evaluator.start()
-
-    def teardown_func(self, **kwargs) -> None:
+    def teardown_func(self, task: law.Task, **kwargs) -> None:
         """
         Stops the TF evaluator.
         """
-        if (evaluator := getattr(self, "evaluator", None)) is not None:
+        if (evaluator := getattr(task, "taf_tf_evaluator", None)):
             evaluator.stop()
+        task.taf_tf_evaluator = None
+        self.evaluator = None
 
     def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
+        # start the evaluator
+        if not self.evaluator.running:
+            self.evaluator.start()
+
         # ensure coffea behavior
         events = self[attach_coffea_behavior](
             events,
