@@ -59,8 +59,11 @@ class _res_dnn_evaluation(Producer):
         "Muon.{eta,phi,pt,mass,charge}",
         "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
         "FatJet.{eta,phi,pt,mass}",
-        # MET variables added in dynamic init,
+        # MET variables added in dynamic init
     }
+
+    # whether to use pnet instead of deepflavor for btagging variables
+    use_pnet: bool = False
 
     # whether the model is parameterized in mass, spin and year
     # (this is a slight forward declaration but simplifies the code reasonably well in our use case)
@@ -75,17 +78,32 @@ class _res_dnn_evaluation(Producer):
     # the empty value to insert to output columns in case of missing or broken values
     empty_value: float = EMPTY_FLOAT
 
+    # optionally save input features
+    produce_features: bool | None = None
+    features_prefix: str = ""
+
     # produced columns are added in the deferred init below
     sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh")
 
     # not exposed to command line selection
     exposed = False
 
+    @property
+    def bundle_name(self) -> str:
+        return self.cls_name
+
     def init_func(self, **kwargs) -> None:
         self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
 
-        if self.config_inst.x.sync:
-            self.produces.add(f"sync_{self.cls_name}_*")
+        if self.produce_features is None:
+            self.produce_features = self.config_inst.x.sync
+            if not self.features_prefix:
+                self.features_prefix = "sync"
+        if self.features_prefix and not self.features_prefix.endswith("_"):
+            self.features_prefix = f"{self.features_prefix}_"
+
+        if self.produce_features:
+            self.produces.add(f"{self.features_prefix}{self.cls_name}_*")
 
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
         if "external_files" in reqs:
@@ -104,8 +122,8 @@ class _res_dnn_evaluation(Producer):
         # unpack the model archive
         bundle = reqs["external_files"]
         bundle.files
-        model_dir = bundle.files_dir.child(self.cls_name, type="d")
-        getattr(bundle.files, self.cls_name).load(model_dir, formatter="tar")
+        model_dir = bundle.files_dir.child(self.bundle_name, type="d")
+        getattr(bundle.files, self.bundle_name).load(model_dir, formatter="tar")
 
         # setup the evaluator
         self.evaluator = TFEvaluator()
@@ -247,17 +265,17 @@ class _res_dnn_evaluation(Producer):
         # bjet 1
         f.bjet1_px, f.bjet1_py = rotate_to_phi(phi_lep, bjets[:, 0].px, bjets[:, 0].py)
         f.bjet1_pz, f.bjet1_e = bjets[:, 0].pz, bjets[:, 0].energy
-        f.bjet1_btag_df = bjets[:, 0].btagDeepFlavB
-        f.bjet1_cvsb = bjets[:, 0].btagDeepFlavCvB
-        f.bjet1_cvsl = bjets[:, 0].btagDeepFlavCvL
+        f.bjet1_tag_b = bjets[:, 0]["btagPNetB" if self.use_pnet else "btagDeepFlavB"]
+        f.bjet1_tag_cvsb = bjets[:, 0]["btagPNetCvB" if self.use_pnet else "btagDeepFlavCvB"]
+        f.bjet1_tag_cvsl = bjets[:, 0]["btagPNetCvL" if self.use_pnet else "btagDeepFlavCvL"]
         f.bjet1_hhbtag = bjets[:, 0].hhbtag
 
         # bjet 2
         f.bjet2_px, f.bjet2_py = rotate_to_phi(phi_lep, bjets[:, 1].px, bjets[:, 1].py)
         f.bjet2_pz, f.bjet2_e = bjets[:, 1].pz, bjets[:, 1].energy
-        f.bjet2_btag_df = bjets[:, 1].btagDeepFlavB
-        f.bjet2_cvsb = bjets[:, 1].btagDeepFlavCvB
-        f.bjet2_cvsl = bjets[:, 1].btagDeepFlavCvL
+        f.bjet2_tag_b = bjets[:, 1]["btagPNetB" if self.use_pnet else "btagDeepFlavB"]
+        f.bjet2_tag_cvsb = bjets[:, 1]["btagPNetCvB" if self.use_pnet else "btagDeepFlavCvB"]
+        f.bjet2_tag_cvsl = bjets[:, 1]["btagPNetCvL" if self.use_pnet else "btagDeepFlavCvL"]
         f.bjet2_hhbtag = bjets[:, 1].hhbtag
 
         # fatjet variables
@@ -273,8 +291,8 @@ class _res_dnn_evaluation(Producer):
 
         mask_values(~has_jet_pair, 0.0, "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e")
         mask_values(~has_jet_pair, 0.0, "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e")
-        mask_values(~has_jet_pair, -1.0, "bjet1_btag_df", "bjet1_cvsb", "bjet1_cvsl", "bjet1_hhbtag")
-        mask_values(~has_jet_pair, -1.0, "bjet2_btag_df", "bjet2_cvsb", "bjet2_cvsl", "bjet2_hhbtag")
+        mask_values(~has_jet_pair, -1.0, "bjet1_tag_b", "bjet1_tag_cvsb", "bjet1_tag_cvsl", "bjet1_hhbtag")
+        mask_values(~has_jet_pair, -1.0, "bjet2_tag_b", "bjet2_tag_cvsb", "bjet2_tag_cvsl", "bjet2_hhbtag")
         mask_values(~has_fatjet, 0.0, "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e")
 
         # combine daus
@@ -313,6 +331,15 @@ class _res_dnn_evaluation(Producer):
         )
         f.met_cov00, f.met_cov01, f.met_cov11 = _met.covXX, _met.covXY, _met.covYY
 
+        # assign categorical inputs via names too
+        f.pair_type = pair_type
+        f.dm1 = dm1
+        f.dm2 = dm2
+        f.vis_tau1_charge = vis_tau1.charge
+        f.vis_tau2_charge = vis_tau2.charge
+        f.has_jet_pair = has_jet_pair
+        f.has_fatjet = has_fatjet
+
         # build continous inputs
         # (order exactly as documented in link above)
         continous_inputs = [
@@ -320,9 +347,9 @@ class _res_dnn_evaluation(Producer):
                 f.met_px, f.met_py, f.met_cov00, f.met_cov01, f.met_cov11,
                 f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
                 f.vis_tau2_px, f.vis_tau2_py, f.vis_tau2_pz, f.vis_tau2_e,
-                f.bjet1_px, f.bjet1_py, f.bjet1_pz, f.bjet1_e, f.bjet1_btag_df, f.bjet1_cvsb, f.bjet1_cvsl,
+                f.bjet1_px, f.bjet1_py, f.bjet1_pz, f.bjet1_e, f.bjet1_tag_b, f.bjet1_tag_cvsb, f.bjet1_tag_cvsl,
                 f.bjet1_hhbtag,
-                f.bjet2_px, f.bjet2_py, f.bjet2_pz, f.bjet2_e, f.bjet2_btag_df, f.bjet2_cvsb, f.bjet2_cvsl,
+                f.bjet2_px, f.bjet2_py, f.bjet2_pz, f.bjet2_e, f.bjet2_tag_b, f.bjet2_tag_cvsb, f.bjet2_tag_cvsl,
                 f.bjet2_hhbtag,
                 f.fatjet_px, f.fatjet_py, f.fatjet_pz, f.fatjet_e,
                 f.htt_e, f.htt_px, f.htt_py, f.htt_pz,
@@ -338,10 +365,10 @@ class _res_dnn_evaluation(Producer):
         # (order exactly as documented in link above)
         categorical_inputs = [
             np.asarray(t[..., None], dtype=np.int32) for t in [
-                pair_type,
-                dm1, dm2,
-                vis_tau1.charge, vis_tau2.charge,
-                has_jet_pair, has_fatjet,
+                f.pair_type,
+                f.dm1, f.dm2,
+                f.vis_tau1_charge, f.vis_tau2_charge,
+                f.has_jet_pair, f.has_fatjet,
                 (self.year_flag * np.ones(len(_events), dtype=np.int32)) if self.parametrized else None,
                 (self.spin * np.ones(len(_events), dtype=np.int32)) if self.parametrized else None,
             ] if t is not None
@@ -372,15 +399,15 @@ class _res_dnn_evaluation(Producer):
             values[event_mask] = scores[:, i]
             events = set_ak_column_f32(events, column, values)
 
-        if self.config_inst.x.sync:
+        if self.produce_features:
             # store input columns for sync
-            cont_inputs_names = [
+            cont_inputs_cols = [
                 "met_px", "met_py", "met_cov00", "met_cov01", "met_cov11",
                 "vis_tau1_px", "vis_tau1_py", "vis_tau1_pz", "vis_tau1_e",
                 "vis_tau2_px", "vis_tau2_py", "vis_tau2_pz", "vis_tau2_e",
-                "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e", "bjet1_btag_df", "bjet1_cvsb", "bjet1_cvsl",
+                "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e", "bjet1_tag_b", "bjet1_tag_cvsb", "bjet1_tag_cvsl",
                 "bjet1_hhbtag",
-                "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e", "bjet2_btag_df", "bjet2_cvsb", "bjet2_cvsl",
+                "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e", "bjet2_tag_b", "bjet2_tag_cvsb", "bjet2_tag_cvsl",
                 "bjet2_hhbtag",
                 "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e",
                 "htt_e", "htt_px", "htt_py", "htt_pz",
@@ -388,17 +415,13 @@ class _res_dnn_evaluation(Producer):
                 "htthbb_e", "htthbb_px", "htthbb_py", "htthbb_pz",
                 "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz",
             ]
-
-            cat_inputs_names = [
+            cat_inputs_cols = [
                 "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
             ]
-            for column, values in zip(
-                cont_inputs_names + cat_inputs_names,
-                continous_inputs + categorical_inputs,
-            ):
-                values_placeholder = self.empty_value * np.ones(len(events), dtype=np.float32)
-                values_placeholder[event_mask] = ak.flatten(values)
-                events = set_ak_column_f32(events, f"sync_{self.cls_name}_{column}", values_placeholder)
+            for c in cont_inputs_cols + cat_inputs_cols:
+                values = self.empty_value * np.ones(len(events), dtype=np.float32)
+                values[event_mask] = ak.flatten(np.asarray(f[c][..., None], dtype=np.float32))
+                events = set_ak_column_f32(events, f"{self.features_prefix}{self.cls_name}_{c}", values)
 
         return events
 
@@ -411,13 +434,14 @@ class _res_dnn_evaluation(Producer):
 class _res_dnn(_res_dnn_evaluation):
 
     dir_name = "model_fold0"
+    output_prefix = "res_dnn"
 
     def init_func(self, **kwargs) -> None:
         super().init_func(**kwargs)
 
         # output column names (in this order)
         self.output_columns = [
-            f"res_dnn_{name}"
+            f"{self.output_prefix}_{name}"
             for name in ["hh", "tt", "dy"]
         ]
 
@@ -455,6 +479,17 @@ class res_dnn(_res_dnn):
     parametrized = False
     dir_name = "model_fold0"
     exposed = True
+
+
+class res_dnn_pnet(res_dnn):
+    """
+    Same as :py:class:`res_dnn` but using pnet btagging variables and storing inputs.
+    """
+
+    bundle_name = "res_dnn"
+    use_pnet = True
+    produce_features = True
+    output_prefix = "res_dnn_pnet"
 
 
 #

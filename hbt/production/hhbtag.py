@@ -173,6 +173,9 @@ def hhbtag(
 
 @hhbtag.init
 def hhbtag_init(self: Producer, **kwargs) -> None:
+    # get the model version (coincides with the external file version)
+    self.hhbtag_version = self.config_inst.x.external_files.hh_btag_repo.version
+
     # produce input columns
     if self.config_inst.x.sync:
         self.produces.add("sync_*")
@@ -211,9 +214,6 @@ def hhbtag_setup(
     self.evaluator = TFEvaluator()
     self.evaluator.add_model("hhbtag_even", bundle.files.hh_btag_repo.even.abspath)
     self.evaluator.add_model("hhbtag_odd", bundle.files.hh_btag_repo.odd.abspath)
-
-    # get the model version (coincides with the external file version)
-    self.hhbtag_version = self.config_inst.x.external_files.hh_btag_repo.version
 
     # prepare mappings for the HHBtag model (see links above for mapping information)
     channel_map = {
