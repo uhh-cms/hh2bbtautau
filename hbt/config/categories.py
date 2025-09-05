@@ -59,11 +59,11 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="eq2b", id="+", selection="cat_eq2b", label="2 b-jets")
     _add_category(config, name="ge3b", id="+", selection="cat_ge3b", label=r"$>=$ 3 b-jets")
 
-    _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
-    _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY enriched (CCLUB)")
+    _add_category(config, name="dy", id="+", selection="cat_dy", label="DY region")
+    _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY enriched")
     _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
     _add_category(
-        config, name="dyc_st", id="+", selection=["cat_dyc", "cat_single_triggered"], label="DY enriched (CCLUB), ST"
+        config, name="dyc_st", id="+", selection=["cat_dyc", "cat_single_triggered"], label="DY enriched, ST"
     )
     _add_category(config, name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
     _add_category(config, name="mll40", id="+", selection="cat_mll40", label=r"$m_{ll} > 40$")
