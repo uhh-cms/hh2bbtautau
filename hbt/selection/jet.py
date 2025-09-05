@@ -101,9 +101,14 @@ def jet_trigger_matching(
         ak.any(matches_leg1, axis=1)
     )
     # TODO: correct matching: it is not enough for any tau to match each leg,
-    # each needs to be one of the two we will select...
+    # each needs to be one of the two we will select... (also for taus)
+    # Solution 1: apply object mask to check only the two objects we are interested in
+    # and bring it back to full array
+
     # TODO: correct legs such that each leg shows different objects or correct matches such that
     # the matched object may not be the same
+    # Solution 1: check if the two legs have common objects and if yes, check that the index of the
+    # matched trigger object is different for both objects
 
     return matches
 
@@ -215,7 +220,6 @@ def jet_selection(
     )
 
     # create mask for events that matched taus in any vbf trigger -> not tautau channel specific!
-    # TODO: correct it, since different channels are concerned, not only tautau
     all_vbf_trigger = self.trigger_ids_ttv + self.trigger_ids_tv + self.trigger_ids_vbf + self.trigger_ids_ev + self.trigger_ids_mv  # noqa: E501
     vbf_lep_trigger_mask = (
         ak.any(reduce(
@@ -250,9 +254,13 @@ def jet_selection(
         matching_mask = full_like(events.Jet.pt[ttj_mask], False, dtype=bool)
         for trigger, _, leg_masks in trigger_results.x.trigger_data:
             if trigger.id in self.trigger_ids_ttj:
-                # TODO: put into jet matching selector? at least check the jet matching threshold
-                trig_objs = events.TrigObj[leg_masks["jet"]]
-                trigger_matching_mask = trigger_object_matching(events.Jet[ttj_mask], trig_objs[ttj_mask])
+                trigger_matching_mask = self[jet_trigger_matching](
+                    events=events,
+                    trigger=trigger,
+                    trigger_fired=ttj_mask,
+                    leg_masks=leg_masks,
+                    **kwargs,
+                )[ttj_mask]
 
                 # update overall matching mask to be used for the hhbjet selection
                 matching_mask = (
@@ -470,7 +478,7 @@ def jet_selection(
         }
 
     parking_vbf_double_counting = full_like(events.event, False, dtype=bool)
-    # TODO: check if channel separation is actually needed, removed for now
+    # TODO: check whether channel specific selection might be necessary
     if all_vbf_trigger:
         vbf_trigger_fired_all_matched = full_like(events.event, False, dtype=bool)
         for trigger, _, leg_masks in trigger_results.x.trigger_data:
@@ -521,6 +529,10 @@ def jet_selection(
                 vbf_trigger_fired_all_matched = vbf_trigger_fired_all_matched | _trigger_fired_all_matched
                 ids = ak.where(_trigger_fired_all_matched, np.float32(trigger.id), np.float32(np.nan))
                 matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
+                print("trigger", trigger.name)
+                print("matched", ak.sum(_trigger_fired_all_matched))
+
+        print("overall vbf matches", ak.sum(vbf_trigger_fired_all_matched))
 
         # store the matched trigger ids
         matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
@@ -553,7 +565,6 @@ def jet_selection(
 
         # remove all events that fired only vbf trigger but were not matched or
         # that fired vbf and tautaujet triggers and matched the leptons but not the jets
-        # TODO: update it
         lep_tid = [
             trigger.id for trigger in self.config_inst.x.triggers
             if trigger.has_tag({
