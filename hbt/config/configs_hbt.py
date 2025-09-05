@@ -1669,7 +1669,7 @@ def add_config(
         elif year == 2023:
             if campaign.has_tag('preBPix'):
                 add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/23pre_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz"))  # noqa: E501
-                # add_external("dy_njet_weight_sf_uhh", ())  # noqa: E501
+                add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/23pre_v14/prod14_dypt/hbt_corrections_njets.json.gz"))  # noqa: E501
             else:
                 add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22post_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz"))  # noqa: E501
                 # add_external("dy_njet_weight_sf_uhh", ())  # noqa: E501
