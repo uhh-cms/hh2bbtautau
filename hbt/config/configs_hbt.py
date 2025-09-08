@@ -1661,8 +1661,8 @@ def add_config(
         # UHH dy weight
         if year == 2022:
             if campaign.has_tag('preEE'):
-                add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz", "v1"))  # noqa: E501
-                # add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod12_dy_njet/hbt_corrections_njets.json.gz", "v1"))  # noqa: E501
+                add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz"))  # noqa: E501
+                add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod14_dypt/hbt_corrections_njets.json.gz"))  # noqa: E501
             else:
                 add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22post_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz"))  # noqa: E501
                 add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22post_v14/prod14_dypt/hbt_corrections_njets.json."))  # noqa: E501
