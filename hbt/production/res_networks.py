@@ -69,7 +69,7 @@ class _res_dnn_evaluation(Producer):
     # (this is a slight forward declaration but simplifies the code reasonably well in our use case)
     parametrized: bool | None = None
 
-    # subdirectory in the unpacked model archive
+    # directory of the unpacked model archive (no subdirectory is expected when None)
     dir_name: str | None = None
 
     # limited chunk size to avoid memory issues
@@ -89,12 +89,15 @@ class _res_dnn_evaluation(Producer):
     exposed = False
 
     @property
-    def bundle_name(self) -> str:
+    def external_name(self) -> str:
+        # name of the model bundle in the external files
         return self.cls_name
 
     def init_func(self, **kwargs) -> None:
+        # add met variables to used columns
         self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
 
+        # set feature production options when requested
         if self.produce_features is None:
             self.produce_features = self.config_inst.x.sync
             if not self.features_prefix:
@@ -102,6 +105,7 @@ class _res_dnn_evaluation(Producer):
         if self.features_prefix and not self.features_prefix.endswith("_"):
             self.features_prefix = f"{self.features_prefix}_"
 
+        # add features to produced columns
         if self.produce_features:
             self.produces.add(f"{self.features_prefix}{self.cls_name}_*")
 
@@ -126,11 +130,13 @@ class _res_dnn_evaluation(Producer):
         # unpack the model archive
         bundle = reqs["external_files"]
         bundle.files
-        model_dir = bundle.files_dir.child(self.bundle_name, type="d")
-        getattr(bundle.files, self.bundle_name).load(model_dir, formatter="tar")
+        model_dir = bundle.files_dir.child(f"{self.external_name}_unpacked", type="d")
+        getattr(bundle.files, self.external_name).load(model_dir, formatter="tar")
+        if self.dir_name:
+            model_dir = model_dir.child(self.dir_name, type="d")
 
         # setup the evaluator
-        self.evaluator.add_model(self.cls_name, model_dir.child(self.dir_name).abspath, signature_key="serving_default")
+        self.evaluator.add_model(self.cls_name, model_dir.abspath, signature_key="serving_default")
 
         # categorical values handled by the network
         # (names and values from training code that was aligned to KLUB notation)
@@ -240,6 +246,9 @@ class _res_dnn_evaluation(Producer):
             (has_jet_pair | has_fatjet) &
             (self.year_flag in self.embedding_expected_inputs["year"])
         )
+
+        # hook to update the event mask base on additional event info
+        event_mask = self.update_event_mask(events, event_mask)
 
         # apply to all arrays needed until now
         _events = events[event_mask]
@@ -431,6 +440,9 @@ class _res_dnn_evaluation(Producer):
 
         return events
 
+    def update_event_mask(self, events: ak.Array, event_mask: ak.Array) -> ak.Array:
+        return event_mask
+
 
 #
 # producers for classification-only networks
@@ -492,7 +504,7 @@ class res_dnn_pnet(res_dnn):
     Same as :py:class:`res_dnn` but using pnet btagging variables and storing inputs.
     """
 
-    bundle_name = "res_dnn"
+    external_name = "res_dnn"
     use_pnet = True
     produce_features = True
     output_prefix = "res_dnn_pnet"
@@ -538,3 +550,110 @@ class reg_dnn_moe(_reg_dnn):
 
     dir_name = "model_fold0_moe"
     exposed = True
+
+
+#
+# producers for evaluating run 3 models trained with the legacy setup but on run 3 data
+#
+
+class _run3_dnn(_res_dnn):
+
+    parametrized = False
+    use_pnet = True
+    dir_name = None
+    fold = None
+    n_folds = 5
+
+    @property
+    def output_prefix(self) -> str:
+        return self.cls_name
+
+    def update_event_mask(self, events: ak.Array, event_mask: ak.Array) -> ak.Array:
+        # when a fold is defined, select only events that match this fold
+        # (all other events were potentially used for the training)
+        if self.fold is not None:
+            event_fold = events.event % self.n_folds
+            event_mask = event_mask & (event_fold == self.fold)
+
+        return event_mask
+
+
+# derive evaluation producers for all folds
+for fold in range(_run3_dnn.n_folds):
+    _run3_dnn.derive(f"run3_dnn_fold{fold}_moe", cls_dict={
+        "fold": fold,
+        "external_name": f"run3_dnn_fold{fold}_moe",
+        "exposed": True,
+    })
+
+
+#
+# producer for combining the results of all folds
+#
+
+class run3_dnn_moe(Producer):
+
+    # require ProduceColumns tasks per fold first when True, otherwise evaluate all folds in the same task
+    # (when False, the sandbox must be set)
+    require_producers = True
+    # sandbox = _run3_dnn.sandbox
+
+    # used and produced columns
+    # (used ones are updated dynamically in init_func)
+    uses = {"event"}
+    produces = {"run3_dnn_moe_{hh,tt,dy}"}
+
+    def init_func(self, **kwargs) -> None:
+        # store dnn evaluation classes
+        self.dnn_classes = {
+            f: _run3_dnn.get_cls(f"run3_dnn_fold{f}_moe")
+            for f in range(_run3_dnn.n_folds)
+        }
+
+        # update used columns / dependencies
+        for dnn_cls in self.dnn_classes.values():
+            self.uses.add(f"{dnn_cls.cls_name}_{{hh,tt,dy}}" if self.require_producers else dnn_cls)
+
+    def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
+        if not self.require_producers:
+            return
+
+        from columnflow.tasks.production import ProduceColumns
+        reqs["run3_dnn_folds"] = {
+            f: ProduceColumns.req(task, producer=dnn_cls.cls_name, producer_inst=None, known_shifts=None)
+            for f, dnn_cls in self.dnn_classes.items()
+        }
+
+    def setup_func(
+        self,
+        task: law.Task,
+        reqs: dict,
+        inputs: dict,
+        reader_targets: law.util.InsertableDict,
+    ) -> None:
+        if not self.require_producers:
+            return
+
+        reader_targets.update({
+            f"run3_dnn_fold{f}": inp["columns"]
+            for f, inp in inputs["run3_dnn_folds"].items()
+        })
+
+    def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
+        event_fold = events.event % _run3_dnn.n_folds
+
+        # invoke the evaluations of all folds when not requiring them as dedicated producers
+        if not self.require_producers:
+            for dnn_cls in self.dnn_classes.values():
+                events = self[dnn_cls](events, **kwargs)
+
+        for out in ["hh", "tt", "dy"]:
+            # fill score from columns at positions with different folds
+            score = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
+            for f in range(_run3_dnn.n_folds):
+                score[event_fold == f] = events[f"run3_dnn_fold{f}_moe_{out}"][event_fold == f]
+
+            # assign to new column
+            events = set_ak_column_f32(events, f"run3_dnn_moe_{out}", score)
+
+        return events

@@ -1482,6 +1482,9 @@ def add_config(
     else:
         assert False
 
+    # central location for common group files
+    central_hbt_dir = "/afs/cern.ch/work/m/mrieger/public/hbt/external_files"
+
     # common files
     # (versions in the end are for hashing in cases where file contents changed but paths did not)
     add_external("lumi", {
@@ -1513,12 +1516,15 @@ def add_config(
     # btag scale factor
     add_external("btag_sf_corr", (f"{json_mirror}/POG/BTV/{json_pog_era}/btagging.json.gz", "v1"))
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
-    add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/res_models/res_prod3/model_fold0.tgz", "v1"))  # noqa: E501
+    add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))  # noqa: E501
     # non-parametric (flat) training up to mX = 800 GeV
-    add_external("res_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))  # noqa: E501
+    add_external("res_dnn", (f"{central_hbt_dir}/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))  # noqa: E501
     # non-parametric regression from the resonant analysis
-    add_external("reg_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))  # noqa: E501
-    add_external("reg_dnn_moe", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))  # noqa: E501
+    add_external("reg_dnn", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))  # noqa: E501
+    add_external("reg_dnn_moe", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))  # noqa: E501
+    # dnn models trained with run 2 legacy setup but run 3 data
+    for fold in range(5):
+        add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
 
     # run specific files
     if run == 2:
@@ -1535,7 +1541,7 @@ def add_config(
         # hh-btag repository with TF saved model directories trained on Run2 UL samples
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
         add_external("hh_btag_repo", Ext(
-            "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/hh-btag-master-d7a71eb3.tar.gz",
+            f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
             subpaths=DotDict(even="hh-btag-master/models/HHbtag_v2_par_0", odd="hh-btag-master/models/HHbtag_v2_par_1"),
             version="v2",
         ))
@@ -1552,12 +1558,12 @@ def add_config(
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
         add_external("hh_btag_repo", Ext(
-            "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/hh-btag-master-d7a71eb3.tar.gz",
+            f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
             subpaths=DotDict(even="hh-btag-master/models/HHbtag_v3_par_0", odd="hh-btag-master/models/HHbtag_v3_par_1"),
             version="v3",
         ))
         add_external("vbf_jtag_repo", Ext(
-            "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/VBFjtag-CCLUB_v1.0_4b5c6e8.tar.gz",
+            f"{central_hbt_dir}/VBFjtag-CCLUB_v1.0_4b5c6e8.tar.gz",
             subpaths=DotDict(
                 even="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_0",
                 odd="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_1",
@@ -1575,8 +1581,8 @@ def add_config(
             assert False
         add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v3.json.gz", "v1"))  # noqa: E501
-        add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/central_dy_files/DY_pTll_weights_v3.json.gz", "v1"))  # noqa: E501
+        add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
