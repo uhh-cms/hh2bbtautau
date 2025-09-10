@@ -1754,7 +1754,7 @@ def add_config(
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": [], "dy_njet_weight": []}  # TODO: list dy weight unceratinties
+            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [
