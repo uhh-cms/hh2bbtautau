@@ -597,6 +597,7 @@ def add_config(
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
         "sm_data": ["data"] + sm_group,
+        "sm_bkg": ["data", *backgrounds],
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
