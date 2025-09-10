@@ -1218,13 +1218,13 @@ def add_config(
         else:
             assert False
 
-        # dy reweighting
+        # dy reweighting with custom weights
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
-            order="NLO",
-            correction="DY_pTll_reweighting",
-            unc_correction="DY_pTll_reweighting_N_uncertainty",
+            correction="dy_weight",
+            njets=True,
+            systs=[],  # TODO: add systematics once existing
         )
 
         # dy boson recoil correction
@@ -1581,7 +1581,7 @@ def add_config(
             assert False
         add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/central_dy_files/DY_pTll_weights_v3.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
