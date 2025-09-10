@@ -28,7 +28,7 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             --config 22pre_v14 \
             --processes sm_bkg \
             --version prod8_dy \
-            --hist-producer no_dy_weight \
+            --hist-producer no_dy_weights \
             --categories mumu__dyc__os \
             --variables njets-dilep_pt or njets
     """
@@ -76,8 +76,8 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             h = h_ if h is None else (h + h_)
 
         # compute the dy weight data
-        dy_weight_data = compute_weight_data(self, h)  # use --variables njets-dilep_pt
-        # dy_weight_data = compute_njet_norm_data(self, h)  # use --variables njets
+        # dy_weight_data = compute_weight_data(self, h)  # use --variables njets-dilep_pt
+        dy_weight_data = compute_njet_norm_data(self, h)  # use --variables njets
 
         # store them
         self.output().dump(dy_weight_data, formatter="pickle")
@@ -96,9 +96,12 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
     single_config = False
 
+    ###################################################
+    # SETUP
     categories = ("mumu__dyc__os",)
     # variable = "njets-dilep_pt"
     variable = "njets"
+    ###################################################
 
     def requires(self):
         return {
@@ -307,37 +310,36 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
                 param_name = "boundary"
             elif i == 2:
                 param_name = "slope"
+                # plot without uncertainty bands
+                delta = psigma * corr_unc[i]
+                y_up = fit_function(s, *(popt + delta))
+                y_down = fit_function(s, *(popt - delta))
+                fig, ax = plt.subplots()
+                ax.plot(s, y, color="black", label="Fit", lw=1, linestyle="--")
+                # ax.fill_between(s, y_up, y, color='red', alpha=0.2, label='95% (sys) up')
+                # ax.fill_between(s, y_down, y, color='blue', alpha=0.2, label='95% (sys) down')
+                ax.errorbar(
+                    bin_centers,
+                    ratio_values,
+                    yerr=ratio_err,
+                    fmt=".",
+                    color="black",
+                    linestyle="none",
+                    ecolor="black",
+                    elinewidth=0.5,
+                )
+                ax.legend(loc="upper right")
+                ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
+                ax.set_ylabel("Ratio (data-non DY MC)/DY")
+                ax.grid(True)
 
-            if njet == 3:
-                print(pcorr[:4, :4])
-                print(corr_unc)
-                from IPython import embed; embed(header="debugger")
+                era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
 
-            delta = psigma * corr_unc[i]
-            y_up = fit_function(s, *(popt + delta))
-            y_down = fit_function(s, *(popt - delta))
-            fig, ax = plt.subplots()
-            ax.plot(s, y, color="black", label="Fit", lw=1, linestyle="--")
-            ax.fill_between(s, y_up, y, color='red', alpha=0.2, label='95% (sys) up')
-            ax.fill_between(s, y_down, y, color='blue', alpha=0.2, label='95% (sys) down')
-            ax.errorbar(
-                bin_centers,
-                ratio_values,
-                yerr=ratio_err,
-                fmt=".",
-                color="black",
-                linestyle="none",
-                ecolor="black",
-                elinewidth=0.5,
-            )
-            ax.legend(loc="upper right")
-            ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
-            ax.set_ylabel("Ratio (data-non DY MC)/DY")
-            ax.grid(True)
-
-            if njet in [2, 3, 4]:
-                title = f"2022preEE, njets >= {njet}, {param_name} uncertainty"
-                file_name = f"dilep_{njet}j_unc_{param_name}.pdf"
+                if njet != 4:
+                    title = f"{era}, njets = {njet}"
+                else:
+                    title = f"{era}, njets >= {njet}"
+                file_name = f"{era}_dilep_{njet}j.pdf"
                 ax.set_title(title)
                 fig.savefig(file_name)
 
@@ -365,11 +367,11 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
             # raise ValueError("No njets digit found in category name!")
 
         # slice the histogram for the selected njets bin
-        if njet != 4:
+        if njet < 4:
             h_ = h[cat, :, njet, ...]
             fit_str = get_fit_str(njet, h_)
             fit_dict[era]["nominal"][(njet, njet + 1)] = [(-inf, inf, fit_str)]
-        else:
+        elif njet == 4:
             h_ = h[cat, ...][{"njets": sum}]
             fit_str = get_fit_str(njet, h_)
             fit_dict[era]["nominal"][(njet, 50)] = [(-inf, inf, fit_str)]
@@ -400,8 +402,6 @@ def compute_njet_norm_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
 
     # hist with all leaf categories
     for cat in leaf_cats:
-        print("############################")
-        print(f"cat: {cat}")
         # Extract njet number from category name
         match = re.search(r'eq(\d+)j', cat)
         if match:
