@@ -59,8 +59,8 @@ class HBTInferenceModelBase(InferenceModel):
         # helper to inject era info into combine process names
         campaign_key = self.campaign_keys[config_inst]
         # for HH, inject the key before the ecm value
-        if (m := re.match(r"^((ggHH|qqHH)_.+)_(13p(0|6)TeV_hbbhtt)$", combine_name)):
-            return f"{m.group(1)}_{campaign_key}_{m.group(3)}"
+        if (m := re.match(r"^((ggHH|qqHH)_.+_13p(0|6)TeV)_(hbbhtt)$", combine_name)):
+            return f"{m.group(1)}_{campaign_key}_{m.group(4)}"
         # for single H, inject the key before the higgs decay
         if (m := re.match(r"^(.+)_(hbb|htt)$", combine_name)):
             return f"{m.group(1)}_{campaign_key}_{m.group(2)}"
