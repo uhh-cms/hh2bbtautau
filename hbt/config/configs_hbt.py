@@ -1303,7 +1303,7 @@ def add_config(
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             correction="dy_weight",
-            systs=[],
+            systs=["up", "down"],
             njets=True,
         )
 
@@ -1530,6 +1530,16 @@ def add_config(
         cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape")
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
+    cfg.add_shift(name="dy_weight_up", id=210, type="shape")
+    cfg.add_shift(name="dy_weight_down", id=211, type="shape")
+    add_shift_aliases(
+        cfg,
+        "dy_weight",
+        {
+            "dy_weight": "dy_weight_{direction}",
+        },
+    )
+
     ################################################################################################
     # external files
     ################################################################################################
@@ -1647,7 +1657,8 @@ def add_config(
             assert False
         add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
+        # add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_shifts.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
 
         """
@@ -1754,7 +1765,7 @@ def add_config(
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
+            dataset.x.event_weights = {"dy_weight": get_shifts("dy_weight")}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [
