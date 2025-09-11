@@ -32,20 +32,20 @@ class default(HBTInferenceModelBase):
                 (f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt", f"hh_ggf_hbb_htt_kl{kl}_kt1")
                 for kl in ["0", "1", "2p45", "5"]
             ],
-            # ("ttbar", "tt"),
+            ("ttbar", "tt"),
             ("ttbarV", "ttv"),
-            # ("ttbarVV", "ttvv"),
-            # ("singlet", "st"),
-            # ("DY", "dy"),
+            ("ttbarVV", "ttvv"),
+            ("singlet", "st"),
+            ("DY", "dy"),
             # # ("EWK", "z"),  # currently not use
-            # ("W", "w"),
-            # ("VV", "vv"),
-            # ("VVV", "vvv"),
-            # ("WH_htt", "wh"),
-            # ("ZH_hbb", "zh"),
-            # ("ggH_htt", "h_ggf"),
-            # ("qqH_htt", "h_vbf"),
-            # ("ttH_hbb", "tth"),
+            ("W", "w"),
+            ("VV", "vv"),
+            ("VVV", "vvv"),
+            ("WH_htt", "wh"),
+            ("ZH_hbb", "zh"),
+            ("ggH_htt", "h_ggf"),
+            ("qqH_htt", "h_vbf"),
+            ("ttH_hbb", "tth"),
         ])
         if self.add_qcd:
             name_map["QCD"] = "qcd"
@@ -162,7 +162,7 @@ class default(HBTInferenceModelBase):
         self.add_parameter(
             "pdf_gg",  # contains alpha_s
             type=ParameterType.rate_gauss,
-            process=inject_all_eras("TT"),
+            process=inject_all_eras("ttbar"),
             effect=1.042,
             group=["theory"],
         )
@@ -234,6 +234,16 @@ class default(HBTInferenceModelBase):
         #         },
         #         group="experiment",
         #     )
+
+        self.add_parameter(
+            "CMS_bbtt_dy_weight",
+            type=ParameterType.shape,
+            config_data={
+                config_inst.name: self.parameter_config_spec(shift_source="dy_weight")
+            },
+            process=inject_all_eras("DY"),
+            group="experiment",
+        )
 
 
 @default.inference_model
