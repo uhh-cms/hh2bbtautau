@@ -192,6 +192,20 @@ if __name__ == "__main__":
                 (5, 6): [(0.0, inf, f"{normalizations[y][5]}*({cap_x(formulas[y][4])})")],
                 (6, 101): [(0.0, inf, f"{normalizations[y][6]}*({cap_x(formulas[y][4])})")],
             },
+            "up": {
+                (2, 3): [(0.0, inf, f"1.2*({cap_x(formulas[y][2])})")],
+                (3, 4): [(0.0, inf, f"1.2*({cap_x(formulas[y][3])})")],
+                (4, 5): [(0.0, inf, f"1.2*{normalizations[y][4]}*({cap_x(formulas[y][4])})")],
+                (5, 6): [(0.0, inf, f"1.2*{normalizations[y][5]}*({cap_x(formulas[y][4])})")],
+                (6, 101): [(0.0, inf, f"1.2*{normalizations[y][6]}*({cap_x(formulas[y][4])})")],
+            },
+            "down": {
+                (2, 3): [(0.0, inf, f"0.8*({cap_x(formulas[y][2])})")],
+                (3, 4): [(0.0, inf, f"0.8*({cap_x(formulas[y][3])})")],
+                (4, 5): [(0.0, inf, f"0.8*{normalizations[y][4]}*({cap_x(formulas[y][4])})")],
+                (5, 6): [(0.0, inf, f"0.8*{normalizations[y][5]}*({cap_x(formulas[y][4])})")],
+                (6, 101): [(0.0, inf, f"0.8*{normalizations[y][6]}*({cap_x(formulas[y][4])})")],
+            },
         }
         for y in formulas.keys()
     }
@@ -205,5 +219,5 @@ if __name__ == "__main__":
     )
 
     print(cset.model_dump_json(exclude_unset=True))
-    with gzip.open("hbt_corrections.json.gz", "wt") as f:
+    with gzip.open("hbt_corrections_shifts.json.gz", "wt") as f:
         f.write(cset.model_dump_json(exclude_unset=True))
