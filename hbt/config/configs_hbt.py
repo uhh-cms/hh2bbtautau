@@ -1224,13 +1224,13 @@ def add_config(
         else:
             assert False
 
-        # dy reweighting
+        # dy reweighting with custom weights
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
-            order="NLO",
-            correction="DY_pTll_reweighting",
-            unc_correction="DY_pTll_reweighting_N_uncertainty",
+            correction="dy_weight",
+            njets=True,
+            systs=[],  # TODO: add systematics once existing
         )
 
         # dy boson recoil correction
@@ -1473,10 +1473,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-406118ec"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-406118ec"
+        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
         trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
@@ -1487,6 +1487,9 @@ def add_config(
         cclub_eras = f"{year}{campaign_tag}"
     else:
         assert False
+
+    # central location for common group files
+    central_hbt_dir = "/afs/cern.ch/work/m/mrieger/public/hbt/external_files"
 
     # common files
     # (versions in the end are for hashing in cases where file contents changed but paths did not)
@@ -1519,12 +1522,15 @@ def add_config(
     # btag scale factor
     add_external("btag_sf_corr", (f"{json_mirror}/POG/BTV/{json_pog_era}/btagging.json.gz", "v1"))
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
-    add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/res_models/res_prod3/model_fold0.tgz", "v1"))  # noqa: E501
+    add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))  # noqa: E501
     # non-parametric (flat) training up to mX = 800 GeV
-    add_external("res_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))  # noqa: E501
+    add_external("res_dnn", (f"{central_hbt_dir}/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))  # noqa: E501
     # non-parametric regression from the resonant analysis
-    add_external("reg_dnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))  # noqa: E501
-    add_external("reg_dnn_moe", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))  # noqa: E501
+    add_external("reg_dnn", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))  # noqa: E501
+    add_external("reg_dnn_moe", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))  # noqa: E501
+    # dnn models trained with run 2 legacy setup but run 3 data
+    for fold in range(5):
+        add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
 
     # run specific files
     if run == 2:
@@ -1541,7 +1547,7 @@ def add_config(
         # hh-btag repository with TF saved model directories trained on Run2 UL samples
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
         add_external("hh_btag_repo", Ext(
-            "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/hh-btag-master-d7a71eb3.tar.gz",
+            f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
             subpaths=DotDict(even="hh-btag-master/models/HHbtag_v2_par_0", odd="hh-btag-master/models/HHbtag_v2_par_1"),
             version="v2",
         ))
@@ -1558,12 +1564,12 @@ def add_config(
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
         # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
         add_external("hh_btag_repo", Ext(
-            "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/hh-btag-master-d7a71eb3.tar.gz",
+            f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
             subpaths=DotDict(even="hh-btag-master/models/HHbtag_v3_par_0", odd="hh-btag-master/models/HHbtag_v3_par_1"),
             version="v3",
         ))
         add_external("vbf_jtag_repo", Ext(
-            "/afs/cern.ch/work/m/mrieger/public/hbt/external_files/VBFjtag-CCLUB_v1.0_4b5c6e8.tar.gz",
+            f"{central_hbt_dir}/VBFjtag-CCLUB_v1.0_4b5c6e8.tar.gz",
             subpaths=DotDict(
                 even="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_0",
                 odd="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_1",
@@ -1581,8 +1587,8 @@ def add_config(
             assert False
         add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/DY_pTll_weights_v3.json.gz", "v1"))  # noqa: E501
-        add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
+        add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
@@ -1637,7 +1643,20 @@ def add_config(
             "cutflow.*",
         },
         "cf.UniteColumns": {
+            # all columns except for shifts
             "*", *skip_column("*_{up,down}"),
+            # columns for typical dnn training
+            # ColumnCollection.MANDATORY_COFFEA,
+            # "tau2_isolated", "leptons_os", "process_id", "channel_id", "*_weight*",
+            # "Electron.{eta,phi,pt,mass,charge}",
+            # "Muon.{eta,phi,pt,mass,charge}",
+            # "Tau.{eta,phi,pt,mass,charge,decayMode}",
+            # "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+            # "FatJet.{eta,phi,pt,mass}",
+            # f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
+            # "reg_dnn_nu{1,2}_p{x,z}",
+            # "res_dnn_pnet_*",
+            # *skip_column("*_{up,down}"),
         },
     })
 

@@ -41,9 +41,12 @@ def vbfjtag(
     Returns the VBFjTag score per passed jet.
     Clean the scores from the selected fatjets and bjets before returning them.
     """
+    # start the evaluator
+    if not self.evaluator.running:
+        self.evaluator.start()
+
     # get a mask of events where there are at least two tau candidates and at least two jets
     # and only get the scores for jets in these events
-
     event_mask = (
         (ak.num(lepton_pair, axis=1) >= 2) &
         (ak.sum(vbfjet_mask, axis=1) >= 2)
@@ -231,9 +234,12 @@ def vbfjtag_setup(
     """
     from hbt.ml.tf_evaluator import TFEvaluator
 
+    if not getattr(task, "taf_tf_evaluator", None):
+        task.taf_tf_evaluator = TFEvaluator()
+    self.evaluator = task.taf_tf_evaluator
+
     # unpack the external files bundle and setup the evaluator
     bundle = reqs["external_files"]
-    self.evaluator = TFEvaluator()
     self.evaluator.add_model("vbfjtag_even", bundle.files.vbf_jtag_repo.even.abspath)
     self.evaluator.add_model("vbfjtag_odd", bundle.files.vbf_jtag_repo.odd.abspath)
 
@@ -275,14 +281,13 @@ def vbfjtag_setup(
             f"{self.config_inst.x.met_name}",
         )
 
-    # start the evaluator
-    self.evaluator.start()
-
 
 @vbfjtag.teardown
-def vbfjtag_teardown(self: Producer, **kwargs) -> None:
+def vbfjtag_teardown(self: Producer, task: law.Task, **kwargs) -> None:
     """
     Stops the TF evaluator.
     """
-    if (evaluator := getattr(self, "evaluator", None)) is not None:
+    if (evaluator := getattr(task, "taf_tf_evaluator", None)):
         evaluator.stop()
+    task.taf_tf_evaluator = None
+    self.evaluator = None

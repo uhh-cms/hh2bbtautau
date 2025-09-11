@@ -791,6 +791,23 @@ def add_variables(config: od.Config) -> None:
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
+        add_variable(
+            config,
+            name=f"run3_dnn_moe_{proc}",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=(25, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output node",
+        )
+
+        add_variable(
+            config,
+            name=f"dnn_diff_{proc}",
+            expression=(lambda events: events[f"run3_dnn_moe_{proc}"] - events[f"res_dnn_{proc}"]),
+            aux={"inputs": {f"run3_dnn_moe_{proc}", f"res_dnn_{proc}"}},
+            binning=(50, -1.0, 1.0),
+            x_title=rf"$\Delta$DNN (Run3, Run2), {proc.upper()} output node",
+        )
+
 
 # helper to add a variable to the config with some defaults
 def add_variable(config: od.Config, *args, **kwargs) -> od.Variable:
