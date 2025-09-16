@@ -758,20 +758,38 @@ def add_config(
     if run == 2:
         cfg.x.met_name = "MET"
         cfg.x.raw_met_name = "RawMET"
+
+        # met phi correction config
+        from columnflow.calibration.cms.met import METPhiConfigRun2
+        cfg.x.met_phi_correction = METPhiConfigRun2(
+            met_name=cfg.x.met_name,
+            correction_set_template="{variable}_metphicorr_pfmet_{data_source}",
+            keep_uncorrected=True,
+        )
     elif run == 3:
         cfg.x.met_name = "PuppiMET"
         cfg.x.raw_met_name = "RawPuppiMET"
+
+        # met phi correction config
+        from columnflow.calibration.cms.met import METPhiConfig
+        cfg.x.met_phi_correction = METPhiConfig(
+            met_name=cfg.x.met_name,
+            met_type=cfg.x.met_name,
+            correction_set="met_xy_corrections",
+            keep_uncorrected=True,
+            pt_phi_variations={
+                "stat_xdn": "metphi_statx_down",
+                "stat_xup": "metphi_statx_up",
+                "stat_ydn": "metphi_staty_down",
+                "stat_yup": "metphi_staty_up",
+            },
+            variations={
+                "pu_dn": "minbias_xs_down",
+                "pu_up": "minbias_xs_up",
+            },
+        )
     else:
         assert False
-
-    # met phi correction config
-    from columnflow.calibration.cms.met import METPhiConfig
-    cfg.x.met_phi_correction = METPhiConfig(
-        met_name=cfg.x.met_name,
-        correction_set="met_xy_corrections" if run == 3 else r"{variable}_metphicorr_pfmet_{data_source}",
-        keep_uncorrected=True,
-        variable_config={"phi": ("phi",)},  # not added pt here, just interested in phi correction
-    )
 
     ################################################################################################
     # jet settings
