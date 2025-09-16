@@ -61,10 +61,21 @@ def add_config(
         },
     )
 
-    # store a full postfix
-    for tag in {2022: ["preEE", "postEE"], 2023: ["preBPix", "postBPix"]}.get(year, []):
-        if campaign.has_tag(tag):
-            cfg.x.full_postfix = f"{year2}{tag}"
+    # the postfix coming with cmsdb refers to the centrally used postfix of the simulation campaign like EE or BPix,
+    # but we also often use an adjusted postfix like preEE or postEE to reduce ambiguity; this postfix is already stored
+    # in the campaign's tags coming with cmsdb, but still store them as an additional auxiliary field "full_postfix"
+    full_postfix = ""
+    if year == 2016:
+        assert campaign.has_tag({"preVFP", "postVFP"}, mode=any)
+        full_postfix = "preVFP" if campaign.has_tag("preVFP") else "postVFP"
+    elif year == 2022:
+        assert campaign.has_tag({"preEE", "postEE"}, mode=any)
+        full_postfix = "preEE" if campaign.has_tag("preEE") else "postEE"
+    elif year == 2023:
+        assert campaign.has_tag({"preBPix", "postBPix"}, mode=any)
+        full_postfix = "preBPix" if campaign.has_tag("preBPix") else "postBPix"
+    campaign.x.full_postfix = full_postfix
+    cfg.x.full_postfix = full_postfix
 
     ################################################################################################
     # helpers
