@@ -1569,7 +1569,9 @@ def add_config(
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
         add_external("hh_btag_repo", Ext(
             f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
-            subpaths=DotDict(even="hh-btag-master/models/HHbtag_v2_par_0", odd="hh-btag-master/models/HHbtag_v2_par_1"),
+            subpaths=DotDict(
+                even="hh-btag-master/models/HHbtag_v2_par_0",
+                odd="hh-btag-master/models/HHbtag_v2_par_1"),
             version="v2",
         ))
     elif run == 3:
@@ -1583,17 +1585,20 @@ def add_config(
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # electron energy correction and smearing
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
-        # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
+        # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         add_external("hh_btag_repo", Ext(
-            f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
-            subpaths=DotDict(even="hh-btag-master/models/HHbtag_v3_par_0", odd="hh-btag-master/models/HHbtag_v3_par_1"),
+            f"{central_hbt_dir}/HHbtag-863627a.tar.gz",
+            subpaths=DotDict(
+                even="HHbtag-863627a294472b37073143499ee346e2e0b7160b/models/HHbtag_v3_par_0",
+                odd="HHbtag-863627a294472b37073143499ee346e2e0b7160b/models/HHbtag_v3_par_1"),
             version="v3",
         ))
+        # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB
         add_external("vbf_jtag_repo", Ext(
-            f"{central_hbt_dir}/VBFjtag-CCLUB_v1.0_4b5c6e8.tar.gz",
+            f"{central_hbt_dir}/VBFjtag-CCLUB-3905dcc.tar.gz",
             subpaths=DotDict(
-                even="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_0",
-                odd="VBFjtag-CCLUB_v1.0/models/VBFjTag_par_1",
+                even="VBFjtag-3905dcce38cbd9e768596542f2e396651fb690f8/models/VBFjTag_par_0",
+                odd="VBFjtag-3905dcce38cbd9e768596542f2e396651fb690f8/models/VBFjTag_par_1",
             ),
             version="v1",
         ))
@@ -1606,7 +1611,9 @@ def add_config(
             tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
         else:
             assert False
-        add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+        # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+        # custom corrections from Lucas Russel, blessed by TAU
+        add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
