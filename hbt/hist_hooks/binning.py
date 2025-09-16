@@ -335,20 +335,21 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
     # add hooks
     analysis_inst.x.hist_hooks.flats = flat_s
-    analysis_inst.x.hist_hooks.flats_kl1_n10 = functools.partial(
-        flat_s,
-        signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
-        n_bins=10,
-    )
-    analysis_inst.x.hist_hooks.flats_kl1_n10_guarded = functools.partial(
-        flat_s,
-        signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
-        n_bins=10,
-        constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
-    )
-    analysis_inst.x.hist_hooks.flats_kl1_n10_guarded5 = functools.partial(
-        flat_s,
-        signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
-        n_bins=10,
-        constraint=BinningConstraint(["tt", "dy"], functools.partial(constrain_tt_dy, n_tt=5, n_dy=5, n_sum=10)),
-    )
+    for n_bins in [10, 15, 20]:
+        analysis_inst.x.hist_hooks[f"flats_kl1_n{n_bins}"] = functools.partial(
+            flat_s,
+            signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
+            n_bins=n_bins,
+        )
+        analysis_inst.x.hist_hooks[f"flats_kl1_n{n_bins}_guarded"] = functools.partial(
+            flat_s,
+            signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
+            n_bins=n_bins,
+            constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
+        )
+        analysis_inst.x.hist_hooks[f"flats_kl1_n{n_bins}_guarded5"] = functools.partial(
+            flat_s,
+            signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
+            n_bins=n_bins,
+            constraint=BinningConstraint(["tt", "dy"], functools.partial(constrain_tt_dy, n_tt=5, n_dy=5, n_sum=10)),
+        )
