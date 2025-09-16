@@ -594,9 +594,13 @@ for fold in range(_run3_dnn.n_folds):
 class run3_dnn_moe(Producer):
 
     # require ProduceColumns tasks per fold first when True, otherwise evaluate all folds in the same task
-    # (when False, the sandbox must be set)
     require_producers = True
+
+    # when require_producers is False, the sandbox must be set
     # sandbox = _run3_dnn.sandbox
+
+    # when require_producers is True, decide whether to remove their outputs after successful combination
+    remove_producers = True
 
     # used and produced columns
     # (used ones are updated dynamically in init_func)
@@ -630,14 +634,20 @@ class run3_dnn_moe(Producer):
         reqs: dict,
         inputs: dict,
         reader_targets: law.util.InsertableDict,
+        **kwargs,
     ) -> None:
         if not self.require_producers:
             return
 
+        # add outputs of required producers to list of columnar files that are read in the producer loop
         reader_targets.update({
             f"run3_dnn_fold{f}": inp["columns"]
             for f, inp in inputs["run3_dnn_folds"].items()
         })
+
+        # potentially store references to inputs to removal later on
+        if self.remove_producers:
+            self.remove_producer_inputs = [inp["columns"] for inp in inputs["run3_dnn_folds"].values()]
 
     def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
         event_fold = events.event % _run3_dnn.n_folds
@@ -657,3 +667,11 @@ class run3_dnn_moe(Producer):
             events = set_ak_column_f32(events, f"run3_dnn_moe_{out}", score)
 
         return events
+
+    def teardown_func(self, task: law.Task, **kwargs) -> None:
+        super().teardown_func(task, **kwargs)
+
+        # remove outputs of required producers
+        if self.require_producers and self.remove_producers:
+            for inp in self.remove_producer_inputs:
+                inp.remove()

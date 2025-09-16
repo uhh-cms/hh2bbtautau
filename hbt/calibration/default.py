@@ -7,7 +7,7 @@ Calibration methods.
 from __future__ import annotations
 
 from columnflow.calibration import Calibrator, calibrator
-# from columnflow.calibration.cms.met import met_phi
+from columnflow.calibration.cms.met import met_phi_run2, met_phi
 from columnflow.calibration.cms.jets import jec, jer
 from columnflow.calibration.cms.tau import tec
 from columnflow.calibration.cms.egamma import eer, eec
@@ -107,9 +107,8 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
             events = self[self.deterministic_eer_nominal_cls](events, **kwargs)
 
     # apply met phi correction
-    # note: disabled for now as the run 3 calibration introduces a huge met phi modulation (which it should solve)
-    # if self.has_dep(self.met_phi_cls):
-    #     events = self[self.met_phi_cls](events, **kwargs)
+    if self.has_dep(self.met_phi_cls):
+        events = self[self.met_phi_cls](events, **kwargs)
 
     return events
 
@@ -168,7 +167,7 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "with_uncertainties": False,
         })
         # derive met_phi calibrator
-        # add_calib_cls("met_phi", met_phi)
+        add_calib_cls("met_phi", met_phi_run2 if self.config_inst.campaign.x.run == 2 else met_phi)
 
         # change the flag
         self.config_inst.set_aux(flag, True)
@@ -184,7 +183,7 @@ def default_init(self: Calibrator, **kwargs) -> None:
     self.eec_nominal_cls = self.config_inst.x.calib_eec_nominal_cls
     self.deterministic_eer_full_cls = self.config_inst.x.calib_deterministic_eer_full_cls
     self.deterministic_eer_nominal_cls = self.config_inst.x.calib_deterministic_eer_nominal_cls
-    # self.met_phi_cls = self.config_inst.x.calib_met_phi_cls
+    self.met_phi_cls = self.config_inst.x.calib_met_phi_cls
 
     # collect derived calibrators and add them to the calibrator uses and produces
     derived_calibrators = {
@@ -198,7 +197,7 @@ def default_init(self: Calibrator, **kwargs) -> None:
         IF_RUN_3(self.eec_nominal_cls),
         IF_RUN_3(self.deterministic_eer_full_cls),
         IF_RUN_3(self.deterministic_eer_nominal_cls),
-        # self.met_phi_cls,
+        self.met_phi_cls,
     }
     self.uses |= derived_calibrators
     self.produces |= derived_calibrators

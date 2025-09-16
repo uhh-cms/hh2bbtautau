@@ -61,10 +61,21 @@ def add_config(
         },
     )
 
-    # store a full postfix
-    for tag in {2022: ["preEE", "postEE"], 2023: ["preBPix", "postBPix"]}.get(year, []):
-        if campaign.has_tag(tag):
-            cfg.x.full_postfix = f"{year2}{tag}"
+    # the postfix coming with cmsdb refers to the centrally used postfix of the simulation campaign like EE or BPix,
+    # but we also often use an adjusted postfix like preEE or postEE to reduce ambiguity; this postfix is already stored
+    # in the campaign's tags coming with cmsdb, but still store them as an additional auxiliary field "full_postfix"
+    full_postfix = ""
+    if year == 2016:
+        assert campaign.has_tag({"preVFP", "postVFP"}, mode=any)
+        full_postfix = "preVFP" if campaign.has_tag("preVFP") else "postVFP"
+    elif year == 2022:
+        assert campaign.has_tag({"preEE", "postEE"}, mode=any)
+        full_postfix = "preEE" if campaign.has_tag("preEE") else "postEE"
+    elif year == 2023:
+        assert campaign.has_tag({"preBPix", "postBPix"}, mode=any)
+        full_postfix = "preBPix" if campaign.has_tag("preBPix") else "postBPix"
+    campaign.x.full_postfix = full_postfix
+    cfg.x.full_postfix = full_postfix
 
     ################################################################################################
     # helpers
@@ -758,20 +769,38 @@ def add_config(
     if run == 2:
         cfg.x.met_name = "MET"
         cfg.x.raw_met_name = "RawMET"
+
+        # met phi correction config
+        from columnflow.calibration.cms.met import METPhiConfigRun2
+        cfg.x.met_phi_correction = METPhiConfigRun2(
+            met_name=cfg.x.met_name,
+            correction_set_template="{variable}_metphicorr_pfmet_{data_source}",
+            keep_uncorrected=True,
+        )
     elif run == 3:
         cfg.x.met_name = "PuppiMET"
         cfg.x.raw_met_name = "RawPuppiMET"
+
+        # met phi correction config
+        from columnflow.calibration.cms.met import METPhiConfig
+        cfg.x.met_phi_correction = METPhiConfig(
+            met_name=cfg.x.met_name,
+            met_type=cfg.x.met_name,
+            correction_set="met_xy_corrections",
+            keep_uncorrected=True,
+            pt_phi_variations={
+                "stat_xdn": "metphi_statx_down",
+                "stat_xup": "metphi_statx_up",
+                "stat_ydn": "metphi_staty_down",
+                "stat_yup": "metphi_staty_up",
+            },
+            variations={
+                "pu_dn": "minbias_xs_down",
+                "pu_up": "minbias_xs_up",
+            },
+        )
     else:
         assert False
-
-    # met phi correction config
-    from columnflow.calibration.cms.met import METPhiConfig
-    cfg.x.met_phi_correction = METPhiConfig(
-        met_name=cfg.x.met_name,
-        correction_set="met_xy_corrections" if run == 3 else r"{variable}_metphicorr_pfmet_{data_source}",
-        keep_uncorrected=True,
-        variable_config={"phi": ("phi",)},  # not added pt here, just interested in phi correction
-    )
 
     ################################################################################################
     # jet settings
@@ -931,8 +960,7 @@ def add_config(
 
     # tau trigger working points
     cfg.x.tau_trigger_working_points = DotDict.wrap({
-        "id_vs_jet_v0": "VVLoose",
-        "id_vs_jet_gv0": ("Loose", "VVLoose"),
+        "id_vs_jet": "Medium",
         "id_vs_mu_single": "Tight",
         "id_vs_mu_cross": "VLoose",
         "id_vs_e_single": "VVLoose",
@@ -1471,7 +1499,6 @@ def add_config(
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
         json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
-        trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
             if campaign.has_tag(tag, mode=any):
@@ -1542,7 +1569,9 @@ def add_config(
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
         add_external("hh_btag_repo", Ext(
             f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
-            subpaths=DotDict(even="hh-btag-master/models/HHbtag_v2_par_0", odd="hh-btag-master/models/HHbtag_v2_par_1"),
+            subpaths=DotDict(
+                even="hh-btag-master/models/HHbtag_v2_par_0",
+                odd="hh-btag-master/models/HHbtag_v2_par_1"),
             version="v2",
         ))
     elif run == 3:
@@ -1556,12 +1585,15 @@ def add_config(
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
         # electron energy correction and smearing
         add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
-        # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
+        # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         add_external("hh_btag_repo", Ext(
-            f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
-            subpaths=DotDict(even="hh-btag-master/models/HHbtag_v3_par_0", odd="hh-btag-master/models/HHbtag_v3_par_1"),
+            f"{central_hbt_dir}/HHbtag-863627a.tar.gz",
+            subpaths=DotDict(
+                even="HHbtag-863627a294472b37073143499ee346e2e0b7160b/models/HHbtag_v3_par_0",
+                odd="HHbtag-863627a294472b37073143499ee346e2e0b7160b/models/HHbtag_v3_par_1"),
             version="v3",
         ))
+        # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB
         add_external("vbf_jtag_repo", Ext(
             f"{central_hbt_dir}/VBFjtag-CCLUB-3905dcc.tar.gz",
             subpaths=DotDict(
@@ -1579,7 +1611,9 @@ def add_config(
             tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
         else:
             assert False
-        add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+        # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+        # custom corrections from Lucas Russel, blessed by TAU
+        add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
@@ -1587,7 +1621,7 @@ def add_config(
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
         add_external("trigger_sf", Ext(
-            f"{trigger_json_mirror}",
+            f"{central_hbt_dir}/AnalysisCore-59ae66c4.tar.gz",
             subpaths=DotDict(
                 muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/temporary_MuHlt_abseta_pt.json",
                 cross_muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/CrossMuTauHlt.json",
@@ -1648,7 +1682,7 @@ def add_config(
             # "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
             # "FatJet.{eta,phi,pt,mass}",
             # f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
-            # "reg_dnn_nu{1,2}_p{x,z}",
+            # "reg_dnn_nu{1,2}_p{x,y,z}",
             # "res_dnn_pnet_*",
             # *skip_column("*_{up,down}"),
         },
