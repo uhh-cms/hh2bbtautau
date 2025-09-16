@@ -801,6 +801,14 @@ def add_variables(config: od.Config) -> None:
 
         add_variable(
             config,
+            name=f"run3_dnn_moe_{proc}_fine",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=(5000, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output node",
+        )
+
+        add_variable(
+            config,
             name=f"dnn_diff_{proc}",
             expression=(lambda events: events[f"run3_dnn_moe_{proc}"] - events[f"res_dnn_{proc}"]),
             aux={"inputs": {f"run3_dnn_moe_{proc}", f"res_dnn_{proc}"}},

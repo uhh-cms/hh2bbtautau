@@ -314,7 +314,7 @@ def tau_selection(
     if ak.all(ak.num(events.Tau) == 0):
         logger.info("no taus found in event chunk")
         false_mask = full_like(events.Tau.pt, False, dtype=bool)
-        return false_mask, false_mask
+        return false_mask, false_mask, false_mask
 
     is_single_e = trigger.has_tag("single_e")
     is_single_mu = trigger.has_tag("single_mu")
@@ -458,16 +458,15 @@ def tau_trigger_matching(
 
 @selector(
     uses={
-        electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching,
-        tau_selection, tau_trigger_matching,
+        electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching, tau_selection,
+        tau_trigger_matching,
         "event", "{Electron,Muon,Tau}.{charge,mass}",
     },
     produces={
-        electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching,
-        tau_selection, tau_trigger_matching,
+        electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching, tau_selection,
+        tau_trigger_matching,
         # new columns
-        "channel_id", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
-        "matched_trigger_ids",
+        "channel_id", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered", "matched_trigger_ids",
     },
 )
 def lepton_selection(
@@ -508,7 +507,7 @@ def lepton_selection(
 
     # indices for sorting taus first by isolation, then by pt
     # for this, combine iso and pt values, e.g. iso 255 and pt 32.3 -> 2550032.3
-    f = 10**(np.ceil(np.log10(ak.max(events.Tau.pt))) + 2)
+    f = 10**(np.ceil(np.log10(ak.max(events.Tau.pt) or 0.0)) + 2)
     tau_sorting_key = events.Tau[f"raw{self.config_inst.x.tau_tagger}VSjet"] * f + events.Tau.pt
     tau_sorting_indices = ak.argsort(tau_sorting_key, axis=-1, ascending=False)
 

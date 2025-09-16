@@ -289,14 +289,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 else category_inst.get_leaf_categories()
             )
 
-            # filter categories not existing in histogram
-            cat_ids_locations = [
-                hist.loc(c.name) for c in leaf_cats
-                if c.name in signal_hist[config_inst].axes["category"]
-            ]
+            # select leaf categories and nominal shift
+            def select(h: hist.Hist) -> hist.Hist:
+                # filter to existing categories
+                h = h[{"category": [hist.loc(c.name) for c in leaf_cats if c.name in h.axes["category"]]}]
+                # sum over categories and select nominal shift
+                h = h[{"category": sum, "shift": hist.loc("nominal")}]
+                return h
 
-            # sum over different leaf categories and select the nominal shift
-            select = lambda h: h[{"category": cat_ids_locations}][{"category": sum, "shift": hist.loc("nominal")}]
             signal_hist[config_inst] = select(signal_hist[config_inst])
             for process_inst, h in background_hists[config_inst].items():
                 background_hists[config_inst][process_inst] = select(h)

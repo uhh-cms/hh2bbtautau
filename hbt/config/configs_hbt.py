@@ -949,8 +949,7 @@ def add_config(
 
     # tau trigger working points
     cfg.x.tau_trigger_working_points = DotDict.wrap({
-        "id_vs_jet_v0": "VVLoose",
-        "id_vs_jet_gv0": ("Loose", "VVLoose"),
+        "id_vs_jet": "Medium",
         "id_vs_mu_single": "Tight",
         "id_vs_mu_cross": "VLoose",
         "id_vs_e_single": "VVLoose",
@@ -1489,7 +1488,6 @@ def add_config(
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
         json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
-        trigger_json_mirror = "https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/archive/59ae66c4a39d3e54afad5733895c33b1fb511c47/AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47.tar.gz"  # noqa: E501
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
             if campaign.has_tag(tag, mode=any):
@@ -1605,7 +1603,7 @@ def add_config(
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
         add_external("trigger_sf", Ext(
-            f"{trigger_json_mirror}",
+            f"{central_hbt_dir}/AnalysisCore-59ae66c4.tar.gz",
             subpaths=DotDict(
                 muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/temporary_MuHlt_abseta_pt.json",
                 cross_muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/CrossMuTauHlt.json",
@@ -1666,7 +1664,7 @@ def add_config(
             # "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
             # "FatJet.{eta,phi,pt,mass}",
             # f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
-            # "reg_dnn_nu{1,2}_p{x,z}",
+            # "reg_dnn_nu{1,2}_p{x,y,z}",
             # "res_dnn_pnet_*",
             # *skip_column("*_{up,down}"),
         },

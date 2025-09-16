@@ -101,10 +101,10 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # helpers to create corrector arguments
     if self.id_vs_jet_corrector.version == 0:
         # pt, dm, genmatch, jet wp, syst, sf type
-        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], wp_config.id_vs_jet_v0, syst, "dm")
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], wp_config.id_vs_jet, syst, "dm")
     elif self.id_vs_jet_corrector.version in (1, 2, 3):
         # pt, dm, genmatch, jet wp, e wp, syst, sf type
-        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], *wp_config.id_vs_jet_gv0, syst, "dm")
+        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], wp_config.id_vs_jet, wp_config.id_vs_e_single, syst, "dm")  # noqa: E501
     else:
         raise NotImplementedError
 
