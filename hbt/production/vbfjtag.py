@@ -55,7 +55,7 @@ def vbfjtag(
     )
 
     # ordering by decreasing eta then pt
-    f = 10**(np.ceil(np.log10(ak.max(events.Jet.pt))) + 2)
+    f = 10**(np.ceil(np.log10(ak.max(events.Jet.pt) or 0.0)) + 2)
     jet_sorting_key = abs(events.Jet.eta) * f + events.Jet.pt
     jet_sorting_indices = ak.argsort(jet_sorting_key, axis=-1, ascending=False)
 
