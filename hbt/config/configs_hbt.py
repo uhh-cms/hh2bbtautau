@@ -718,7 +718,7 @@ def add_config(
 
     # lumi values in 1/pb (= 1000/fb)
     # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2?rev=7
-    # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun3?rev=25
+    # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun3?rev=27
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     # difference pre-post VFP: https://cds.cern.ch/record/2854610/files/DP2023_006.pdf
     # Lumis for Run3 within the Twiki are outdated as stated here:
@@ -749,19 +749,19 @@ def add_config(
         })
     elif year == 2022 and campaign.has_tag("preEE"):
         cfg.x.luminosity = Number(7_980.4541, {
-            "lumi_13p6TeV_correlated": 0.014j,
+            "lumi_13p6TeV_2022": 0.014j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
         cfg.x.luminosity = Number(26_671.6097, {
-            "lumi_13p6TeV_correlated": 0.014j,
+            "lumi_13p6TeV_2022": 0.014j,
         })
     elif year == 2023 and campaign.has_tag("preBPix"):
         cfg.x.luminosity = Number(18_062.6591, {
-            "lumi_13p6TeV_correlated": 0.013j,
+            "lumi_13p6TeV_2023": 0.013j,
         })
     elif year == 2023 and campaign.has_tag("postBPix"):
         cfg.x.luminosity = Number(9_693.1301, {
-            "lumi_13p6TeV_correlated": 0.013j,
+            "lumi_13p6TeV_2023": 0.013j,
         })
     else:
         assert False
@@ -1351,10 +1351,10 @@ def add_config(
                 cfg,
                 f"jec_{jec_source}",
                 {
-                    "normalized_btag_deepjet_weight": "normalized_btag_deepjet_weight_{name}",
-                    "normalized_njet_btag_deepjet_weight": "normalized_njet_btag_deepjet_weight_{name}",
-                    "normalized_btag_pnet_weight": "normalized_btag_pnet_weight_{name}",
-                    "normalized_njet_btag_pnet_weight": "normalized_njet_btag_pnet_weight_{name}",
+                    # "normalized_btag_weight_deepjet": "normalized_btag_weight_deepjet_{name}",
+                    # "normalized_njet_btag_weight_deepjet": "normalized_njet_btag_weight_deepjet_{name}",
+                    "normalized_btag_weight_pnet": "normalized_btag_weight_pnet_{name}",
+                    "normalized_njet_btag_weight_pnet": "normalized_njet_btag_weight_pnet_{name}",
                 },
             )
 
@@ -1437,20 +1437,22 @@ def add_config(
 
     cfg.x.btag_unc_names = [
         "hf", "lf",
-        f"hfstats1_{year}", f"hfstats2_{year}",
-        f"lfstats1_{year}", f"lfstats2_{year}",
+        "hfstats1", "hfstats2",
+        "lfstats1", "lfstats2",
         "cferr1", "cferr2",
     ]
     for i, unc in enumerate(cfg.x.btag_unc_names):
         cfg.add_shift(name=f"btag_{unc}_up", id=110 + 2 * i, type="shape")
         cfg.add_shift(name=f"btag_{unc}_down", id=111 + 2 * i, type="shape")
+        unc_no_suffix = unc.replace(f"_{year}{cfg.x.full_postfix}", "")
         add_shift_aliases(
             cfg,
             f"btag_{unc}",
             {
-                "normalized_btag_deepjet_weight": f"normalized_btag_deepjet_weight_{unc}_" + "{direction}",
-                "normalized_njet_btag_deepjet_weight": f"normalized_njet_btag_deepjet_weight_{unc}_" + "{direction}",
-                # TODO: pnet here, or is this another shift? probably the latter
+                # "normalized_btag_weight_deepjet": f"normalized_btag_weight_deepjet_{unc}_{{direction}}",
+                # "normalized_njet_btag_weight_deepjet": f"normalized_njet_btag_weight_deepjet_{unc}_{{direction}}",
+                "normalized_btag_weight_pnet": f"normalized_btag_weight_pnet_{unc_no_suffix}_{{direction}}",
+                "normalized_njet_btag_weight_pnet": f"normalized_njet_btag_weight_pnet_{unc_no_suffix}_{{direction}}",
             },
         )
 
@@ -1523,10 +1525,10 @@ def add_config(
         if year == 2016:
             json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
         json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
+        json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
     elif run == 3:
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
+        json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
         campaign_tag = ""
         for tag in ("preEE", "postEE", "preBPix", "postBPix"):
             if campaign.has_tag(tag, mode=any):
@@ -1689,6 +1691,8 @@ def add_config(
             "Muon.*", skip_column("Muon.track_cov*"),
             "Tau.*", skip_column("Tau.track_cov*"),
             f"{cfg.x.met_name}.{{pt,phi,significance,covXX,covXY,covYY}}",
+            # variations created during met phi calibration and that are not registered shifts to the selector
+            f"{cfg.x.met_name}.{{pt,phi}}_{{unsmeared,metphi_*,minbias_xs_*}}",
             "PV.npvs",
             # keep all columns added during selection and reduction, but skip cutflow features
             ColumnCollection.ALL_FROM_SELECTOR,
