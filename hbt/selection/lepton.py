@@ -326,7 +326,6 @@ def tau_selection(
     is_2016 = self.config_inst.campaign.x.year == 2016
     is_run3 = self.config_inst.campaign.x.run == 3
     get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
-    wp_config = self.config_inst.x.tau_id_working_points
 
     # determine minimum pt and maximum eta
     max_eta = 2.5
@@ -352,7 +351,7 @@ def tau_selection(
         (events.Tau.pt > base_pt) &
         (abs(events.Tau.dz) < 0.2) &
         reduce(or_, [events.Tau.decayMode == mode for mode in (0, 1, 10, 11)]) &
-        (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.vvvloose)
+        (events.Tau[get_tau_tagger("jet")] >= self.config_inst.x.deeptau_ids.vs_jet.vvvloose)
         # vs e and mu cuts are channel dependent and thus applied in the overall lepton selection
     )
 
@@ -366,7 +365,7 @@ def tau_selection(
     trigger_specific_mask = base_mask & (events.Tau.pt > min_pt)
 
     # compute the isolation mask separately as it is used to defined (qcd) categories later on
-    iso_mask = events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.medium
+    iso_mask = events.Tau[get_tau_tagger("jet")] >= self.config_inst.x.deeptau_ids.vs_jet[self.config_inst.x.deeptau_wps.vs_jet]  # noqa: E501
 
     return base_mask, trigger_specific_mask, iso_mask
 
@@ -478,7 +477,6 @@ def lepton_selection(
     """
     Combined lepton selection.
     """
-    wp_config = self.config_inst.x.tau_id_working_points
     get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
 
     # get channels from the config
@@ -548,8 +546,8 @@ def lepton_selection(
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
                 tau_base_mask &
-                (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vvloose) &
-                (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.tight)
+                (events.Tau[get_tau_tagger("e")] >= self.config_inst.x.deeptau_ids.vs_e[self.config_inst.x.deeptau_wps.vs_e]) &  # noqa: E501
+                (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.etau])  # noqa: E501
             )
 
             # fold trigger matching into the selection
@@ -617,8 +615,8 @@ def lepton_selection(
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
                 tau_base_mask &
-                (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vvloose) &
-                (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.tight)
+                (events.Tau[get_tau_tagger("e")] >= self.config_inst.x.deeptau_ids.vs_e[self.config_inst.x.deeptau_wps.vs_e]) &  # noqa: E501
+                (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.mutau])  # noqa: E501
             )
 
             # fold trigger matching into the selection
@@ -686,8 +684,8 @@ def lepton_selection(
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
                 tau_base_mask &
-                (events.Tau[get_tau_tagger("e")] >= wp_config.tau_vs_e.vvloose) &
-                (events.Tau[get_tau_tagger("mu")] >= wp_config.tau_vs_mu.vloose)
+                (events.Tau[get_tau_tagger("e")] >= self.config_inst.x.deeptau_ids.vs_e[self.config_inst.x.deeptau_wps.vs_e]) &  # noqa: E501
+                (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.tautau])  # noqa: E501
             )
 
             # fold trigger matching into the selection

@@ -947,32 +947,43 @@ def add_config(
     else:
         assert False
 
-    # tec config
-    from columnflow.calibration.cms.tau import TECConfig
-    corrector_kwargs = {"wp": "Medium", "wp_VSe": "VVLoose"} if run == 3 else {}
-    cfg.x.tec = TECConfig(tagger=cfg.x.tau_tagger, corrector_kwargs=corrector_kwargs)
-
-    # tau ID working points
+    # deep tau ID working point bitmask/position to name mapping
     if campaign.x.version < 10:
-        cfg.x.tau_id_working_points = DotDict.wrap({
-            "tau_vs_e": {"vvvloose": 1, "vvloose": 2, "vloose": 4, "loose": 8, "medium": 16, "tight": 32, "vtight": 64, "vvtight": 128},  # noqa: E501
-            "tau_vs_jet": {"vvvloose": 1, "vvloose": 2, "vloose": 4, "loose": 8, "medium": 16, "tight": 32, "vtight": 64, "vvtight": 128},  # noqa: E501
-            "tau_vs_mu": {"vloose": 1, "loose": 2, "medium": 4, "tight": 8},
+        cfg.x.deeptau_ids = DotDict.wrap({
+            "vs_e": {"vvvloose": 1, "vvloose": 2, "vloose": 4, "loose": 8, "medium": 16, "tight": 32, "vtight": 64, "vvtight": 128},  # noqa: E501
+            "vs_jet": {"vvvloose": 1, "vvloose": 2, "vloose": 4, "loose": 8, "medium": 16, "tight": 32, "vtight": 64, "vvtight": 128},  # noqa: E501
+            "vs_mu": {"vloose": 1, "loose": 2, "medium": 4, "tight": 8},
         })
     else:
-        cfg.x.tau_id_working_points = DotDict.wrap({
-            "tau_vs_e": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa: E501
-            "tau_vs_jet": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa: E501
-            "tau_vs_mu": {"vloose": 1, "loose": 2, "medium": 3, "tight": 4},
+        cfg.x.deeptau_ids = DotDict.wrap({
+            "vs_e": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa: E501
+            "vs_jet": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa: E501
+            "vs_mu": {"vloose": 1, "loose": 2, "medium": 3, "tight": 4},
         })
+
+    # employed deeptau working points, potentially channel dependent
+    cfg.x.deeptau_wps = DotDict.wrap({
+        "vs_e": "vvloose",
+        "vs_mu": {
+            "etau": "tight",
+            "mutau": "tight",
+            "tautau": "vloose",
+        },
+        "vs_jet": "medium",
+    })
+
+    # tec config
+    from columnflow.calibration.cms.tau import TECConfig
+    corrector_kwargs = {"wp": "Medium", "wp_VSe": "VVLoose"} if run == 3 else {}  # values correspond to wps above
+    cfg.x.tec = TECConfig(tagger=cfg.x.tau_tagger, corrector_kwargs=corrector_kwargs)
 
     # tau trigger working points
     cfg.x.tau_trigger_working_points = DotDict.wrap({
-        "id_vs_jet": "Medium",
-        "id_vs_mu_single": "Tight",
-        "id_vs_mu_cross": "VLoose",
-        "id_vs_e_single": "VVLoose",
-        "id_vs_e_cross": "VVLoose",
+        "vs_jet": "Medium",
+        "vs_mu_single": "Tight",
+        "vs_mu_cross": "VLoose",
+        "vs_e_single": "VVLoose",
+        "vs_e_cross": "VVLoose",
         "trigger_corr": "VVLoose",
     })
 
@@ -1376,14 +1387,20 @@ def add_config(
 
     # start at id=50
     cfg.x.tau_unc_names = [
-        "jet_dm0", "jet_dm1", "jet_dm10", "jet_dm11",
+        "jet_stat1_dm0", "jet_stat1_dm1", "jet_stat1_dm10", "jet_stat1_dm11",
+        "jet_stat2_dm0", "jet_stat2_dm1", "jet_stat2_dm10", "jet_stat2_dm11",
         "e_barrel", "e_endcap",
         "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
     ]
     for i, unc in enumerate(cfg.x.tau_unc_names):
-        cfg.add_shift(name=f"tau_{unc}_up", id=50 + 2 * i, type="shape")
-        cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape")
-        add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_" + "{direction}"})
+        chs = {
+            "jet": ["etau", "mutau", "tautau"],
+            "e": ["etau"],
+            "mu": ["mutau"],
+        }[unc.split("_", 1)[0]]
+        cfg.add_shift(name=f"tau_{unc}_up", id=50 + 2 * i, type="shape", aux={"applies_to_channels": chs})
+        cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape", aux={"applies_to_channels": chs})
+        add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_{{direction}}"})
 
     cfg.add_shift(name="e_up", id=90, type="shape")
     cfg.add_shift(name="e_down", id=91, type="shape")
@@ -1481,10 +1498,12 @@ def add_config(
     )
 
     # trigger scale factors
-    trigger_legs = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]
-    for i, leg in enumerate(trigger_legs):
-        cfg.add_shift(name=f"trigger_{leg}_up", id=180 + 2 * i, type="shape")
-        cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape")
+    cfg.x.trigger_legs = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]
+    for i, leg in enumerate(cfg.x.trigger_legs):
+        # TODO: add applies_to_channel aux field since not all leg efficiencies uncertainties apply to all channel
+        chs = ["etau", "mutau", "tautau"]   # TODO: change this depending on leg name
+        cfg.add_shift(name=f"trigger_{leg}_up", id=180 + 2 * i, type="shape", aux={"applies_to_channels": chs})
+        cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
     ################################################################################################
@@ -1716,7 +1735,7 @@ def add_config(
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
-        "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in trigger_legs)),
+        "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in cfg.x.trigger_legs)),
     })
 
     # define per-dataset event weights
