@@ -56,6 +56,14 @@ def add_config(
         name=config_name,
         id=config_id,
         campaign=campaign,
+        channels=[
+            od.Channel(name="etau", id=1, label=r"$e\tau_{h}$"),
+            od.Channel(name="mutau", id=2, label=r"$\mu\tau_{h}$"),
+            od.Channel(name="tautau", id=3, label=r"$\tau_{h}\tau_{h}$"),
+            od.Channel(name="ee", id=4, label=r"$ee$"),
+            od.Channel(name="mumu", id=5, label=r"$\mu\mu$"),
+            od.Channel(name="emu", id=6, label=r"$e\mu$"),
+        ],
         aux={
             "sync": sync_mode,
         },
@@ -1151,7 +1159,6 @@ def add_config(
             # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005 chapter 4.5 in v12
             # performance studies for run 3 available and show improvements:
             # https://cds.cern.ch/record/2904691/files/DP2024_055.pdf
-
             "particleNetMD": {
                 "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880}[btag_key],
                 "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734}[btag_key],
@@ -1292,6 +1299,8 @@ def add_config(
         {
             "pu_weight": "pu_weight_{name}",
             "normalized_pu_weight": "normalized_pu_weight_{name}",
+            "PuppiMET.pt": "PuppiMET.pt_{name}",
+            "PuppiMET.phi": "PuppiMET.phi_{name}",
         },
     )
 
@@ -1603,12 +1612,11 @@ def add_config(
             version="v1",
         ))
         # tau energy correction and scale factors
+        tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"
         if year == 2022:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
-            tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preEE') else 'post'}EE"
         elif year == 2023:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
-            tau_pog_era_cclub = f"{year}{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
         else:
             assert False
         # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
@@ -1704,8 +1712,7 @@ def add_config(
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
-        # TODO: enable again once we have btag cuts
-        # "normalized_njet_btag_deepjet_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
+        "normalized_njet_btag_weight_pnet": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
@@ -1752,16 +1759,8 @@ def add_config(
     }
 
     ################################################################################################
-    # external configs: channels, categories, met filters, triggers, variables
+    # external configs: categories, met filters, triggers, variables
     ################################################################################################
-
-    # channels
-    cfg.add_channel(name="etau", id=1, label=r"$e\tau_{h}$")
-    cfg.add_channel(name="mutau", id=2, label=r"$\mu\tau_{h}$")
-    cfg.add_channel(name="tautau", id=3, label=r"$\tau_{h}\tau_{h}$")
-    cfg.add_channel(name="ee", id=4, label=r"$ee$")
-    cfg.add_channel(name="mumu", id=5, label=r"$\mu\mu$")
-    cfg.add_channel(name="emu", id=6, label=r"$e\mu$")
 
     # add categories
     from hbt.config.categories import add_categories

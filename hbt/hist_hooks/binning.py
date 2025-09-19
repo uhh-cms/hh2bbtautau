@@ -335,7 +335,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
     # add hooks
     analysis_inst.x.hist_hooks.flats = flat_s
-    for n_bins in [10, 15, 20]:
+    for n_bins in [10, 15, 20, 30, 40]:
         analysis_inst.x.hist_hooks[f"flats_kl1_n{n_bins}"] = functools.partial(
             flat_s,
             signal_process_name="hh_ggf_hbb_htt_kl1_kt1",

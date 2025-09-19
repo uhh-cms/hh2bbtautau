@@ -185,3 +185,31 @@ def create_lvector_xyz(px: ak.Array, py: ak.Array, pz: ak.Array, behavior: dict 
     """
     p = (px**2 + py**2 + pz**2)**0.5
     return create_lvector_exyz(p, px, py, pz, behavior=behavior)
+
+
+_uppercase_wps = {
+    "vvvvloose": "VVVVLoose",
+    "vvvloose": "VVVLoose",
+    "vvloose": "VVLoose",
+    "vloose": "VLoose",
+    "loose": "Loose",
+    "medium": "Medium",
+    "tight": "Tight",
+    "vtight": "VTight",
+    "vvtight": "VVTight",
+    "vvvtight": "VVVTight",
+    "vvvvtight": "VVVVTight",
+}
+
+
+def uppercase_wp(wp: str) -> str:
+    """
+    Converts a working point string to uppercase format.
+
+    :param wp: Working point string.
+    :return: Uppercase working point string.
+    """
+    wp = wp.lower()
+    if wp not in _uppercase_wps:
+        raise ValueError(f"unknown working point for uppercase conversion: {wp}")
+    return _uppercase_wps[wp]
