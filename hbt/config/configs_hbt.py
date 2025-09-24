@@ -463,16 +463,17 @@ def add_config(
             dataset.add_tag("w_lnu")
         if re.match(r"^w_lnu_\dj_(|pt.+_)amcatnlo$", dataset.name):
             dataset.add_tag("w_lnu_stitched")
+        # datasets that are allowed to contain some events with missing lhe infos
+        # (known to happen for amcatnlo)
+        if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
+            dataset.add_tag("partial_lhe_weights")
         # datasets that are known to have no lhe info at all
         if law.util.multi_match(dataset.name, [
             r"^(ww|wz|zz)_.*pythia$",
             r"^tt(w|z)_.*amcatnlo$",
         ]):
             dataset.add_tag("no_lhe_weights")
-        # datasets that are allowed to contain some events with missing lhe infos
-        # (known to happen for amcatnlo)
-        if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
-            dataset.add_tag("partial_lhe_weights")
+            dataset.remove_tag("partial_lhe_weights")
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
             dataset.add_tag("nonresonant_signal")
@@ -1500,8 +1501,12 @@ def add_config(
     # trigger scale factors
     cfg.x.trigger_legs = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet"]
     for i, leg in enumerate(cfg.x.trigger_legs):
-        # TODO: add applies_to_channel aux field since not all leg efficiencies uncertainties apply to all channel
-        chs = ["etau", "mutau", "tautau"]   # TODO: change this depending on leg name
+        # define the channels that each leg applies to
+        chs = {
+            "e": ["etau"],
+            "mu": ["mutau"],
+            "jet": ["tautau"],
+        }.get(leg, ["etau", "mutau", "tautau"])
         cfg.add_shift(name=f"trigger_{leg}_up", id=180 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})

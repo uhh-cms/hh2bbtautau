@@ -52,7 +52,6 @@ class default(HBTInferenceModelBase):
                 ]
             ],
             ("ttbar", "tt"),
-            ("ttbar", "tt_sl"),
             ("ttbarV", "ttv"),
             ("ttbarVV", "ttvv"),
             ("singlet", "st"),
@@ -114,6 +113,8 @@ class default(HBTInferenceModelBase):
                 )
 
     def init_processes(self) -> None:
+        # loop through process map and add process objects
+        self.processes_with_lhe_weights = set()
         for combine_name, proc_map in self.proc_map.items():
             for config_inst, proc_name in proc_map.items():
                 proc_inst = config_inst.get_process(proc_name)
@@ -141,11 +142,16 @@ class default(HBTInferenceModelBase):
                     is_signal=proc_inst.has_tag("nonresonant_signal"),
                     is_dynamic=is_dynamic,
                 )
+                # store whether there is at least one dataset contributing to this process with lhe weights
+                if not all(config_inst.get_dataset(d).has_tag("no_lhe_weights") for d in dataset_names):
+                    self.processes_with_lhe_weights.add(combine_name)
 
     def init_parameters(self) -> None:
         # general groups
         self.add_parameter_group("experiment")
         self.add_parameter_group("theory")
+        self.add_parameter_group("rate_nuisances")
+        self.add_parameter_group("shape_nuisances")
 
         # groups that contain parameters that solely affect the signal cross section and/or br
         self.add_parameter_group("signal_norm_xs")
@@ -172,21 +178,19 @@ class default(HBTInferenceModelBase):
             configs: od.Config | list[od.Config] | None = None,
             skip_qcd: bool = False,
         ) -> list[str] | None:
-            if not config_inst:
-                return None
             patterns = []
             # build a single regexp that matches processes and configs
             name_parts = []
             if processes:
                 name_parts.append(law.util.make_list(processes))
-            if config_inst:
-                name_parts.append([self.campaign_keys[c] for c in law.util.make_list(config_inst)])
+            if configs:
+                name_parts.append([self.campaign_keys[c] for c in law.util.make_list(configs)])
             if name_parts:
                 re_parts = [f"({'|'.join(n)})" for n in name_parts]
                 patterns.append(rf"^.*{'.*'.join(re_parts)}.*$")
             if skip_qcd:
                 patterns.append("!QCD*")
-            return patterns
+            return patterns or None
 
         #
         # simple rate parameters
@@ -198,63 +202,63 @@ class default(HBTInferenceModelBase):
             type=ParameterType.rate_gauss,
             process=["*_hbb", "*_hbbhtt"],
             effect=(0.9874, 1.0124),
-            group=["theory", "signal_norm_xsbr"],
+            group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "BR_htt",
             type=ParameterType.rate_gauss,
             process=["*_htt", "*_hbbhtt"],
             effect=(0.9837, 1.0165),
-            group=["theory", "signal_norm_xsbr"],
+            group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "pdf_gg",  # contains alpha_s
             type=ParameterType.rate_gauss,
             process=inject_all_eras("ttbar"),
             effect=1.042,
-            group=["theory"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "pdf_Higgs_ggHH",  # contains alpha_s
             type=ParameterType.rate_gauss,
             process="ggHH_*",
             effect=1.023,
-            group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
+            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "pdf_Higgs_qqHH",  # contains alpha_s
             type=ParameterType.rate_gauss,
             process="qqHH_*",
             effect=1.027,
-            group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
+            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_ttbar",
             type=ParameterType.rate_gauss,
             process=inject_all_eras("ttbar"),
             effect=(0.965, 1.024),
-            group=["theory"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_qqHH",
             type=ParameterType.rate_gauss,
             process="qqHH_*",
             effect=(0.9997, 1.0005),
-            group=["theory", "signal_norm_xs", "signal_norm_xsbr"],
+            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "bbH_norm_ggH",
             type=ParameterType.rate_gauss,
             process="ggH_*",
             effect=(0.5, 1.5),
-            group=["theory"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "bbH_norm_qqH",
             type=ParameterType.rate_gauss,
             process="qqH_*",
             effect=(0.5, 1.5),
-            group=["theory"],
+            group=["theory", "rate_nuisances"],
         )
         # TODO: additional theory uncertainties, especially on background processes!
 
@@ -268,7 +272,7 @@ class default(HBTInferenceModelBase):
                     effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
                     process=process_matches(configs=config_inst, skip_qcd=True),
                     process_match_mode=all,
-                    group=["experiment"],
+                    group=["experiment", "rate_nuisances"],
                 )
 
         #
@@ -285,7 +289,7 @@ class default(HBTInferenceModelBase):
                 },
                 process=process_matches(configs=config_inst, skip_qcd=True),
                 process_match_mode=all,
-                group=["experiment"],
+                group=["experiment", "shape_nuisances"],
             )
 
         # top pt weight
@@ -296,8 +300,8 @@ class default(HBTInferenceModelBase):
                 config_inst.name: self.parameter_config_spec(shift_source="top_pt")
                 for config_inst in self.config_insts
             },
-            process=process_matches(processes=["ttbar"]),
-            group=["experiment"],
+            process=inject_all_eras("ttbar"),
+            group=["experiment", "shape_nuisances"],
         )
 
         # pdf shape (could be decorrelated across some process groups if needed)
@@ -308,8 +312,8 @@ class default(HBTInferenceModelBase):
                 config_inst.name: self.parameter_config_spec(shift_source="pdf")
                 for config_inst in self.config_insts
             },
-            process=process_matches(skip_qcd=True),
-            group=["theory"],
+            process=self.processes_with_lhe_weights,
+            group=["theory", "shape_nuisances"],
         )
 
         # mur/muf shape (could be decorrelated across some process groups if needed)
@@ -320,8 +324,8 @@ class default(HBTInferenceModelBase):
                 config_inst.name: self.parameter_config_spec(shift_source="murmuf")
                 for config_inst in self.config_insts
             },
-            process=process_matches(skip_qcd=True),
-            group=["theory"],
+            process=self.processes_with_lhe_weights,
+            group=["theory", "shape_nuisances"],
         )
 
         # isr and fsr (could be decorrelated across some process groups if needed)
@@ -334,16 +338,16 @@ class default(HBTInferenceModelBase):
                     for config_inst in self.config_insts
                 },
                 process=process_matches(skip_qcd=True),
-                group=["theory"],
+                group=["theory", "shape_nuisances"],
             )
 
         # btag
-        btag_map = defaultdict(list)
+        btag_map: defaultdict[str, list[od.Config]] = defaultdict(list)
         for config_inst in self.config_insts:
             for name in config_inst.x.btag_unc_names:
                 btag_map[name].append(config_inst)
         for name, config_insts in btag_map.items():
-            # decorrelatae hf/lfstats across years
+            # decorrelate hf/lfstats across years, correlate others
             if re.match(r"^(l|h)fstats(1|2)$", name):
                 for config_inst in config_insts:
                     self.add_parameter(
@@ -354,7 +358,7 @@ class default(HBTInferenceModelBase):
                         },
                         process=process_matches(configs=config_inst, skip_qcd=True),
                         process_match_mode=all,
-                        group=["experiment"],
+                        group=["experiment", "shape_nuisances"],
                     )
             else:
                 self.add_parameter(
@@ -366,7 +370,7 @@ class default(HBTInferenceModelBase):
                     },
                     process=process_matches(configs=config_insts, skip_qcd=True),
                     process_match_mode=all,
-                    group=["experiment"],
+                    group=["experiment", "shape_nuisances"],
                 )
 
         # electron weight
@@ -380,7 +384,7 @@ class default(HBTInferenceModelBase):
                 category=["*_etau_*"],
                 process=process_matches(configs=config_inst, skip_qcd=True),
                 process_match_mode=all,
-                group=["experiment"],
+                group=["experiment", "shape_nuisances"],
             )
 
         # muon weight
@@ -394,7 +398,7 @@ class default(HBTInferenceModelBase):
                 category=["*_mutau_*"],
                 process=process_matches(configs=config_inst, skip_qcd=True),
                 process_match_mode=all,
-                group=["experiment"],
+                group=["experiment", "shape_nuisances"],
             )
 
         # tau weights
@@ -411,7 +415,7 @@ class default(HBTInferenceModelBase):
                     category=[f"*_{ch}_*" for ch in unc_channels],
                     process=process_matches(configs=config_inst, skip_qcd=True),
                     process_match_mode=all,
-                    group=["experiment"],
+                    group=["experiment", "shape_nuisances"],
                 )
 
         # trigger weights
@@ -428,7 +432,7 @@ class default(HBTInferenceModelBase):
                     category=[f"*_{ch}_*" for ch in unc_channels],
                     process=process_matches(configs=config_inst, skip_qcd=True),
                     process_match_mode=all,
-                    group=["experiment"],
+                    group=["experiment", "shape_nuisances"],
                 )
 
         #
@@ -464,7 +468,7 @@ class default(HBTInferenceModelBase):
         #     },
         #     process=process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
         #     process_match_mode=all,
-        #     group=["experiment"],
+        #     group=["experiment", "shape_nuisances"],
         # )
 
         # tune
@@ -477,7 +481,7 @@ class default(HBTInferenceModelBase):
         #     },
         #     process=process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
         #     process_match_mode=all,
-        #     group=["experiment"],
+        #     group=["experiment", "shape_nuisances"],
         # )
 
         # mtop
@@ -490,7 +494,7 @@ class default(HBTInferenceModelBase):
         #     },
         #     process=process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
         #     process_match_mode=all,
-        #     group=["experiment"],
+        #     group=["experiment", "shape_nuisances"],
         # )
 
 

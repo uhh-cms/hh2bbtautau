@@ -376,9 +376,11 @@ def _normalized_btag_weights(self: Producer, events: ak.Array, **kwargs) -> ak.A
         # multiply with actual weight
         # TODO: remove this hack for prod16
         _weight_name = weight_name
-        if "fstats" in weight_name:
-            year = self.config_inst.campaign.x.year
-            _weight_name = weight_name.replace("up", f"{year}_up").replace("down", f"{year}_down")
+        if not (self.config_inst.name == "23pre_v14" and self.dataset_inst.name == "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph"):  # noqa: E501
+            _weight_name = weight_name
+            if "fstats" in weight_name:
+                year = self.config_inst.campaign.x.year
+                _weight_name = weight_name.replace("up", f"{year}_up").replace("down", f"{year}_down")
         # hack end
         norm_weight_per_pid = norm_weight_per_pid * events[_weight_name]
         norm_weight_per_pid_njet = norm_weight_per_pid_njet * events[_weight_name]
@@ -441,9 +443,10 @@ def _normalized_btag_weights_setup(
         if n_jets != sum:
             n_jets = hist.loc(n_jets)
         # TODO: remove this hack for prod16
-        if "fstats" in weight_name:
-            year = self.config_inst.campaign.x.year
-            weight_name = weight_name.replace("up", f"{year}_up").replace("down", f"{year}_down")
+        if not (self.config_inst.name == "23pre_v14" and self.dataset_inst.name == "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph"):  # noqa: E501
+            if "fstats" in weight_name:
+                year = self.config_inst.campaign.x.year
+                weight_name = weight_name.replace("up", f"{year}_up").replace("down", f"{year}_down")
         # hack end
         key = f"sum_mc_weight_{weight_name}selected_nob_{self.tagger_name}"
         return hists[key][{"process": hist.loc(pid), "n_jets": n_jets}].value

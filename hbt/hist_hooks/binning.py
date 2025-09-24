@@ -14,7 +14,7 @@ import law
 import order as od
 
 from columnflow.util import maybe_import
-from columnflow.types import Any, Callable
+from columnflow.types import Callable
 
 hist = maybe_import("hist")
 
@@ -46,26 +46,6 @@ class BinningConstraint:
     check: Callable[[dict[str, BinCount]], bool]
 
 
-# helper to extract the name of the requested category and variable
-def get_task_infos(task: law.Task, config) -> dict[str, Any]:
-    # datacard task
-    if (config_data := task.branch_data.get("config_data")):
-        return {
-            "category_name": config_data[config.name].category,
-            "variable_name": config_data[config.name].variable,
-        }
-
-    # plotting task
-    if "category" in task.branch_data:
-        # TODO: this might fail for multi-config tasks
-        return {
-            "category_name": task.branch_data.category,
-            "variable_name": task.branch_data.variable,
-        }
-
-    raise Exception(f"cannot determine task infos of unhandled task {task!r}")
-
-
 def add_hooks(analysis_inst: od.Analysis) -> None:
     """
     Add histogram hooks to a analysis.
@@ -73,6 +53,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     def flat_s(
         task: law.Task,
         hists: dict[od.Config, dict[od.Process, hist.Hist]],
+        category_name: str,
+        variable_name: str,
         signal_process_name: str = "",
         n_bins: int = 10,
         constraint: BinningConstraint | None = None,
@@ -276,13 +258,10 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 logger.warning(f"could not find any signal process for config {config_inst}, skip flat_s hook")
                 return hists
 
-        # extract task infos
-        task_infos = {config_inst: get_task_infos(task, config_inst) for config_inst in hists}
-
         # 1. select and sum over requested categories
         for config_inst in hists:
             # get the leaf categories
-            category_inst = config_inst.get_category(task_infos[config_inst]["category_name"])
+            category_inst = config_inst.get_category(category_name)
             leaf_cats = (
                 [category_inst]
                 if category_inst.is_leaf_category
