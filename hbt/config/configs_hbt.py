@@ -225,9 +225,7 @@ def add_config(
 
         # hh vbf
         "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
-        *if_not_era(year=2023, tag="preBPix", values=[
-            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-        ]),
+        "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
         "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
         "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96_madgraph",
         "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
