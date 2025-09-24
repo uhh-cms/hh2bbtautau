@@ -1585,6 +1585,8 @@ def add_config(
     # dnn models trained with run 2 legacy setup but run 3 data
     for fold in range(5):
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
+    # simple version of same model for quick comparisons
+    add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple/model_fold0_seed1.tgz", "v1"))
 
     # run specific files
     if run == 2:

@@ -28,6 +28,10 @@ class default(HBTInferenceModelBase):
 
     add_qcd = True
     fake_data = True
+    # variable = "run3_dnn_fine_hh_fine"
+    variable = "run3_dnn_simple_hh_fine"
+    # variable = "run3_dnn_moe_hh_10"
+    # variable = "jet1_pt"
 
     def init_proc_map(self) -> None:
         # mapping of process names in the datacard ("combine name") to configs and process names in a dict
@@ -100,9 +104,7 @@ class default(HBTInferenceModelBase):
                     config_data={
                         config_inst.name: self.category_config_spec(
                             category=f"{ch}__{cat}__os__iso",
-                            variable="run3_dnn_moe_hh_fine",
-                            # variable="run3_dnn_moe_hh_10",
-                            # variable="jet1_pt",
+                            variable=self.variable,
                             data_datasets=["data_*"],
                         )
                         for config_inst in self.config_insts

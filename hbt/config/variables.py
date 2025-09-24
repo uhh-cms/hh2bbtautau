@@ -814,15 +814,16 @@ def add_variables(config: od.Config) -> None:
             expression=f"run3_dnn_moe_{proc}",
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
             x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(
             config,
-            name=f"dnn_diff_{proc}",
-            expression=(lambda events: events[f"run3_dnn_moe_{proc}"] - events[f"res_dnn_{proc}"]),
-            aux={"inputs": {f"run3_dnn_moe_{proc}", f"res_dnn_{proc}"}},
-            binning=(50, -1.0, 1.0),
-            x_title=rf"$\Delta$DNN (Run3, Run2), {proc.upper()} output node",
+            name=f"run3_dnn_simple_{proc}_fine",
+            expression=f"run3_dnn_simple_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
         )
 
 

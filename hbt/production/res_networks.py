@@ -596,6 +596,16 @@ for fold in range(_run3_dnn.n_folds):
     })
 
 
+class run3_dnn_simple(_run3_dnn):
+    """
+    Simple version of the run 3 dnn with a single fold for quick comparisons.
+    """
+
+    fold = None
+    external_name = "run3_dnn_simple"
+    exposed = True
+
+
 #
 # producer for combining the results of all folds
 #
