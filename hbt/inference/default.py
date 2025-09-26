@@ -40,8 +40,6 @@ class default(HBTInferenceModelBase):
                 (f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt", f"hh_ggf_hbb_htt_kl{kl}_kt1")
                 for kl in ["0", "1", "2p45", "5"]
             ],
-<<<<<<< HEAD
-=======
             *[
                 (f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbhtt", f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}")
                 for kv, k2v, kl in [
@@ -57,17 +55,12 @@ class default(HBTInferenceModelBase):
                     ("m1p83", "3p57", "m3p39"),
                 ]
             ],
->>>>>>> master
             ("ttbar", "tt"),
             ("ttbarV", "ttv"),
             ("ttbarVV", "ttvv"),
             ("singlet", "st"),
             ("DY", "dy"),
-<<<<<<< HEAD
-            # # ("EWK", "z"),  # currently not use
-=======
             # ("EWK", "z"),  # currently not used
->>>>>>> master
             ("W", "w"),
             ("VV", "vv"),
             ("VVV", "vvv"),
