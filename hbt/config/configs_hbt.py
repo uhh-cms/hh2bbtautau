@@ -360,7 +360,7 @@ def add_config(
         # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
         # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
 
-        # # dy, powheg
+        # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
         # "dy_ee_m10to50_powheg",
         # "dy_ee_m50to120_powheg",
@@ -603,7 +603,6 @@ def add_config(
             "h",
             "ewk",
         ]),
-        """
         "dy_split": [
             "dy_m50toinf_0j",
             "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
@@ -612,7 +611,6 @@ def add_config(
             "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
             "dy_m50toinf_ge3j",
         ],
-        """
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
@@ -730,48 +728,37 @@ def add_config(
         "sm_bkg": data_group + [*backgrounds],
         "sm_data_unstitched": data_group + sm_group_unstitched,
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
-        "dy_nnlo": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy_nnlo")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
     }
 
     # category groups for conveniently looping over certain categories
     # (used during plotting)
-    cfg.x.category_groups = {
-        "default": [
-            "ee__dy__os", "mumu__dy__os", "emu__tt__os",
-        ],
-        "dy_groups": (dy_groups := [
-            f"{channel}__{var}_{kin}__os"
-            for channel in ["mumu", "ee"]
-            for var in ["dy", "dyc"]
-            for kin in [
-                "res1b", "res2b", "eq2j", "eq3j", "ge4j",
-            ]
-        ]),
-        "default_dy": [
-            *dy_groups,
-            "mumu__dy__os", "mumu__dyc__os",
-            "ee__dy__os", "ee__dyc__os",
-        ],
-
-    }
+    cfg.x.category_groups = {}
 
     # variable groups for conveniently looping over certain variables
     # (used during plotting)
     cfg.x.variable_groups = {
-        "hh": (hh := [f"hh_{var}" for var in ["mass", "pt", "dr"]]),
+        "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        # definition in analysis master
+        """
+        "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
+        "default": [
+            *dijet, *dilep, *hh,
+            "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
+            "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
+            "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
+        ],
+        """
+        # definition for DY plots
         "dilep": (dilep := [f"dilep_{var}" for var in ["mass", "pt"]]),
-        "dijet": (dijet := [f"dijet_{var}" for var in ["mass", "pt", "eta", "phi", "dr"]]),
         "dibjet": (dibjet := [f"dibjet_{var}" for var in ["mass", "pt"]]),
         "nbjets": (nbjets := [f"nbjets_{var}" for var in ["deepjet", "pnet"]]),
         "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1", "tau1"] for var in ["pt", "eta"]]),
         "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
-        "dy_variables": [
+        "default": [
             "ht", *nbjets, *jet, *lep, *dilep, *dibjet, *hh, "njets",
             # "njets-dilep_pt",
-        ],
-        "dy_vbf": [
-            "nvbf_jets", "ntotal_jets", "vbfjet1_pt", "vbfjet2_pt",
         ],
     }
 
@@ -1358,7 +1345,7 @@ def add_config(
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
         cfg.x.dy_recoil_config = DrellYanConfig(
             era=dy_era,
-            order="NNLO",
+            order="NLO",
             correction="Recoil_correction_Rescaling",
             unc_correction="Recoil_correction_Uncertainty",
         )
@@ -1593,6 +1580,7 @@ def add_config(
         cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
+    """
     cfg.add_shift(name="dy_weight_up", id=210, type="shape")
     cfg.add_shift(name="dy_weight_down", id=211, type="shape")
     add_shift_aliases(
@@ -1602,6 +1590,7 @@ def add_config(
             "dy_weight": "dy_weight_{direction}",
         },
     )
+    """
 
     ################################################################################################
     # external files
@@ -1845,8 +1834,8 @@ def add_config(
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
         "normalization_weight_inclusive": [],
-        # "pdf_weight": get_shifts("pdf"),
-        # "murmuf_weight": get_shifts("murmuf"),
+        "normalized_pdf_weight": get_shifts("pdf"),
+        "normalized_murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
@@ -1862,7 +1851,8 @@ def add_config(
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": get_shifts("dy_weight")}  # TODO: list dy weight unceratinties
+            # dataset.x.event_weights = {"dy_weight": get_shifts("dy_weight")}  # TODO: list dy weight unceratinties
+            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [

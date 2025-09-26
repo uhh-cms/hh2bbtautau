@@ -197,6 +197,10 @@ def cat_ge3b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, get_bjets(events, self.config_inst) >= 3
 
 
+def cat_ge5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) >= 5
+
+
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
 def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})

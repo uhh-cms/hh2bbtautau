@@ -268,8 +268,9 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 else category_inst.get_leaf_categories()
             )
 
-            def select(h):
-                # select only the relevant categories
+            # select leaf categories and nominal shift
+            def select(h: hist.Hist) -> hist.Hist:
+                # filter to existing categories
                 h = h[{"category": [hist.loc(c.name) for c in leaf_cats if c.name in h.axes["category"]]}]
                 # sum over categories and select nominal shift
                 h = h[{"category": sum, "shift": hist.loc("nominal")}]

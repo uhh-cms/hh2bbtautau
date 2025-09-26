@@ -264,18 +264,6 @@ def jet_selection(
             match_at_least_one_trigger,
         )
 
-        # cast full leading matched mask to event mask
-        full_leading_matched_all_events = full_like(events.event, False, dtype=bool)
-        flat_full_leading_matched_all_events = flat_np_view(full_leading_matched_all_events)
-        flat_full_leading_matched_all_events[flat_np_view(ttj_mask)] = flat_np_view(leading_matched)
-
-        # remove all events where the matching did not work if they were only triggered by the tautaujet trigger
-        match_at_least_one_trigger = ak.where(
-            only_ttj_mask & ~flat_full_leading_matched_all_events,
-            False,
-            match_at_least_one_trigger,
-        )
-
     # validate that either none or two hhbjets were identified
     assert ak.all(((n_hhbjets := ak.sum(hhbjet_mask, axis=1)) == 0) | (n_hhbjets == 2))
 

@@ -51,6 +51,7 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="eq4j", id="+", selection="cat_eq4j", label="4 jets")
     _add_category(config, name="eq5j", id="+", selection="cat_eq5j", label="5 jets")
     _add_category(config, name="ge4j", id="+", selection="cat_ge4j", label=r"$>=$ 4 jets")
+    _add_category(config, name="ge5j", id="+", selection="cat_ge5j", label=r"$\ge$5 jets")
     _add_category(config, name="ge6j", id="+", selection="cat_ge6j", label=r"$>=$ 6 jets")
 
     _add_category(config, name="eq2vbfj", id="+", selection="cat_eq2vbfj", label="2 VBF jets")
@@ -68,10 +69,8 @@ def add_categories(config: od.Config) -> None:
 
     _add_category(config, name="dy", id="+", selection="cat_dy", label="DY region")
     _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY enriched")
+    _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
     _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
-    _add_category(
-        config, name="dyc_st", id="+", selection=["cat_dyc", "cat_single_triggered"], label="DY enriched, ST"
-    )
     _add_category(config, name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
     _add_category(config, name="mll40", id="+", selection="cat_mll40", label=r"$m_{ll} > 40$")
 
@@ -133,15 +132,20 @@ def add_categories(config: od.Config) -> None:
     control_categories = {
         # channels first
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
+
         # kinematic regions in the middle (to be extended)
-        "kin": CategoryGroup(["incl", "dyc", "dy", "tt"], is_complete=True, has_overlap=True),
+        "kin": CategoryGroup(["incl", "dy", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
+        "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "ge5j"], is_complete=True, has_overlap=False),
+
+        # "kin": CategoryGroup(["incl", "dyc", "dy", "tt"], is_complete=True, has_overlap=True),
         # "jets": CategoryGroup(
         #    ["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j",
         #    "eq2vbfj", "eq3vbfj", "ge4vbfj",
         #    "eq2totalj", "eq3totalj", "ge4totalj"],
         #    is_complete=True, has_overlap=False
         # ),
-        "bjets": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),
+        # "bjets": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),
+
         # relative sign last
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
