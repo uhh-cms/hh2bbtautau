@@ -12,10 +12,12 @@ import law
 from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.mc_weight import mc_weight
-from columnflow.util import maybe_import
 from columnflow.columnar_util import (
     EMPTY_FLOAT, Route, set_ak_column, attach_coffea_behavior, default_coffea_collections,
 )
+from columnflow.util import maybe_import
+
+from hbt.util import IF_MC, IF_DATASET_HAS_LHE_WEIGHTS, IF_DATASET_IS_TT, IF_DATASET_IS_DY
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -90,12 +92,15 @@ def cutflow_features(
 
 @producer(
     uses={
-        "channel_id", "leptons_os", "gen_dilepton_{pt,pdgid}",
+        "channel_id", "leptons_os",
         "{Electron,Muon,HHBJet}.{pt,eta,phi,mass}", "{Jet,HHBJet}.{pt,eta,phi,mass,btagPNetB}",
+        IF_DATASET_IS_DY("gen_dilepton_{pt,pdgid}"),
     },
     produces={
-        "keep_in_union", "event_weight", "gen_ll_{pt,pdgid}", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
+        "keep_in_union", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
         "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}",
+        IF_MC("event_weight"),
+        IF_DATASET_IS_DY("gen_ll_{pt,pdgid}"),
     },
 )
 def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -113,13 +118,15 @@ def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column(events, "keep_in_union", keep_in_union, value_type=bool)
 
     # construct the overall event weight
-    weight_vals = [events[weight_name] for weight_name in self.weight_names]
-    event_weight = functools.reduce(operator.mul, weight_vals)
-    events = set_ak_column_f32(events, "event_weight", event_weight)
+    if self.dataset_inst.is_mc:
+        weight_vals = [events[weight_name] for weight_name in self.weight_names]
+        event_weight = functools.reduce(operator.mul, weight_vals)
+        events = set_ak_column_f32(events, "event_weight", event_weight)
 
-    # rename some existing columns
-    events = set_ak_column(events, "gen_ll_pt", events.gen_dilepton_pt)
-    events = set_ak_column(events, "gen_ll_pdgid", events.gen_dilepton_pdgid)
+    # rename some existing dy columns
+    if IF_DATASET_IS_DY(True)(self):
+        events = set_ak_column(events, "gen_ll_pt", events.gen_dilepton_pt)
+        events = set_ak_column(events, "gen_ll_pdgid", events.gen_dilepton_pdgid)
 
     # number of jets
     events = set_ak_column_i32(events, "n_jet", ak.num(events.Jet, axis=1))
@@ -170,24 +177,26 @@ def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @dy_dnn_features.init
 def dy_dnn_features_init(self: Producer, **kwargs) -> None:
-    # define weights that are to be multiplied
-    self.weight_names = [
-        "normalization_weight",
-        "normalized_pdf_weight",
-        "normalized_murmuf_weight",
-        "normalized_pu_weight",
-        "normalized_isr_weight",
-        "normalized_fsr_weight",
-        "normalized_njet_btag_weight_pnet",
-        "electron_weight",
-        "muon_weight",
-        "tau_weight",
-        "trigger_weight",
-    ]
-    if self.dataset_inst.has_tag("ttbar"):
-        self.weight_names.append("top_pt_weight")
+    # define mc weights that are to be multiplied
+    if self.dataset_inst.is_mc:
+        self.weight_names = [
+            "normalization_weight",
+            "normalized_pu_weight",
+            "normalized_isr_weight",
+            "normalized_fsr_weight",
+            "normalized_njet_btag_weight_pnet",
+            "electron_weight",
+            "muon_weight",
+            "tau_weight",
+            "trigger_weight",
+        ]
 
-    self.uses.update(self.weight_names)
+        if IF_DATASET_HAS_LHE_WEIGHTS(True)(self):
+            self.weight_names.append("normalized_pdf_weight")
+            self.weight_names.append("normalized_murmuf_weight")
+        if IF_DATASET_IS_TT(True)(self):
+            self.weight_names.append("top_pt_weight")
+        self.uses.update(self.weight_names)
 
 
 @dy_dnn_features.requires
