@@ -138,6 +138,11 @@ def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 
 
 @categorizer(uses={"Jet.pt"})
+def cat_ge5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) >= 5
+
+
+@categorizer(uses={"Jet.pt"})
 def cat_ge6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, ak.num(events.Jet, axis=1) >= 6
 
@@ -195,11 +200,6 @@ def cat_eq2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 @categorizer(uses={"Jet.btagPNetB"})
 def cat_ge3b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, get_bjets(events, self.config_inst) >= 3
-
-
-def cat_ge5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) >= 5
-
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
 def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
