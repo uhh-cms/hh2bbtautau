@@ -111,12 +111,8 @@ class default(HBTInferenceModelBase):
                     config_data={
                         config_inst.name: self.category_config_spec(
                             category=f"{ch}__{cat}__os__iso",
-<<<<<<< Updated upstream
-                            variable=self.variable,
-=======
                             # variable="res_dnn_hh_fine",
                             variable="run3_dnn_moe_hh_fine",
->>>>>>> Stashed changes
                             data_datasets=["data_*"],
                         )
                         for config_inst in self.config_insts

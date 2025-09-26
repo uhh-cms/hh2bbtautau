@@ -1350,18 +1350,8 @@ def add_config(
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             correction="dy_weight",
-<<<<<<< Updated upstream
-<<<<<<< HEAD
-            systs=["up", "down"],
-=======
-            # systs=["up", "down"],
-            systs=[],
->>>>>>> Stashed changes
-            njets=True,
-=======
             njets=True,
             systs=[],  # TODO: add systematics once existing
->>>>>>> master
         )
 
         # dy boson recoil correction
@@ -1751,19 +1741,8 @@ def add_config(
         # custom corrections from Lucas Russel, blessed by TAU
         add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
-<<<<<<< Updated upstream
-<<<<<<< HEAD
-        # add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
-        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_shifts.json.gz", "v1"))  # noqa: E501
-=======
-        add_external("dy_weight_sf", ("/afs/cern.ch/work/m/mrieger/public/hbt/external_files/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
-        # add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_shifts.json.gz", "v1"))  # noqa: E501
->>>>>>> Stashed changes
-        add_external("dy_recoil_sf", ("/afs/cern.ch/work/m/mrieger/public/mirrors/external_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
-=======
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
->>>>>>> master
 
         """
         # UHH dy weight
