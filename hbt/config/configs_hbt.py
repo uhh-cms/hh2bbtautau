@@ -673,6 +673,10 @@ def add_config(
         "sm_data_unstitched": data_group + sm_group_unstitched,
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
+        "bkg_data_dy": backgrounds + [
+            dataset.name for dataset in cfg.datasets
+            if dataset.is_data and re.match(r"^data_(e|mu)_.+$", dataset.name)
+        ],
     }
 
     # category groups for conveniently looping over certain categories
@@ -1708,7 +1712,8 @@ def add_config(
         },
         "cf.UniteColumns": {
             # all columns except for shifts
-            "*", *skip_column("*_{up,down}"),
+            # "*", *skip_column("*_{up,down}"),
+
             # columns for typical dnn training
             # ColumnCollection.MANDATORY_COFFEA,
             # "tau2_isolated", "leptons_os", "process_id", "channel_id", "*_weight*",
@@ -1721,6 +1726,12 @@ def add_config(
             # "reg_dnn_nu{1,2}_p{x,y,z}",
             # "res_dnn_pnet_*",
             # *skip_column("*_{up,down}"),
+
+            # columns for dnn-based dy weight tests
+            ColumnCollection.MANDATORY_COFFEA,
+            "channel_id", "dy_weight",
+            "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
+            "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}",
         },
     })
 
