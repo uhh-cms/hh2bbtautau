@@ -60,6 +60,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         task: law.Task,
         config_inst: od.Config,
         hists: dict[od.Process, Any],
+        requested_category: str | None = None,
     ) -> dict[od.Process, Any]:
         # get the qcd process
         qcd_proc = config_inst.get_process("qcd", default=None)
@@ -81,7 +82,9 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
         # create qcd groups
         qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
+        requested_group = None
         for cat_name in category_names:
+            # store references to the four category objects
             cat_inst = config_inst.get_category(cat_name)
             if cat_inst.has_tag({"os", "iso"}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].os_iso = cat_inst
@@ -91,9 +94,15 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 qcd_groups[cat_inst.x.qcd_group].ss_iso = cat_inst
             elif cat_inst.has_tag({"ss", "noniso"}, mode=all):
                 qcd_groups[cat_inst.x.qcd_group].ss_noniso = cat_inst
+            # store the group corresponding to the requested category if set
+            if requested_category and cat_inst.name == requested_category:
+                requested_group = cat_inst.x.qcd_group
 
-        # get complete qcd groups
-        complete_groups = [name for name, cats in qcd_groups.items() if len(cats) == 4]
+        # get complete qcd groups, potentially only selecting the one corresponding to the requested category
+        complete_groups = [
+            name for name, cats in qcd_groups.items()
+            if len(cats) == 4 and (not requested_group or name == requested_group)
+        ]
 
         # nothing to do if there are no complete groups
         if not complete_groups:
@@ -158,14 +167,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 shifts = list(map(config_inst.get_shift, shift_ids))
                 logger.warning(
                     f"negative QCD integral in ss_iso region for group {group_name} and shifts: "
-                    f"{', '.join(map(str, shifts))}",
+                    f"{', '.join(shift.name for shift in shifts)}",
                 )
             if int_ss_noniso_neg.any():
                 shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_ss_noniso_neg)[0]))
                 shifts = list(map(config_inst.get_shift, shift_ids))
                 logger.warning(
                     f"negative QCD integral in ss_noniso region for group {group_name} and shifts: "
-                    f"{', '.join(map(str, shifts))}",
+                    f"{', '.join(shift.name for shift in shifts)}",
                 )
 
             # ABCD method
@@ -219,9 +228,16 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     def qcd_estimation(
         task: law.Task,
         hists: dict[od.Config, dict[od.Process, Any]],
+        category_name: str,
+        **kwargs,
     ) -> dict[od.Config, dict[od.Process, Any]]:
         return {
-            config_inst: qcd_estimation_per_config(task, config_inst, hists[config_inst])
+            config_inst: qcd_estimation_per_config(
+                task,
+                config_inst,
+                hists[config_inst],
+                requested_category=category_name,
+            )
             for config_inst in hists.keys()
         }
 

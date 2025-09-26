@@ -4,6 +4,8 @@
 Tau scale factor production.
 """
 
+from __future__ import annotations
+
 import functools
 
 import law
@@ -12,6 +14,8 @@ from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, load_correction_set, DotDict
 from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
 from columnflow.types import Any
+
+from hbt.util import uppercase_wp
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
@@ -23,18 +27,16 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 @producer(
     uses={
-        # custom columns created upstream, probably by a selector
-        "single_triggered", "cross_triggered",
-        # nano columns
+        "channel_id",
         "Tau.{mass,pt,eta,phi,decayMode,genPartFlav}",
     },
     produces={
         "tau_weight",
     } | {
-        f"tau_weight_{unc}_{direction}"
-        for direction in ["up", "down"]
+        f"tau_weight_{unc}_{{up,down}}"
         for unc in [
-            "jet_dm0", "jet_dm1", "jet_dm10", "e_barrel", "e_endcap",
+            "jet_stat{1,2}_dm{0,1,10,11}",
+            "e_barrel", "e_endcap",
             "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
         ]
     },
@@ -55,148 +57,139 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             "tau_sf": "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c/POG/TAU/2017_UL/tau.json.gz",  # noqa
         })
 
-    *get_tau_file* can be adapted in a subclass in case it is stored differently in the external
-    files.
+    *get_tau_file* can be adapted in a subclass in case it is stored differently in the external files.
 
-    The name of the tagger should be given as an auxiliary entry in the config:
+    The name of the tagger should be given as an auxiliary entry in the config.
 
     .. code-block:: python
 
-        cfg.x.tau_tagger = "DeepTau2017v2p1"
+        cfg.x.tau_tagger = "DeepTau2018v2p5"
 
-    It is used to extract correction set names such as "DeepTau2017v2p1VSjet". *get_tau_tagger* can
-    be adapted in a subclass in case it is stored differently in the config.
+    *get_tau_tagger* can be adapted in a subclass in case it is stored differently in the config.
 
     Resources:
-    https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=113
-    https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration/-/blob/849c6a6efef907f4033715d52290d1a661b7e8f9/POG/TAU
+        - https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun2?rev=113
+        - https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration/-/blob/849c6a6efef907f4033715d52290d1a661b7e8f9/POG/TAU
     """
-    # helper to bring a flat sf array into the shape of taus, and multiply across the tau axis
-    reduce_mul = lambda sf: ak.prod(layout_ak_array(sf, events.Tau.pt), axis=1, mask_identity=False)
+    # get channels
+    ch_etau = self.config_inst.channels.n.etau
+    ch_mutau = self.config_inst.channels.n.mutau
+    ch_tautau = self.config_inst.channels.n.tautau
 
-    # the correction tool only supports flat arrays, so convert inputs to flat np view first
-    pt = flat_np_view(events.Tau.pt, axis=1)
-    abseta = flat_np_view(abs(events.Tau.eta), axis=1)
-    dm = flat_np_view(events.Tau.decayMode, axis=1)
-    match = flat_np_view(events.Tau.genPartFlav, axis=1)
-
-    # define channel / trigger dependent masks
-    single_triggered = events.single_triggered
-    cross_triggered = events.cross_triggered
-    dm_mask = (
-        (events.Tau.decayMode == 0) |
-        (events.Tau.decayMode == 1) |
-        (events.Tau.decayMode == 10) |
-        (events.Tau.decayMode == 11)
+    # get taus: one for e/mutau, two for tautau
+    etau_mask = events.channel_id == ch_etau.id
+    mutau_mask = events.channel_id == ch_mutau.id
+    tautau_mask = events.channel_id == ch_tautau.id
+    taus = ak.where(
+        (etau_mask | mutau_mask),
+        events.Tau[:, :1],
+        ak.where(
+            tautau_mask,
+            events.Tau[:, :2],
+            events.Tau[:, :0],
+        ),
     )
+    taus_flat = ak.flatten(taus, axis=1)
 
-    #
-    # compute nominal ID weights
-    #
+    # create a channel id array in the same shape of flat taus
+    ch_flat = ak.where(
+        etau_mask,
+        [[ch_etau.id]],
+        ak.where(
+            mutau_mask,
+            [[ch_mutau.id]],
+            ak.where(
+                tautau_mask,
+                [2 * [ch_tautau.id]],
+                [[]],
+            ),
+        ),
+    )
+    ch_flat = ak.flatten(ak.values_astype(ch_flat, np.uint8))
 
-    # start with ones
-    sf_nom = np.ones_like(pt, dtype=np.float32)
-    wp_config = self.config_inst.x.tau_trigger_working_points
+    # store some common values
+    abseta_flat = abs(taus_flat.eta)
+    dm_mask = (
+        (taus_flat.decayMode == 0) |
+        (taus_flat.decayMode == 1) |
+        (taus_flat.decayMode == 10) |
+        (taus_flat.decayMode == 11)
+    )
+    vs_jet_wp = uppercase_wp(self.config_inst.x.deeptau_wps.vs_jet)
+    vs_e_wp = uppercase_wp(self.config_inst.x.deeptau_wps.vs_e)
+    vs_mu_wp = {ch: uppercase_wp(wp) for ch, wp in self.config_inst.x.deeptau_wps.vs_mu.items()}
 
-    # helpers to create corrector arguments
-    if self.id_vs_jet_corrector.version == 0:
-        # pt, dm, genmatch, jet wp, syst, sf type
-        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], wp_config.id_vs_jet_v0, syst, "dm")
-    elif self.id_vs_jet_corrector.version in (1, 2, 3):
-        # pt, dm, genmatch, jet wp, e wp, syst, sf type
-        tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], *wp_config.id_vs_jet_gv0, syst, "dm")
-    else:
-        raise NotImplementedError
+    # helpers to compute scale factors for various tau sources (genuine, fakes) and decay modes
+    # genuine taus (separately for decay modes)
+    def fill_genuine_tau(sfs_flat: np.array, syst: str, mask: np.array | ak.Array | None = None) -> None:
+        genuine_mask = dm_mask & (taus_flat.genPartFlav == 5)
+        if mask is not None:
+            genuine_mask = genuine_mask & mask
+        sfs_flat[genuine_mask] = self.id_vs_jet_corrector(
+            taus_flat.pt[genuine_mask], taus_flat.decayMode[genuine_mask], 5, vs_jet_wp, vs_e_wp, syst, "dm",
+        )
 
-    if self.id_vs_e_corrector.version == 0:
-        e_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
-    elif self.id_vs_e_corrector.version in (1,):
-        e_args = lambda mask, wp, syst: (abseta[mask], dm[mask], match[mask], wp, syst)
-    else:
-        raise NotImplementedError
+    # electrons faking taus (separately for decay modes)
+    def fill_e_fakes(sfs_flat: np.array, syst: str, mask: np.array | ak.Array | None = None) -> None:
+        fake_mask = dm_mask & ((taus_flat.genPartFlav == 1) | (taus_flat.genPartFlav == 3))
+        if mask is not None:
+            fake_mask = fake_mask & mask
+        sfs_flat[fake_mask] = self.id_vs_e_corrector(
+            abseta_flat[fake_mask], taus_flat.decayMode[fake_mask], taus_flat.genPartFlav[fake_mask], vs_e_wp, syst,
+        )
 
-    mu_args = lambda mask, wp, syst: (abseta[mask], match[mask], wp, syst)
+    # muons faking taus (channel dependent)
+    def fill_mu_fakes(sfs_flat: np.array, syst: str, mask: np.array | ak.Array | None = None) -> None:
+        for ch in [ch_etau, ch_mutau, ch_tautau]:
+            fake_mask = (ch_flat == ch.id) & ((taus_flat.genPartFlav == 2) | (taus_flat.genPartFlav == 4))
+            if mask is not None:
+                fake_mask = fake_mask & mask
+            sfs_flat[fake_mask] = self.id_vs_mu_corrector(
+                abseta_flat[fake_mask], taus_flat.genPartFlav[fake_mask], vs_mu_wp[ch.name], syst,
+            )
 
-    # genuine taus
-    tau_mask = flat_np_view(dm_mask & (events.Tau.genPartFlav == 5), axis=1)
-    sf_nom[tau_mask] = self.id_vs_jet_corrector(*tau_args(tau_mask, "nom"))
+    # helper to reshape sfs_flat to the shape of taus, multiply across tau axis and store the results
+    def add_weight(events: ak.Array, weight_name: str, sfs_flat: np.array) -> ak.Array:
+        sfs = layout_ak_array(sfs_flat, taus.pt)
+        events = set_ak_column_f32(events, weight_name, ak.prod(sfs, axis=1, mask_identity=False))
+        return events
 
-    # electrons faking taus
-    e_mask = ((events.Tau.genPartFlav == 1) | (events.Tau.genPartFlav == 3))
-    if self.config_inst.campaign.x.run == 3:
-        e_mask = e_mask & (events.Tau.decayMode != 5) & (events.Tau.decayMode != 6)
-    e_single_mask = flat_np_view((e_mask & single_triggered), axis=1)
-    e_cross_mask = flat_np_view((e_mask & cross_triggered), axis=1)
-    sf_nom[e_single_mask] = self.id_vs_e_corrector(*e_args(e_single_mask, wp_config.id_vs_e_single, "nom"))
-    sf_nom[e_cross_mask] = self.id_vs_e_corrector(*e_args(e_cross_mask, wp_config.id_vs_e_cross, "nom"))
+    # prepare per-tau scale factors, starting with ones, then fill values for specific tau sources
+    sfs_flat = np.ones(len(taus_flat), dtype=np.float32)
+    fill_genuine_tau(sfs_flat, "nom")
+    fill_e_fakes(sfs_flat, "nom")
+    fill_mu_fakes(sfs_flat, "nom")
+    events = add_weight(events, "tau_weight", sfs_flat)
 
-    # muons faking taus
-    mu_mask = ((events.Tau.genPartFlav == 2) | (events.Tau.genPartFlav == 4))
-    mu_single_mask = flat_np_view((mu_mask & single_triggered), axis=1)
-    mu_cross_mask = flat_np_view((mu_mask & cross_triggered), axis=1)
-    sf_nom[mu_single_mask] = self.id_vs_mu_corrector(*mu_args(mu_single_mask, wp_config.id_vs_mu_single, "nom"))
-    sf_nom[mu_cross_mask] = self.id_vs_mu_corrector(*mu_args(mu_cross_mask, wp_config.id_vs_mu_cross, "nom"))
-
-    # create and store weights
-    events = set_ak_column_f32(events, "tau_weight", reduce_mul(sf_nom))
-
-    #
-    # compute varied ID weights
-    #
-
+    # variations
     for direction in ["up", "down"]:
-        # genuine taus -> split into decay modes
-        sf_tau_dm0 = sf_nom.copy()
-        sf_tau_dm1 = sf_nom.copy()
-        sf_tau_dm10 = sf_nom.copy()
-        sf_tau_dm11 = sf_nom.copy()
-        tau_dm0_mask = tau_mask & (dm == 0)
-        tau_dm1_mask = tau_mask & (dm == 1)
-        tau_dm10_mask = tau_mask & (dm == 10)
-        tau_dm11_mask = tau_mask & (dm == 11)
-        sf_tau_dm0[tau_dm0_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm0_mask, direction))
-        sf_tau_dm1[tau_dm1_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm1_mask, direction))
-        sf_tau_dm10[tau_dm10_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm10_mask, direction))
-        sf_tau_dm11[tau_dm11_mask] = self.id_vs_jet_corrector(*tau_args(tau_dm11_mask, direction))
-        events = set_ak_column_f32(events, f"tau_weight_jet_dm0_{direction}", reduce_mul(sf_tau_dm0))
-        events = set_ak_column_f32(events, f"tau_weight_jet_dm1_{direction}", reduce_mul(sf_tau_dm1))
-        events = set_ak_column_f32(events, f"tau_weight_jet_dm10_{direction}", reduce_mul(sf_tau_dm10))
-        events = set_ak_column_f32(events, f"tau_weight_jet_dm11_{direction}", reduce_mul(sf_tau_dm11))
+        # genuine taus
+        for dm in [0, 1, 10, 11]:
+            for i in range(2):
+                _sfs_flat = sfs_flat.copy()
+                fill_genuine_tau(_sfs_flat, f"stat{i + 1}_dm{dm}_{direction}", mask=(taus_flat.decayMode == dm))
+                events = add_weight(events, f"tau_weight_jet_stat{i + 1}_dm{dm}_{direction}", _sfs_flat)
 
-        # electron fakes -> split into 2 eta regions
-        for region, region_mask in [
-            ("barrel", (abseta < 1.5)),
-            ("endcap", (abseta >= 1.5)),
+        # electron fakes
+        for region_name, region_mask in [
+            ("barrel", (abseta_flat < 1.5)),
+            ("endcap", (abseta_flat >= 1.5)),
         ]:
-            sf_e = sf_nom.copy()
-            e_single_region_mask = e_single_mask & region_mask
-            e_cross_region_mask = e_cross_mask & region_mask
-            sf_e[e_single_region_mask] = self.id_vs_e_corrector(
-                *e_args(e_single_region_mask, wp_config.id_vs_e_single, direction),
-            )
-            sf_e[e_cross_region_mask] = self.id_vs_e_corrector(
-                *e_args(e_cross_region_mask, wp_config.id_vs_e_cross, direction),
-            )
-            events = set_ak_column_f32(events, f"tau_weight_e_{region}_{direction}", reduce_mul(sf_e))
+            _sfs_flat = sfs_flat.copy()
+            fill_e_fakes(_sfs_flat, direction, mask=region_mask)
+            events = add_weight(events, f"tau_weight_e_{region_name}_{direction}", _sfs_flat)
 
-        # muon fakes -> split into 5 eta regions
-        for region, region_mask in [
-            ("0p0To0p4", (abseta < 0.4)),
-            ("0p4To0p8", ((abseta >= 0.4) & (abseta < 0.8))),
-            ("0p8To1p2", ((abseta >= 0.8) & (abseta < 1.2))),
-            ("1p2To1p7", ((abseta >= 1.2) & (abseta < 1.7))),
-            ("1p7To2p3", (abseta >= 1.7)),
+        # muon fakes
+        for region_name, region_mask in [
+            ("0p0To0p4", (abseta_flat < 0.4)),
+            ("0p4To0p8", ((abseta_flat >= 0.4) & (abseta_flat < 0.8))),
+            ("0p8To1p2", ((abseta_flat >= 0.8) & (abseta_flat < 1.2))),
+            ("1p2To1p7", ((abseta_flat >= 1.2) & (abseta_flat < 1.7))),
+            ("1p7To2p3", (abseta_flat >= 1.7)),
         ]:
-            sf_mu = sf_nom.copy()
-            mu_single_region_mask = mu_single_mask & region_mask
-            mu_cross_region_mask = mu_cross_mask & region_mask
-            sf_mu[mu_single_region_mask] = self.id_vs_mu_corrector(
-                *mu_args(mu_single_region_mask, wp_config.id_vs_mu_single, direction),
-            )
-            sf_mu[mu_cross_region_mask] = self.id_vs_mu_corrector(
-                *mu_args(mu_cross_region_mask, wp_config.id_vs_mu_cross, direction),
-            )
-            events = set_ak_column_f32(events, f"tau_weight_mu_{region}_{direction}", reduce_mul(sf_mu))
+            _sfs_flat = sfs_flat.copy()
+            fill_mu_fakes(_sfs_flat, direction, mask=region_mask)
+            events = add_weight(events, f"tau_weight_mu_{region_name}_{direction}", _sfs_flat)
 
     return events
 
@@ -226,9 +219,9 @@ def tau_weights_setup(
     self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
 
     # check versions
-    assert self.id_vs_jet_corrector.version in (0, 1, 2, 3)
-    assert self.id_vs_e_corrector.version in (0, 1)
-    assert self.id_vs_mu_corrector.version in (0, 1)
+    assert self.id_vs_jet_corrector.version in {1, 2, 3}
+    assert self.id_vs_e_corrector.version in {1}
+    assert self.id_vs_mu_corrector.version in {1}
 
 
 @producer(
@@ -265,9 +258,9 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
     https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration/-/blob/849c6a6efef907f4033715d52290d1a661b7e8f9/POG/TAU
     """
     # get channels from the config
-    ch_etau = self.config_inst.get_channel("etau")
-    ch_mutau = self.config_inst.get_channel("mutau")
-    ch_tautau = self.config_inst.get_channel("tautau")
+    ch_etau = self.config_inst.channels.n.etau
+    ch_mutau = self.config_inst.channels.n.mutau
+    ch_tautau = self.config_inst.channels.n.tautau
 
     # find out which tautau triggers are passed
     tautau_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)

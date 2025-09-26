@@ -7,7 +7,7 @@ Calibration methods.
 from __future__ import annotations
 
 from columnflow.calibration import Calibrator, calibrator
-from columnflow.calibration.cms.met import met_phi
+from columnflow.calibration.cms.met import met_phi_run2, met_phi
 from columnflow.calibration.cms.jets import jec, jer
 from columnflow.calibration.cms.tau import tec
 from columnflow.calibration.cms.egamma import eer, eec
@@ -166,8 +166,8 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "deterministic_seed_index": 0,
             "with_uncertainties": False,
         })
-        # derive met_phi calibrator (currently only used in run 2)
-        add_calib_cls("met_phi", met_phi)
+        # derive met_phi calibrator
+        add_calib_cls("met_phi", met_phi_run2 if self.config_inst.campaign.x.run == 2 else met_phi)
 
         # change the flag
         self.config_inst.set_aux(flag, True)

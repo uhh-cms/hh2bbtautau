@@ -106,7 +106,8 @@ class stitched_process_ids(Producer):
             self.stitching_values_cross_check(process_inst, stitching_values)
 
         # lookup the id and check for invalid values
-        process_ids = np.squeeze(np.asarray(self.id_lut[self.compute_lut_index(*stitching_values), 0].todense()))
+        # (when the length of the events chunk is 1 by chance, the LUT access fails)
+        process_ids = self.read_lut(stitching_values)
         invalid_mask = process_ids == 0
         if ak.any(invalid_mask):
             raise ValueError(f"found {sum(invalid_mask)} events that could not be assigned to a process")
@@ -129,6 +130,20 @@ class stitched_process_ids(Producer):
         events = set_ak_column(events, "process_id", process_ids, value_type=np.int64)
 
         return events
+
+    def read_lut(self, values: list[np.array | ak.Array]) -> np.array:
+        # compute the index where to access the LUT
+        lut_index = self.compute_lut_index(*values)
+
+        # when the length is exactly one, the sparse matrix access reduces and shape and fails, so artifically extend it
+        extend = len(lut_index) == 1
+        if extend:
+            lut_index = np.tile(lut_index, 2)
+
+        # lookup
+        value = np.squeeze(np.asarray(self.id_lut[lut_index, 0].todense()))
+
+        return value[:1] if extend else value
 
     def stitching_values_cross_check(
         self,

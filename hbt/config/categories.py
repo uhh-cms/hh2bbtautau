@@ -6,10 +6,14 @@ Definition of categories.
 
 import functools
 
+import law
 import order as od
 
 from columnflow.config_util import add_category, create_category_combinations, CategoryGroup
 from columnflow.types import Any
+
+
+logger = law.logger.get_logger(__name__)
 
 
 def add_categories(config: od.Config) -> None:
@@ -19,6 +23,9 @@ def add_categories(config: od.Config) -> None:
     # root category (-1 has special meaning in cutflow)
     root_cat = add_category(config, name="all", id=-1, selection="cat_all", label="")
     _add_category = functools.partial(add_category, parent=root_cat)
+
+    # reset the maximum category id counter
+    od.Category._max_id = 0
 
     # lepton channels
     _add_category(config, name="etau", id=1, selection="cat_etau", label=config.channels.n.etau.label)
@@ -159,3 +166,38 @@ def add_categories(config: od.Config) -> None:
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=False),
         skip_fn=skip_fn_ctrl,
     )
+
+    check_category_changes(config)
+
+
+def check_category_changes(config: od.Config) -> None:
+    cat_pairs = sorted((str(cat.id), cat.name) for cat, *_ in config.walk_categories(include_self=True))
+    cat_summary = {
+        "hash": law.util.create_hash(cat_pairs),
+        "categories": dict(cat_pairs),
+    }
+
+    pair_repr = lambda pair: f"{pair[1]}:{pair[0]}"
+
+    summary_file = law.LocalFileTarget(law.config.law_home_path(f"categories_{config.name}.json"))
+    save_summary = True
+    if summary_file.exists():
+        previous_summary = summary_file.load(formatter="json")
+        if previous_summary["hash"] == cat_summary["hash"]:
+            save_summary = False
+        else:
+            pairs = set(cat_pairs)
+            previous_pairs = set(previous_summary["categories"].items())
+            msgs = [
+                f"the category definitions in config '{config.name}' seem to have changed based on a hash comparison, "
+                "ignore this message in case you knowingly adjusted the categories and are aware of the changes:",
+                f"old hash: {previous_summary['hash']}, new hash: {cat_summary['hash']}",
+            ]
+            if (added := pairs - previous_pairs):
+                msgs.append(f"added categories  : {', '.join(map(pair_repr, sorted(added)))}")
+            if (removed := previous_pairs - pairs):
+                msgs.append(f"removed categories: {', '.join(map(pair_repr, sorted(removed)))}")
+            logger.warning_once(f"categories_changed_{config.name}", "\n".join(msgs))
+
+    if save_summary:
+        summary_file.dump(cat_summary, formatter="json", indent=4)

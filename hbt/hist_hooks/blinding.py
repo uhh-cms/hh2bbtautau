@@ -21,6 +21,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     def remove_data_hists(
         task: law.Task,
         hists: dict[od.Config, dict[od.Process, hist.Hist]],
+        **kwargs,
     ) -> dict[od.Config, dict[od.Process, hist.Hist]]:
         """
         Remove data histograms from the input histograms.
