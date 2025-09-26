@@ -28,8 +28,8 @@ class default(HBTInferenceModelBase):
 
     add_qcd = True
     fake_data = True
-    # variable = "run3_dnn_fine_hh_fine"
-    variable = "run3_dnn_simple_hh_fine"
+    variable = "run3_dnn_moe_hh_fine"
+    # variable = "run3_dnn_simple_hh_fine"
     # variable = "run3_dnn_moe_hh_10"
     # variable = "jet1_pt"
 
