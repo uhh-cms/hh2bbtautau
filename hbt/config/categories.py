@@ -134,14 +134,14 @@ def add_categories(config: od.Config) -> None:
         # channels first
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-        "kin": CategoryGroup(["incl", "dyc", "tt"], is_complete=True, has_overlap=True),
-        "jets": CategoryGroup(
-            ["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j",
-            "eq2vbfj", "eq3vbfj", "ge4vbfj",
-            "eq2totalj", "eq3totalj", "ge4totalj"],
-            is_complete=True, has_overlap=True
-        ),
-        # "bjets": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),
+        "kin": CategoryGroup(["incl", "dyc", "dy", "tt"], is_complete=True, has_overlap=True),
+        # "jets": CategoryGroup(
+        #    ["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j",
+        #    "eq2vbfj", "eq3vbfj", "ge4vbfj",
+        #    "eq2totalj", "eq3totalj", "ge4totalj"],
+        #    is_complete=True, has_overlap=False
+        # ),
+        "bjets": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),
         # relative sign last
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
@@ -152,7 +152,7 @@ def add_categories(config: od.Config) -> None:
         ch_cat = categories["channel"]
         kin_cat = categories["kin"]
         # skip dy in emu
-        if kin_cat.name.startswith("dyc") and ch_cat.name == "emu":
+        if kin_cat.name.startswith("dy") and ch_cat.name == "emu":
             return True
         # skip tt in ee/mumu
         if kin_cat.name == "tt" and ch_cat.name in {"ee", "mumu"}:

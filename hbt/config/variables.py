@@ -931,12 +931,24 @@ def add_variables(config: od.Config) -> None:
 
         add_variable(
             config,
+<<<<<<< Updated upstream
+=======
+            name=f"run3_dnn_moe_{proc}_fine",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=(5000, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output node",
+        )
+
+        add_variable(
+            config,
+>>>>>>> Stashed changes
             name=f"run3_dnn_moe_{proc}",
             expression=f"run3_dnn_moe_{proc}",
             binning=(25, 0.0, 1.0),
             x_title=rf"DNN {proc.upper()} output node",
         )
 
+<<<<<<< Updated upstream
         add_variable(
             config,
             name=f"run3_dnn_moe_{proc}_10",
@@ -963,6 +975,8 @@ def add_variables(config: od.Config) -> None:
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
+=======
+>>>>>>> Stashed changes
 
 # helper to add a variable to the config with some defaults
 def add_variable(config: od.Config, *args, **kwargs) -> od.Variable:

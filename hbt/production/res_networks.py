@@ -561,6 +561,7 @@ class reg_dnn_moe(_reg_dnn):
     exposed = True
 
 
+<<<<<<< Updated upstream
 #
 # producers for evaluating run 3 models trained with the legacy setup but on run 3 data
 #
@@ -694,3 +695,10 @@ class run3_dnn_moe(Producer):
         if self.require_producers and self.remove_producers:
             for inp in self.remove_producer_inputs:
                 inp.remove()
+=======
+class run3_dnn_moe(reg_dnn_moe):
+    """
+    Mixture of experts regression network, trained with Radion samples and a flat mass range.
+    """
+    produces = {"run3_dnn_moe_hh", "run3_dnn_moe_tt", "run3_dnn_moe_dy"}
+>>>>>>> Stashed changes
