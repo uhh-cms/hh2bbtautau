@@ -93,12 +93,12 @@ def cutflow_features(
 @producer(
     uses={
         "channel_id", "leptons_os",
-        "{Electron,Muon,HHBJet}.{pt,eta,phi,mass}", "{Jet,HHBJet}.{pt,eta,phi,mass,btagPNetB}",
+        "{Electron,Muon,HHBJet}.{pt,eta,phi,mass}", "{Jet,HHBJet}.{pt,eta,phi,mass,btagPNetB}", "PuppiMET.{pt,phi}",
         IF_DATASET_IS_DY("gen_dilepton_{pt,pdgid}"),
     },
     produces={
         "keep_in_union", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
-        "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}",
+        "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}", "met_{pt,phi}",
         IF_MC("event_weight"),
         IF_DATASET_IS_DY("gen_ll_{pt,pdgid}"),
     },
@@ -127,6 +127,8 @@ def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     if IF_DATASET_IS_DY(True)(self):
         events = set_ak_column(events, "gen_ll_pt", events.gen_dilepton_pt)
         events = set_ak_column(events, "gen_ll_pdgid", events.gen_dilepton_pdgid)
+    events = set_ak_column(events, "met_pt", events.PuppiMET.pt)
+    events = set_ak_column(events, "met_phi", events.PuppiMET.phi)
 
     # number of jets
     events = set_ak_column_i32(events, "n_jet", ak.num(events.Jet, axis=1))

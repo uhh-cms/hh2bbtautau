@@ -1712,7 +1712,7 @@ def add_config(
         },
         "cf.UniteColumns": {
             # all columns except for shifts
-            # "*", *skip_column("*_{up,down}"),
+            "*", *skip_column("*_{up,down}"),
 
             # columns for typical dnn training
             # ColumnCollection.MANDATORY_COFFEA,
@@ -1728,10 +1728,10 @@ def add_config(
             # *skip_column("*_{up,down}"),
 
             # columns for dnn-based dy weight tests
-            ColumnCollection.MANDATORY_COFFEA,
-            "channel_id", "dy_weight",
-            "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
-            "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}",
+            # ColumnCollection.MANDATORY_COFFEA,
+            # "channel_id", "dy_weight",
+            # "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
+            # "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}", "met_{pt,phi}",
         },
     })
 

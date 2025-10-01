@@ -7,18 +7,25 @@ Default inference model.
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+import functools
+import collections
 
 import law
 import order as od
 
-from columnflow.inference import ParameterType, FlowStrategy
+from columnflow.inference import ParameterType, ParameterTransformation, FlowStrategy
 from columnflow.config_util import get_datasets_from_process
 
 from hbt.inference.base import HBTInferenceModelBase
 
 
 logger = law.logger.get_logger(__name__)
+
+get_all_datasets_from_process = functools.partial(
+    get_datasets_from_process,
+    strategy="all",
+    only_first=False,
+)
 
 
 class default(HBTInferenceModelBase):
@@ -125,7 +132,7 @@ class default(HBTInferenceModelBase):
                 if not is_dynamic:
                     dataset_names = [
                         dataset.name
-                        for dataset in get_datasets_from_process(config_inst, proc_name, strategy="all")
+                        for dataset in get_all_datasets_from_process(config_inst, proc_name)
                     ]
                     if not dataset_names:
                         logger.debug(
