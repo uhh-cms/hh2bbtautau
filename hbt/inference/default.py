@@ -13,7 +13,7 @@ import collections
 import law
 import order as od
 
-from columnflow.inference import ParameterType, ParameterTransformation, FlowStrategy
+from columnflow.inference import ParameterType, FlowStrategy
 from columnflow.config_util import get_datasets_from_process
 
 from hbt.inference.base import HBTInferenceModelBase
@@ -351,7 +351,7 @@ class default(HBTInferenceModelBase):
             )
 
         # btag
-        btag_map: defaultdict[str, list[od.Config]] = defaultdict(list)
+        btag_map: collections.defaultdict[str, list[od.Config]] = collections.defaultdict(list)
         for config_inst in self.config_insts:
             for name in config_inst.x.btag_unc_names:
                 btag_map[name].append(config_inst)
