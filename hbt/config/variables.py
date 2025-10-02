@@ -826,6 +826,33 @@ def add_variables(config: od.Config) -> None:
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_kl1_{proc}_fine",
+            expression=f"run3_dnn_simple_kl1_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_kl0_{proc}_fine",
+            expression=f"run3_dnn_simple_kl0_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_allkl_{proc}_fine",
+            expression=f"run3_dnn_simple_allkl_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
 
 # helper to add a variable to the config with some defaults
 def add_variable(config: od.Config, *args, **kwargs) -> od.Variable:

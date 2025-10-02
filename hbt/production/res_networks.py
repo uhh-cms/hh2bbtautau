@@ -606,6 +606,11 @@ class run3_dnn_simple(_run3_dnn):
     exposed = True
 
 
+# ame as :py:class:`run3_dnn_simple` but trained for different kl variations
+for kl in ["kl1", "kl0", "allkl"]:
+    run3_dnn_simple.derive(f"run3_dnn_simple_{kl}", cls_dict={"external_name": f"run3_dnn_simple_{kl}"})
+
+
 #
 # producer for combining the results of all folds
 #

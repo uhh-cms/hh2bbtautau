@@ -525,7 +525,7 @@ def add_config(
     cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
     cfg.x.default_hist_producer = "default"
 
-    # process groups for conveniently looping over certain processs
+    # process groups for conveniently looping over certain processes
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {
         "signals": [
@@ -1591,6 +1591,10 @@ def add_config(
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
     # simple version of same model for quick comparisons
     add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple/model_fold0_seed1.tgz", "v1"))
+    # and again with different kl setups
+    add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
 
     # run specific files
     if run == 2:

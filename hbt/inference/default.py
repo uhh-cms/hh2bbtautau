@@ -36,9 +36,6 @@ class default(HBTInferenceModelBase):
     add_qcd = True
     fake_data = True
     variable = "run3_dnn_moe_hh_fine"
-    # variable = "run3_dnn_simple_hh_fine"
-    # variable = "run3_dnn_moe_hh_10"
-    # variable = "jet1_pt"
 
     def init_proc_map(self) -> None:
         # mapping of process names in the datacard ("combine name") to configs and process names in a dict
@@ -518,3 +515,16 @@ def default_no_shifts(self):
 
     # repeat the cleanup
     self.init_cleanup()
+
+
+default_no_shifts_simple = default_no_shifts.derive(
+    "default_no_shifts_simple",
+    cls_dict={"variable": "run3_dnn_simple_hh_fine"},
+)
+
+# for variables from networks trained with different kl variations
+for kl in ["kl1", "kl0", "allkl"]:
+    default_no_shifts.derive(
+        f"default_no_shifts_simple_{kl}",
+        cls_dict={"variable": f"run3_dnn_simple_{kl}_hh_fine"},
+    )
