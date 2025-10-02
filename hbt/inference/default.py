@@ -115,6 +115,7 @@ class default(HBTInferenceModelBase):
                     },
                     data_from_processes=fake_processes,
                     mc_stats=10.0,
+                    empty_bin_value=1e-5,  # setting this to 0 disables empty bin filling
                     flow_strategy=FlowStrategy.move,
                 )
 
@@ -510,7 +511,7 @@ def default_no_shifts(self):
 
     # remove all parameters that require a shift source other than nominal
     for category_name, process_name, parameter in self.iter_parameters():
-        if parameter.type.is_shape or any(trafo.from_shape for trafo in parameter.transformations):
+        if parameter.type.is_shape or parameter.transformations.any_from_shape:
             self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
     # repeat the cleanup

@@ -6,7 +6,8 @@ Histogram hooks for QCD estimation.
 
 from __future__ import annotations
 
-from collections import defaultdict
+import collections
+import functools
 
 import law
 import order as od
@@ -61,6 +62,10 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         config_inst: od.Config,
         hists: dict[od.Process, Any],
         requested_category: str | None = None,
+        empty_bin_value: float = 1e-5,
+        fill_empty: bool = True,
+        keep_negative: bool = False,
+        **kwargs,
     ) -> dict[od.Process, Any]:
         # get the qcd process
         qcd_proc = config_inst.get_process("qcd", default=None)
@@ -81,7 +86,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             category_names.update(list(cat_ax))
 
         # create qcd groups
-        qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
+        qcd_groups: dict[str, dict[str, od.Category]] = collections.defaultdict(DotDict)
         requested_group = None
         for cat_name in category_names:
             # store references to the four category objects
@@ -192,23 +197,29 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             unc_mc_rel = abs(unc_mc / os_iso_qcd_values)
 
             # only keep the MC uncertainty if it is larger than the data uncertainty and larger than 15%
+            # (TODO: document motivation for that)
             keep_variance_mask = (
                 np.isfinite(unc_mc_rel) &
                 (unc_mc_rel > unc_data_rel) &
                 (unc_mc_rel > 0.15)
             )
             os_iso_qcd_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
-            os_iso_qcd_variances[~keep_variance_mask] = 0
+            os_iso_qcd_variances[~keep_variance_mask] = 0.0
 
             # retro-actively set values to zero for shifts that had negative integrals
             neg_int_mask = int_ss_iso_neg | int_ss_noniso_neg
-            os_iso_qcd_values[neg_int_mask] = 1e-5
-            os_iso_qcd_variances[neg_int_mask] = 0
+            if not keep_negative:
+                os_iso_qcd_values[neg_int_mask] = empty_bin_value
+                os_iso_qcd_variances[neg_int_mask] = 0.0
 
             # residual zero filling
-            zero_mask = os_iso_qcd_values <= 0
-            os_iso_qcd_values[zero_mask] = 1e-5
-            os_iso_qcd_variances[zero_mask] = 0
+            if fill_empty:
+                zero_mask = os_iso_qcd_values <= 0
+                # when keeping negatives, do exclude them from the usual zero filling
+                if keep_negative:
+                    zero_mask &= ~neg_int_mask
+                os_iso_qcd_values[zero_mask] = empty_bin_value
+                os_iso_qcd_variances[zero_mask] = 0.0
 
             # insert values into the qcd histogram
             cat_axis = qcd_hist.axes["category"]
@@ -229,6 +240,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         task: law.Task,
         hists: dict[od.Config, dict[od.Process, Any]],
         category_name: str,
+        variable_name: str,
         **kwargs,
     ) -> dict[od.Config, dict[od.Process, Any]]:
         return {
@@ -237,9 +249,11 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 config_inst,
                 hists[config_inst],
                 requested_category=category_name,
+                **kwargs,
             )
             for config_inst in hists.keys()
         }
 
-    # add the hook
+    # add different hook variations
     analysis_inst.x.hist_hooks.qcd = qcd_estimation
+    analysis_inst.x.hist_hooks.qcd_raw = functools.partial(qcd_estimation, keep_negative=True, fill_empty=False)
