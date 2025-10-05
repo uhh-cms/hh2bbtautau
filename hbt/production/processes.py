@@ -22,7 +22,7 @@ from hbt.util import IF_DATASET_IS_DY_AMCATNLO, IF_DATASET_IS_DY_POWHEG, IF_DATA
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 if TYPE_CHECKING:
-    sp = maybe_import("scipy")
+    scipy = maybe_import("scipy")
     maybe_import("scipy.sparse")
 
 
@@ -65,7 +65,7 @@ class stitched_process_ids(Producer):
         ...
 
     @abc.abstractproperty
-    def id_lut(self) -> sp.sparse._lil.lil_matrix:
+    def id_lut(self) -> scipy.sparse._lil.lil_matrix:
         # must be overwritten by inheriting classes
         ...
 
@@ -240,7 +240,6 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
         ...
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
-        import scipy as sp
         import scipy.sparse
 
         # fill stitching ranges
@@ -253,7 +252,7 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
         self.stitching_ranges = sorted(set(self.stitching_ranges))
 
         # define the lookup table
-        self.id_lut = sp.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:
@@ -331,7 +330,6 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         return super().call_func(events, **kwargs)
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
-        import scipy as sp
         import scipy.sparse
 
         # fill stitching ranges
@@ -345,7 +343,7 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         self.stitching_ranges = sorted(set(self.stitching_ranges))
 
         # define the lookup table
-        self.id_lut = sp.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:
@@ -427,7 +425,6 @@ class stitched_process_ids_m(stitched_process_ids):
         self.produces |= cond(["process_id"])
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
-        import scipy as sp
         import scipy.sparse
 
         # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
@@ -441,7 +438,7 @@ class stitched_process_ids_m(stitched_process_ids):
 
         # define the lookup table
         max_var_bin = len(self.sorted_stitching_ranges)
-        self.id_lut = sp.sparse.lil_matrix((max_var_bin + 1, 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.lil_matrix((max_var_bin + 1, 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:
