@@ -76,6 +76,8 @@ setup_hbt() {
     export CF_SETUP_NAME="${setup_name}"
     export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-naf-cms14.desy.de}"
     export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8088}"
+    export CF_INTERACTIVE_VENV_FILE="${CF_INTERACTIVE_VENV_FILE:-${HBT_BASE}/sandboxes/venv_hbt_dev.sh}"
+    [ ! -z "${CF_INTERACTIVE_VENV_FILE}" ] && export CF_INSPECT_SANDBOX="$( basename "${CF_INTERACTIVE_VENV_FILE%.*}" )"
 
     # interactive setup
     if ! ${CF_REMOTE_ENV}; then

@@ -28,7 +28,7 @@ logger = law.logger.get_logger(__name__)
         "Jet.{pt,eta,phi,mass}",
         MET_COLUMN("{pt,phi}"),
     },
-    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
+    sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_hbt.sh"),
 )
 def hhbtag(
     self: Producer,

@@ -32,8 +32,7 @@ analysis_hbt.x.versions = {}
 # (used in cf.HTCondorWorkflow)
 analysis_hbt.x.bash_sandboxes = [
     "$CF_BASE/sandboxes/cf.sh",
-    "$CF_BASE/sandboxes/venv_columnar.sh",
-    "$HBT_BASE/sandboxes/venv_columnar_tf.sh",
+    "$HBT_BASE/sandboxes/venv_hbt.sh",
 ]
 
 # files of cmssw sandboxes that might be required by remote tasks

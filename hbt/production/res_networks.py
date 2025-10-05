@@ -83,7 +83,7 @@ class _res_dnn_evaluation(Producer):
     features_prefix: str = ""
 
     # produced columns are added in the deferred init below
-    sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh")
+    sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_hbt.sh")
 
     # not exposed to command line selection
     exposed = False
