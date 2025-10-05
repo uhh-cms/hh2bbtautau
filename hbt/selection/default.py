@@ -28,6 +28,7 @@ from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import Route, set_ak_column, full_like
 from columnflow.hist_util import create_hist_from_variables, fill_hist
 from columnflow.util import maybe_import, DotDict
+from columnflow.types import TYPE_CHECKING
 
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
@@ -40,7 +41,8 @@ from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATA, IF_DATASET_H
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
-hist = maybe_import("hist")
+if TYPE_CHECKING:
+    hist = maybe_import("hist")
 
 
 logger = law.logger.get_logger(__name__)

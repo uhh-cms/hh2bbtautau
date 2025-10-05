@@ -14,10 +14,10 @@ import order as od
 import scinum as sn
 
 from columnflow.util import maybe_import, DotDict
-from columnflow.types import Any
+from columnflow.types import TYPE_CHECKING, Any
 
-np = maybe_import("numpy")
-hist = maybe_import("hist")
+if TYPE_CHECKING:
+    hist = maybe_import("hist")
 
 
 logger = law.logger.get_logger(__name__)
@@ -67,6 +67,9 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         keep_negative: bool = False,
         **kwargs,
     ) -> dict[od.Process, Any]:
+        import numpy as np
+        import hist
+
         # get the qcd process
         qcd_proc = config_inst.get_process("qcd", default=None)
         if not qcd_proc:

@@ -14,9 +14,10 @@ import law
 import order as od
 
 from columnflow.util import maybe_import
-from columnflow.types import Callable
+from columnflow.types import TYPE_CHECKING, Callable
 
-hist = maybe_import("hist")
+if TYPE_CHECKING:
+    hist = maybe_import("hist")
 
 
 logger = law.logger.get_logger(__name__)
@@ -63,6 +64,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
         """
         import numpy as np
+        import hist
 
         # edge finding helper
         def find_edges(

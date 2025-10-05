@@ -15,7 +15,6 @@ from columnflow.ml import MLModel
 from columnflow.util import maybe_import, dev_sandbox
 from columnflow.columnar_util import Route, set_ak_column
 
-
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 

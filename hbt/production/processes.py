@@ -15,14 +15,15 @@ from columnflow.production import Producer
 from columnflow.production.cms.dy import gen_dilepton
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
-from columnflow.types import Callable
+from columnflow.types import TYPE_CHECKING, Callable
 
 from hbt.util import IF_DATASET_IS_DY_AMCATNLO, IF_DATASET_IS_DY_POWHEG, IF_DATASET_IS_W_LNU
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
-sp = maybe_import("scipy")
-maybe_import("scipy.sparse")
+if TYPE_CHECKING:
+    sp = maybe_import("scipy")
+    maybe_import("scipy.sparse")
 
 
 logger = law.logger.get_logger(__name__)
@@ -239,6 +240,9 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
         ...
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        import scipy as sp
+        import scipy.sparse
+
         # fill stitching ranges
         for proc in self.leaf_processes:
             njets = proc.x(self.njets_aux, (0, np.inf))
@@ -327,6 +331,9 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         return super().call_func(events, **kwargs)
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        import scipy as sp
+        import scipy.sparse
+
         # fill stitching ranges
         for proc in self.leaf_processes:
             lep = proc.x(self.lep_aux, 0)
@@ -420,6 +427,9 @@ class stitched_process_ids_m(stitched_process_ids):
         self.produces |= cond(["process_id"])
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        import scipy as sp
+        import scipy.sparse
+
         # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
         stitching_ranges = [
             proc.x(self.var_aux)

@@ -25,7 +25,6 @@ from columnflow.types import Any
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
-hist = maybe_import("hist")
 
 
 # helper
@@ -130,6 +129,8 @@ def normalized_pu_weight_requires(self: Producer, task: law.Task, reqs: dict, **
 
 @normalized_pu_weight.setup
 def normalized_pu_weight_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
+    import hist
+
     # load the selection stats
     hists = task.cached_value(
         key="selection_hists",
@@ -423,6 +424,8 @@ def _normalized_btag_weights_setup(
     inputs: dict[str, Any],
     **kwargs,
 ) -> None:
+    import hist
+
     # load the selection hists
     hists = task.cached_value(
         key="selection_hists",

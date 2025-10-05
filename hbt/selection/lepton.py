@@ -12,9 +12,7 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.columnar_util import (
-    set_ak_column, sorted_indices_from_mask, flat_np_view, full_like,
-)
+from columnflow.columnar_util import set_ak_column, sorted_indices_from_mask, flat_np_view, full_like
 from columnflow.util import maybe_import
 
 from hbt.util import IF_NANO_V9, IF_NANO_GE_V10
