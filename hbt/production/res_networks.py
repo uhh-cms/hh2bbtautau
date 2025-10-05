@@ -648,7 +648,7 @@ class run3_dnn_moe(Producer):
 
         from columnflow.tasks.production import ProduceColumns
         reqs["run3_dnn_folds"] = {
-            f: ProduceColumns.req(task, producer=dnn_cls.cls_name, producer_inst=None, known_shifts=None)
+            f: ProduceColumns.req_other_producer(task, producer=dnn_cls.cls_name)
             for f, dnn_cls in self.dnn_classes.items()
         }
 

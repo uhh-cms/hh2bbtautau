@@ -204,7 +204,7 @@ def dy_dnn_features_init(self: Producer, **kwargs) -> None:
 @dy_dnn_features.requires
 def dy_dnn_features_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
     from columnflow.tasks.production import ProduceColumns
-    reqs["default_prod"] = ProduceColumns.req(task, producer="default", producer_inst=None, known_shifts=None)
+    reqs["default_prod"] = ProduceColumns.req_other_producer(task, producer="default")
 
 
 @dy_dnn_features.setup
