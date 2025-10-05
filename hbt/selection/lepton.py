@@ -995,6 +995,11 @@ def lepton_selection(
     events = set_ak_column(events, "cross_triggered", cross_triggered)
     events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids)
 
+    # remove option types
+    sel_electron_mask = ak.drop_none(sel_electron_mask)
+    sel_muon_mask = ak.drop_none(sel_muon_mask)
+    sel_tau_mask = ak.drop_none(sel_tau_mask)
+
     # convert lepton masks to sorted indices (pt for e/mu, iso for tau)
     sel_electron_indices = sorted_indices_from_mask(sel_electron_mask, events.Electron.pt, ascending=False)
     sel_muon_indices = sorted_indices_from_mask(sel_muon_mask, events.Muon.pt, ascending=False)
