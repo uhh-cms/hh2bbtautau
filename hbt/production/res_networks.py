@@ -110,8 +110,7 @@ class _res_dnn_evaluation(Producer):
             self.produces.add(f"{self.features_prefix}{self.cls_name}_*")
 
         # update shifts dynamically
-        # TODO: uncomment once reduction ran and saved met variations
-        # self.shifts.add("minbias_xs_{up,down}")  # variations of minbias_xs used in met phi correction
+        self.shifts.add("minbias_xs_{up,down}")  # variations of minbias_xs used in met phi correction
         self.shifts.update({  # all calibrations that change jet and lepton momenta
             shift_inst.name
             for shift_inst in self.config_inst.shifts
