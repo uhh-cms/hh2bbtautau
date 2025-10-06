@@ -1848,20 +1848,20 @@ def add_config(
     cfg.x.validate_dataset_lfns = limit_dataset_files is None and not sync_mode
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
-    if cfg.campaign.x("custom", {}).get("creator") == "uhh":
+    if (nano_creator := cfg.campaign.x("custom", {}).get("creator", None)):
+        if nano_creator not in {"uhh", "rucio"}:
+            raise ValueError(f"unsupported custom campaign creator: {nano_creator}")
+
         def get_dataset_lfns(
             dataset_inst: od.Dataset,
             shift_inst: od.Shift,
             dataset_key: str,
         ) -> list[str]:
             # destructure dataset_key into parts and create the store path
+            # note: this path goes up to the campaign version but _not_ the directory numbering scheme
             dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
             main_campaign, sub_campaign = full_campaign.split("-", 1)
-            path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}/0"
-
-            # nanogen version that is appended to the fs base
-            # note: this feature is not yet used as we do not have different prod* versions per dataset yet
-            # nanogen_version = dataset_inst.x("nanogen_version", None) or cfg.campaign.x.custom["nanogen_version"]
+            path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}"
 
             # lookup file systems to use
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
@@ -1871,28 +1871,41 @@ def add_config(
                 fs += "_eos"
                 local_fs += "_eos"
 
-            # create the lfn base directory, local or remote
+            # determine the fs of the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
             if law.config.has_section(local_fs):
                 base = law.target.file.remove_scheme(law.config.get_expanded(local_fs, "base"))
-                # if os.path.exists(os.path.join(base, nanogen_version)):
                 if os.path.exists(base):
                     dir_cls = law.LocalDirectoryTarget
                     fs = local_fs
-            # lfn_base = dir_cls(nanogen_version, fs=fs).child(path, type="d")
+
+            # create the lfn base
             lfn_base = dir_cls(path, fs=fs)
 
+            # determine sub directories with numbering scheme
+            if nano_creator == "uhh":
+                # custom nanos are always put into a single directory named "0"
+                lfn_num_bases = [lfn_base.child("0", type="d")]
+            else:  # rucio
+                # query the directory and filter for numbers
+                lfn_num_bases = [lfn_base.child(d, type="d") for d in lfn_base.listdir() if d.isnumeric()]
+
             # loop though files and interpret paths as lfns
-            return sorted(
-                "/" + lfn_base.child(basename, type="f").path.lstrip("/")
-                for basename in lfn_base.listdir(pattern="*.root")
-            )
+            lfns = sum((
+                [
+                    "/" + lfn_num_base.child(basename, type="f").path.lstrip("/")
+                    for basename in lfn_num_base.listdir(pattern="*.root")
+                ]
+                for lfn_num_base in lfn_num_bases
+            ), [])
+
+            return sorted(lfns)
 
         # define the lfn retrieval function
         cfg.x.get_dataset_lfns = get_dataset_lfns
 
         # define a custom sandbox
-        cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/cf.sh")
+        cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_hbt.sh")
 
         # define custom remote fs's to look at
         cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: [
