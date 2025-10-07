@@ -1894,7 +1894,6 @@ def add_config(
             dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
             main_campaign, sub_campaign = full_campaign.split("-", 1)
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}"
-            from IPython import embed; embed(header="debugger")
 
             # lookup file systems to use
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
