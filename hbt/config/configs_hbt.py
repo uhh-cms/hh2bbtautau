@@ -1852,6 +1852,11 @@ def add_config(
         if nano_creator not in {"uhh", "rucio"}:
             raise ValueError(f"unsupported custom campaign creator: {nano_creator}")
 
+        fs_postfix = ""
+        # ammend when located on CERN resources
+        if not force_desy_resources and env_is_cern:
+            fs_postfix = "_eos"
+
         def get_dataset_lfns(
             dataset_inst: od.Dataset,
             shift_inst: od.Shift,
@@ -1864,12 +1869,8 @@ def add_config(
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}"
 
             # lookup file systems to use
-            fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}"
-            local_fs = f"local_fs_{cfg.campaign.x.custom['name']}"
-            # ammend when located on CERN resources
-            if not force_desy_resources and env_is_cern:
-                fs += "_eos"
-                local_fs += "_eos"
+            fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
+            local_fs = f"local_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
 
             # determine the fs of the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
@@ -1907,10 +1908,10 @@ def add_config(
         # define a custom sandbox
         cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_hbt.sh")
 
-        # define custom remote fs's to look at
+        # define custom remote fs's to look at during lfn itertation when reading files
         cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: [
-            f"local_fs_{cfg.campaign.x.custom['name']}",
-            f"wlcg_fs_{cfg.campaign.x.custom['name']}",
+            f"local_fs_{cfg.campaign.x.custom['name']}{fs_postfix}",
+            f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}",
         ]
 
     return cfg
