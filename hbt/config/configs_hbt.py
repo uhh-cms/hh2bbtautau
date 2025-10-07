@@ -46,7 +46,7 @@ def add_config(
 
     # some validations
     assert run in {2, 3}
-    assert year in {2016, 2017, 2018, 2022, 2023}
+    assert year in {2016, 2017, 2018, 2022, 2023, 2024}
 
     # get all root processes
     procs = get_root_processes_from_campaign(campaign)
@@ -119,62 +119,62 @@ def add_config(
     ################################################################################################
 
     # add custom processes
-    if not sync_mode:
-        procs.add(
-            name="v",
-            id=7997,
-            label="W/Z",
-            processes=[procs.n.w, procs.n.z],
-        )
-        procs.add(
-            name="multiboson",
-            id=7998,
-            label="Multiboson",
-            processes=[procs.n.vv, procs.n.vvv],
-        )
-        procs.add(
-            name="all_v",
-            id=7996,
-            label="Multiboson",
-            processes=[procs.n.v, procs.n.multiboson],
-        )
-        procs.add(
-            name="tt_multiboson",
-            id=7999,
-            label=r"$t\bar{t}$ + Multiboson",
-            processes=[procs.n.ttv, procs.n.ttvv],
-        )
+    # if not sync_mode:
+    #     procs.add(
+    #         name="v",
+    #         id=7997,
+    #         label="W/Z",
+    #         processes=[procs.n.w, procs.n.z],
+    #     )
+    #     procs.add(
+    #         name="multiboson",
+    #         id=7998,
+    #         label="Multiboson",
+    #         processes=[procs.n.vv, procs.n.vvv],
+    #     )
+    #     procs.add(
+    #         name="all_v",
+    #         id=7996,
+    #         label="Multiboson",
+    #         processes=[procs.n.v, procs.n.multiboson],
+    #     )
+    #     procs.add(
+    #         name="tt_multiboson",
+    #         id=7999,
+    #         label=r"$t\bar{t}$ + Multiboson",
+    #         processes=[procs.n.ttv, procs.n.ttvv],
+    #     )
 
     # processes we are interested in
     process_names = [
-        "data",
-        "tt",
-        "st",
-        "dy",
-        "tt_multiboson",
-        "all_v",
-        "qcd",
-        "h",
+        # "data",
+        # "tt",
+        # "st",
+        # "dy",
+        # "tt_multiboson",
+        # "all_v",
+        # "qcd",
+        # "h",
         "hh_ggf_hbb_htt_kl1_kt1",
-        "hh_ggf_hbb_htt_kl0_kt1",
-        "hh_ggf_hbb_htt_kl2p45_kt1",
-        "hh_ggf_hbb_htt_kl5_kt1",
-        "hh_ggf_hbb_htt_kl0_kt1_c21",
-        "hh_ggf_hbb_htt_kl1_kt1_c23",
-        "hh_vbf_hbb_htt_kv1_k2v1_kl1",
-        "hh_vbf_hbb_htt_kv1_k2v0_kl1",
-        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
-        "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96",
-        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
-        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
-        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43",
-        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
-        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
-        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        "radion_hh_ggf_hbb_htt_m450",
-        "radion_hh_ggf_hbb_htt_m1200",
-        "graviton_hh_ggf_hbb_htt_m450",
-        "graviton_hh_ggf_hbb_htt_m1200",
+        # "hh_ggf_hbb_htt_kl0_kt1",
+        # "hh_ggf_hbb_htt_kl2p45_kt1",
+        # "hh_ggf_hbb_htt_kl5_kt1",
+        # "hh_ggf_hbb_htt_kl0_kt1_c21",
+        # "hh_ggf_hbb_htt_kl1_kt1_c23",
+        # "hh_vbf_hbb_htt_kv1_k2v1_kl1",
+        # "hh_vbf_hbb_htt_kv1_k2v0_kl1",
+        # "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
+        # "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96",
+        # "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
+        # "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
+        # "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43",
+        # "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
+        # "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
+        # "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
+        # "radion_hh_ggf_hbb_htt_m450",
+        # "radion_hh_ggf_hbb_htt_m1200",
+        # "graviton_hh_ggf_hbb_htt_m450",
+        # "graviton_hh_ggf_hbb_htt_m1200",
     ]
     for process_name in process_names:
         if process_name in procs:
@@ -216,207 +216,212 @@ def add_config(
     ################################################################################################
 
     # add datasets we need to study
-    dataset_names = [
-        # hh ggf
-        "hh_ggf_hbb_htt_kl1_kt1_powheg",
-        "hh_ggf_hbb_htt_kl0_kt1_powheg",
-        "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
-        "hh_ggf_hbb_htt_kl5_kt1_powheg",
+    if year == 2024:
+        dataset_names = [
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+        ]
+    else:
+        dataset_names = [
+            # hh ggf
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+            "hh_ggf_hbb_htt_kl0_kt1_powheg",
+            "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
+            "hh_ggf_hbb_htt_kl5_kt1_powheg",
 
-        # hh vbf
-        "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
-        "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-        "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96_madgraph",
-        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
-        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
-        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
-        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
-        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
-        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
-        # privately produced datasets
-        # "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
-        # "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
-        # "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
-        # "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
-        # "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
-        # "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
+            # hh vbf
+            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
+            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+            "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96_madgraph",
+            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
+            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
+            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
+            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
+            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
+            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
+            # privately produced datasets
+            # "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
+            # "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
+            # "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
+            # "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
+            # "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
+            # "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
 
-        # x -> hh resonances
-        *if_era(year=2022, values=[
-            "radion_hh_ggf_hbb_htt_m450_madgraph",
-            "radion_hh_ggf_hbb_htt_m1200_madgraph",
-            "graviton_hh_ggf_hbb_htt_m450_madgraph",
-            "graviton_hh_ggf_hbb_htt_m1200_madgraph",
-        ]),
+            # x -> hh resonances
+            *if_era(year=2022, values=[
+                "radion_hh_ggf_hbb_htt_m450_madgraph",
+                "radion_hh_ggf_hbb_htt_m1200_madgraph",
+                "graviton_hh_ggf_hbb_htt_m450_madgraph",
+                "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+            ]),
 
-        # ttbar
-        "tt_sl_powheg",
-        "tt_dl_powheg",
-        "tt_fh_powheg",
+            # ttbar
+            "tt_sl_powheg",
+            "tt_dl_powheg",
+            "tt_fh_powheg",
 
-        # single top
-        "st_tchannel_t_4f_powheg",
-        "st_tchannel_tbar_4f_powheg",
-        "st_twchannel_t_sl_powheg",
-        "st_twchannel_tbar_sl_powheg",
-        "st_twchannel_t_dl_powheg",
-        "st_twchannel_tbar_dl_powheg",
-        "st_twchannel_t_fh_powheg",
-        "st_twchannel_tbar_fh_powheg",
-        "st_schannel_t_lep_4f_amcatnlo",
-        "st_schannel_tbar_lep_4f_amcatnlo",
+            # single top
+            "st_tchannel_t_4f_powheg",
+            "st_tchannel_tbar_4f_powheg",
+            "st_twchannel_t_sl_powheg",
+            "st_twchannel_tbar_sl_powheg",
+            "st_twchannel_t_dl_powheg",
+            "st_twchannel_tbar_dl_powheg",
+            "st_twchannel_t_fh_powheg",
+            "st_twchannel_tbar_fh_powheg",
+            "st_schannel_t_lep_4f_amcatnlo",
+            "st_schannel_tbar_lep_4f_amcatnlo",
 
-        # tt + v
-        "ttw_wlnu_amcatnlo",
-        "ttz_zqq_amcatnlo",
-        "ttz_zll_m4to50_amcatnlo",
-        "ttz_zll_m50toinf_amcatnlo",
+            # tt + v
+            "ttw_wlnu_amcatnlo",
+            "ttz_zqq_amcatnlo",
+            "ttz_zll_m4to50_amcatnlo",
+            "ttz_zll_m50toinf_amcatnlo",
 
-        # tt + vv
-        "ttww_madgraph",
-        *if_not_era(year=2022, tag="preEE", values=[
-            "ttwz_madgraph",  # not available in 22pre
-        ]),
-        "ttzz_madgraph",
+            # tt + vv
+            "ttww_madgraph",
+            *if_not_era(year=2022, tag="preEE", values=[
+                "ttwz_madgraph",  # not available in 22pre
+            ]),
+            "ttzz_madgraph",
 
-        # dy, amcatnlo
-        # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned
-        # "dy_m10to50_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned
-        "dy_m50toinf_amcatnlo",  # also affected by the pythia bug in 22+23, need to stitch lepton decays below
-        "dy_m50toinf_0j_amcatnlo",
-        "dy_m50toinf_1j_amcatnlo",
-        "dy_m50toinf_2j_amcatnlo",
-        "dy_m50toinf_1j_pt40to100_amcatnlo",
-        "dy_m50toinf_1j_pt100to200_amcatnlo",
-        "dy_m50toinf_1j_pt200to400_amcatnlo",
-        "dy_m50toinf_1j_pt400to600_amcatnlo",
-        "dy_m50toinf_1j_pt600toinf_amcatnlo",
-        "dy_m50toinf_2j_pt40to100_amcatnlo",
-        "dy_m50toinf_2j_pt100to200_amcatnlo",
-        "dy_m50toinf_2j_pt200to400_amcatnlo",
-        "dy_m50toinf_2j_pt400to600_amcatnlo",
-        "dy_m50toinf_2j_pt600toinf_amcatnlo",
-        # specific tautau datasets with pythia bug fix
-        "dy_tautau_m50toinf_0j_amcatnlo",
-        "dy_tautau_m50toinf_1j_amcatnlo",
-        "dy_tautau_m50toinf_2j_amcatnlo",
-        # disabled for now
-        # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-        # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-        # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+            # dy, amcatnlo
+            # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned
+            # "dy_m10to50_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned
+            "dy_m50toinf_amcatnlo",  # also affected by the pythia bug in 22+23, need to stitch lepton decays below
+            "dy_m50toinf_0j_amcatnlo",
+            "dy_m50toinf_1j_amcatnlo",
+            "dy_m50toinf_2j_amcatnlo",
+            "dy_m50toinf_1j_pt40to100_amcatnlo",
+            "dy_m50toinf_1j_pt100to200_amcatnlo",
+            "dy_m50toinf_1j_pt200to400_amcatnlo",
+            "dy_m50toinf_1j_pt400to600_amcatnlo",
+            "dy_m50toinf_1j_pt600toinf_amcatnlo",
+            "dy_m50toinf_2j_pt40to100_amcatnlo",
+            "dy_m50toinf_2j_pt100to200_amcatnlo",
+            "dy_m50toinf_2j_pt200to400_amcatnlo",
+            "dy_m50toinf_2j_pt400to600_amcatnlo",
+            "dy_m50toinf_2j_pt600toinf_amcatnlo",
+            # specific tautau datasets with pythia bug fix
+            "dy_tautau_m50toinf_0j_amcatnlo",
+            "dy_tautau_m50toinf_1j_amcatnlo",
+            "dy_tautau_m50toinf_2j_amcatnlo",
+            # disabled for now
+            # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
 
-        # dy, powheg
-        # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
-        # "dy_ee_m10to50_powheg",
-        # "dy_ee_m50to120_powheg",
-        # "dy_ee_m120to200_powheg",
-        # "dy_ee_m200to400_powheg",
-        # "dy_ee_m400to800_powheg",
-        # "dy_ee_m800to1500_powheg",
-        # "dy_ee_m1500to2500_powheg",
-        # "dy_ee_m2500to4000_powheg",
-        # "dy_ee_m4000to6000_powheg",
-        # "dy_ee_m6000toinf_powheg",
-        # "dy_mumu_m10to50_powheg",
-        # "dy_mumu_m50to120_powheg",
-        # "dy_mumu_m120to200_powheg",
-        # "dy_mumu_m200to400_powheg",
-        # "dy_mumu_m400to800_powheg",
-        # "dy_mumu_m800to1500_powheg",
-        # "dy_mumu_m1500to2500_powheg",
-        # "dy_mumu_m2500to4000_powheg",
-        # "dy_mumu_m4000to6000_powheg",
-        # "dy_mumu_m6000toinf_powheg",
-        # "dy_tautau_m10to50_powheg",
-        # "dy_tautau_m50to120_powheg",
-        # "dy_tautau_m120to200_powheg",
-        # "dy_tautau_m200to400_powheg",
-        # "dy_tautau_m400to800_powheg",
-        # "dy_tautau_m800to1500_powheg",
-        # "dy_tautau_m1500to2500_powheg",
-        # "dy_tautau_m2500to4000_powheg",
-        # "dy_tautau_m4000to6000_powheg",
-        # "dy_tautau_m6000toinf_powheg",
+            # dy, powheg
+            # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
+            # "dy_ee_m10to50_powheg",
+            # "dy_ee_m50to120_powheg",
+            # "dy_ee_m120to200_powheg",
+            # "dy_ee_m200to400_powheg",
+            # "dy_ee_m400to800_powheg",
+            # "dy_ee_m800to1500_powheg",
+            # "dy_ee_m1500to2500_powheg",
+            # "dy_ee_m2500to4000_powheg",
+            # "dy_ee_m4000to6000_powheg",
+            # "dy_ee_m6000toinf_powheg",
+            # "dy_mumu_m10to50_powheg",
+            # "dy_mumu_m50to120_powheg",
+            # "dy_mumu_m120to200_powheg",
+            # "dy_mumu_m200to400_powheg",
+            # "dy_mumu_m400to800_powheg",
+            # "dy_mumu_m800to1500_powheg",
+            # "dy_mumu_m1500to2500_powheg",
+            # "dy_mumu_m2500to4000_powheg",
+            # "dy_mumu_m4000to6000_powheg",
+            # "dy_mumu_m6000toinf_powheg",
+            # "dy_tautau_m10to50_powheg",
+            # "dy_tautau_m50to120_powheg",
+            # "dy_tautau_m120to200_powheg",
+            # "dy_tautau_m200to400_powheg",
+            # "dy_tautau_m400to800_powheg",
+            # "dy_tautau_m800to1500_powheg",
+            # "dy_tautau_m1500to2500_powheg",
+            # "dy_tautau_m2500to4000_powheg",
+            # "dy_tautau_m4000to6000_powheg",
+            # "dy_tautau_m6000toinf_powheg",
 
-        # w + jets
-        "w_lnu_amcatnlo",
-        "w_lnu_0j_amcatnlo",
-        "w_lnu_1j_amcatnlo",
-        "w_lnu_2j_amcatnlo",
-        "w_lnu_1j_pt40to100_amcatnlo",
-        "w_lnu_1j_pt100to200_amcatnlo",
-        "w_lnu_1j_pt200to400_amcatnlo",
-        "w_lnu_1j_pt400to600_amcatnlo",
-        "w_lnu_1j_pt600toinf_amcatnlo",
-        "w_lnu_2j_pt40to100_amcatnlo",
-        "w_lnu_2j_pt100to200_amcatnlo",
-        "w_lnu_2j_pt200to400_amcatnlo",
-        "w_lnu_2j_pt400to600_amcatnlo",
-        "w_lnu_2j_pt600toinf_amcatnlo",
+            # w + jets
+            "w_lnu_amcatnlo",
+            "w_lnu_0j_amcatnlo",
+            "w_lnu_1j_amcatnlo",
+            "w_lnu_2j_amcatnlo",
+            "w_lnu_1j_pt40to100_amcatnlo",
+            "w_lnu_1j_pt100to200_amcatnlo",
+            "w_lnu_1j_pt200to400_amcatnlo",
+            "w_lnu_1j_pt400to600_amcatnlo",
+            "w_lnu_1j_pt600toinf_amcatnlo",
+            "w_lnu_2j_pt40to100_amcatnlo",
+            "w_lnu_2j_pt100to200_amcatnlo",
+            "w_lnu_2j_pt200to400_amcatnlo",
+            "w_lnu_2j_pt400to600_amcatnlo",
+            "w_lnu_2j_pt600toinf_amcatnlo",
 
-        # z + jets (not DY but qq)
-        # decided to drop z_qq for now as their contribution is negligible,
-        # but we should check that again at a much later stage
-        # "z_qq_1j_pt100to200_amcatnlo",
-        # "z_qq_1j_pt200to400_amcatnlo",
-        # "z_qq_1j_pt400to600_amcatnlo",
-        # "z_qq_1j_pt600toinf_amcatnlo",
-        # "z_qq_2j_pt100to200_amcatnlo",
-        # "z_qq_2j_pt200to400_amcatnlo",
-        # "z_qq_2j_pt400to600_amcatnlo",
-        # "z_qq_2j_pt600toinf_amcatnlo",
+            # z + jets (not DY but qq)
+            # decided to drop z_qq for now as their contribution is negligible,
+            # but we should check that again at a much later stage
+            # "z_qq_1j_pt100to200_amcatnlo",
+            # "z_qq_1j_pt200to400_amcatnlo",
+            # "z_qq_1j_pt400to600_amcatnlo",
+            # "z_qq_1j_pt600toinf_amcatnlo",
+            # "z_qq_2j_pt100to200_amcatnlo",
+            # "z_qq_2j_pt200to400_amcatnlo",
+            # "z_qq_2j_pt400to600_amcatnlo",
+            # "z_qq_2j_pt600toinf_amcatnlo",
 
-        # vbf w/z production
-        "w_vbf_wlnu_madgraph",
-        "z_vbf_zll_m50toinf_madgraph",
+            # vbf w/z production
+            "w_vbf_wlnu_madgraph",
+            "z_vbf_zll_m50toinf_madgraph",
 
-        # vv
-        "zz_pythia",
-        "wz_pythia",
-        "ww_pythia",
+            # vv
+            "zz_pythia",
+            "wz_pythia",
+            "ww_pythia",
 
-        # vvv
-        "www_4f_amcatnlo",
-        "wwz_4f_amcatnlo",
-        "wzz_amcatnlo",
-        "zzz_amcatnlo",
+            # vvv
+            "www_4f_amcatnlo",
+            "wwz_4f_amcatnlo",
+            "wzz_amcatnlo",
+            "zzz_amcatnlo",
 
-        # single H
-        "h_ggf_htt_powheg",
-        "h_ggf_hbb_powheg",
-        "h_vbf_htt_powheg",
-        "h_vbf_hbb_powheg",
-        # "vh_hnonbb_amcatnlo",  # overlaps with dedicated wh/zh datasets, only kept as a backup!
-        "wmh_wlnu_hbb_powheg",
-        "wph_wlnu_hbb_powheg",
-        "wph_htt_powheg",
-        "wmh_htt_powheg",
-        "wph_wqq_hbb_powheg",
-        "wmh_wqq_hbb_powheg",
-        "zh_zll_hbb_powheg",
-        "zh_zqq_hbb_powheg",
-        "zh_htt_powheg",
-        "zh_gg_zll_hbb_powheg",
-        "zh_gg_zqq_hbb_powheg",
-        "zh_gg_znunu_hbb_powheg",
-        "tth_hbb_powheg",
-        "tth_hnonbb_powheg",
+            # single H
+            "h_ggf_htt_powheg",
+            "h_ggf_hbb_powheg",
+            "h_vbf_htt_powheg",
+            "h_vbf_hbb_powheg",
+            # "vh_hnonbb_amcatnlo",  # overlaps with dedicated wh/zh datasets, only kept as a backup!
+            "wmh_wlnu_hbb_powheg",
+            "wph_wlnu_hbb_powheg",
+            "wph_htt_powheg",
+            "wmh_htt_powheg",
+            "wph_wqq_hbb_powheg",
+            "wmh_wqq_hbb_powheg",
+            "zh_zll_hbb_powheg",
+            "zh_zqq_hbb_powheg",
+            "zh_htt_powheg",
+            "zh_gg_zll_hbb_powheg",
+            "zh_gg_zqq_hbb_powheg",
+            "zh_gg_znunu_hbb_powheg",
+            "tth_hbb_powheg",
+            "tth_hnonbb_powheg",
 
-        # data
-        *if_era(year=2022, tag="preEE", values=[
-            f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cd"
-        ]),
-        *if_era(year=2022, tag="postEE", values=[
-            f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "efg"
-        ]),
-        *if_era(year=2023, tag="preBPix", values=[
-            f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
-        ]),
-        *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau"] for v in "12"
-        ]),
-    ]
+            # data
+            *if_era(year=2022, tag="preEE", values=[
+                f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cd"
+            ]),
+            *if_era(year=2022, tag="postEE", values=[
+                f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "efg"
+            ]),
+            *if_era(year=2023, tag="preBPix", values=[
+                f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
+            ]),
+            *if_era(year=2023, tag="postBPix", values=[
+                f"data_{stream}_d{v}" for stream in ["e", "mu", "tau"] for v in "12"
+            ]),
+        ]
     for dataset_name in dataset_names:
         # skip when in sync mode and not exiting
         if sync_mode and not campaign.has_dataset(dataset_name):
@@ -624,21 +629,22 @@ def add_config(
                 },
             }
         # w + jets
-        cfg.x.w_lnu_stitching = {
-            "incl": {
-                "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
-                "leaf_processes": [
-                    # the following processes cover the full njet and pt phasespace
-                    cfg.get_process("w_lnu_0j"),
-                    *(
-                        cfg.get_process(f"w_lnu_{nj}j_pt{pt}")
-                        for nj in [1, 2]
-                        for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                    ),
-                    cfg.get_process("w_lnu_ge3j"),
-                ],
-            },
-        }
+        if "w_lnu_amcatnlo" in cfg.datasets:
+            cfg.x.w_lnu_stitching = {
+                "incl": {
+                    "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
+                    "leaf_processes": [
+                        # the following processes cover the full njet and pt phasespace
+                        cfg.get_process("w_lnu_0j"),
+                        *(
+                            cfg.get_process(f"w_lnu_{nj}j_pt{pt}")
+                            for nj in [1, 2]
+                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                        ),
+                        cfg.get_process("w_lnu_ge3j"),
+                    ],
+                },
+            }
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
@@ -766,6 +772,10 @@ def add_config(
         cfg.x.luminosity = Number(9_693.1301, {
             "lumi_13p6TeV_2023": 0.013j,
         })
+    elif year == 2024:
+        cfg.x.luminosity = Number(109_080.0, {  # TODO: update number
+            "lumi_13p6TeV_2024": 0.013j,
+        })
     else:
         assert False
 
@@ -836,6 +846,7 @@ def add_config(
             (2022, "EE"): "_22Sep2023",
             (2023, ""): "Prompt23",
             (2023, "BPix"): "Prompt23",
+            (2024, ""): "Prompt24",  # TODO: correct?
         }[(year, campaign.x.postfix)]
         jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         jec_version = {
@@ -843,12 +854,13 @@ def add_config(
             (2022, "EE"): "V2",
             (2023, ""): "V2",
             (2023, "BPix"): "V3",
+            (2024, ""): "V3",  # TODO: correct?
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
-        jer_version = "JR" + {2022: "V1", 2023: "V1"}[year]
+        jer_version = "JR" + {2022: "V1", 2023: "V1", 2024: "V1"}[year]  # TODO: check 2024!
         jet_type = "AK4PFPuppi"
     else:
         assert False
@@ -1029,6 +1041,8 @@ def add_config(
             e_postfix = {"": "Re-recoBCD", "EE": "Re-recoE+PromptFG"}[campaign.x.postfix]
         elif year == 2023:
             e_postfix = {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix]
+        elif year == 2024:
+            e_postfix = "FIXME"  # TODO: lookup!
         else:
             assert False
         cfg.x.electron_sf_names = ElectronSFConfig(
@@ -1067,6 +1081,8 @@ def add_config(
         elif year == 2023:
             # note the upper-case IX
             e_tag = {"": "preBPIX", "BPix": "postBPIX"}[campaign.x.postfix]
+        elif year == 2024:
+            e_tag = "FIXME"  # TODO: look up!
         else:
             assert False
         cfg.x.eec = EGammaCorrectionConfig(
@@ -1149,34 +1165,34 @@ def add_config(
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23BPix
         cfg.x.btag_working_points = DotDict.wrap({
             "deepjet": {
-                "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048}[btag_key],
-                "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.2431, "2023BPix": 0.2435}[btag_key],
-                "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.6553, "2023BPix": 0.6563}[btag_key],
-                "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.7667, "2023BPix": 0.7671}[btag_key],
-                "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.9459, "2023BPix": 0.9483}[btag_key],
+                "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.2431, "2023BPix": 0.2435, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.6553, "2023BPix": 0.6563, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.7667, "2023BPix": 0.7671, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.9459, "2023BPix": 0.9483, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
             },
             "particleNet": {
-                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359}[btag_key],
-                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919}[btag_key],
-                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133}[btag_key],
-                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544}[btag_key],
-                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688}[btag_key],
+                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
             },
             "robustParticleTransformer": {
-                "loose": {"2022": 0.0849, "2022EE": 0.0897, "2023": 0.0681, "2023BPix": 0.0683}[btag_key],
-                "medium": {"2022": 0.4319, "2022EE": 0.451, "2023": 0.3487, "2023BPix": 0.3494}[btag_key],
-                "tight": {"2022": 0.8482, "2022EE": 0.8604, "2023": 0.7969, "2023BPix": 0.7994}[btag_key],
-                "xtight": {"2022": 0.9151, "2022EE": 0.9234, "2023": 0.8882, "2023BPix": 0.8877}[btag_key],
-                "xxtight": {"2022": 0.9874, "2022EE": 0.9893, "2023": 0.9883, "2023BPix": 0.9883}[btag_key],
+                "loose": {"2022": 0.0849, "2022EE": 0.0897, "2023": 0.0681, "2023BPix": 0.0683, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "medium": {"2022": 0.4319, "2022EE": 0.451, "2023": 0.3487, "2023BPix": 0.3494, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "tight": {"2022": 0.8482, "2022EE": 0.8604, "2023": 0.7969, "2023BPix": 0.7994, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "xtight": {"2022": 0.9151, "2022EE": 0.9234, "2023": 0.8882, "2023BPix": 0.8877, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "xxtight": {"2022": 0.9874, "2022EE": 0.9893, "2023": 0.9883, "2023BPix": 0.9883, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
             },
             # TODO: fallback to run2, due to missing wp values
             # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005 chapter 4.5 in v12
             # performance studies for run 3 available and show improvements:
             # https://cds.cern.ch/record/2904691/files/DP2024_055.pdf
             "particleNetMD": {
-                "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880}[btag_key],
-                "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734}[btag_key],
-                "lp": {"2022": 0.9088, "2022EE": 0.9137, "2023": 0.9105, "2023BPix": 0.9172}[btag_key],
+                "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "lp": {"2022": 0.9088, "2022EE": 0.9137, "2023": 0.9105, "2023BPix": 0.9172, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
             },
         })
     else:
@@ -1264,6 +1280,8 @@ def add_config(
             dy_era += "preEE" if campaign.has_tag("preEE") else "postEE"
         elif year == 2023:
             dy_era += "preBPix" if campaign.has_tag("preBPix") else "postBPix"
+        elif year == 2024:
+            dy_era += "FIXME"  # TODO: look up!
         else:
             assert False
 
@@ -1537,7 +1555,7 @@ def add_config(
         json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
         json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
         campaign_tag = ""
-        for tag in ("preEE", "postEE", "preBPix", "postBPix"):
+        for tag in ("preEE", "postEE", "preBPix", "postBPix"):  # TODO: make this more generic for including 2024!
             if campaign.has_tag(tag, mode=any):
                 if campaign_tag:
                     raise ValueError(f"Multiple campaign tags found: {cfg.x.campaign_tag} and {tag}")
@@ -1560,6 +1578,8 @@ def add_config(
             2022: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions22/Cert_Collisions2022_355100_362760_Golden.json", "v1"),  # noqa: E501
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
             2023: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions23/Cert_Collisions2023_366442_370790_Golden.json", "v1"),  # noqa: E501
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
+            2024: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions24/Cert_Collisions2024_378981_386951_Golden.json", "v1"),  # noqa: E501
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
@@ -1569,6 +1589,8 @@ def add_config(
             2022: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
             2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
+            2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),  # TODO: correct?
         }[year],
     })
     # pileup weight corrections
@@ -1651,6 +1673,8 @@ def add_config(
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
         elif year == 2023:
             tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
+        elif year == 2024:
+            tau_pog_era = f"{year}_FIXME"  # TODO: look up!
         else:
             assert False
         # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
@@ -1833,6 +1857,9 @@ def add_config(
     elif year == 2023:
         from hbt.config.triggers import add_triggers_2023
         add_triggers_2023(cfg)
+    elif year == 2024:
+        from hbt.config.triggers import add_triggers_2024
+        add_triggers_2024(cfg)
     else:
         raise False
 
@@ -1867,6 +1894,7 @@ def add_config(
             dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
             main_campaign, sub_campaign = full_campaign.split("-", 1)
             path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}"
+            from IPython import embed; embed(header="debugger")
 
             # lookup file systems to use
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"

@@ -141,6 +141,14 @@ add_lazy_config(
     config_id=8014,
 )
 
+# 2024
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2024_nano_v15",
+    campaign_attr="campaign_run3_2024_nano_v15",
+    config_name="24_v15",
+    config_id=9015,
+)
+
 #
 # sync configs
 #
