@@ -529,3 +529,9 @@ for kl in ["kl1", "kl0", "allkl"]:
         f"default_no_shifts_simple_{kl}",
         cls_dict={"variable": f"run3_dnn_simple_{kl}_hh_fine"},
     )
+
+# even 5k binning
+default_no_shifts_simple_5k = default_no_shifts.derive(
+    "default_no_shifts_simple_5k",
+    cls_dict={"variable": "run3_dnn_moe_hh_fine_5k"},
+)

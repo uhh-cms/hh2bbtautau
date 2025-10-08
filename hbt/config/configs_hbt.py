@@ -1849,13 +1849,20 @@ def add_config(
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
     if (nano_creator := cfg.campaign.x("custom", {}).get("creator", None)):
-        if nano_creator not in {"uhh", "rucio"}:
+        # check the nano creator and determine the postfix to be added to the fs names (see law_fs.cfg)
+        if nano_creator == "uhh":
+            # custom nano's, usually stored at desy, so no postfix required
+            fs_postfix = ""
+            # ammend when located on CERN resources
+            if not force_desy_resources and env_is_cern:
+                fs_postfix = "_eos"
+        elif nano_creator == "rucio":
+            # rucio nano's, stored on cern eos, so postfix _eos required
+            fs_postfix = "_desy"
+            if not force_desy_resources and env_is_cern:
+                fs_postfix = "_cern"
+        else:
             raise ValueError(f"unsupported custom campaign creator: {nano_creator}")
-
-        fs_postfix = ""
-        # ammend when located on CERN resources
-        if not force_desy_resources and env_is_cern:
-            fs_postfix = "_eos"
 
         def get_dataset_lfns(
             dataset_inst: od.Dataset,

@@ -194,17 +194,17 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             os_iso_qcd_variances = os_iso_qcd(sn.UP, sn.ALL, unc=True)**2
 
             # define uncertainties
-            unc_data = os_iso_qcd(sn.UP, ["os_noniso_data", "ss_iso_data", "ss_noniso_data"], unc=True)
             unc_mc = os_iso_qcd(sn.UP, ["os_noniso_mc", "ss_iso_mc", "ss_noniso_mc"], unc=True)
-            unc_data_rel = abs(unc_data / os_iso_qcd_values)
             unc_mc_rel = abs(unc_mc / os_iso_qcd_values)
+            # unc_data = os_iso_qcd(sn.UP, ["os_noniso_data", "ss_iso_data", "ss_noniso_data"], unc=True)
+            # unc_data_rel = abs(unc_data / os_iso_qcd_values)
 
             # only keep the MC uncertainty if it is larger than the data uncertainty and larger than 15%
-            # (TODO: document motivation for that)
+            # TODO: this is temporarily disabled since the motivation for this cutoff is not clear
             keep_variance_mask = (
-                np.isfinite(unc_mc_rel) &
-                (unc_mc_rel > unc_data_rel) &
-                (unc_mc_rel > 0.15)
+                np.isfinite(unc_mc_rel)
+                # (unc_mc_rel > unc_data_rel) &
+                # (unc_mc_rel > 0.15)
             )
             os_iso_qcd_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
             os_iso_qcd_variances[~keep_variance_mask] = 0.0
