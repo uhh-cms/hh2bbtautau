@@ -1276,7 +1276,7 @@ def add_config(
             correction="dy_weight",
             systs=[],  # TODO: add systematics once existing
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
-            get_ntags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
+            get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
             used_columns={"Jet.btagPNetB"},
         )
 
