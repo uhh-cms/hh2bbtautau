@@ -7,6 +7,7 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 from __future__ import annotations
 
 import os
+import sys
 import re
 import itertools
 import functools
@@ -758,6 +759,9 @@ def add_config(
         "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
         "default": [
             "ht", *nbjets, *jet, *lep, *dilep, *dibjet, *hh, "njets",
+        ],
+        "dy_variables": [
+            "ht", *nbjets, *dilep, *dibjet, "njets",
             # "njets-dilep_pt",
         ],
     }
@@ -1337,8 +1341,10 @@ def add_config(
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             correction="dy_weight",
-            njets=True,
             systs=[],  # TODO: add systematics once existing
+            get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
+            get_ntags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
+            used_columns={"Jet.btagPNetB"},
         )
 
         # dy boson recoil correction
@@ -1730,26 +1736,9 @@ def add_config(
         # custom corrections from Lucas Russel, blessed by TAU
         add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
+        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
-
-        """
-        # UHH dy weight
-        if year == 2022:
-            if campaign.has_tag('preEE'):
-                add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz"))  # noqa: E501
-                add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod14_dypt/hbt_corrections_njets.json.gz"))  # noqa: E501
-            else:
-                add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22post_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz"))  # noqa: E501
-                add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22post_v14/prod14_dypt/hbt_corrections_njets.json.gz"))  # noqa: E501
-        elif year == 2023:
-            if campaign.has_tag('preBPix'):
-                add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/23pre_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz"))  # noqa: E501
-                add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/23pre_v14/prod14_dypt/hbt_corrections_njets.json.gz"))  # noqa: E501
-            else:
-                add_external("dy_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/23post_v14/prod14_nody/hbt_corrections_njets-dilep_pt.json.gz"))  # noqa: E501
-                add_external("dy_njet_weight_sf_uhh", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/23post_v14/prod14_dypt/hbt_corrections_njets.json.gz"))  # noqa: E501
-        """
+        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_only_pT.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
