@@ -11,6 +11,7 @@ import sys
 import re
 import itertools
 import functools
+import dataclasses
 
 import law
 import order as od
@@ -43,6 +44,7 @@ def add_config(
     run = campaign.x.run
     year = campaign.x.year
     year2 = year % 100
+    vnano = campaign.x.version
 
     # some validations
     assert run in {2, 3}
@@ -1536,24 +1538,79 @@ def add_config(
             value = DotDict.wrap(value)
         cfg.x.external_files[name] = value
 
+    # prepare run/era/nano meta data info to determine files in the CAT metadata structure
+    # see https://cms-analysis-corrections.docs.cern.ch
+    cfg.x.cat_root = "/cvmfs/cms-griddata.cern.ch/cat/metadata"
+
+    @dataclasses.dataclass
+    class CATSnapshot:
+        btv: str = ""
+        egm: str = ""
+        jme: str = ""
+        lum: str = ""
+        muo: str = ""
+        tau: str = ""
+
+        def items(self):
+            return ((k, getattr(self, k)) for k in self.__dataclass_fields__.keys())
+
+    @dataclasses.dataclass
+    class CATInfo:
+        era: str
+        vnano: int
+        snapshot: CATSnapshot
+
+        @property
+        def key(self):
+            return f"Run{run}-{self.era}-NanoAODv{self.vnano}"
+
+        def get_file(self, pog, *parts):
+            return os.path.join(
+                cfg.x.cat_root,
+                pog.upper(),
+                self.key,
+                getattr(self.snapshot, pog.lower()),
+                *(p.strip("/") for p in parts),
+            )
+
     if run == 2:
-        json_postfix = ""
-        if year == 2016:
-            json_postfix = f"{'pre' if campaign.has_tag('preVFP') else 'post'}VFP"
-        json_pog_era = f"{year}{json_postfix}_UL"
-        json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
+        cat_info = CATInfo(
+            era=f"{year}{cfg.x.full_postfix}",
+            vnano=9,
+            # TODO: pin to specific dates once dealing with run 2 again
+            snapshot=CATSnapshot(btv="latest", egm="latest", jme="latest", lum="latest", muo="latest", tau="latest"),
+        )
     elif run == 3:
-        json_pog_era = f"{year}_Summer{year2}{campaign.x.postfix}"
-        json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-c3be7e71"
-        campaign_tag = ""
-        for tag in ("preEE", "postEE", "preBPix", "postBPix"):
-            if campaign.has_tag(tag, mode=any):
-                if campaign_tag:
-                    raise ValueError(f"Multiple campaign tags found: {cfg.x.campaign_tag} and {tag}")
-                campaign_tag = tag
-        cclub_eras = f"{year}{campaign_tag}"
+        cat_info = {
+            (2022, "", 14): CATInfo(
+                era="22CDSep23-Summer22",
+                vnano=12,
+                snapshot=CATSnapshot(btv="2025-8-20", egm="2025-4-15", jme="2025-9-23", lum="2024-1-31", muo="2025-8-14", tau="2025-10-1"),  # noqa: E501
+            ),
+            (2022, "EE", 14): CATInfo(
+                era="22EFGSep23-Summer22EE",
+                vnano=12,
+                snapshot=CATSnapshot(btv="2025-8-20", egm="2025-4-15", jme="2025-10-7", lum="2024-1-31", muo="2025-8-14", tau="2025-10-1"),  # noqa: E501
+            ),
+            (2023, "", 14): CATInfo(
+                era="23CSep23-Summer23",
+                vnano=12,
+                snapshot=CATSnapshot(btv="2025-8-20", egm="2025-4-15", jme="2025-10-7", lum="2024-1-31", muo="2025-8-14", tau="2025-10-1"),  # noqa: E501
+            ),
+            (2023, "BPix", 14): CATInfo(
+                era="23DSep23-Summer23BPix",
+                vnano=12,
+                snapshot=CATSnapshot(btv="2025-8-20", egm="2025-4-15", jme="2025-10-7", lum="2024-1-31", muo="2025-8-14", tau="2025-10-1"),  # noqa: E501
+            ),
+            (2024, "", 15): CATInfo(
+                era="24CDEReprocessingFGHIPrompt-Summer24",
+                vnano=15,
+                snapshot=CATSnapshot(btv="latest", egm="latest", jme="latest", lum="latest", muo="latest", tau="latest"),  # noqa: E501
+            ),
+        }[(year, campaign.x.postfix, vnano)]
     else:
         assert False
+    cfg.x.cat_info = cat_info
 
     # central location for common group files
     central_hbt_dir = "/afs/cern.ch/work/m/mrieger/public/hbt/external_files"
@@ -1581,13 +1638,13 @@ def add_config(
         }[year],
     })
     # pileup weight corrections
-    add_external("pu_sf", (f"{json_mirror}/POG/LUM/{json_pog_era}/puWeights.json.gz", "v1"))
+    add_external("pu_sf", (cat_info.get_file("lum", "puWeights.json.gz"), "v1"))
     # jet energy correction
-    add_external("jet_jerc", (f"{json_mirror}/POG/JME/{json_pog_era}/jet_jerc.json.gz", "v1"))
+    add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jet veto map
-    add_external("jet_veto_map", (f"{json_mirror}/POG/JME/{json_pog_era}/jetvetomaps.json.gz", "v1"))
+    add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
     # btag scale factor
-    add_external("btag_sf_corr", (f"{json_mirror}/POG/BTV/{json_pog_era}/btagging.json.gz", "v1"))
+    add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz"), "v1"))
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))  # noqa: E501
     # non-parametric (flat) training up to mX = 800 GeV
@@ -1608,17 +1665,17 @@ def add_config(
     # run specific files
     if run == 2:
         # tau energy correction and scale factors
-        add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau.json.gz", "v1"))
+        add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
         # tau trigger scale factors
-        add_external("tau_trigger_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau.json.gz", "v1"))
+        add_external("tau_trigger_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
         # electron scale factors
-        add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+        add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
+        add_external("electron_ss", (cat_info.get_file("egm", "electronSS.json.gz"), "v1"))
         # muon scale factors
-        add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
+        add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
         # met phi correction
-        add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
+        add_external("met_phi_corr", (cat_info.get_file("jme", "met.json.gz"), "v1"))
         # hh-btag repository with TF saved model directories trained on Run2 UL samples
-        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS.json.gz", "v1"))
         add_external("hh_btag_repo", Ext(
             f"{central_hbt_dir}/hh-btag-master-d7a71eb3.tar.gz",
             subpaths=DotDict(
@@ -1628,15 +1685,15 @@ def add_config(
         ))
     elif run == 3:
         # updated jet id
-        add_external("jet_id", (f"{json_mirror}/POG/JME/{json_pog_era}/jetid.json.gz", "v1"))
+        add_external("jet_id", (cat_info.get_file("jme", "jetid.json.gz"), "v1"))
         # muon scale factors
-        add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
+        add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
         # met phi correction
-        add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz", "v1"))  # noqa: E501
+        add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
         # electron scale factors
-        add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+        add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
         # electron energy correction and smearing
-        add_external("electron_ss", (f"{json_mirror}/POG/EGM/{json_pog_era}/electronSS_EtDependent.json.gz", "v1"))
+        add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         add_external("hh_btag_repo", Ext(
             f"{central_hbt_dir}/HHbtag-863627a.tar.gz",
@@ -1654,36 +1711,39 @@ def add_config(
             ),
             version="v1",
         ))
-        # tau energy correction and scale factors
-        tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"
-        if year == 2022:
-            tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
-        elif year == 2023:
-            tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
-        else:
-            assert False
-        # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
-        # custom corrections from Lucas Russel, blessed by TAU
-        add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
-        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_ntags.json.gz", "v1"))  # noqa: E501
-        add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))
+        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_ntags.json.gz", "v1"))
+        add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))
+        # tau and trigger specific files are not consistent across 2022/2023 and 2024yet
+        if year in {2022, 2023}:
+            # tau energy correction and scale factors
+            tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"
+            if year == 2022:
+                tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
+            else:  # 2023
+                tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
+            # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+            # custom corrections from Lucas Russel, blessed by TAU
+            add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
 
-        # trigger scale factors
-        trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
-        add_external("trigger_sf", Ext(
-            f"{central_hbt_dir}/AnalysisCore-59ae66c4.tar.gz",
-            subpaths=DotDict(
-                muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/temporary_MuHlt_abseta_pt.json",
-                cross_muon=f"{trigger_sf_internal_subpath}/{cclub_eras}/CrossMuTauHlt.json",
-                electron=f"{trigger_sf_internal_subpath}/{cclub_eras}/electronHlt.json",
-                cross_electron=f"{trigger_sf_internal_subpath}/{cclub_eras}/CrossEleTauHlt.json",
-                tau=f"{trigger_sf_internal_subpath}/{cclub_eras}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json",
-                jet=f"{trigger_sf_internal_subpath}/{cclub_eras}/ditaujet_jetleg_SFs_{campaign_tag}.json",
-            ),
-            version="v1",
-        ))
+            # trigger scale factors
+            trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"  # noqa: E501
+            add_external("trigger_sf", Ext(
+                f"{central_hbt_dir}/AnalysisCore-59ae66c4.tar.gz",
+                subpaths=DotDict(
+                    muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/temporary_MuHlt_abseta_pt.json",
+                    cross_muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossMuTauHlt.json",
+                    electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/electronHlt.json",
+                    cross_electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossEleTauHlt.json",
+                    tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json",  # noqa: E501
+                    jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ditaujet_jetleg_SFs_{cfg.x.full_postfix}.json",  # noqa: E501
+                ),
+                version="v1",
+            ))
+        elif year == 2024:
+            # TODO: add once available
+            pass
 
     else:
         assert False
