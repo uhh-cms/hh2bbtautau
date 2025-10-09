@@ -60,7 +60,7 @@ class HBTInferenceModelBase(InferenceModel):
         self.single_config = len(self.config_insts) == 1
         for config_inst in self.config_insts:
             assert config_inst.campaign.x.year in {2022, 2023}
-            self.campaign_keys[config_inst] = f"{config_inst.campaign.x.year % 100}{config_inst.x.full_postfix}"
+            self.campaign_keys[config_inst] = f"{config_inst.campaign.x.year}{config_inst.campaign.x.postfix}"
 
         # overall campaign key
         self.campaign_key = "_".join(self.campaign_keys.values())

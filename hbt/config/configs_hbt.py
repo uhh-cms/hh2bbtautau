@@ -7,6 +7,7 @@ Configuration of the HH → bb𝜏𝜏 analysis.
 from __future__ import annotations
 
 import os
+import sys
 import re
 import itertools
 import functools
@@ -566,6 +567,7 @@ def add_config(
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
         "sm_data": ["data"] + sm_group,
+        "bkg_data": ["data"] + backgrounds,
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
@@ -1290,8 +1292,10 @@ def add_config(
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             correction="dy_weight",
-            njets=True,
             systs=[],  # TODO: add systematics once existing
+            get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
+            get_ntags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
+            used_columns={"Jet.btagPNetB"},
         )
 
         # dy boson recoil correction
@@ -1682,6 +1686,7 @@ def add_config(
         add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
         # dy weight and recoil corrections
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
+        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_ntags.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
@@ -1876,13 +1881,20 @@ def add_config(
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
     if (nano_creator := cfg.campaign.x("custom", {}).get("creator", None)):
-        if nano_creator not in {"uhh", "rucio"}:
+        # check the nano creator and determine the postfix to be added to the fs names (see law_fs.cfg)
+        if nano_creator == "uhh":
+            # custom nano's, usually stored at desy, so no postfix required
+            fs_postfix = ""
+            # ammend when located on CERN resources
+            if not force_desy_resources and env_is_cern:
+                fs_postfix = "_eos"
+        elif nano_creator == "rucio":
+            # rucio nano's, stored on cern eos, so postfix _eos required
+            fs_postfix = "_desy"
+            if not force_desy_resources and env_is_cern:
+                fs_postfix = "_cern"
+        else:
             raise ValueError(f"unsupported custom campaign creator: {nano_creator}")
-
-        fs_postfix = ""
-        # ammend when located on CERN resources
-        if not force_desy_resources and env_is_cern:
-            fs_postfix = "_eos"
 
         def get_dataset_lfns(
             dataset_inst: od.Dataset,
