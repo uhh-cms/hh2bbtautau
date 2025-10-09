@@ -1,18 +1,18 @@
 # coding: utf-8
-import numpy as np
-
 
 """
 Producers that determine the generator-level particles related to the HH2BBTauTau process.
 """
+
+from __future__ import annotations
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import attach_coffea_behavior as attach_coffea_behavior_fn, EMPTY_FLOAT, EMPTY_INT
-# from functools import partial
 
+np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
 
@@ -232,15 +232,3 @@ def higgs_decay_products(self: Producer, events: ak.Array, **kwargs):
     events = set_ak_column(events, "higgs_family", higgs_family)
     return events
 
-
-# @top_decay_products.skip
-# def gen_top_decay_products_skip(self: Producer) -> bool:
-#     """
-#     Custom skip function that checks whether the dataset is a MC simulation containing top
-#     quarks in the first place.
-#     """
-#     # never skip when there is not dataset
-#     if not getattr(self, "dataset_inst", None):
-#         return False
-
-#     return self.dataset_inst.is_data or not self.dataset_inst.has_tag("has_top")
