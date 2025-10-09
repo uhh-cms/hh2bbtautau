@@ -12,7 +12,6 @@ import re
 import itertools
 import functools
 
-import yaml
 import law
 import order as od
 from scinum import Number
@@ -855,6 +854,68 @@ def add_config(
     else:
         assert False
 
+    # full list of jec sources in a fixed order that is used to assign consistent ids across configs
+    # (please add new sources at the bottom to preserve the order of existing ones)
+    # the boolean flag decides whether to use them in the JEC config and if shifts should be created for them
+    all_jec_sources = {
+        "AbsoluteStat": False,
+        "AbsoluteScale": False,
+        "AbsoluteSample": False,
+        "AbsoluteFlavMap": False,
+        "AbsoluteMPFBias": False,
+        "Fragmentation": False,
+        "SinglePionECAL": False,
+        "SinglePionHCAL": False,
+        "FlavorQCD": False,
+        "TimePtEta": False,
+        "RelativeJEREC1": False,
+        "RelativeJEREC2": False,
+        "RelativeJERHF": False,
+        "RelativePtBB": False,
+        "RelativePtEC1": False,
+        "RelativePtEC2": False,
+        "RelativePtHF": False,
+        "RelativeBal": False,
+        "RelativeSample": False,
+        "RelativeFSR": False,
+        "RelativeStatFSR": False,
+        "RelativeStatEC": False,
+        "RelativeStatHF": False,
+        "PileUpDataMC": False,
+        "PileUpPtRef": False,
+        "PileUpPtBB": False,
+        "PileUpPtEC1": False,
+        "PileUpPtEC2": False,
+        "PileUpPtHF": False,
+        "PileUpMuZero": False,
+        "PileUpEnvelope": False,
+        "SubTotalPileUp": False,
+        "SubTotalRelative": False,
+        "SubTotalPt": False,
+        "SubTotalScale": False,
+        "SubTotalAbsolute": False,
+        "SubTotalMC": False,
+        "Total": True,
+        "TotalNoFlavor": False,
+        "TotalNoTime": False,
+        "TotalNoFlavorNoTime": False,
+        "FlavorZJet": False,
+        "FlavorPhotonJet": False,
+        "FlavorPureGluon": False,
+        "FlavorPureQuark": False,
+        "FlavorPureCharm": False,
+        "FlavorPureBottom": False,
+        "TimeRunA": False,
+        "TimeRunB": False,
+        "TimeRunC": False,
+        "TimeRunD": False,
+        "CorrelationGroupMPFInSitu": True,
+        "CorrelationGroupIntercalibration": True,
+        "CorrelationGroupbJES": True,
+        "CorrelationGroupFlavor": True,
+        "CorrelationGroupUncorrelated": True,
+    }
+
     cfg.x.jec = DotDict.wrap({
         "Jet": {
             "campaign": jec_campaign,
@@ -863,60 +924,7 @@ def add_config(
             "jet_type": jet_type,
             "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
             "levels_for_type1_met": ["L1FastJet"],
-            "uncertainty_sources": list(filter(bool, [
-                # "AbsoluteStat",
-                # "AbsoluteScale",
-                # "AbsoluteSample",
-                # "AbsoluteFlavMap",
-                # "AbsoluteMPFBias",
-                # "Fragmentation",
-                # "SinglePionECAL",
-                # "SinglePionHCAL",
-                # "FlavorQCD",
-                # "TimePtEta",
-                # "RelativeJEREC1",
-                # "RelativeJEREC2",
-                # "RelativeJERHF",
-                # "RelativePtBB",
-                # "RelativePtEC1",
-                # "RelativePtEC2",
-                # "RelativePtHF",
-                # "RelativeBal",
-                # "RelativeSample",
-                # "RelativeFSR",
-                # "RelativeStatFSR",
-                # "RelativeStatEC",
-                # "RelativeStatHF",
-                # "PileUpDataMC",
-                # "PileUpPtRef",
-                # "PileUpPtBB",
-                # "PileUpPtEC1",
-                # "PileUpPtEC2",
-                # "PileUpPtHF",
-                # "PileUpMuZero",
-                # "PileUpEnvelope",
-                # "SubTotalPileUp",
-                # "SubTotalRelative",
-                # "SubTotalPt",
-                # "SubTotalScale",
-                # "SubTotalAbsolute",
-                # "SubTotalMC",
-                "Total",
-                # "TotalNoFlavor",
-                # "TotalNoTime",
-                # "TotalNoFlavorNoTime",
-                # "FlavorZJet",
-                # "FlavorPhotonJet",
-                # "FlavorPureGluon",
-                # "FlavorPureQuark",
-                # "FlavorPureCharm",
-                # "FlavorPureBottom",
-                "CorrelationGroupMPFInSitu",
-                "CorrelationGroupIntercalibration",
-                "CorrelationGroupbJES",
-                "CorrelationGroupFlavor",
-                "CorrelationGroupUncorrelated",
-            ])),
+            "uncertainty_sources": [src for src, flag in all_jec_sources.items() if flag],
         },
     })
 
@@ -1293,10 +1301,6 @@ def add_config(
     # shifts
     ################################################################################################
 
-    # load jec sources
-    with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
-        all_jec_sources = yaml.load(f, yaml.Loader)["names"]
-
     # register shifts
     cfg.add_shift(name="nominal", id=0)
 
@@ -1326,18 +1330,19 @@ def add_config(
     cfg.add_shift(name="top_pt_down", id=10, type="shape")
     add_shift_aliases(cfg, "top_pt", {"top_pt_weight": "top_pt_weight_{direction}"})
 
-    for jec_source in cfg.x.jec.Jet.uncertainty_sources:
-        idx = all_jec_sources.index(jec_source)
+    for i, (jec_source, flag) in enumerate(all_jec_sources.items()):
+        if not flag:
+            continue
         cfg.add_shift(
             name=f"jec_{jec_source}_up",
-            id=5000 + 2 * idx,
+            id=5000 + 2 * i,
             type="shape",
             tags={"jec"},
             aux={"jec_source": jec_source},
         )
         cfg.add_shift(
             name=f"jec_{jec_source}_down",
-            id=5001 + 2 * idx,
+            id=5001 + 2 * i,
             type="shape",
             tags={"jec"},
             aux={"jec_source": jec_source},
