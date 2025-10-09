@@ -147,8 +147,8 @@ def higgs_decay_products(self: Producer, events: ak.Array, **kwargs):
     tau_plus_children = ak.pad_none(tau_plus_children, 1)
 
     tau_hadronic_children = ak.concatenate([
-        tau_minus_children[:, None],
         tau_plus_children[:, None],
+        tau_minus_children[:, None],
     ], axis=1)
 
     # qq = taus.children[taus.children.pdgId > 0]
