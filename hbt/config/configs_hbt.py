@@ -11,7 +11,6 @@ import sys
 import re
 import itertools
 import functools
-import dataclasses
 
 import law
 import order as od
@@ -23,6 +22,7 @@ from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources, verify_config_processes,
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
+from columnflow.cms_util import CATInfo, CATSnapshot, CMSDatasetInfo
 
 from hbt import env_is_cern, force_desy_resources
 
@@ -1584,41 +1584,9 @@ def add_config(
 
     # prepare run/era/nano meta data info to determine files in the CAT metadata structure
     # see https://cms-analysis-corrections.docs.cern.ch
-    cfg.x.cat_root = "/cvmfs/cms-griddata.cern.ch/cat/metadata"
-
-    @dataclasses.dataclass
-    class CATSnapshot:
-        btv: str = ""
-        egm: str = ""
-        jme: str = ""
-        lum: str = ""
-        muo: str = ""
-        tau: str = ""
-
-        def items(self):
-            return ((k, getattr(self, k)) for k in self.__dataclass_fields__.keys())
-
-    @dataclasses.dataclass
-    class CATInfo:
-        era: str
-        vnano: int
-        snapshot: CATSnapshot
-
-        @property
-        def key(self):
-            return f"Run{run}-{self.era}-NanoAODv{self.vnano}"
-
-        def get_file(self, pog, *parts):
-            return os.path.join(
-                cfg.x.cat_root,
-                pog.upper(),
-                self.key,
-                getattr(self.snapshot, pog.lower()),
-                *(p.strip("/") for p in parts),
-            )
-
     if run == 2:
         cat_info = CATInfo(
+            run=2,
             era=f"{year}{cfg.x.full_postfix}",
             vnano=9,
             # TODO: pin to specific dates once dealing with run 2 again
@@ -1627,29 +1595,40 @@ def add_config(
     elif run == 3:
         cat_info = {
             (2022, "", 14): CATInfo(
-                era="22CDSep23-Summer22",
+                run=3,
                 vnano=12,
-                snapshot=CATSnapshot(btv="2025-8-20", egm="2025-4-15", jme="2025-9-23", lum="2024-1-31", muo="2025-8-14", tau="2025-10-1"),  # noqa: E501
+                era="22CDSep23-Summer22",
+                pog_directories={"dc": "Collisions22"},
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
             (2022, "EE", 14): CATInfo(
-                era="22EFGSep23-Summer22EE",
+                run=3,
                 vnano=12,
-                snapshot=CATSnapshot(btv="2025-8-20", egm="2025-4-15", jme="2025-10-7", lum="2024-1-31", muo="2025-8-14", tau="2025-10-1"),  # noqa: E501
+                era="22EFGSep23-Summer22EE",
+                pog_directories={"dc": "Collisions22"},
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
             (2023, "", 14): CATInfo(
-                era="23CSep23-Summer23",
+                run=3,
                 vnano=12,
-                snapshot=CATSnapshot(btv="2025-8-20", egm="2025-4-15", jme="2025-10-7", lum="2024-1-31", muo="2025-8-14", tau="2025-10-1"),  # noqa: E501
+                era="23CSep23-Summer23",
+                pog_eras={"tau": "23CSep23-Summer22"},  # TODO: remove once typo in CAT repo is fixed
+                pog_directories={"dc": "Collisions23"},
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
-                era="23DSep23-Summer23BPix",
+                run=3,
                 vnano=12,
-                snapshot=CATSnapshot(btv="2025-8-20", egm="2025-4-15", jme="2025-10-7", lum="2024-1-31", muo="2025-8-14", tau="2025-10-1"),  # noqa: E501
+                era="23DSep23-Summer23BPix",
+                pog_directories={"dc": "Collisions23"},
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
-                era="24CDEReprocessingFGHIPrompt-Summer24",
+                run=3,
                 vnano=15,
-                snapshot=CATSnapshot(btv="latest", egm="latest", jme="latest", lum="latest", muo="latest", tau="latest"),  # noqa: E501
+                era="24CDEReprocessingFGHIPrompt-Summer24",
+                pog_directories={"dc": "Collisions24"},
+                snapshot=CATSnapshot(btv="latest", dc="latest", egm="latest", jme="latest", lum="latest", muo="latest", tau="latest"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1667,11 +1646,11 @@ def add_config(
             2017: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt", "v1"),  # noqa: E501
             2018: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt", "v1"),  # noqa: E501
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2022
-            2022: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions22/Cert_Collisions2022_355100_362760_Golden.json", "v1"),  # noqa: E501
+            2022: (cat_info.get_file("dc", "Cert_Collisions2022_355100_362760_Golden.json"), "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
-            2023: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions23/Cert_Collisions2023_366442_370790_Golden.json", "v1"),  # noqa: E501
+            2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
-            2024: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions24/Cert_Collisions2024_378981_386951_Golden.json", "v1"),  # noqa: E501
+            2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
@@ -1694,12 +1673,12 @@ def add_config(
     # btag scale factor
     add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz"), "v1"))
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
-    add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))  # noqa: E501
+    add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
-    add_external("res_dnn", (f"{central_hbt_dir}/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))  # noqa: E501
+    add_external("res_dnn", (f"{central_hbt_dir}/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))
     # non-parametric regression from the resonant analysis
-    add_external("reg_dnn", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))  # noqa: E501
-    add_external("reg_dnn_moe", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))  # noqa: E501
+    add_external("reg_dnn", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))
+    add_external("reg_dnn_moe", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))
     # dnn models trained with run 2 legacy setup but run 3 data
     for fold in range(5):
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
@@ -1992,9 +1971,7 @@ def add_config(
         ) -> list[str]:
             # destructure dataset_key into parts and create the store path
             # note: this path goes up to the campaign version but _not_ the directory numbering scheme
-            dataset_id, full_campaign, tier = dataset_key.split("/")[1:]
-            main_campaign, sub_campaign = full_campaign.split("-", 1)
-            path = f"store/{dataset_inst.data_source}/{main_campaign}/{dataset_id}/{tier}/{sub_campaign}"
+            store_path = CMSDatasetInfo.from_key(dataset_key).store_path.lstrip("/")
 
             # lookup file systems to use
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
@@ -2009,7 +1986,7 @@ def add_config(
                     fs = local_fs
 
             # create the lfn base
-            lfn_base = dir_cls(path, fs=fs)
+            lfn_base = dir_cls(store_path, fs=fs)
 
             # determine sub directories with numbering scheme
             if nano_creator == "uhh":
