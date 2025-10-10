@@ -49,8 +49,18 @@ def IF_NANO_V14(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any 
 
 
 @deferred_column
+def IF_NANO_V15(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if func.config_inst.campaign.x.version == 15 else None
+
+
+@deferred_column
 def IF_NANO_GE_V10(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
     return self.get() if func.config_inst.campaign.x.version >= 10 else None
+
+
+@deferred_column
+def IF_NANO_GE_V14(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if func.config_inst.campaign.x.version >= 14 else None
 
 
 @deferred_column
@@ -66,6 +76,21 @@ def IF_RUN_3(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | s
 @deferred_column
 def IF_RUN_3_2022(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
     return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2022) else None
+
+
+@deferred_column
+def IF_RUN_3_2023(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2023) else None
+
+
+@deferred_column
+def IF_RUN_3_2024(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2024) else None
+
+
+@deferred_column
+def IF_RUN_3_22_23(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2022, 2023}) else None  # noqa: E501
 
 
 def IF_DATASET_HAS_TAG(*args, negate: bool = False, **kwargs) -> ArrayFunction.DeferredColumn:

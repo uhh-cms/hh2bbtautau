@@ -387,7 +387,9 @@ def add_config(
 
         # vbf w/z production
         "w_vbf_wlnu_madgraph",
-        "z_vbf_zll_m50toinf_madgraph",
+        *if_not_era(year=2024, values=[  # TODO: currently invalid, check status
+            "z_vbf_zll_m50toinf_madgraph",
+        ]),
 
         # vv
         "zz_pythia",
@@ -1628,7 +1630,8 @@ def add_config(
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="latest", dc="latest", egm="latest", jme="latest", lum="latest", muo="latest", tau="latest"),  # noqa: E501
+                # TODO: tau and lum not yet available
+                snapshot=CATSnapshot(btv="2025-08-19", dc="2025-07-25", egm="2025-08-15", jme="2025-07-17", muo="2025-08-27"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1650,7 +1653,9 @@ def add_config(
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
             2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
-            2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
+            # not yet available at CAT space
+            # 2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
+            2024: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions24/Cert_Collisions2024_378981_386951_Golden.json", "v1"),  # noqa: E501
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
@@ -1665,7 +1670,8 @@ def add_config(
         }[year],
     })
     # pileup weight corrections
-    add_external("pu_sf", (cat_info.get_file("lum", "puWeights.json.gz"), "v1"))
+    if year != 2024:  # TODO: not yet available, see https://cms-analysis-corrections.docs.cern.ch
+        add_external("pu_sf", (cat_info.get_file("lum", "puWeights.json.gz"), "v1"))
     # jet energy correction
     add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jet veto map
@@ -1716,11 +1722,14 @@ def add_config(
         # muon scale factors
         add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
         # met phi correction
-        add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
+        if year != 2024:  # TODO: not yet available
+            add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
         # electron scale factors
-        add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
+        # TODO: the postfix will be obsolete soon, see https://gitlab.cern.ch/cms-analysis-corrections/EGM/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/-/issues/1 # noqa: E501
+        egm_postfix = "_v1" if year == 2024 else ""
+        add_external("electron_sf", (cat_info.get_file("egm", f"electron{egm_postfix}.json.gz"), "v1"))
         # electron energy correction and smearing
-        add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
+        add_external("electron_ss", (cat_info.get_file("egm", f"electronSS_EtDependent{egm_postfix}.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         add_external("hh_btag_repo", Ext(
             f"{central_hbt_dir}/HHbtag-863627a.tar.gz",
