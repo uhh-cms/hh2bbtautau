@@ -1956,7 +1956,8 @@ def add_config(
     # whether to validate the number of obtained LFNs in GetDatasetLFNs
     cfg.x.validate_dataset_lfns = limit_dataset_files is None and not sync_mode
 
-    # custom lfn retrieval method in case the underlying campaign is custom uhh
+    # custom lfn retrieval method in case the underlying campaign is custom uhh or rucio
+    # (lfns will be locally accessible in either case)
     if (nano_creator := cfg.campaign.x("custom", {}).get("creator", None)):
         # check the nano creator and determine the postfix to be added to the fs names (see law_fs.cfg)
         if nano_creator == "uhh":
