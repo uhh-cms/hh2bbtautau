@@ -288,9 +288,7 @@ def add_config(
         *if_not_era(year=2022, tag="preEE", values=[
             "ttwz_madgraph",  # not available in 22pre
         ]),
-        *if_not_era(year=2024, values=[  # TODO: check status
-            "ttzz_madgraph",
-        ]),
+        "ttzz_madgraph",
 
         # dy, amcatnlo
         # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
