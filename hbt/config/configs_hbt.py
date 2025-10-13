@@ -879,9 +879,9 @@ def add_config(
         }[(year, campaign.x.postfix)]
         jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         jec_version = {
-            (2022, ""): "V2",
-            (2022, "EE"): "V2",
-            (2023, ""): "V2",
+            (2022, ""): "V3",
+            (2022, "EE"): "V3",
+            (2023, ""): "V3",
             (2023, "BPix"): "V3",
             (2024, ""): "V3",  # TODO: correct?
         }[(year, campaign.x.postfix)]
