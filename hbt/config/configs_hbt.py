@@ -506,19 +506,21 @@ def add_config(
         ]):
             dataset.add_tag("no_lhe_weights")
             dataset.remove_tag("partial_lhe_weights")
-        if dataset_name.startswith("hh_"):
-            dataset.add_tag("signal")
-            dataset.add_tag("nonresonant_signal")
-            if dataset_name.startswith("hh_ggf_"):
+        if dataset.name.startswith(("h_", "wph_", "wmh_", "zh_")):
+            dataset.add_tag("has_higgs")
+        if dataset.name.startswith(("tth_",)):
+            dataset.add_tag({"has_top", "has_higgs"})
+        if dataset.name.startswith("hh_"):
+            dataset.add_tag({"signal", "nonresonant_signal", "has_higgs"})
+            if dataset.name.startswith("hh_ggf_"):
                 dataset.add_tag("ggf")
-            elif dataset_name.startswith("hh_vbf_"):
+            elif dataset.name.startswith("hh_vbf_"):
                 dataset.add_tag("vbf")
-        if dataset_name.startswith(("graviton_hh_", "radion_hh_")):
-            dataset.add_tag("signal")
-            dataset.add_tag("resonant_signal")
-            if dataset_name.startswith(("graviton_hh_ggf_", "radion_hh_ggf")):
+        if dataset.name.startswith(("graviton_hh_", "radion_hh_")):
+            dataset.add_tag({"signal", "resonant_signal", "has_higgs"})
+            if dataset.name.startswith(("graviton_hh_ggf_", "radion_hh_ggf")):
                 dataset.add_tag("ggf")
-            elif dataset_name.startswith(("graviton_hh_vbf_", "radion_hh_vbf")):
+            elif dataset.name.startswith(("graviton_hh_vbf_", "radion_hh_vbf")):
                 dataset.add_tag("vbf")
 
         # bad ecalBadCalibFilter MET filter in 2022 data
