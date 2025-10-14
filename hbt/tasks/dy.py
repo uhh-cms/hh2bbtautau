@@ -30,7 +30,7 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             --version prod8_dy \
             --hist-producer no_dy_weights \
             --categories mumu__dyc__os \
-            --variables njets-dilep_pt or njets
+            --variables njets-dilep_pt or njets or nbjets_pnet_overflow
     """
 
     single_config = True
@@ -39,11 +39,12 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
         super().__init__(*args, **kwargs)
 
         # only one category is allowed right now
-        if len(self.categories) != 1:
-            raise ValueError(f"{self.task_family} requires exactly one category, got {self.categories}")
+        # if len(self.categories) != 1:
+        # raise ValueError(f"{self.task_family} requires exactly one category, got {self.categories}")
         # ensure that the category matches a specific pattern: starting with "ee"/"mumu" and ending in "os"
         if not re.match(r"^(mumu)__.*__os.*$", self.categories[0]):
             raise ValueError(f"category must start with '{{mumu}}__' and contain '__os', got {self.categories[0]}")
+
         self.category_inst = self.config_inst.get_category(self.categories[0])
 
         # only one variable is allowed
@@ -51,33 +52,31 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             raise ValueError(f"{self.task_family} requires exactly one variable, got {self.variables}")
         self.variable = self.variables[0]
         # for now, variable must be "njets-dilep_pt"
-        if self.variable not in ["njets-dilep_pt", "njets"]:
-            raise ValueError(f"variable must be either 'njets-dilep_pt' or 'njets', got {self.variable}")
+        if self.variable not in ["njets-dilep_pt", "njets", "nbjets_pnet_overflow"]:
+            raise ValueError(f"variable must be either 'njets-dilep_pt' or 'nbjets_pnet_overflow', got {self.variable}")
 
     def output(self):
         return self.target(f"dy_weight_data_{self.categories[0]}_{self.variables[0]}.pkl")
 
     def run(self):
-        # prepare categories to sum over
-        leaf_category_insts = self.category_inst.get_leaf_categories() or [self.category_inst]
 
         # load histograms from all input datasets and add them
         h = None
         for dataset_name, inp in self.input().items():
             h_ = inp.collection[0]["hists"][self.variable].load(formatter="pickle")
 
-            # select leaf categories
-            h_ = h_[{"category": [hist.loc(cat.name) for cat in leaf_category_insts if cat.name in h_.axes["category"]]}]
+            # select categories to sum over; pass ONLY leaf categories in the command line!
+            h_ = h_[{"category": [hist.loc(cat) for cat in self.categories if cat in h_.axes["category"]]}]
 
-            # use the nominal shift only
-            h_ = h_[{"shift": hist.loc("nominal")}]
+            # use the given shift only
+            h_ = h_[{"shift": hist.loc(self.shift)}]
 
             # add it
             h = h_ if h is None else (h + h_)
 
         # compute the dy weight data
         # dy_weight_data = compute_weight_data(self, h)  # use --variables njets-dilep_pt
-        dy_weight_data = compute_njet_norm_data(self, h)  # use --variables njets
+        dy_weight_data = compute_nbjet_norm_data(self, h, self.categories)  # use --variable nbjets_pnet_overflow
 
         # store them
         self.output().dump(dy_weight_data, formatter="pickle")
@@ -169,11 +168,11 @@ def get_ratio_values(h: hist.Hist) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
     data_err = data_h.view().variance**0.5
     mc_err = mc_h.view().variance**0.5
 
-    # calculate (data-mc)/dy ratio and its error
+    # calculate (data-mc)/dy ratio factor and the statistical error
     ratio_values = (data_values - mc_values) / dy_values
     ratio_err = (1 / dy_values) * np.sqrt(data_err**2 + mc_err**2 + (ratio_values * dy_err)**2)
 
-    # fill nans/infs and negative errors with 0
+    # fill nans/infs and negative errors with 0.0
     ratio_values = np.nan_to_num(ratio_values, nan=0.0)
     ratio_values = np.where(np.isinf(ratio_values), 0.0, ratio_values)
     ratio_values = np.where(ratio_values < 0, 0.0, ratio_values)
@@ -382,98 +381,31 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     return fit_dict
 
 
-def compute_njet_norm_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
+def compute_nbjet_norm_data(task: ComuteDYWeights, h: hist.Hist, cats: list) -> dict:
 
-    # prepare constants
-    inf = float("inf")
-    import numpy as np
-    era = f"{task.config_inst.campaign.x.year}{task.config_inst.campaign.x.postfix}"
+    # get all leaf categories; e.g. mumu__dyc__eq4j__eq0b__os
+    leaf_cats = cats
 
-    fit_dict = {
-        era: {
-            "nominal": {},
-            "up": {},
-            "down": {},
-        },
-    }
+    print("")
+    print("compute_nbjet_norm_data leaf_cats:")
+    print(leaf_cats)
+    print("")
+    print("---------------------------")
 
-    # do the fit per njet (or nbjet) category
-    leaf_cats = h.axes["category"]
-
-    # hist with all leaf categories
     for cat in leaf_cats:
-        # Extract njet number from category name
-        match = re.search(r'eq(\d+)j', cat)
-        if match:
-            njet = int(match.group(1))
-        elif re.search(r'ge6j', cat):
-            njet = 6
-        else:
-            continue
 
-        # slice the histogram for the selected njets bin
-        if njet < 4:
-            fit_dict[era]["nominal"][(njet, njet + 1)] = [(-inf, inf, "x*0+1.0")]
-            fit_dict[era]["up"][(njet, njet + 1)] = [(-inf, inf, "x*0+1.0")]
-            fit_dict[era]["down"][(njet, njet + 1)] = [(-inf, inf, "x*0+1.0")]
+        # slicing histogram
+        h_ = h[cat, ...]
 
-        elif njet in [4, 5]:
-            h_ = h[cat, ...]
-            ratio_values, ratio_err, bin_centers = get_ratio_values(h_)
-            up_shift = ratio_values + ratio_err
-            down_shift = ratio_values - ratio_err
+        # get the normalization factor with the statistical error
+        ratio_values, ratio_err, bin_centers = get_ratio_values(h_)
+        fit_str = f"'{(ratio_values.max()):.9f}',  # stat error {((ratio_err).max()):.9f}"
 
-            norm_factor = ratio_values.max()
-            norm_factor_up = up_shift.max()
-            norm_factor_down = down_shift.max()
+        print("")
+        print(cat)
+        print(fit_str)
+        print("")
+        print("---------------------------")
 
-            fit_str = f"x*0+{norm_factor:.9f}"
-            fit_str_up = f"x*0+{norm_factor_up:.9f}"
-            fit_str_down = f"x*0+{norm_factor_down:.9f}"
-
-            fit_dict[era]["nominal"][(njet, njet + 1)] = [(-inf, inf, fit_str)]
-            fit_dict[era]["up"][(njet, njet + 1)] = [(-inf, inf, fit_str_up)]
-            fit_dict[era]["down"][(njet, njet + 1)] = [(-inf, inf, fit_str_down)]
-
-            print(f"ratio_values: {ratio_values}")
-            print(f"ratio_err: {ratio_err}")
-            print(f"norm_factor: {norm_factor}")
-            print(f"norm_factor_up: {norm_factor_up}")
-            print(f"norm_factor_down: {norm_factor_down}")
-
-        elif njet == 6:
-            h_ = h[cat, ...]
-            ratio_values, ratio_err, bin_centers = get_ratio_values(h_)
-            up_shift = ratio_values + ratio_err
-            down_shift = ratio_values - ratio_err
-
-            n_bins_nonzero = np.sum(ratio_values != 0)
-            # use the factor at njet==6 for all njet>=6 categories
-            if n_bins_nonzero != 0:
-                norm_factor = ratio_values[njet]
-                norm_factor_up = up_shift[njet]
-                norm_factor_down = down_shift[njet]
-            else:
-                raise ValueError("No non-zero bins found in ratio_values!")
-
-            fit_str = f"x*0+{norm_factor:.9f}"
-            fit_str_up = f"x*0+{norm_factor_up:.9f}"
-            fit_str_down = f"x*0+{norm_factor_down:.9f}"
-
-            fit_dict[era]["nominal"][(njet, 50)] = [(-inf, inf, fit_str)]
-            fit_dict[era]["up"][(njet, 50)] = [(-inf, inf, fit_str_up)]
-            fit_dict[era]["down"][(njet, 50)] = [(-inf, inf, fit_str_down)]
-
-            print(f"ratio_values: {ratio_values}")
-            print(f"ratio_err: {ratio_err}")
-            print(f"n_bins_nonzero: {n_bins_nonzero}")
-            print(f"norm_factor: {norm_factor}")
-            print(f"norm_factor_up: {norm_factor_up}")
-            print(f"norm_factor_down: {norm_factor_down}")
-
-        else:
-            continue
-
-    print("----------")
-    print(fit_dict)
+    fit_dict = {}
     return fit_dict
