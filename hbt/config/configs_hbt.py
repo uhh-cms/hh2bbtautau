@@ -1297,8 +1297,17 @@ def add_config(
 
     # top pt reweighting
     # https://twiki.cern.ch/twiki/bin/view/CMS/TopPtReweighting?rev=31
-    from columnflow.production.cms.top_pt_weight import TopPtWeightConfig
-    cfg.x.top_pt_weight = TopPtWeightConfig(
+    # theory-based method preferred
+    # from columnflow.production.cms.top_pt_weight import TopPtWeightFromTheoryConfig
+    # cfg.x.top_pt_weight = TopPtWeightFromTheoryConfig(params={
+    #     "a": 0.103,
+    #     "b": -0.0118,
+    #     "c": -0.000134,
+    #     "d": 0.973,
+    # })
+    # data-based method preferred
+    from columnflow.production.cms.top_pt_weight import TopPtWeightFromDataConfig
+    cfg.x.top_pt_weight = TopPtWeightFromDataConfig(
         params={
             "a": 0.0615,
             "a_up": 0.0615 * 1.5,
