@@ -1738,7 +1738,8 @@ def add_config(
         # dy weight and recoil corrections
         # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
-        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_only_pT.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_pt_njets-ntags.json.gz", "v1"))  # noqa: E501
+        # add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_only_pT.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
         trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"
