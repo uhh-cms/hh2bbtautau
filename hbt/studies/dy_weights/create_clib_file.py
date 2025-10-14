@@ -132,29 +132,29 @@ if __name__ == "__main__":
     normalizations = {
         "2022preEE": {
             2: {
-                0: "1",
-                1: "1",
-                2: "1",
+                0: '0.997251140',  # stat error 0.002422338
+                1: '1.044380589',  # stat error 0.008200641
+                2: '0.895170017',  # stat error 0.026916529
             },
             3: {
-                0: "1",
-                1: "1",
-                2: "1",
+                0: '0.990245980',  # stat error 0.005056013
+                1: '1.089209583',  # stat error 0.015094569
+                2: '0.926079449',  # stat error 0.038549343
             },
             4: {
-                0: "1",
-                1: "1",
-                2: "1",
+                0: '0.938042307',  # stat error 0.010249876
+                1: '1.062744212',  # stat error 0.028129369
+                2: '0.995487479',  # stat error 0.068359428
             },
             5: {
-                0: "1",
-                1: "1",
-                2: "1",
+                0: '1.133954255',  # stat error 0.026400875
+                1: '1.294831981',  # stat error 0.066763389
+                2: '1.332290175',  # stat error 0.154036250
             },
             6: {
-                0: "1",
-                1: "1",
-                2: "1",
+                0: '1.364025809',  # stat error 0.061990316
+                1: '1.708922077',  # stat error 0.150386411
+                2: '1.779048522',  # stat error 0.315197022
             },
         },
         "2022postEE": {
@@ -346,5 +346,5 @@ if __name__ == "__main__":
     )
 
     print(cset.model_dump_json(exclude_unset=True))
-    with gzip.open("hbt_corrections.json.gz", "wt") as f:
+    with gzip.open("hbt_corrections_pt_njets-ntags.json.gz", "wt") as f:
         f.write(cset.model_dump_json(exclude_unset=True))
