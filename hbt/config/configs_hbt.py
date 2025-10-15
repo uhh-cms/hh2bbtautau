@@ -1842,8 +1842,9 @@ def add_config(
             # "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
             # "FatJet.{eta,phi,pt,mass}",
             # f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
-            # "reg_dnn_nu{1,2}_p{x,y,z}",
-            # "res_dnn_pnet_*",
+            # "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
+            # "run3_dnn{,_moe}_*",
+            # "nu_truth.*.*",
             # *skip_column("*_{up,down}"),
 
             # columns for dnn-based dy weight tests

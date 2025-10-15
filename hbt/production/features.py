@@ -12,12 +12,14 @@ import law
 from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.mc_weight import mc_weight
+from columnflow.production.cms.gen_particles import transform_gen_part
+from columnflow.production.util import lv_mass
 from columnflow.columnar_util import (
     EMPTY_FLOAT, Route, set_ak_column, attach_coffea_behavior, default_coffea_collections,
 )
 from columnflow.util import maybe_import
 
-from hbt.util import IF_MC, IF_DATASET_HAS_LHE_WEIGHTS, IF_DATASET_IS_TT, IF_DATASET_IS_DY
+from hbt.util import IF_MC, IF_DATASET_HAS_LHE_WEIGHTS, IF_DATASET_IS_TT, IF_DATASET_IS_DY, IF_DATASET_HAS_HIGGS
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -217,3 +219,71 @@ def dy_dnn_features_setup(
     **kwargs,
 ) -> None:
     reader_targets["default_prod"] = inputs["default_prod"]["columns"]
+
+
+@producer(
+    uses={"gen_higgs.*"},
+    produces={"nu_truth.{nu,tau_vis}.{pt,eta,phi,mass}"},
+)
+def nu_truth_htt(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    # for single higgs -> tautau datasets, there is just one higgs decay in gen_higgs
+    # for hh -> bb tautau datasets, there are two decay, but the tautau one is always last
+    # so in any case, the higgs index is -1
+    HTT = -1
+
+    # get tau neutrino (always first in the list of tau children)
+    nu_tau = events.gen_higgs.tau_children[:, HTT, :, 0]
+    # check which tau decayed leptonically (charged lepton, if any, is always first)
+    first_tau_w_child_id = abs(events.gen_higgs.tau_w_children[:, HTT, :, 0].pdgId)
+    tau_lep_mask = (first_tau_w_child_id == 11) | (first_tau_w_child_id == 13) | (first_tau_w_child_id == 15)
+    # get the neutrino on these cases
+    nu_lep = events.gen_higgs.tau_w_children[:, HTT, :][ak.mask(tau_lep_mask, tau_lep_mask)][:, :, 1]
+    # concatenate them to get one _or_ two neutrinos per tau decay
+    nu = ak.drop_none(ak.concatenate([nu_tau[:, :, None], nu_lep[:, :, None]], axis=2))
+
+    # also define the visible tau component from all non-neutrino w children
+    w_children = events.gen_higgs.tau_w_children[:, HTT]
+    w_children_id = abs(w_children.pdgId)
+    w_nu_mask = (w_children_id == 12) | (w_children_id == 14) | (w_children_id == 16)
+    tau_vis = lv_mass(w_children[~w_nu_mask]).sum(axis=-1)
+
+    # combine to final structure
+    nu_truth = ak.zip(
+        {
+            "nu": transform_gen_part(nu, depth_limit=3),
+            "tau_vis": transform_gen_part(tau_vis, depth_limit=2, optional=True),
+        },
+        depth_limit=1,
+    )
+
+    # save the column
+    events = set_ak_column(events, "nu_truth", nu_truth)
+
+    return events
+
+
+@producer(
+    uses={"gen_top.*"},
+    produces={"todo"},
+)
+def nu_truth_ttbar(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    raise NotImplementedError("nu_truth_ttbar is not implemented yet")
+    return events
+
+
+@producer(
+    uses={
+        IF_DATASET_HAS_HIGGS(nu_truth_htt),
+        # IF_DATASET_IS_TT(nu_truth_ttbar),
+    },
+    produces={
+        IF_DATASET_HAS_HIGGS(nu_truth_htt),
+        # IF_DATASET_IS_TT(nu_truth_ttbar),
+    },
+)
+def nu_truth(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    if self.has_dep(nu_truth_htt):
+        events = self[nu_truth_htt](events, **kwargs)
+    if self.has_dep(nu_truth_ttbar):
+        events = self[nu_truth_ttbar](events, **kwargs)
+    return events
