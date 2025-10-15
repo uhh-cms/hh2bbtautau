@@ -7,7 +7,7 @@ Custom event and object reducers.
 from columnflow.reduction import Reducer, reducer
 from columnflow.reduction.default import cf_default
 from columnflow.production.cms.dy import gen_dilepton, recoil_corrected_met
-from columnflow.production.cms.gen_particles import gen_higgs_lookup, gen_top_lookup
+from columnflow.production.cms.gen_particles import gen_higgs_lookup, gen_top_lookup, gen_dy_lookup
 
 from columnflow.util import maybe_import
 
@@ -21,13 +21,13 @@ ak = maybe_import("awkward")
         cf_default,
         IF_DATASET_HAS_HIGGS(gen_higgs_lookup),
         IF_DATASET_HAS_TOP(gen_top_lookup),
-        IF_DATASET_IS_DY(gen_dilepton, recoil_corrected_met),
+        IF_DATASET_IS_DY(gen_dy_lookup, gen_dilepton, recoil_corrected_met),
     },
     produces={
         cf_default,
         IF_DATASET_HAS_HIGGS(gen_higgs_lookup),
         IF_DATASET_HAS_TOP(gen_top_lookup),
-        IF_DATASET_IS_DY(gen_dilepton, recoil_corrected_met),
+        IF_DATASET_IS_DY(gen_dy_lookup, gen_dilepton, recoil_corrected_met),
     },
 )
 def default(self: Reducer, events: ak.Array, selection: ak.Array, **kwargs) -> ak.Array:
@@ -39,6 +39,9 @@ def default(self: Reducer, events: ak.Array, selection: ak.Array, **kwargs) -> a
         events = self[gen_higgs_lookup](events, **kwargs)
     if self.has_dep(gen_top_lookup):
         events = self[gen_top_lookup](events, **kwargs)
+    if self.has_dep(gen_dy_lookup):
+        events = self[gen_dy_lookup](events, **kwargs)
+    # TODO: is gen_dilepton redundant to what gen_dy_lookup provides?
     if self.has_dep(gen_dilepton):
         events = self[gen_dilepton](events, **kwargs)
 
