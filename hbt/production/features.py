@@ -264,7 +264,7 @@ def nu_truth_htt(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={"gen_top.*"},
-    produces={"todo"},
+    produces={"nu_truth.nu.{pt,eta,phi,mass}"},
 )
 def nu_truth_ttbar(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     raise NotImplementedError("nu_truth_ttbar is not implemented yet")
@@ -273,7 +273,7 @@ def nu_truth_ttbar(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={"gen_dy.*"},
-    produces={"todo"},
+    produces={"nu_truth.{nu,tau_vis}.{pt,eta,phi,mass}"},
 )
 def nu_truth_dy(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     raise NotImplementedError("nu_truth_dy is not implemented yet")
@@ -293,6 +293,7 @@ def nu_truth_dy(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     },
 )
 def nu_truth(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    # defer to dataset/content-specific producers
     if self.has_dep(nu_truth_htt):
         events = self[nu_truth_htt](events, **kwargs)
     if self.has_dep(nu_truth_ttbar):
