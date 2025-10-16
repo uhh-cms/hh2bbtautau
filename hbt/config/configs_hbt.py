@@ -1842,6 +1842,7 @@ def add_config(
             # "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
             # "FatJet.{eta,phi,pt,mass}",
             # f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
+            # "res_dnn_pnet_*",
             # "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
             # "run3_dnn{,_moe}_*",
             # "nu_truth.*.*",
