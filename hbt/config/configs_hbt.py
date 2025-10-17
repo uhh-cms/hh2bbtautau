@@ -1704,6 +1704,11 @@ def add_config(
     add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
 
+    for fold in range(5):
+        # TODO: add correct path for vbf model
+        vbf_model_version = "v3"
+        add_external(f"run3_vbf_dnn_fold{fold}", (f"{central_hbt_dir}/run3_models/vbf_model_{vbf_model_version}/model_{fold}.tgz", "v1"))  # noqa: E501
+
     # run specific files
     if run == 2:
         # tau energy correction and scale factors
