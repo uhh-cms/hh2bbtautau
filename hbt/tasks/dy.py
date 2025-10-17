@@ -10,6 +10,7 @@ import re
 import gzip
 
 import law
+import order as od
 
 from columnflow.tasks.framework.base import ConfigTask
 from columnflow.tasks.framework.histograms import HistogramsUserSingleShiftBase
@@ -34,6 +35,13 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
     """
 
     single_config = True
+
+    @classmethod
+    def resolve_param_values(cls, params: dict[str, Any]) -> dict[str, Any]:
+        print("DY pre resolve params")
+        params = super().resolve_param_values(params)
+        print("DY post resolve params")
+        return params
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -76,7 +84,8 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
 
         # compute the dy weight data
         # dy_weight_data = compute_weight_data(self, h)  # use --variables njets-dilep_pt
-        dy_weight_data = compute_nbjet_norm_data(self, h, self.categories)  # use --variable nbjets_pnet_overflow
+        variable_inst = self.config_inst.get_variable(self.variable)
+        dy_weight_data = compute_nbjet_norm_data(self, h, variable_inst, self.categories)  # use --variable nbjets_pnet_overflow
 
         # store them
         self.output().dump(dy_weight_data, formatter="pickle")
@@ -145,9 +154,24 @@ class ExportDYWeights(HBTTask, ConfigTask):
             law.util.interruptable_popen(f"correction summary {outp.abspath}", shell=True)
 
 
-def get_ratio_values(h: hist.Hist) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
+def get_ratio_values(h: hist.Hist, variable_inst: od.Variable) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
 
     import numpy as np
+
+    # under/overflow treatment
+    h = h.copy()
+    if variable_inst.x("underflow", False):
+        v = h.view(flow=True)
+        v.values[..., 1] += v.values[..., 0]
+        v.variance[..., 1] += v.variance[..., 0]
+        v.values[..., 0] = 0.0
+        v.variance[..., 0] = 0.0
+    if variable_inst.x("overflow", False):
+        v = h.view(flow=True)
+        v.values[..., -2] += v.values[..., -1]
+        v.variance[..., -2] += v.variance[..., -1]
+        v.values[..., -1] = 0.0
+        v.variance[..., -1] = 0.0
 
     # get and sum process histograms
     dy_names = [name for name in h.axes["process"] if name.startswith("dy")]
@@ -164,12 +188,17 @@ def get_ratio_values(h: hist.Hist) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
     dy_values = dy_h.view().value
     data_values = data_h.view().value
     mc_values = mc_h.view().value
+
     dy_err = dy_h.view().variance**0.5
     data_err = data_h.view().variance**0.5
     mc_err = mc_h.view().variance**0.5
 
     # calculate (data-mc)/dy ratio factor and the statistical error
     ratio_values = (data_values - mc_values) / dy_values
+    print("data, mc and DY values:")
+    print(data_values)
+    print(mc_values)
+    print(dy_values)
     ratio_err = (1 / dy_values) * np.sqrt(data_err**2 + mc_err**2 + (ratio_values * dy_err)**2)
 
     # fill nans/infs and negative errors with 0.0
@@ -381,9 +410,9 @@ def compute_weight_data(task: ComuteDYWeights, h: hist.Hist) -> dict:
     return fit_dict
 
 
-def compute_nbjet_norm_data(task: ComuteDYWeights, h: hist.Hist, cats: list) -> dict:
+def compute_nbjet_norm_data(task: ComuteDYWeights, h: hist.Hist, variable_inst: od.Variable, cats: list) -> dict:
 
-    # get all leaf categories; e.g. mumu__dyc__eq4j__eq0b__os
+    # get all leaf categories; e.g. mumu__dyc__eq4j__ge0b__os
     leaf_cats = cats
 
     print("")
@@ -396,16 +425,15 @@ def compute_nbjet_norm_data(task: ComuteDYWeights, h: hist.Hist, cats: list) -> 
 
         # slicing histogram
         h_ = h[cat, ...]
-
-        # get the normalization factor with the statistical error
-        ratio_values, ratio_err, bin_centers = get_ratio_values(h_)
-        fit_str = f"'{(ratio_values.max()):.9f}',  # stat error {((ratio_err).max()):.9f}"
-
         print("")
         print(cat)
+        # get the normalization factor with the statistical error
+        ratio_values, ratio_err, bin_centers = get_ratio_values(h_, variable_inst)
+        fit_str = f"'{(ratio_values.max()):.9f}',  # stat error {((ratio_err).max()):.9f}"
         print(fit_str)
         print("")
         print("---------------------------")
+        # from IPython import embed; embed(header="debugger")
 
     fit_dict = {}
     return fit_dict
