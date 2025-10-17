@@ -533,7 +533,7 @@ class _reg_dnn(_res_dnn_evaluation):
 
         # output column names (in this order)
         self.output_columns = [
-            f"reg_dnn_nu{i}_{v}"
+            f"{self.output_prefix}_nu{i}_{v}"
             for i in range(1, 2 + 1)
             for v in ["px", "py", "pz"]
         ]
@@ -548,6 +548,7 @@ class reg_dnn(_reg_dnn):
     """
 
     dir_name = "model_fold0_seed0"
+    output_prefix = "reg_dnn"
     exposed = True
 
 
@@ -557,6 +558,7 @@ class reg_dnn_moe(_reg_dnn):
     """
 
     dir_name = "model_fold0_moe"
+    output_prefix = "reg_dnn_moe"
     exposed = True
 
 

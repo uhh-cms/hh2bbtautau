@@ -5,10 +5,14 @@ Exemplary selection methods.
 """
 
 from columnflow.categorization import Categorizer, categorizer
-from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
+from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections, full_like
 from columnflow.util import maybe_import
 
 ak = maybe_import("awkward")
+
+
+# helpers
+all_true = lambda events: full_like(events.event, True, dtype=bool)
 
 
 #
@@ -18,7 +22,7 @@ ak = maybe_import("awkward")
 @categorizer(uses={"event"})
 def cat_all(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # keep all events
-    return events, ak.ones_like(events.event) == 1
+    return events, all_true(events)
 
 
 #
@@ -99,7 +103,12 @@ def cat_single_triggered(self: Categorizer, events: ak.Array, **kwargs) -> tuple
 @categorizer(uses={"event"})
 def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # fully inclusive selection
-    return events, ak.ones_like(events.event) == 1
+    return events, all_true(events)
+
+
+@categorizer(uses={"Jet.pt"})
+def cat_ge0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, all_true(events)
 
 
 @categorizer(uses={"Jet.pt"})
@@ -128,6 +137,11 @@ def cat_eq4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 
 
 @categorizer(uses={"Jet.pt"})
+def cat_eq5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) == 5
+
+
+@categorizer(uses={"Jet.pt"})
 def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, ak.num(events.Jet, axis=1) >= 4
 
@@ -135,6 +149,34 @@ def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 @categorizer(uses={"Jet.pt"})
 def cat_ge5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, ak.num(events.Jet, axis=1) >= 5
+
+
+@categorizer(uses={"Jet.pt"})
+def cat_ge6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) >= 6
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_ge0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, all_true(events)
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_eq0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    wp = self.config_inst.x.btag_working_points.particleNet.medium
+    return events, ak.sum(events.Jet.btagPNetB > wp, axis=1) == 0
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_eq1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    wp = self.config_inst.x.btag_working_points.particleNet.medium
+    return events, ak.sum(events.Jet.btagPNetB > wp, axis=1) == 1
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_ge2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    wp = self.config_inst.x.btag_working_points.particleNet.medium
+    return events, ak.sum(events.Jet.btagPNetB > wp, axis=1) >= 2
 
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
@@ -166,7 +208,7 @@ def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[a
     },
 )
 def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
+    wp = self.config_inst.x.btag_working_points.particleNet.medium
     events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
     events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
     mask = (
@@ -184,7 +226,7 @@ def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
     },
 )
 def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = self.config_inst.x.btag_working_points["particleNet"]["medium"]
+    wp = self.config_inst.x.btag_working_points.particleNet.medium
     events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
     events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
     mask = (
