@@ -8,6 +8,7 @@ See https://github.com/uhh-cms/tautauNN
 from __future__ import annotations
 
 import functools
+import itertools
 
 import law
 
@@ -59,9 +60,10 @@ class _vbf_dnn_evaluation(Producer):
         "Muon.{eta,phi,pt,mass,charge}",
         "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
         "VBFJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
-        "Jet.{pt,eta,phi,mass,btagDeepFlav*,btagPNet*}",
+        "Jet.{pt,eta,phi,mass,btagDeepFlav*,btagPNet*,assignment_bits}",
         "FatJet.{eta,phi,pt,mass}",
-        # MET variables added in dynamic init
+        # regressed neutrinos from reg_dnn_moe producer
+        "reg_dnn_nu{1,2}_{px,py,pz}",
     }
 
     # directory of the unpacked model archive (no subdirectory is expected when None)
@@ -71,10 +73,9 @@ class _vbf_dnn_evaluation(Producer):
     max_chunk_size: int = 10_000
 
     # the empty value to insert to output columns in case of missing or broken values
-    empty_value: float = -999.0
+    empty_value: float = EMPTY_FLOAT
 
     # optionally save input features
-    # TODO: add fox wolfram momenta and whatever else is created here
     produce_features: bool | None = None
     features_prefix: str = ""
 
@@ -104,8 +105,7 @@ class _vbf_dnn_evaluation(Producer):
 
         # TODO: check whether needed here
         # update shifts dynamically
-        # TODO: uncomment once reduction ran and saved met variations
-        # self.shifts.add("minbias_xs_{up,down}")  # variations of minbias_xs used in met phi correction
+        self.shifts.add("minbias_xs_{up,down}")  # variations of minbias_xs used in met phi correction
         self.shifts.update({  # all calibrations that change jet and lepton momenta
             shift_inst.name
             for shift_inst in self.config_inst.shifts
@@ -113,6 +113,11 @@ class _vbf_dnn_evaluation(Producer):
         })
 
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
+        from columnflow.tasks.production import ProduceColumns
+        reqs["reg_dnn_moe"] = {
+            0: ProduceColumns.req_other_producer(task, producer="reg_dnn_moe"),
+        }
+
         if "external_files" in reqs:
             return
 
@@ -144,7 +149,6 @@ class _vbf_dnn_evaluation(Producer):
 
         # categorical values handled by the network
         # (names and values from training code that was aligned to CCLUB notation)
-        # TODO: verify if has variables are correct
         self.embedding_expected_inputs = {
             "pair_type": [0, 1, 2],  # see mapping below
             "decay_mode1": [-999, 0, 1, 10, 11],  # -999 for e/mu
@@ -201,7 +205,6 @@ class _vbf_dnn_evaluation(Producer):
             type_name="Tau",
         )
         vis_tau1, vis_tau2 = vis_taus[:, 0], vis_taus[:, 1]
-        # TODO: check whether dau1 and 2 are vistaus or regressed ones? probably vistaus, but who knows...
 
         # get decay mode of first lepton (e, mu or tau)
         tautau_mask = events.channel_id == self.config_inst.channels.n.tautau.id
@@ -258,7 +261,8 @@ class _vbf_dnn_evaluation(Producer):
         f = DotDict()
 
         # compute angle from visible mother particle of vis_tau1 and vis_tau2
-        # used to rotate the kinematics of dau{1,2}, bjet{1,2} and fatjets relative to it
+        # used to rotate the kinematics of dau{1,2}, bjet{1,2}, vbfjet{1,2} and fatjets relative to it
+        # used backwards to rotate neutrinos for htt calculation
         phi_lep = np.arctan2(vis_tau1.py + vis_tau2.py, vis_tau1.px + vis_tau2.px)
 
         # lepton 1
@@ -269,30 +273,48 @@ class _vbf_dnn_evaluation(Producer):
         f.vis_tau2_px, f.vis_tau2_py = rotate_to_phi(phi_lep, vis_tau2.px, vis_tau2.py)
         f.vis_tau2_pz, f.vis_tau2_e = vis_tau2.pz, vis_tau2.energy
 
-        # there might be less than two jets or no fatjet, so pad them
+        # there might be less than two jets, vbfjets or no fatjet, so pad them
         bjets = ak.pad_none(_events.HHBJet, 2, axis=1)
+        vbfjets = ak.pad_none(_events.VBFJet, 2, axis=1)
         fatjet = ak.pad_none(_events.FatJet, 1, axis=1)[:, 0]
 
         # bjet 1
-        # TODO: put values to -999 for events without jet pair before rotation? or at masking?
         f.bjet1_px, f.bjet1_py = rotate_to_phi(phi_lep, bjets[:, 0].px, bjets[:, 0].py)
         f.bjet1_pz, f.bjet1_e = bjets[:, 0].pz, bjets[:, 0].energy
-        f.bjet1_tag_b = bjets[:, 0]["btagPNetB" if self.use_pnet else "btagDeepFlavB"]
-        f.bjet1_tag_cvsb = bjets[:, 0]["btagPNetCvB" if self.use_pnet else "btagDeepFlavCvB"]
-        f.bjet1_tag_cvsl = bjets[:, 0]["btagPNetCvL" if self.use_pnet else "btagDeepFlavCvL"]
+        f.bjet1_tag_b = bjets[:, 0]["btagPNetB"]
+        f.bjet1_tag_cvsb = bjets[:, 0]["btagPNetCvB"]
+        f.bjet1_tag_cvsl = bjets[:, 0]["btagPNetCvL"]
         f.bjet1_hhbtag = bjets[:, 0].hhbtag
 
         # bjet 2
         f.bjet2_px, f.bjet2_py = rotate_to_phi(phi_lep, bjets[:, 1].px, bjets[:, 1].py)
         f.bjet2_pz, f.bjet2_e = bjets[:, 1].pz, bjets[:, 1].energy
-        f.bjet2_tag_b = bjets[:, 1]["btagPNetB" if self.use_pnet else "btagDeepFlavB"]
-        f.bjet2_tag_cvsb = bjets[:, 1]["btagPNetCvB" if self.use_pnet else "btagDeepFlavCvB"]
-        f.bjet2_tag_cvsl = bjets[:, 1]["btagPNetCvL" if self.use_pnet else "btagDeepFlavCvL"]
+        f.bjet2_tag_b = bjets[:, 1]["btagPNetB"]
+        f.bjet2_tag_cvsb = bjets[:, 1]["btagPNetCvB"]
+        f.bjet2_tag_cvsl = bjets[:, 1]["btagPNetCvL"]
         f.bjet2_hhbtag = bjets[:, 1].hhbtag
 
         # fatjet variables
         f.fatjet_px, f.fatjet_py = rotate_to_phi(phi_lep, fatjet.px, fatjet.py)
         f.fatjet_pz, f.fatjet_e = fatjet.pz, fatjet.energy
+
+        # vbf jet 1
+        f.vbfjet1_px, f.vbfjet1_py = rotate_to_phi(phi_lep, vbfjets[:, 0].px, vbfjets[:, 0].py)
+        f.vbfjet1_pz, f.vbfjet1_e = vbfjets[:, 0].pz, vbfjets[:, 0].energy
+        f.vbfjet1_pnet_QvsG = vbfjets[:, 0]["btagPNetQvG"]
+
+        # vbf jet 2
+        f.vbfjet2_px, f.vbfjet2_py = rotate_to_phi(phi_lep, vbfjets[:, 1].px, vbfjets[:, 1].py)
+        f.vbfjet2_pz, f.vbfjet2_e = vbfjets[:, 1].pz, vbfjets[:, 1].energy
+        f.vbfjet2_pnet_QvsG = vbfjets[:, 1]["btagPNetQvG"]
+
+        # neutrinos from regression
+        f.nu1_px = _events.reg_dnn_nu1_px
+        f.nu1_py = _events.reg_dnn_nu1_py
+        f.nu1_pz = _events.reg_dnn_nu1_pz
+        f.nu2_px = _events.reg_dnn_nu2_px
+        f.nu2_py = _events.reg_dnn_nu2_py
+        f.nu2_pz = _events.reg_dnn_nu2_pz
 
         # mask values as done during training of the network
         def mask_values(mask, value, *fields):
@@ -301,56 +323,131 @@ class _vbf_dnn_evaluation(Producer):
                 flat_np_view(arr)[mask] = value
                 f[field] = arr
 
-        # TODO: correct actual default value to use, should be rotate_to_phi(phi_lep, -999., -999.) for px, py
-        # and -999. for pz, e, tagging scores
+        # TODO: check default values, should be rotated from -999 pt and -999 phi
         default_value_all = -999.0
         default_value_px_py = rotate_to_phi(phi_lep, default_value_all * np.cos(default_value_all), default_value_all * np.sin(default_value_all))  # noqa: E501
         from IPython import embed; embed(header="check rotation with -999")
-        mask_values(~has_jet_pair, 0.0, "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e")
-        mask_values(~has_jet_pair, 0.0, "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e")
-        mask_values(~has_jet_pair, -1.0, "bjet1_tag_b", "bjet1_tag_cvsb", "bjet1_tag_cvsl", "bjet1_hhbtag")
-        mask_values(~has_jet_pair, -1.0, "bjet2_tag_b", "bjet2_tag_cvsb", "bjet2_tag_cvsl", "bjet2_hhbtag")
-        mask_values(~has_fatjet, 0.0, "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e")
+        mask_values(~has_jet_pair, default_value_px_py[0], "bjet1_px", "bjet2_px")
+        mask_values(~has_jet_pair, default_value_px_py[1], "bjet1_py", "bjet2_py")
+        mask_values(~has_jet_pair, default_value_all, "bjet1_pz", "bjet1_e", "bjet2_pz", "bjet2_e")
+        mask_values(~has_jet_pair, default_value_all, "bjet1_tag_b", "bjet1_tag_cvsb", "bjet1_tag_cvsl", "bjet1_hhbtag")
+        mask_values(~has_jet_pair, default_value_all, "bjet2_tag_b", "bjet2_tag_cvsb", "bjet2_tag_cvsl", "bjet2_hhbtag")
+        mask_values(~has_fatjet, default_value_px_py[0], "fatjet_px")
+        mask_values(~has_fatjet, default_value_px_py[1], "fatjet_py")
+        mask_values(~has_fatjet, default_value_all, "fatjet_pz", "fatjet_e")
+        mask_values(~has_vbf_jets, default_value_px_py[0], "vbfjet1_px", "vbfjet2_px")
+        mask_values(~has_vbf_jets, default_value_px_py[1], "vbfjet1_py", "vbfjet2_py")
+        mask_values(~has_vbf_jets, default_value_all, "vbfjet1_pz", "vbfjet1_e", "vbfjet2_pz", "vbfjet2_e")
 
-        # TODO: don't take vis taus but regressed ones
-        # see https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHVariablesInterface.cc#L220-257
-        # why are neutrinos shifted with phi_lep?
-        # combine daus
-        f.htt_e = f.vis_tau1_e + f.vis_tau2_e
-        f.htt_px = f.vis_tau1_px + f.vis_tau2_px
-        f.htt_py = f.vis_tau1_py + f.vis_tau2_py
-        f.htt_pz = f.vis_tau1_pz + f.vis_tau2_pz
+        # define neutrino energy
+        nu1_e = (f.nu1_px**2 + f.nu1_py**2 + f.nu1_pz**2)**0.5
+        nu2_e = (f.nu2_px**2 + f.nu2_py**2 + f.nu2_pz**2)**0.5
+
+        # combine regressed daus
+        f.htt_regr_e = f.vis_tau1_e + f.vis_tau2_e + nu1_e + nu2_e
+        f.htt_regr_px = f.vis_tau1_px + f.vis_tau2_px + f.nu1_px + f.nu2_px
+        f.htt_regr_py = f.vis_tau1_py + f.vis_tau2_py + f.nu1_py + f.nu2_py
+        f.htt_regr_pz = f.vis_tau1_pz + f.vis_tau2_pz + f.nu1_pz + f.nu2_pz
 
         # combine bjets
         f.hbb_e = f.bjet1_e + f.bjet2_e
         f.hbb_px = f.bjet1_px + f.bjet2_px
         f.hbb_py = f.bjet1_py + f.bjet2_py
         f.hbb_pz = f.bjet1_pz + f.bjet2_pz
-        # TODO: modify default value
-        mask_values(~has_jet_pair, 0.0, "hbb_e", "hbb_px", "hbb_py", "hbb_pz")
+        # TODO: modify default value -> -999 or the sum of the rotated -999s bjets?
+        mask_values(~has_jet_pair, -999.0, "hbb_e", "hbb_px", "hbb_py", "hbb_pz")
 
         # htt + hbb
-        f.htthbb_e = f.htt_e + f.hbb_e
-        f.htthbb_px = f.htt_px + f.hbb_px
-        f.htthbb_py = f.htt_py + f.hbb_py
-        f.htthbb_pz = f.htt_pz + f.hbb_pz
+        f.htthbb_regr_e = f.htt_regr_e + f.hbb_e
+        f.htthbb_regr_px = f.htt_regr_px + f.hbb_px
+        f.htthbb_regr_py = f.htt_regr_py + f.hbb_py
+        f.htthbb_regr_pz = f.htt_regr_pz + f.hbb_pz
         # TODO: modify default value
-        mask_values(~has_jet_pair, 0.0, "htthbb_e", "htthbb_px", "htthbb_py", "htthbb_pz")
+        mask_values(~has_jet_pair, -999.0, "htthbb_regr_e", "htthbb_regr_px", "htthbb_regr_py", "htthbb_regr_pz")
 
         # htt + fatjet
-        f.httfatjet_e = f.htt_e + f.fatjet_e
-        f.httfatjet_px = f.htt_px + f.fatjet_px
-        f.httfatjet_py = f.htt_py + f.fatjet_py
-        f.httfatjet_pz = f.htt_pz + f.fatjet_pz
+        f.httfatjet_regr_e = f.htt_regr_e + f.fatjet_e
+        f.httfatjet_regr_px = f.htt_regr_px + f.fatjet_px
+        f.httfatjet_regr_py = f.htt_regr_py + f.fatjet_py
+        f.httfatjet_regr_pz = f.htt_regr_pz + f.fatjet_pz
         # TODO: modify default value
-        mask_values(~has_fatjet, 0.0, "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz")
+        mask_values(~has_fatjet, -999.0, "httfatjet_regr_e", "httfatjet_regr_px", "httfatjet_regr_py", "httfatjet_regr_pz")
 
-        # TODO: add vbfjets variables ("vbfjet1_px","vbfjet1_py","vbfjet1_pz","vbfjet1_e","vbfjet1_pnet_QvsG","vbfjet2_px","vbfjet2_py","vbfjet2_pz","vbfjet2_e","vbfjet2_pnet_QvsG",
-        # "VBFjj_mass","VBFdeltaR","etaprod_vbfjvbfj")
-        # TODO: add etaprod_bb
-        # TODO: add M_chi https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHRun3DNNInterface.cc?ref_type=heads#L517
-        # TODO: add fox wolfram moments "fwMoment_s_0","fwMoment_T_0","fwMoment_1_0","fwMoment_s_2" https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHUtils.cc?ref_type=heads#L742-811
-        # using the jets from https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHJetsInterface.cc?ref_type=heads#L365-392
+        # vbf jets system variables
+        f.VBFjj_mass = ((f.vbfjet1_e + f.vbfjet2_e)**2 -
+                        (f.vbfjet1_px + f.vbfjet2_px)**2 -
+                        (f.vbfjet1_py + f.vbfjet2_py)**2 -
+                        (f.vbfjet1_pz + f.vbfjet2_pz)**2)**0.5
+
+        f.VBFdeltaR = ((f.vbfjet1_eta - f.vbfjet2_eta)**2 + (f.vbfjet1_phi - f.vbfjet2_phi)**2)**0.5
+        f.etaprod_vbfjvbfj = f.vbfjet1_eta * f.vbfjet2_eta
+        # default values
+        # TODO: check default values: -999 or using the values needed for calculating?
+        mask_values(~has_vbf_jets, -999.0, "VBFjj_mass", "VBFdeltaR", "etaprod_vbfjvbfj")
+
+        # bb system variables
+        f.etaprod_bb = f.bjet1_eta * f.bjet2_eta
+        # default values
+        # TODO: check default values: -999 or using the values needed for calculating?
+        mask_values(~has_jet_pair, -999.0, "etaprod_bb")
+
+        # M_chi
+        # M_chi = HH_mass - (Hbb_mass - 125.0) - (Htt_mass - 125.0);
+        # definition from  https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHRun3DNNInterface.cc?ref_type=heads#L517  # noqa: E501
+        # TODO: add fatjet case for Hbb_mass for boosted events
+        f.M_chi = (
+            (f.htthbb_regr_e**2 - f.htthbb_regr_px**2 - f.htthbb_regr_py**2 - f.htthbb_regr_pz**2)**0.5 -
+            ((f.hbb_e**2 - f.hbb_px**2 - f.hbb_py**2 - f.hbb_pz**2)**0.5 - 125.0) -
+            ((f.htt_regr_e**2 - f.htt_regr_px**2 - f.htt_regr_py**2 - f.htt_regr_pz**2)**0.5 - 125.0)
+        )
+        # default values
+        mask_values(~has_jet_pair, -999.0, "M_chi")
+        # once fatjet in there:
+        # mask_values(~(has_jet_pair | has_fatjet), -999.0, "M_chi")
+
+        # fox wolfram moments
+        # defined in https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHUtils.cc?ref_type=heads#L742-811
+        # TODO: change hhbjets to fatjet for boosted events
+
+        mask_hhbjets_vbfjets = (_events.Jet.assignment_bits == 0)
+        # TODO: these jets should be cleaned from the fatjet witch deltaR < 0.8
+        central_jets = _events.Jet[mask_hhbjets_vbfjets]
+        # all central jets + hhbjets + vbfjets
+        vbfcjets = ak.concatenate((_events.HHBJet, _events.VBFJet, central_jets), axis=1)
+        sum_p = ak.sum(vbfcjets, axis=1)
+        sum_pt = ak.sum(vbfcjets.pt, axis=1)
+        for ijet, jjet in itertools.combinations(vbfcjets, 2):
+            omega_ij = (np.cos(ijet.theta) * np.cos(jjet.theta) +
+                        np.sin(ijet.theta) * np.sin(jjet.theta) * np.cos(ijet.phi - jjet.phi))
+            legendre_0 = np.polynomial.legendre.Legendre([1, 0, 0])(omega_ij)
+            legendre_2 = np.polynomial.legendre.Legendre([0, 0, 1])(omega_ij)
+            weight_s = (
+                (ijet.px**2 + ijet.py**2 + ijet.pz**2)**0.5 *
+                (jjet.px**2 + jjet.py**2 + jjet.pz**2)**0.5
+            ) / (sum_p**2)
+            weight_T = (ijet.pt * jjet.pt) / (sum_pt**2)
+            if "fwMoment_s_0" not in f:
+                f.fwMoment_s_0 = weight_s * legendre_0
+                f.fwMoment_T_0 = weight_T * legendre_0
+                f.fwMoment_1_0 = legendre_0
+                f.fwMoment_s_2 = weight_s * legendre_2
+            else:
+                f.fwMoment_s_0 += weight_s * legendre_0
+                f.fwMoment_T_0 += weight_T * legendre_0
+                f.fwMoment_1_0 += legendre_0
+                f.fwMoment_s_2 += weight_s * legendre_2
+        # TODO: add terms for j = fatjet
+
+        # default values
+        mask_values(
+            ~(has_jet_pair & has_vbf_jets), -999.0,
+            "fwMoment_s_0", "fwMoment_T_0", "fwMoment_1_0", "fwMoment_s_2",
+        )
+        # TODO: mask fatjet events too once included
+        # mask_values(
+        #     ~((has_jet_pair | has_fatjet) & has_vbf_jets), -999.0,
+        #     "fwMoment_s_0", "fwMoment_T_0", "fwMoment_1_0", "fwMoment_s_2",
+        # )
 
         # assign categorical inputs via names too
         f.pair_type = pair_type
@@ -366,7 +463,6 @@ class _vbf_dnn_evaluation(Producer):
         # (order exactly as documented in link above)
         continous_inputs = [
             np.asarray(t[..., None], dtype=np.float32) for t in [
-                # TODO: maybe vis_tau + nu instead of vis_tau only?
                 f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
                 f.vis_tau2_px, f.vis_tau2_py, f.vis_tau2_pz, f.vis_tau2_e,
                 f.bjet1_px, f.bjet1_py, f.bjet1_pz, f.bjet1_e, f.bjet1_tag_b, f.bjet1_tag_cvsb, f.bjet1_tag_cvsl,
@@ -376,16 +472,16 @@ class _vbf_dnn_evaluation(Producer):
                 f.nu1_px, f.nu1_py, f.nu1_pz,
                 f.nu2_px, f.nu2_py, f.nu2_pz,
                 f.fatjet_px, f.fatjet_py, f.fatjet_pz, f.fatjet_e,
-                f.htt_px, f.htt_py, f.htt_pz, f.htt_e,
+                f.htt_regr_px, f.htt_regr_py, f.htt_regr_pz, f.htt_regr_e,
                 f.hbb_px, f.hbb_py, f.hbb_pz, f.hbb_e,
-                f.httfatjet_px, f.httfatjet_py, f.httfatjet_pz, f.httfatjet_e,
+                f.httfatjet_regr_px, f.httfatjet_regr_py, f.httfatjet_regr_pz, f.httfatjet_regr_e,
                 f.vbfjet1_px, f.vbfjet1_py, f.vbfjet1_pz, f.vbfjet1_e, f.vbfjet1_pnet_QvsG,
                 f.vbfjet2_px, f.vbfjet2_py, f.vbfjet2_pz, f.vbfjet2_e, f.vbfjet2_pnet_QvsG,
                 f.M_chi,
                 f.VBFjj_mass, f.VBFdeltaR,
                 f.etaprod_bb, f.etaprod_vbfjvbfj,
                 f.fwMoment_s_0, f.fwMoment_T_0, f.fwMoment_1_0, f.fwMoment_s_2,
-                f.htthbb_e, f.htthbb_px, f.htthbb_py, f.htthbb_pz,
+                f.htthbb_regr_e, f.htthbb_regr_px, f.htthbb_regr_py, f.htthbb_regr_pz,
             ]
             if t is not None
         ]
@@ -421,7 +517,6 @@ class _vbf_dnn_evaluation(Producer):
             )
             scores[nan_mask] = self.empty_value
 
-        # TODO: update to vbf dnn from here
         # prepare output columns with the shape of the original events and assign values into them
         for i, column in enumerate(self.output_columns):
             values = self.empty_value * np.ones(len(events), dtype=np.float32)
@@ -431,21 +526,28 @@ class _vbf_dnn_evaluation(Producer):
         if self.produce_features:
             # store input columns for sync
             cont_inputs_cols = [
-                "met_px", "met_py", "met_cov00", "met_cov01", "met_cov11",
                 "vis_tau1_px", "vis_tau1_py", "vis_tau1_pz", "vis_tau1_e",
                 "vis_tau2_px", "vis_tau2_py", "vis_tau2_pz", "vis_tau2_e",
                 "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e", "bjet1_tag_b", "bjet1_tag_cvsb", "bjet1_tag_cvsl",
                 "bjet1_hhbtag",
                 "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e", "bjet2_tag_b", "bjet2_tag_cvsb", "bjet2_tag_cvsl",
                 "bjet2_hhbtag",
+                "nu1_px", "nu1_py", "nu1_pz",
+                "nu2_px", "nu2_py", "nu2_pz",
                 "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e",
-                "htt_e", "htt_px", "htt_py", "htt_pz",
-                "hbb_e", "hbb_px", "hbb_py", "hbb_pz",
-                "htthbb_e", "htthbb_px", "htthbb_py", "htthbb_pz",
-                "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz",
+                "htt_regr_px", "htt_regr_py", "htt_regr_pz", "htt_regr_e",
+                "hbb_px", "hbb_py", "hbb_pz", "hbb_e",
+                "httfatjet_regr_px", "httfatjet_regr_py", "httfatjet_regr_pz", "httfatjet_regr_e",
+                "vbfjet1_px", "vbfjet1_py", "vbfjet1_pz", "vbfjet1_e", "vbfjet1_pnet_QvsG",
+                "vbfjet2_px", "vbfjet2_py", "vbfjet2_pz", "vbfjet2_e", "vbfjet2_pnet_QvsG",
+                "M_chi",
+                "VBFjj_mass", "VBFdeltaR",
+                "etaprod_bb", "etaprod_vbfjvbfj",
+                "fwMoment_s_0", "fwMoment_T_0", "fwMoment_1_0", "fwMoment_s_2",
+                "htthbb_regr_e", "htthbb_regr_px", "htthbb_regr_py", "htthbb_regr_pz",
             ]
             cat_inputs_cols = [
-                "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
+                "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet", "has_vbf_jets",  # noqa: E501
             ]
             for c in cont_inputs_cols + cat_inputs_cols:
                 values = self.empty_value * np.ones(len(events), dtype=np.float32)
@@ -465,8 +567,8 @@ class _vbf_dnn_evaluation(Producer):
 
 class _vbf_dnn(_vbf_dnn_evaluation):
 
-    dir_name = "model_fold0"
-    output_prefix = "res_dnn"
+    dir_name = "model_0"
+    output_prefix = "vbf_dnn"
 
     def init_func(self, **kwargs) -> None:
         super().init_func(**kwargs)
@@ -474,43 +576,11 @@ class _vbf_dnn(_vbf_dnn_evaluation):
         # output column names (in this order)
         self.output_columns = [
             f"{self.output_prefix}_{name}"
-            for name in ["hh", "tt", "dy"]
+            for name in ["VBF", "ggF", "tt", "dy"]
         ]
 
         # update produced columns
         self.produces |= set(self.output_columns)
-
-
-class res_pdnn(_res_dnn):
-    """
-    Parameterized network, trained with Radion (spin 0) and Graviton (spin 2) samples up to mX = 3000 GeV in all run 2
-    eras.
-    """
-
-    parametrized = True
-    dir_name = "model_fold0"
-    exposed = True
-    mass = 500
-    spin = 0
-
-    def init_func(self, **kwargs) -> None:
-        super().init_func(**kwargs)
-
-        # check spin value and mass values
-        if self.spin not in {0, 2}:
-            raise ValueError(f"invalid spin value: {self.spin}")
-        if self.mass < 250:
-            raise ValueError(f"invalid mass value: {self.mass}")
-
-
-class res_dnn(_res_dnn):
-    """
-    Non-parameterized network, trained only with Radion (spin 0) samples up to mX = 800 GeV across all run 2 eras.
-    """
-
-    parametrized = False
-    dir_name = "model_fold0"
-    exposed = True
 
 
 class _run3_vbf_dnn(_vbf_dnn):
@@ -535,8 +605,99 @@ class _run3_vbf_dnn(_vbf_dnn):
 
 # derive evaluation producers for all folds
 for fold in range(_run3_vbf_dnn.n_folds):
+    # TODO: clarify dir_name, depending on unpacking, currently asuming no subdirectory inside the archive
     _run3_vbf_dnn.derive(f"run3_vbf_dnn_fold{fold}", cls_dict={
         "fold": fold,
         "external_name": f"run3_vbf_dnn_fold{fold}",
         "exposed": True,
     })
+
+#
+# producer for combining the results of all folds
+#
+
+
+class run3_vbf_dnn(Producer):
+
+    # require ProduceColumns tasks per fold first when True, otherwise evaluate all folds in the same task
+    require_producers = True
+
+    # when require_producers is False, the sandbox must be set
+    # sandbox = _run3_vbf_dnn.sandbox
+
+    # when require_producers is True, decide whether to remove their outputs after successful combination
+    remove_producers = True
+
+    # used and produced columns
+    # (used ones are updated dynamically in init_func)
+    uses = {"event"}
+    produces = {"run3_vbf_dnn_{VBF,ggF,tt,dy}"}
+
+    def init_func(self, **kwargs) -> None:
+        # store dnn evaluation classes
+        self.dnn_classes = {
+            f: _run3_vbf_dnn.get_cls(f"run3_vbf_dnn_fold{f}")
+            for f in range(_run3_vbf_dnn.n_folds)
+        }
+
+        # update used columns / dependencies
+        for dnn_cls in self.dnn_classes.values():
+            self.uses.add(f"{dnn_cls.cls_name}_{{VBF,ggF,tt,dy}}" if self.require_producers else dnn_cls)
+
+    def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
+        if not self.require_producers:
+            return
+
+        from columnflow.tasks.production import ProduceColumns
+        reqs["run3_vbf_dnn_folds"] = {
+            f: ProduceColumns.req_other_producer(task, producer=dnn_cls.cls_name)
+            for f, dnn_cls in self.dnn_classes.items()
+        }
+
+    def setup_func(
+        self,
+        task: law.Task,
+        reqs: dict,
+        inputs: dict,
+        reader_targets: law.util.InsertableDict,
+        **kwargs,
+    ) -> None:
+        if not self.require_producers:
+            return
+
+        # add outputs of required producers to list of columnar files that are read in the producer loop
+        reader_targets.update({
+            f"run3_vbf_dnn_fold{f}": inp["columns"]
+            for f, inp in inputs["run3_vbf_dnn_folds"].items()
+        })
+
+        # potentially store references to inputs to removal later on
+        if self.remove_producers:
+            self.remove_producer_inputs = [inp["columns"] for inp in inputs["run3_vbf_dnn_folds"].values()]
+
+    def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
+        event_fold = events.event % _run3_vbf_dnn.n_folds
+
+        # invoke the evaluations of all folds when not requiring them as dedicated producers
+        if not self.require_producers:
+            for dnn_cls in self.dnn_classes.values():
+                events = self[dnn_cls](events, **kwargs)
+
+        for out in ["VBF", "ggF", "tt", "dy"]:
+            # fill score from columns at positions with different folds
+            score = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
+            for f in range(_run3_vbf_dnn.n_folds):
+                score[event_fold == f] = events[f"run3_vbf_dnn_fold{f}_{out}"][event_fold == f]
+
+            # assign to new column
+            events = set_ak_column_f32(events, f"run3_vbf_dnn_{out}", score)
+
+        return events
+
+    def teardown_func(self, task: law.Task, **kwargs) -> None:
+        super().teardown_func(task, **kwargs)
+
+        # remove outputs of required producers
+        if self.require_producers and self.remove_producers:
+            for inp in self.remove_producer_inputs:
+                inp.remove()
