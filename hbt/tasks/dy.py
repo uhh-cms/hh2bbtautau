@@ -162,15 +162,15 @@ def get_ratio_values(h: hist.Hist, variable_inst: od.Variable) -> tuple[hist.His
     h = h.copy()
     if variable_inst.x("underflow", False):
         v = h.view(flow=True)
-        v.values[..., 1] += v.values[..., 0]
+        v.value[..., 1] += v.value[..., 0]
         v.variance[..., 1] += v.variance[..., 0]
-        v.values[..., 0] = 0.0
+        v.value[..., 0] = 0.0
         v.variance[..., 0] = 0.0
     if variable_inst.x("overflow", False):
         v = h.view(flow=True)
-        v.values[..., -2] += v.values[..., -1]
+        v.value[..., -2] += v.value[..., -1]
         v.variance[..., -2] += v.variance[..., -1]
-        v.values[..., -1] = 0.0
+        v.value[..., -1] = 0.0
         v.variance[..., -1] = 0.0
 
     # get and sum process histograms
