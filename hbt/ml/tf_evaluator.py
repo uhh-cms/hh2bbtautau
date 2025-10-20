@@ -35,7 +35,6 @@ class TFEvaluator:
     class Model:
         name: str
         path: str
-        pipe: Connection | None = None
         signature_key: str = ""
 
     def __init__(self) -> None:
@@ -43,6 +42,7 @@ class TFEvaluator:
 
         self._models: dict[str, TFEvaluator.Model] = {}
         self._p: Process | None = None
+        self._pipe: Connection | None = None
 
         self.delay = 0.2
         self.silent = False
@@ -86,13 +86,15 @@ class TFEvaluator:
         config = []
         for model in self._models.values():
             parent_pipe, child_pipe = Pipe()
-            model.pipe = parent_pipe
-            config.append({"name": model.name, "path": model.path, "pipe": child_pipe})
+            config.append({"name": model.name, "path": model.path})
+
+        # setup the pipes
+        self._pipe, child_pipe = Pipe()
 
         # create and start the process
         self._p = Process(
             target=_tf_evaluate,
-            args=(config,),
+            args=(config, child_pipe),
             kwargs={"delay": self.delay, "silent": self.silent},
         )
         self._p.start()
@@ -104,19 +106,23 @@ class TFEvaluator:
         # get the model
         if name not in self._models:
             raise ValueError(f"model with name '{name}' does not exist")
-        model = self._models[name]
 
-        # evaluate and send back result
-        model.pipe.send((args, kwargs))  # type: ignore[union-attr]
-        return model.pipe.recv()  # type: ignore[union-attr]
+        # evaluate
+        self._pipe.send((name, args, kwargs))  # type: ignore[union-attr]
+
+        # wait for and receive result
+        res_name, res = self._pipe.recv()  # type: ignore[union-attr]
+        if res_name != name:
+            raise RuntimeError(f"received result for unexpected model '{res_name}' (expected '{name}')")
+
+        return res
 
     def stop(self, timeout: int | float = 5) -> None:
-        # stop and remove model pipes
-        for model in self._models.values():
-            if model.pipe is not None:
-                model.pipe.send(STOP_SIGNAL)
-                model.pipe.close()
-                model.pipe = None
+        # stop and remove pipe
+        if self._pipe is not None:
+            self._pipe.send(STOP_SIGNAL)
+            self._pipe.close()
+            self._pipe = None
 
         # nothing to do when not running
         if not self.running:
@@ -136,6 +142,7 @@ class TFEvaluator:
 
 def _tf_evaluate(
     config: list[dict[str, Any]],
+    pipe: Connection,
     /,
     *,
     delay: int | float = 0.2,
@@ -152,23 +159,19 @@ def _tf_evaluate(
     class Model:
         name: str
         path: str
-        pipe: Connection
         signature_key: str = ""
         model: Any = None
 
         @classmethod
         def new(cls, config: dict[str, Any], /) -> Model:
-            for attr in ("name", "path", "pipe"):
+            for attr in ["name", "path"]:
                 if attr not in config:
                     raise ValueError(f"missing field '{attr}' in model config")
             if not os.path.exists(config["path"]):
                 raise FileNotFoundError(f"model file '{config['path']}' does not exist")
-            if not isinstance(config["pipe"], Connection):
-                raise TypeError(f"'pipe' {config['pipe']} not of type '{Connection}'")
             return cls(
                 name=config["name"],
                 path=config["path"],
-                pipe=config["pipe"],
                 signature_key=config.get("signature_key", ""),
             )
 
@@ -187,50 +190,51 @@ def _tf_evaluate(
         def clear(self) -> None:
             _print(f"clearing model '{self.name}'")
             self.model = None
-            self.pipe.close()
 
-    # convert to model objects
-    models = [Model.new(item) for item in config]
-
-    # load model objects
-    for model in models:
+    # convert to model objects and load
+    models = {}
+    for item in config:
+        model = Model.new(item)
+        models[model.name] = model
         model.load()
 
     # helper for gracefully shutting down
     def shutdown() -> None:
-        for model in models:
+        for model in models.values():
             model.clear()
         models.clear()
+        pipe.close()
 
     # start loop listening for data
     while models:
-        remove_models: list[int] = []
-        for i, model in enumerate(models):
-            # skip if there is no data to process
-            if not model.pipe.poll():
-                continue
+        # sleep if there is not data to process
+        if not pipe.poll():
+            time.sleep(delay)
+            continue
 
-            # get data and process
-            data = model.pipe.recv()
-            if isinstance(data, tuple) and len(data) == 2:
-                # evaluate
-                try:
-                    args, kwargs = data
-                    result = model.evaluate(*args, **kwargs)
-                except:
-                    shutdown()
-                    raise
+        # receive data and select model
+        data = pipe.recv()
+        if isinstance(data, tuple) and len(data) == 3:
+            # normal evaluation
+            try:
+                name, args, kwargs = data
+                result = models[name].evaluate(*args, **kwargs)
                 # send back result
-                model.pipe.send(result)
-
-            elif data == STOP_SIGNAL:
-                # remove model
-                model.clear()
-                remove_models.append(i)
-
-            else:
-                raise ValueError(f"unexpected data type {type(data)}")
-
-        # reduce models and sleep
-        models = [model for i, model in enumerate(models) if i not in remove_models]
-        time.sleep(delay)
+                pipe.send((name, result))
+            except:
+                shutdown()
+                raise
+        elif isinstance(data, tuple) and len(data) == 2 and data[1] == STOP_SIGNAL:
+            # stop a specific model
+            try:
+                name = data[0]
+                models[name].clear()
+                models.pop(name)
+            except:
+                shutdown()
+                raise
+        elif data == STOP_SIGNAL:
+            # stop all models
+            shutdown()
+        else:
+            raise ValueError(f"received unexpected data type through pipe: {type(data)}")

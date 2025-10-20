@@ -1764,3 +1764,19 @@ def add_triggers_2023(config: od.Config) -> None:
         )),
         tags={"cross_trigger", "cross_tau_tau_jet"},
     )
+
+
+def add_triggers_2024(config: od.Config) -> None:
+    """
+    Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
+    https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
+
+    TODO: add references
+    """
+    # get the nano version
+    # nano_version = config.campaign.x.version
+    # get_bit_sum_v = functools.partial(get_bit_sum, nano_version)
+
+    config.x.triggers = od.UniqueObjectIndex(Trigger)
+
+    # TODO: add triggers

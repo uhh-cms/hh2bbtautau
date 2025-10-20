@@ -15,14 +15,15 @@ from columnflow.production import Producer
 from columnflow.production.cms.dy import gen_dilepton
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
-from columnflow.types import Callable
+from columnflow.types import TYPE_CHECKING, Callable
 
 from hbt.util import IF_DATASET_IS_DY_AMCATNLO, IF_DATASET_IS_DY_POWHEG, IF_DATASET_IS_W_LNU
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
-sp = maybe_import("scipy")
-maybe_import("scipy.sparse")
+if TYPE_CHECKING:
+    scipy = maybe_import("scipy")
+    maybe_import("scipy.sparse")
 
 
 logger = law.logger.get_logger(__name__)
@@ -64,7 +65,7 @@ class stitched_process_ids(Producer):
         ...
 
     @abc.abstractproperty
-    def id_lut(self) -> sp.sparse._lil.lil_matrix:
+    def id_lut(self) -> scipy.sparse._lil.lil_matrix:
         # must be overwritten by inheriting classes
         ...
 
@@ -106,7 +107,8 @@ class stitched_process_ids(Producer):
             self.stitching_values_cross_check(process_inst, stitching_values)
 
         # lookup the id and check for invalid values
-        process_ids = np.squeeze(np.asarray(self.id_lut[self.compute_lut_index(*stitching_values), 0].todense()))
+        # (when the length of the events chunk is 1 by chance, the LUT access fails)
+        process_ids = self.read_lut(stitching_values)
         invalid_mask = process_ids == 0
         if ak.any(invalid_mask):
             raise ValueError(f"found {sum(invalid_mask)} events that could not be assigned to a process")
@@ -129,6 +131,20 @@ class stitched_process_ids(Producer):
         events = set_ak_column(events, "process_id", process_ids, value_type=np.int64)
 
         return events
+
+    def read_lut(self, values: list[np.array | ak.Array]) -> np.array:
+        # compute the index where to access the LUT
+        lut_index = self.compute_lut_index(*values)
+
+        # when the length is exactly one, the sparse matrix access reduces and shape and fails, so artifically extend it
+        extend = len(lut_index) == 1
+        if extend:
+            lut_index = np.tile(lut_index, 2)
+
+        # lookup
+        value = np.squeeze(np.asarray(self.id_lut[lut_index, 0].todense()))
+
+        return value[:1] if extend else value
 
     def stitching_values_cross_check(
         self,
@@ -224,6 +240,8 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
         ...
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        import scipy.sparse
+
         # fill stitching ranges
         for proc in self.leaf_processes:
             njets = proc.x(self.njets_aux, (0, np.inf))
@@ -234,7 +252,7 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
         self.stitching_ranges = sorted(set(self.stitching_ranges))
 
         # define the lookup table
-        self.id_lut = sp.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:
@@ -312,6 +330,8 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         return super().call_func(events, **kwargs)
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        import scipy.sparse
+
         # fill stitching ranges
         for proc in self.leaf_processes:
             lep = proc.x(self.lep_aux, 0)
@@ -323,7 +343,7 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         self.stitching_ranges = sorted(set(self.stitching_ranges))
 
         # define the lookup table
-        self.id_lut = sp.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:
@@ -405,6 +425,8 @@ class stitched_process_ids_m(stitched_process_ids):
         self.produces |= cond(["process_id"])
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        import scipy.sparse
+
         # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset
         stitching_ranges = [
             proc.x(self.var_aux)
@@ -416,7 +438,7 @@ class stitched_process_ids_m(stitched_process_ids):
 
         # define the lookup table
         max_var_bin = len(self.sorted_stitching_ranges)
-        self.id_lut = sp.sparse.lil_matrix((max_var_bin + 1, 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.lil_matrix((max_var_bin + 1, 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:

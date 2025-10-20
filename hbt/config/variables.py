@@ -15,6 +15,7 @@ from columnflow.util import maybe_import
 
 from hbt.util import create_lvector_xyz
 
+np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
 
@@ -786,7 +787,7 @@ def add_variables(config: od.Config) -> None:
             config,
             name=f"res_dnn_{proc}_fine",
             expression=f"res_dnn_{proc}",
-            binning=(5000, 0.0, 1.0),
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
             x_title=rf"{proc.upper()} output bin, res. DNN",
             aux={"x_transformations": "equal_distance_with_indices"},
         )
@@ -801,11 +802,64 @@ def add_variables(config: od.Config) -> None:
 
         add_variable(
             config,
-            name=f"dnn_diff_{proc}",
-            expression=(lambda events: events[f"run3_dnn_moe_{proc}"] - events[f"res_dnn_{proc}"]),
-            aux={"inputs": {f"run3_dnn_moe_{proc}", f"res_dnn_{proc}"}},
-            binning=(50, -1.0, 1.0),
-            x_title=rf"$\Delta$DNN (Run3, Run2), {proc.upper()} output node",
+            name=f"run3_dnn_moe_{proc}_10",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=(10, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output node",
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_moe_{proc}_fine",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_moe_{proc}_fine_5k",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=(5000, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_{proc}_fine",
+            expression=f"run3_dnn_simple_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_kl1_{proc}_fine",
+            expression=f"run3_dnn_simple_kl1_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_kl0_{proc}_fine",
+            expression=f"run3_dnn_simple_kl0_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_allkl_{proc}_fine",
+            expression=f"run3_dnn_simple_allkl_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
         )
 
 

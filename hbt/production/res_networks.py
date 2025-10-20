@@ -83,7 +83,7 @@ class _res_dnn_evaluation(Producer):
     features_prefix: str = ""
 
     # produced columns are added in the deferred init below
-    sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh")
+    sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_hbt.sh")
 
     # not exposed to command line selection
     exposed = False
@@ -108,6 +108,14 @@ class _res_dnn_evaluation(Producer):
         # add features to produced columns
         if self.produce_features:
             self.produces.add(f"{self.features_prefix}{self.cls_name}_*")
+
+        # update shifts dynamically
+        self.shifts.add("minbias_xs_{up,down}")  # variations of minbias_xs used in met phi correction
+        self.shifts.update({  # all calibrations that change jet and lepton momenta
+            shift_inst.name
+            for shift_inst in self.config_inst.shifts
+            if shift_inst.has_tag({"jec", "jer", "tec", "eec", "eer"})
+        })
 
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
         if "external_files" in reqs:
@@ -525,7 +533,7 @@ class _reg_dnn(_res_dnn_evaluation):
 
         # output column names (in this order)
         self.output_columns = [
-            f"reg_dnn_nu{i}_{v}"
+            f"{self.output_prefix}_nu{i}_{v}"
             for i in range(1, 2 + 1)
             for v in ["px", "py", "pz"]
         ]
@@ -540,6 +548,7 @@ class reg_dnn(_reg_dnn):
     """
 
     dir_name = "model_fold0_seed0"
+    output_prefix = "reg_dnn"
     exposed = True
 
 
@@ -549,6 +558,7 @@ class reg_dnn_moe(_reg_dnn):
     """
 
     dir_name = "model_fold0_moe"
+    output_prefix = "reg_dnn_moe"
     exposed = True
 
 
@@ -587,6 +597,21 @@ for fold in range(_run3_dnn.n_folds):
     })
 
 
+class run3_dnn_simple(_run3_dnn):
+    """
+    Simple version of the run 3 dnn with a single fold for quick comparisons. Trained with kl 1 and 0.
+    """
+
+    fold = None
+    external_name = "run3_dnn_simple"
+    exposed = True
+
+
+# same as :py:class:`run3_dnn_simple` but trained for different kl variations
+for kl in ["kl1", "kl0", "allkl"]:
+    run3_dnn_simple.derive(f"run3_dnn_simple_{kl}", cls_dict={"external_name": f"run3_dnn_simple_{kl}"})
+
+
 #
 # producer for combining the results of all folds
 #
@@ -594,9 +619,13 @@ for fold in range(_run3_dnn.n_folds):
 class run3_dnn_moe(Producer):
 
     # require ProduceColumns tasks per fold first when True, otherwise evaluate all folds in the same task
-    # (when False, the sandbox must be set)
     require_producers = True
+
+    # when require_producers is False, the sandbox must be set
     # sandbox = _run3_dnn.sandbox
+
+    # when require_producers is True, decide whether to remove their outputs after successful combination
+    remove_producers = True
 
     # used and produced columns
     # (used ones are updated dynamically in init_func)
@@ -620,7 +649,7 @@ class run3_dnn_moe(Producer):
 
         from columnflow.tasks.production import ProduceColumns
         reqs["run3_dnn_folds"] = {
-            f: ProduceColumns.req(task, producer=dnn_cls.cls_name, producer_inst=None, known_shifts=None)
+            f: ProduceColumns.req_other_producer(task, producer=dnn_cls.cls_name)
             for f, dnn_cls in self.dnn_classes.items()
         }
 
@@ -630,14 +659,20 @@ class run3_dnn_moe(Producer):
         reqs: dict,
         inputs: dict,
         reader_targets: law.util.InsertableDict,
+        **kwargs,
     ) -> None:
         if not self.require_producers:
             return
 
+        # add outputs of required producers to list of columnar files that are read in the producer loop
         reader_targets.update({
             f"run3_dnn_fold{f}": inp["columns"]
             for f, inp in inputs["run3_dnn_folds"].items()
         })
+
+        # potentially store references to inputs to removal later on
+        if self.remove_producers:
+            self.remove_producer_inputs = [inp["columns"] for inp in inputs["run3_dnn_folds"].values()]
 
     def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
         event_fold = events.event % _run3_dnn.n_folds
@@ -657,3 +692,11 @@ class run3_dnn_moe(Producer):
             events = set_ak_column_f32(events, f"run3_dnn_moe_{out}", score)
 
         return events
+
+    def teardown_func(self, task: law.Task, **kwargs) -> None:
+        super().teardown_func(task, **kwargs)
+
+        # remove outputs of required producers
+        if self.require_producers and self.remove_producers:
+            for inp in self.remove_producer_inputs:
+                inp.remove()

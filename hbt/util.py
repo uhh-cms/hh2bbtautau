@@ -49,8 +49,18 @@ def IF_NANO_V14(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any 
 
 
 @deferred_column
+def IF_NANO_V15(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if func.config_inst.campaign.x.version == 15 else None
+
+
+@deferred_column
 def IF_NANO_GE_V10(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
     return self.get() if func.config_inst.campaign.x.version >= 10 else None
+
+
+@deferred_column
+def IF_NANO_GE_V14(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if func.config_inst.campaign.x.version >= 14 else None
 
 
 @deferred_column
@@ -68,6 +78,21 @@ def IF_RUN_3_2022(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> An
     return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2022) else None
 
 
+@deferred_column
+def IF_RUN_3_2023(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2023) else None
+
+
+@deferred_column
+def IF_RUN_3_2024(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2024) else None
+
+
+@deferred_column
+def IF_RUN_3_22_23(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    return self.get() if (func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2022, 2023}) else None  # noqa: E501
+
+
 def IF_DATASET_HAS_TAG(*args, negate: bool = False, **kwargs) -> ArrayFunction.DeferredColumn:
     @deferred_column
     def deferred(
@@ -83,6 +108,7 @@ IF_DATASET_NOT_HAS_TAG = functools.partial(IF_DATASET_HAS_TAG, negate=True)
 
 IF_DATASET_HAS_LHE_WEIGHTS = IF_DATASET_NOT_HAS_TAG("no_lhe_weights")
 IF_DATASET_HAS_TOP = IF_DATASET_HAS_TAG("has_top")
+IF_DATASET_HAS_HIGGS = IF_DATASET_HAS_TAG("has_higgs")
 IF_DATASET_IS_TT = IF_DATASET_HAS_TAG("ttbar")
 IF_DATASET_IS_DY = IF_DATASET_HAS_TAG("dy")
 IF_DATASET_IS_DY_MADGRAPH = IF_DATASET_HAS_TAG("dy_madgraph")
@@ -185,3 +211,31 @@ def create_lvector_xyz(px: ak.Array, py: ak.Array, pz: ak.Array, behavior: dict 
     """
     p = (px**2 + py**2 + pz**2)**0.5
     return create_lvector_exyz(p, px, py, pz, behavior=behavior)
+
+
+_uppercase_wps = {
+    "vvvvloose": "VVVVLoose",
+    "vvvloose": "VVVLoose",
+    "vvloose": "VVLoose",
+    "vloose": "VLoose",
+    "loose": "Loose",
+    "medium": "Medium",
+    "tight": "Tight",
+    "vtight": "VTight",
+    "vvtight": "VVTight",
+    "vvvtight": "VVVTight",
+    "vvvvtight": "VVVVTight",
+}
+
+
+def uppercase_wp(wp: str) -> str:
+    """
+    Converts a working point string to uppercase format.
+
+    :param wp: Working point string.
+    :return: Uppercase working point string.
+    """
+    wp = wp.lower()
+    if wp not in _uppercase_wps:
+        raise ValueError(f"unknown working point for uppercase conversion: {wp}")
+    return _uppercase_wps[wp]

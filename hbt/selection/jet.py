@@ -124,6 +124,7 @@ def jet_trigger_matching(
         hhbtag, vbfjtag,
         "Jet.hhbtag", "Jet.vbfjtag", "Jet.assignment_bits", "matched_trigger_ids",
     },
+    max_chunk_size=20_000,  # limit the chunk size due to hhbtag and vbfjtag being used simultaneously
 )
 def jet_selection(
     self: Selector,
@@ -380,7 +381,7 @@ def jet_selection(
 
     # indices for sorting fatjets first by particleNet score, then by pt
     # for this, combine pNet score and pt values, e.g. pNet 255 and pt 32.3 -> 2550032.3
-    f = 10**(np.ceil(np.log10(ak.max(events.FatJet.pt))) + 2)
+    f = 10**(np.ceil(np.log10(ak.max(events.FatJet.pt) or 0.0)) + 2)
     fatjet_sorting_key = events.FatJet.particleNet_XbbVsQCD * f + events.FatJet.pt
     fatjet_sorting_indices = ak.argsort(fatjet_sorting_key, axis=-1, ascending=False)
 

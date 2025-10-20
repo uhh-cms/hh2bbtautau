@@ -1,0 +1,49 @@
+#!/usr/bin/env python
+
+from __future__ import annotations
+
+import glob
+
+import law
+
+law.contrib.load("pyarrow")
+
+
+def main(
+    src_paths: list[str],
+    dst_path: str,
+    target_row_group_size: int = 50_000,
+) -> None:
+    writer_opts = {
+        "compression": "ZSTD",
+        "compression_level": 1,
+        "use_dictionary": False,
+        "use_compliant_nested_type": False,
+    }
+
+    # resolve src paths
+    resolved_src_paths = sum((glob.glob(str(p)) for p in src_paths), [])
+
+    law.pyarrow.merge_parquet_files(
+        resolved_src_paths,
+        dst_path,
+        force=True,
+        writer_opts=writer_opts,
+        target_row_group_size=target_row_group_size,
+    )
+
+
+if __name__ == "__main__":
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description="merge multiple parquet files into a single file")
+    parser.add_argument("dst_path", type=str, help="path to the output parquet file")
+    parser.add_argument("src_paths", type=str, nargs="+", help="paths to files to be merged")
+    parser.add_argument("--target-row-group-size", "-s", type=int, default=50_000, help="target row group size")
+    args = parser.parse_args()
+
+    main(
+        src_paths=args.src_paths,
+        dst_path=args.dst_path,
+        target_row_group_size=args.target_row_group_size,
+    )

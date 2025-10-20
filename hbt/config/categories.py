@@ -4,12 +4,18 @@
 Definition of categories.
 """
 
+from __future__ import annotations
+
 import functools
 
+import law
 import order as od
 
-from columnflow.config_util import add_category, create_category_combinations, CategoryGroup
+from columnflow.config_util import add_category, create_category_combinations, CategoryGroup, track_category_changes
 from columnflow.types import Any
+
+
+logger = law.logger.get_logger(__name__)
 
 
 def add_categories(config: od.Config) -> None:
@@ -19,6 +25,9 @@ def add_categories(config: od.Config) -> None:
     # root category (-1 has special meaning in cutflow)
     root_cat = add_category(config, name="all", id=-1, selection="cat_all", label="")
     _add_category = functools.partial(add_category, parent=root_cat)
+
+    # reset the maximum category id counter
+    od.Category._max_id = 0
 
     # lepton channels
     _add_category(config, name="etau", id=1, selection="cat_etau", label=config.channels.n.etau.label)
@@ -36,12 +45,20 @@ def add_categories(config: od.Config) -> None:
 
     # kinematic categories
     _add_category(config, name="incl", id="+", selection="cat_incl", label="inclusive")
+    _add_category(config, name="ge0j", id="+", selection="cat_ge0j", label="")
     _add_category(config, name="eq0j", id="+", selection="cat_eq0j", label="0 jets")
     _add_category(config, name="eq1j", id="+", selection="cat_eq1j", label="1 jet")
     _add_category(config, name="eq2j", id="+", selection="cat_eq2j", label="2 jets")
     _add_category(config, name="eq3j", id="+", selection="cat_eq3j", label="3 jets")
     _add_category(config, name="eq4j", id="+", selection="cat_eq4j", label="4 jets")
-    _add_category(config, name="ge5j", id="+", selection="cat_ge5j", label=r"$\ge$5 jets")
+    _add_category(config, name="eq5j", id="+", selection="cat_eq5j", label="5 jets")
+    _add_category(config, name="ge4j", id="+", selection="cat_ge4j", label=r"$\geq$4 jets")
+    _add_category(config, name="ge5j", id="+", selection="cat_ge5j", label=r"$\geq$5 jets")
+    _add_category(config, name="ge6j", id="+", selection="cat_ge6j", label=r"$\geq$6 jets")
+    _add_category(config, name="ge0b", id="+", selection="cat_ge0b", label="")
+    _add_category(config, name="eq0b", id="+", selection="cat_eq0b", label="0 b-tags")
+    _add_category(config, name="eq1b", id="+", selection="cat_eq1b", label="1 b-tag")
+    _add_category(config, name="ge2b", id="+", selection="cat_ge2b", label=r"$\geq$2 b-tags")
     _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
     _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
     _add_category(config, name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
@@ -77,9 +94,9 @@ def add_categories(config: od.Config) -> None:
             "aux": aux,
             # label
             "label": ", ".join([
-                cat.label or cat.name
+                cat.label
                 for cat in categories.values()
-                if cat.name != "os" and cat.name != "iso"  # os and iso are the defaults
+                if cat.label and cat.name != "os" and cat.name != "iso"  # os and iso are the defaults
             ]) or None,
         }
 
@@ -98,17 +115,20 @@ def add_categories(config: od.Config) -> None:
         config=config,
         categories=main_categories,
         name_fn=name_fn,
+        parent_mode="safe",
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=True),
+        skip_existing=False,
     )
 
     # control categories
     control_categories = {
-        # channels first
+        # channels
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
-        # kinematic regions in the middle (to be extended)
+        # kinematic regions
         "kin": CategoryGroup(["incl", "dy", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
-        "jets": CategoryGroup(["eq0j", "eq1j", "eq2j", "eq3j", "eq4j", "ge5j"], is_complete=True, has_overlap=False),
-        # relative sign last
+        "jets": CategoryGroup(["ge0j", "eq2j", "eq3j", "eq4j", "ge4j", "eq5j", "ge6j"], is_complete=True, has_overlap=True),  # noqa: E501
+        "tags": CategoryGroup(["ge0b", "eq0b", "eq1b", "ge2b"], is_complete=True, has_overlap=True),
+        # relative sign
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
 
@@ -129,6 +149,10 @@ def add_categories(config: od.Config) -> None:
         config=config,
         categories=control_categories,
         name_fn=name_fn,
+        parent_mode="safe",
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=False),
+        skip_existing=False,
         skip_fn=skip_fn_ctrl,
     )
+
+    track_category_changes(config)
