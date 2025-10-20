@@ -6,8 +6,11 @@ and formulas) for the DY weight correction in the hh2bbtautau analysis.
 """
 
 from __future__ import annotations
+from typing import Literal
 
 import re
+import dataclasses
+import law
 
 import correctionlib.schemav2 as cs
 
@@ -102,9 +105,22 @@ def create_dy_weight_correction(dy_weight_data: dict) -> cs.Correction:
 if __name__ == "__main__":
     import gzip
 
+    @dataclasses.dataclass
+    class Norm:
+        nom: float
+        unc: float
+
+        @property
+        def up(self) -> float:
+            return self.nom + self.unc
+
+        @property
+        def down(self) -> float:
+            return max(0.0, self.nom - self.unc)
+
     # dilep_pt fit functions
     # era --> number of central jets --> post-fit formula string taking gen_pT as x variable
-    formulas = {
+    dilep_pt_formulas = {
         "2022preEE": {
             2: "(0.5*(erf(-0.08*(x-29.35284418720058))+1))*((0.6000000000000001)+((4.13788351736806)*(1/12.68384416493451)*exp(-0.5*((x-16.549864140670717)/12.68384416493451)^2)))+(0.5*(erf(0.08*(x-29.35284418720058))+1))*((0.886372488501618)+(0.0002545066273632575)*x)",  # noqa: E501
             3: "(0.5*(erf(-0.08*(x-20.000000000006253))+1))*((0.6000000000055947)+((4.684935079638329)*(1/9.749315961972627)*exp(-0.5*((x-14.635668433059768)/9.749315961972627)^2)))+(0.5*(erf(0.08*(x-20.000000000006253))+1))*((0.9937281234059175)+(1.192308108942791e-05)*x)",  # noqa: E501
@@ -127,115 +143,115 @@ if __name__ == "__main__":
         },
     }
 
-    # normalization factors
+    # normalization factors per b-tag multiplicity
     # era --> number of central jets --> number of b-tagged jets --> (factor, stat error)
-    normalizations = {
+    btag_norms = {
         "2022preEE": {
             2: {
-                0: (0.997251140, 0.002422338),
-                1: (1.044380589, 0.008200641),
-                2: (0.895170017, 0.026916529),
+                0: Norm(0.997251140, 0.002422338),
+                1: Norm(1.044380589, 0.008200641),
+                2: Norm(0.895170017, 0.026916529),
             },
             3: {
-                0: (0.990245980, 0.005056013),
-                1: (1.089209583, 0.015094569),
-                2: (0.926079449, 0.038549343),
+                0: Norm(0.990245980, 0.005056013),
+                1: Norm(1.089209583, 0.015094569),
+                2: Norm(0.939658629, 0.038047498),
             },
             4: {
-                0: (0.938042307, 0.010249876),
-                1: (1.062744212, 0.028129369),
-                2: (0.995487479, 0.068359428),
+                0: Norm(0.938042307, 0.010249876),
+                1: Norm(1.062744212, 0.028129369),
+                2: Norm(1.023759119, 0.066833551),
             },
             5: {
-                0: (1.133954255, 0.026400875),
-                1: (1.294831981, 0.066763389),
-                2: (1.332290175, 0.154036250),
+                0: Norm(1.133954255, 0.026400875),
+                1: Norm(1.294831981, 0.066763389),
+                2: Norm(1.369825379, 0.149507801),
             },
             6: {
-                0: (1.364025809, 0.061990316),
-                1: (1.708922077, 0.150386411),
-                2: (1.779048522, 0.315197022),
+                0: Norm(1.364025809, 0.061990316),
+                1: Norm(1.708922077, 0.150386411),
+                2: Norm(1.833289964, 0.306732068),
             },
         },
         "2022postEE": {
             2: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             3: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             4: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             5: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             6: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
         },
         "2023preBPix": {
             2: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             3: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             4: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             5: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             6: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
         },
         "2023postBPix": {
             2: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             3: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             4: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             5: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
             6: {
-                0: (1.0, 0.0),
-                1: (1.0, 0.0),
-                2: (1.0, 0.0),
+                0: Norm(1.0, 0.0),
+                1: Norm(1.0, 0.0),
+                2: Norm(1.0, 0.0),
             },
         },
     }
@@ -247,94 +263,45 @@ if __name__ == "__main__":
     cap_x = lambda s: re.sub(r"\bx\b", "min(x,200)", s)
     inf = float("inf")
 
-    # nested structure of formulas
+    def get_factor(era, njets, btag, direction: Literal["nom", "up", "down"]):
+        return [(0.0, inf, f"{getattr(btag_norms[era][njets][btag], direction)}*({cap_x(dilep_pt_formulas[era][njets if njets < 5 else 4])})")]  # noqa: E501
+
+    # initialize nested dictionary
     # era --> shift --> number of central jets --> number of b-tagged jets --> scale factor
-    dy_weight_data = {
-        y: {
-            "nom": {
-                (2, 3): {
-                    (0, 1): [(0.0, inf, f"{normalizations[y][2][0][0]}*({cap_x(formulas[y][2])})")],
-                    (1, 2): [(0.0, inf, f"{normalizations[y][2][1][0]}*({cap_x(formulas[y][2])})")],
-                    (2, 101): [(0.0, inf, f"{normalizations[y][2][2][0]}*({cap_x(formulas[y][2])})")],
-                },
-                (3, 4): {
-                    (0, 1): [(0.0, inf, f"{normalizations[y][3][0][0]}*({cap_x(formulas[y][3])})")],
-                    (1, 2): [(0.0, inf, f"{normalizations[y][3][1][0]}*({cap_x(formulas[y][3])})")],
-                    (2, 101): [(0.0, inf, f"{normalizations[y][3][2][0]}*({cap_x(formulas[y][3])})")],
-                },
-                (4, 5): {
-                    (0, 1): [(0.0, inf, f"{normalizations[y][4][0][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"{normalizations[y][4][1][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"{normalizations[y][4][2][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-                (5, 6): {
-                    (0, 1): [(0.0, inf, f"{normalizations[y][5][0][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"{normalizations[y][5][1][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"{normalizations[y][5][2][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-                (6, 101): {
-                    (0, 1): [(0.0, inf, f"{normalizations[y][6][0][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"{normalizations[y][6][1][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"{normalizations[y][6][2][0]}*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-            },
-            "up": {
-                (2, 3): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][2][0][0]}+{normalizations[y][2][0][1]})*({cap_x(formulas[y][2])})")],
-                    (1, 2): [(0.0, inf, f"({normalizations[y][2][1][0]}+{normalizations[y][2][1][1]})*({cap_x(formulas[y][2])})")],
-                    (2, 101): [(0.0, inf, f"({normalizations[y][2][2][0]}+{normalizations[y][2][2][1]})*({cap_x(formulas[y][2])})")],
-                },
-                (3, 4): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][3][0][0]}+{normalizations[y][3][0][1]})*({cap_x(formulas[y][3])})")],
-                    (1, 2): [(0.0, inf, f"({normalizations[y][3][1][0]}+{normalizations[y][3][1][1]})*({cap_x(formulas[y][3])})")],
-                    (2, 101): [(0.0, inf, f"({normalizations[y][3][2][0]}+{normalizations[y][3][2][1]})*({cap_x(formulas[y][3])})")],
-                },
-                (4, 5): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][4][0][0]}+{normalizations[y][4][0][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"({normalizations[y][4][1][0]}+{normalizations[y][4][1][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"({normalizations[y][4][2][0]}+{normalizations[y][4][2][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-                (5, 6): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][5][0][0]}+{normalizations[y][5][0][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"({normalizations[y][5][1][0]}+{normalizations[y][5][1][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"({normalizations[y][5][2][0]}+{normalizations[y][5][2][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-                (6, 101): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][6][0][0]}+{normalizations[y][6][0][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"({normalizations[y][6][1][0]}+{normalizations[y][6][1][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"({normalizations[y][6][2][0]}+{normalizations[y][6][2][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-            },
-            "down": {
-                (2, 3): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][2][0][0]}-{normalizations[y][2][0][1]})*({cap_x(formulas[y][2])})")],
-                    (1, 2): [(0.0, inf, f"({normalizations[y][2][1][0]}-{normalizations[y][2][1][1]})*({cap_x(formulas[y][2])})")],
-                    (2, 101): [(0.0, inf, f"({normalizations[y][2][2][0]}-{normalizations[y][2][2][1]})*({cap_x(formulas[y][2])})")],
-                },
-                (3, 4): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][3][0][0]}-{normalizations[y][3][0][1]})*({cap_x(formulas[y][3])})")],
-                    (1, 2): [(0.0, inf, f"({normalizations[y][3][1][0]}-{normalizations[y][3][1][1]})*({cap_x(formulas[y][3])})")],
-                    (2, 101): [(0.0, inf, f"({normalizations[y][3][2][0]}-{normalizations[y][3][2][1]})*({cap_x(formulas[y][3])})")],
-                },
-                (4, 5): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][4][0][0]}-{normalizations[y][4][0][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"({normalizations[y][4][1][0]}-{normalizations[y][4][1][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"({normalizations[y][4][2][0]}-{normalizations[y][4][2][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-                (5, 6): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][5][0][0]}-{normalizations[y][5][0][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"({normalizations[y][5][1][0]}-{normalizations[y][5][1][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"({normalizations[y][5][2][0]}-{normalizations[y][5][2][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-                (6, 101): {
-                    (0, 1): [(0.0, inf, f"({normalizations[y][6][0][0]}-{normalizations[y][6][0][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (1, 2): [(0.0, inf, f"({normalizations[y][6][1][0]}-{normalizations[y][6][1][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                    (2, 101): [(0.0, inf, f"({normalizations[y][6][2][0]}-{normalizations[y][6][2][1]})*({cap_x(formulas[y][4])})")],  # noqa: E501
-                },
-            },
+    dy_weight_data = {}
+    for era in dilep_pt_formulas.keys():
+
+        # build nominal dict first
+        nom = {
+            (njets, njets + 1 if njets < 6 else 101): {
+                (btag, btag + 1 if btag < 2 else 101): get_factor(era, njets, btag, "nom")
+                for btag in [0, 1, 2]
+            }
+            for njets in [2, 3, 4, 5, 6]
         }
-        for y in formulas.keys()
-    }
+
+        # build up shifts per b-tag multiplicity
+        up_shifts = {
+            f"stat_bjet{btag}_up": law.util.merge_dicts(nom, {
+                jet_key: {
+                    (btag, btag + 1 if btag < 2 else 101): get_factor(era, jet_key[0], btag, "up")
+                } for jet_key in nom.keys()
+            }, deep=True)
+            for btag in [0, 1, 2]
+        }
+
+        # build down shifts per b-tag multiplicity
+        down_shifts = {
+            f"stat_bjet{btag}_down": law.util.merge_dicts(nom, {
+                jet_key: {
+                    (btag, btag + 1 if btag < 2 else 101): get_factor(era, jet_key[0], btag, "down")
+                } for jet_key in nom.keys()
+            }, deep=True)
+            for btag in [0, 1, 2]
+        }
+
+        # combine into the final mapping for this era
+        dy_weight_data[era] = {"nom": nom, **up_shifts, **down_shifts}
 
     # create and save the correction set
     cset = cs.CorrectionSet(
@@ -346,5 +313,5 @@ if __name__ == "__main__":
     )
 
     print(cset.model_dump_json(exclude_unset=True))
-    with gzip.open("hbt_corrections_pt_njets-ntags.json.gz", "wt") as f:
+    with gzip.open("hbt_corrections_btag_stat_shifts.json.gz", "wt") as f:
         f.write(cset.model_dump_json(exclude_unset=True))
