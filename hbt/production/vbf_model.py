@@ -8,7 +8,6 @@ See https://github.com/uhh-cms/tautauNN
 from __future__ import annotations
 
 import functools
-import itertools
 
 import law
 
@@ -42,9 +41,10 @@ def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Arr
 
 class _vbf_dnn_evaluation(Producer):
     """
-    Base producer for the vbf dnn evaluation of the non-resonant run 3 analysis, whose models are considered external and thus part
-    of producers rather than standalone ml model objects. The output scores are classifying if incoming events are VBF, GGF,
-    Drell-Yan or ttbar. The network uses continous and categorical inputs. A list of all inputs in the
+    Base producer for the vbf dnn evaluation of the non-resonant run 3 analysis, whose models are considered external
+    and thus part of producers rather than standalone ml model objects.
+    The output scores are classifying if incoming events are VBF, GGF, Drell-Yan or ttbar.
+    The network uses continous and categorical inputs. A list of all inputs in the
     correct order can be found in the Filip's eos space:
     https://cernbox.cern.ch/files/spaces/eos/user/f/fbilandz/meta.json
     """
@@ -63,7 +63,7 @@ class _vbf_dnn_evaluation(Producer):
         "Jet.{pt,eta,phi,mass,btagDeepFlav*,btagPNet*,assignment_bits}",
         "FatJet.{eta,phi,pt,mass}",
         # regressed neutrinos from reg_dnn_moe producer
-        "reg_dnn_nu{1,2}_{px,py,pz}",
+        "reg_dnn_moe_nu{1,2}_{px,py,pz}",
     }
 
     # directory of the unpacked model archive (no subdirectory is expected when None)
@@ -80,7 +80,7 @@ class _vbf_dnn_evaluation(Producer):
     features_prefix: str = ""
 
     # produced columns are added in the deferred init below
-    sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh")
+    sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_hbt.sh")
 
     # not exposed to command line selection
     exposed = False
@@ -124,16 +124,26 @@ class _vbf_dnn_evaluation(Producer):
         from columnflow.tasks.external import BundleExternalFiles
         reqs["external_files"] = BundleExternalFiles.req(task)
 
-    def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
+    def setup_func(
+        self,
+        task: law.Task,
+        reqs: dict[str, DotDict[str, Any]],
+        inputs: dict,
+        reader_targets: law.util.InsertableDict,
+        **kwargs,
+    ) -> None:
+        # add outputs of required producers to list of columnar files that are read in the producer loop
+        reader_targets["reg_dnn_moe"] = inputs["reg_dnn_moe"][0]["columns"]
+        # reader_targets.update({
+        #     "reg_dnn_moe": inp["columns"]
+        #     for inp in inputs["reg_dnn_moe"].items()
+        # })
+
         from hbt.ml.tf_evaluator import TFEvaluator
 
         if not getattr(task, "taf_tf_evaluator", None):
             task.taf_tf_evaluator = TFEvaluator()
         self.evaluator = task.taf_tf_evaluator
-
-        # some checks
-        if not isinstance(self.parametrized, bool):
-            raise AttributeError("'parametrized' must be set in the producer configuration")
 
         # TODO: check paths here
         # unpack the model archive
@@ -309,35 +319,47 @@ class _vbf_dnn_evaluation(Producer):
         f.vbfjet2_pnet_QvsG = vbfjets[:, 1]["btagPNetQvG"]
 
         # neutrinos from regression
-        f.nu1_px = _events.reg_dnn_nu1_px
-        f.nu1_py = _events.reg_dnn_nu1_py
-        f.nu1_pz = _events.reg_dnn_nu1_pz
-        f.nu2_px = _events.reg_dnn_nu2_px
-        f.nu2_py = _events.reg_dnn_nu2_py
-        f.nu2_pz = _events.reg_dnn_nu2_pz
+        f.nu1_px = _events.reg_dnn_moe_nu1_px
+        f.nu1_py = _events.reg_dnn_moe_nu1_py
+        f.nu1_pz = _events.reg_dnn_moe_nu1_pz
+        f.nu2_px = _events.reg_dnn_moe_nu2_px
+        f.nu2_py = _events.reg_dnn_moe_nu2_py
+        f.nu2_pz = _events.reg_dnn_moe_nu2_pz
 
         # mask values as done during training of the network
         def mask_values(mask, value, *fields):
+            if not ak.any(mask):
+                print("No values to mask for fields:", fields)
+                return
             for field in fields:
                 arr = ak.fill_none(f[field], value, axis=0)
                 flat_np_view(arr)[mask] = value
+                f[field] = arr
+        def mask_values_with_array(mask, value_array, *fields):
+            if not ak.any(mask):
+                print("No values to mask for fields:", fields)
+                return
+            for field in fields:
+                if ak.sum(ak.is_none(f[field]) | mask) > ak.sum(mask):
+                    raise RuntimeError("Still some None values in field: {} despite masking!".format(field))
+                arr = ak.fill_none(f[field], 0., axis=0)
+                flat_np_view(arr)[mask] = flat_np_view(value_array)[mask]
                 f[field] = arr
 
         # TODO: check default values, should be rotated from -999 pt and -999 phi
         default_value_all = -999.0
         default_value_px_py = rotate_to_phi(phi_lep, default_value_all * np.cos(default_value_all), default_value_all * np.sin(default_value_all))  # noqa: E501
-        from IPython import embed; embed(header="check rotation with -999")
-        mask_values(~has_jet_pair, default_value_px_py[0], "bjet1_px", "bjet2_px")
-        mask_values(~has_jet_pair, default_value_px_py[1], "bjet1_py", "bjet2_py")
+        mask_values_with_array(~has_jet_pair, default_value_px_py[0], "bjet1_px", "bjet2_px")
+        mask_values_with_array(~has_jet_pair, default_value_px_py[1], "bjet1_py", "bjet2_py")
         mask_values(~has_jet_pair, default_value_all, "bjet1_pz", "bjet1_e", "bjet2_pz", "bjet2_e")
         mask_values(~has_jet_pair, default_value_all, "bjet1_tag_b", "bjet1_tag_cvsb", "bjet1_tag_cvsl", "bjet1_hhbtag")
         mask_values(~has_jet_pair, default_value_all, "bjet2_tag_b", "bjet2_tag_cvsb", "bjet2_tag_cvsl", "bjet2_hhbtag")
-        mask_values(~has_fatjet, default_value_px_py[0], "fatjet_px")
-        mask_values(~has_fatjet, default_value_px_py[1], "fatjet_py")
+        mask_values_with_array(~has_fatjet, default_value_px_py[0], "fatjet_px")
+        mask_values_with_array(~has_fatjet, default_value_px_py[1], "fatjet_py")
         mask_values(~has_fatjet, default_value_all, "fatjet_pz", "fatjet_e")
-        mask_values(~has_vbf_jets, default_value_px_py[0], "vbfjet1_px", "vbfjet2_px")
-        mask_values(~has_vbf_jets, default_value_px_py[1], "vbfjet1_py", "vbfjet2_py")
-        mask_values(~has_vbf_jets, default_value_all, "vbfjet1_pz", "vbfjet1_e", "vbfjet2_pz", "vbfjet2_e")
+        mask_values_with_array(~has_vbf_jets, default_value_px_py[0], "vbfjet1_px", "vbfjet2_px")
+        mask_values_with_array(~has_vbf_jets, default_value_px_py[1], "vbfjet1_py", "vbfjet2_py")
+        mask_values(~has_vbf_jets, default_value_all, "vbfjet1_pz", "vbfjet1_e", "vbfjet2_pz", "vbfjet2_e", "vbfjet1_pnet_QvsG", "vbfjet2_pnet_QvsG")  # noqa: E501
 
         # define neutrino energy
         nu1_e = (f.nu1_px**2 + f.nu1_py**2 + f.nu1_pz**2)**0.5
@@ -371,7 +393,7 @@ class _vbf_dnn_evaluation(Producer):
         f.httfatjet_regr_py = f.htt_regr_py + f.fatjet_py
         f.httfatjet_regr_pz = f.htt_regr_pz + f.fatjet_pz
         # TODO: modify default value
-        mask_values(~has_fatjet, -999.0, "httfatjet_regr_e", "httfatjet_regr_px", "httfatjet_regr_py", "httfatjet_regr_pz")
+        mask_values(~has_fatjet, -999.0, "httfatjet_regr_e", "httfatjet_regr_px", "httfatjet_regr_py", "httfatjet_regr_pz")  # noqa: E501
 
         # vbf jets system variables
         f.VBFjj_mass = ((f.vbfjet1_e + f.vbfjet2_e)**2 -
@@ -379,14 +401,33 @@ class _vbf_dnn_evaluation(Producer):
                         (f.vbfjet1_py + f.vbfjet2_py)**2 -
                         (f.vbfjet1_pz + f.vbfjet2_pz)**2)**0.5
 
-        f.VBFdeltaR = ((f.vbfjet1_eta - f.vbfjet2_eta)**2 + (f.vbfjet1_phi - f.vbfjet2_phi)**2)**0.5
-        f.etaprod_vbfjvbfj = f.vbfjet1_eta * f.vbfjet2_eta
+        vbfjet_1_phi = np.arctan2(f.vbfjet1_py, f.vbfjet1_px)
+        vbfjet_2_phi = np.arctan2(f.vbfjet2_py, f.vbfjet2_px)
+        # valid for pz > 0
+        vbfjet1_eta = -np.log(np.tan(0.5 * np.arctan2(
+            (f.vbfjet1_px**2 + f.vbfjet1_py**2)**0.5,
+            (f.vbfjet1_px**2 + f.vbfjet1_py**2 + f.vbfjet1_pz**2)**0.5,
+        )))
+        vbfjet2_eta = -np.log(np.tan(0.5 * np.arctan2(
+            (f.vbfjet2_px**2 + f.vbfjet2_py**2)**0.5,
+            (f.vbfjet2_px**2 + f.vbfjet2_py**2 + f.vbfjet2_pz**2)**0.5,
+        )))
+        f.VBFdeltaR = ((vbfjet1_eta - vbfjet2_eta)**2 + (vbfjet_1_phi - vbfjet_2_phi)**2)**0.5
+        f.etaprod_vbfjvbfj = vbfjet1_eta * vbfjet2_eta
         # default values
         # TODO: check default values: -999 or using the values needed for calculating?
         mask_values(~has_vbf_jets, -999.0, "VBFjj_mass", "VBFdeltaR", "etaprod_vbfjvbfj")
 
         # bb system variables
-        f.etaprod_bb = f.bjet1_eta * f.bjet2_eta
+        bjet1_eta = -np.log(np.tan(0.5 * np.arctan2(
+            (f.bjet1_px**2 + f.bjet1_py**2)**0.5,
+            (f.bjet1_px**2 + f.bjet1_py**2 + f.bjet1_pz**2)**0.5,
+        )))
+        bjet2_eta = -np.log(np.tan(0.5 * np.arctan2(
+            (f.bjet2_px**2 + f.bjet2_py**2)**0.5,
+            (f.bjet2_px**2 + f.bjet2_py**2 + f.bjet2_pz**2)**0.5,
+        )))
+        f.etaprod_bb = bjet1_eta * bjet2_eta
         # default values
         # TODO: check default values: -999 or using the values needed for calculating?
         mask_values(~has_jet_pair, -999.0, "etaprod_bb")
@@ -406,7 +447,7 @@ class _vbf_dnn_evaluation(Producer):
         # mask_values(~(has_jet_pair | has_fatjet), -999.0, "M_chi")
 
         # fox wolfram moments
-        # defined in https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHUtils.cc?ref_type=heads#L742-811
+        # defined in https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHUtils.cc?ref_type=heads#L742-811  # noqa: E501
         # TODO: change hhbjets to fatjet for boosted events
 
         mask_hhbjets_vbfjets = (_events.Jet.assignment_bits == 0)
@@ -414,28 +455,25 @@ class _vbf_dnn_evaluation(Producer):
         central_jets = _events.Jet[mask_hhbjets_vbfjets]
         # all central jets + hhbjets + vbfjets
         vbfcjets = ak.concatenate((_events.HHBJet, _events.VBFJet, central_jets), axis=1)
-        sum_p = ak.sum(vbfcjets, axis=1)
+        sum_p_squared = (
+            ak.sum(vbfcjets.energy, axis=1)**2 - ak.sum(vbfcjets.px, axis=1)**2 -
+            ak.sum(vbfcjets.py, axis=1)**2 - ak.sum(vbfcjets.pz, axis=1)**2
+        )
         sum_pt = ak.sum(vbfcjets.pt, axis=1)
-        for ijet, jjet in itertools.combinations(vbfcjets, 2):
-            omega_ij = (np.cos(ijet.theta) * np.cos(jjet.theta) +
-                        np.sin(ijet.theta) * np.sin(jjet.theta) * np.cos(ijet.phi - jjet.phi))
-            legendre_0 = np.polynomial.legendre.Legendre([1, 0, 0])(omega_ij)
-            legendre_2 = np.polynomial.legendre.Legendre([0, 0, 1])(omega_ij)
-            weight_s = (
-                (ijet.px**2 + ijet.py**2 + ijet.pz**2)**0.5 *
-                (jjet.px**2 + jjet.py**2 + jjet.pz**2)**0.5
-            ) / (sum_p**2)
-            weight_T = (ijet.pt * jjet.pt) / (sum_pt**2)
-            if "fwMoment_s_0" not in f:
-                f.fwMoment_s_0 = weight_s * legendre_0
-                f.fwMoment_T_0 = weight_T * legendre_0
-                f.fwMoment_1_0 = legendre_0
-                f.fwMoment_s_2 = weight_s * legendre_2
-            else:
-                f.fwMoment_s_0 += weight_s * legendre_0
-                f.fwMoment_T_0 += weight_T * legendre_0
-                f.fwMoment_1_0 += legendre_0
-                f.fwMoment_s_2 += weight_s * legendre_2
+        ijet, jjet = ak.unzip(ak.combinations(vbfcjets, 2, axis=1))
+        omega_ij = (np.cos(ijet.theta) * np.cos(jjet.theta) +
+                    np.sin(ijet.theta) * np.sin(jjet.theta) * np.cos(ijet.phi - jjet.phi))
+        legendre_0 = np.polynomial.legendre.Legendre([1, 0, 0])(omega_ij)
+        legendre_2 = np.polynomial.legendre.Legendre([0, 0, 1])(omega_ij)
+        weight_s = (
+            (ijet.px**2 + ijet.py**2 + ijet.pz**2)**0.5 *
+            (jjet.px**2 + jjet.py**2 + jjet.pz**2)**0.5
+        ) / (sum_p_squared)
+        weight_T = (ijet.pt * jjet.pt) / (sum_pt**2)
+        f.fwMoment_s_0 = ak.sum(weight_s * legendre_0, axis=1)
+        f.fwMoment_T_0 = ak.sum(weight_T * legendre_0, axis=1)
+        f.fwMoment_1_0 = ak.sum(legendre_0, axis=1)  # sum over 1s...
+        f.fwMoment_s_2 = ak.sum(weight_s * legendre_2, axis=1)
         # TODO: add terms for j = fatjet
 
         # default values
@@ -485,6 +523,10 @@ class _vbf_dnn_evaluation(Producer):
             ]
             if t is not None
         ]
+        # except Exception as e:
+        #     print("Error while building continous inputs for VBF DNN:", e)
+        #     from IPython import embed; embed(headers="in call_func of vbf_dnn_evaluation")  # noqa: E501
+        #     raise e
 
         # build categorical inputs
         # (order exactly as documented in link above)
@@ -506,16 +548,19 @@ class _vbf_dnn_evaluation(Producer):
             ],
         )
 
+        print(f"As VBF-classified events:{ak.sum(ak.argmax(scores, axis=1) == 0)} from {len(scores)} events")
         # TODO: check if still accurate
-        # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
-        # so issue a warning and set them to a default value
-        nan_mask = ~np.isfinite(scores)
-        if np.any(nan_mask):
-            logger.warning(
-                f"{nan_mask.sum() // scores.shape[1]} out of {scores.shape[0]} events have NaN scores; "
-                f"setting them to {self.empty_value}",
-            )
-            scores[nan_mask] = self.empty_value
+        if ak.sum(~np.isfinite(scores)) > 0:
+            raise RuntimeError("NaN scores in VBF DNN evaluation!")
+        # # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
+        # # so issue a warning and set them to a default value
+        # nan_mask = ~np.isfinite(scores)
+        # if np.any(nan_mask):
+        #     logger.warning(
+        #         f"{nan_mask.sum() // scores.shape[1]} out of {scores.shape[0]} events have NaN scores; "
+        #         f"setting them to {self.empty_value}",
+        #     )
+        #     scores[nan_mask] = self.empty_value
 
         # prepare output columns with the shape of the original events and assign values into them
         for i, column in enumerate(self.output_columns):
@@ -632,6 +677,7 @@ class run3_vbf_dnn(Producer):
     # (used ones are updated dynamically in init_func)
     uses = {"event"}
     produces = {"run3_vbf_dnn_{VBF,ggF,tt,dy}"}
+    exposed = True
 
     def init_func(self, **kwargs) -> None:
         # store dnn evaluation classes
