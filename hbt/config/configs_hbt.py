@@ -1703,6 +1703,8 @@ def add_config(
     add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    add_external("external_dnn", (f"/afs/desy.de/user/w/wiedersb/xxl/pytorch_network_playground/run3_external_dnn.pt2", "v2"))  # noqa: E501
+    # add_external("external_dnn", (f"{central_hbt_dir}/run3_models/run3_external_dnn.pt2", "v2"))  # noqa: E501
 
     # run specific files
     if run == 2:
