@@ -30,7 +30,6 @@ class PyTEvaluator:
         with evaluator:
             result = evaluator("model_name", input_data)
     """
-
     @dataclass
     class Model:
         name: str
@@ -65,7 +64,7 @@ class PyTEvaluator:
     def running(self) -> bool:
         return self._p is not None
 
-    def add_model(self, name: str, path: str | pathlib.Path, build_fn = None, build_cfg = None) -> None:
+    def add_model(self, name: str, path: str | pathlib.Path, build_fn=None, build_cfg=None) -> None:
         if self.running:
             raise ValueError("cannot add models while running")
         if name in self._models:
@@ -88,7 +87,15 @@ class PyTEvaluator:
         for model in self._models.values():
             parent_pipe, child_pipe = Pipe()
             model.pipe = parent_pipe
-            config.append({"name": model.name, "path": model.path, "pipe": child_pipe, "build_fn": model.build_fn, "build_cfg": model.build_cfg})
+            config.append(
+                {
+                    "name": model.name,
+                    "path": model.path,
+                    "pipe": child_pipe,
+                    "build_fn": model.build_fn,
+                    "build_cfg": model.build_cfg,
+                },
+            )
 
         # create and start the process
         self._p = Process(
@@ -108,7 +115,6 @@ class PyTEvaluator:
         model = self._models[name]
 
         # evaluate and send back result
-        from IPython import embed; embed(header="string - 110 in torch_evaluator.py ")
         model.pipe.send((args, kwargs))  # type: ignore[union-attr]
         return model.pipe.recv()  # type: ignore[union-attr]
 
@@ -190,7 +196,6 @@ def _pyt_evaluate(
             _print("done")
 
         def evaluate(self, *args, **kwargs) -> np.ndarray:
-            from IPython import embed; embed(header="string - 191 in torch_evaluator.py ")
             return self.model(*args, **kwargs).numpy()
 
         def clear(self) -> None:

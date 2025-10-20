@@ -18,7 +18,6 @@ from columnflow.columnar_util import (
 )
 from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.types import Any
-from hbt.production.res_networks import _res_dnn_evaluation
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -81,6 +80,7 @@ class external_dnn(Producer):
 
     # not exposed to command line selection
     exposed = True
+
     @property
     def external_name(self) -> str:
         # name of the model bundle in the external files
@@ -120,7 +120,6 @@ class external_dnn(Producer):
 
         # update produced columns
         self.produces |= set(self.output_columns)
-
 
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
         if "external_files" in reqs:
@@ -193,7 +192,6 @@ class external_dnn(Producer):
         # task.taf_pyt_evaluator = None
         # self.evaluator = None
         pass
-
 
     def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
         # start the evaluator
@@ -413,10 +411,12 @@ class external_dnn(Producer):
         # torch export evaluation, input is expected as tuple of tuples of tensors
         # torch script cant handle numpy only tensors (for some reason... dont ask)
         # returns tensor that is converted back to numpy
-        scores = self.model_graph.module()((
-            torch.from_numpy(np.concatenate(categorical_inputs, axis=1)),
-            torch.from_numpy(np.concatenate(continous_inputs, axis=1)),
-        ),)
+        scores = self.model_graph.module()(
+            (
+                torch.from_numpy(np.concatenate(categorical_inputs, axis=1)),
+                torch.from_numpy(np.concatenate(continous_inputs, axis=1)),
+            ),
+        )
         # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
         # so issue a warning and set them to a default value
         nan_mask = ~np.isfinite(scores.numpy())
