@@ -1623,7 +1623,6 @@ def add_config(
                 run=3,
                 vnano=12,
                 era="23CSep23-Summer23",
-                pog_eras={"tau": "23CSep23-Summer22"},  # TODO: remove once typo in CAT repo is fixed
                 pog_directories={"dc": "Collisions23"},
                 snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
