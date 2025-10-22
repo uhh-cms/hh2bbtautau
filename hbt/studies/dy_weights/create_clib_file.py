@@ -270,6 +270,7 @@ if __name__ == "__main__":
     # era --> shift --> number of central jets --> number of b-tagged jets --> scale factor
     dy_weight_data = {}
     for era in dilep_pt_formulas.keys():
+        dy_weight_data[era] = {}
 
         # build nominal dict first
         nom = {
@@ -279,29 +280,25 @@ if __name__ == "__main__":
             }
             for njets in [2, 3, 4, 5, 6]
         }
+        dy_weight_data[era]["nom"] = nom
 
-        # build up shifts per b-tag multiplicity
-        up_shifts = {
-            f"stat_bjet{btag}_up": law.util.merge_dicts(nom, {
-                jet_key: {
-                    (btag, btag + 1 if btag < 2 else 101): get_factor(era, jet_key[0], btag, "up")
-                } for jet_key in nom.keys()
-            }, deep=True)
-            for btag in [0, 1, 2]
-        }
+        # consider each b-tag a separate uncertainty source
+        for btag in [0, 1, 2]:
+            for direction in ["up", "down"]:
+                shift_str = f"stat_btag{btag}_{direction}"
+                dy_weight_data[era][shift_str] = {}
 
-        # build down shifts per b-tag multiplicity
-        down_shifts = {
-            f"stat_bjet{btag}_down": law.util.merge_dicts(nom, {
-                jet_key: {
-                    (btag, btag + 1 if btag < 2 else 101): get_factor(era, jet_key[0], btag, "down")
-                } for jet_key in nom.keys()
-            }, deep=True)
-            for btag in [0, 1, 2]
-        }
+                bjet_dict = {}
+                # shift 0/1/2 btag entry for all njet entries at once
+                for jet_key in nom.keys():
+                    bjet_dict[jet_key] = law.util.merge_dicts(
+                        nom[jet_key],
+                        # only update the corresponding btag factor
+                        {(btag, btag + 1 if btag < 2 else 101): get_factor(era, jet_key[0], btag, direction)}, deep=True
+                    )
 
-        # combine into the final mapping for this era
-        dy_weight_data[era] = {"nom": nom, **up_shifts, **down_shifts}
+                # save shifted btag factor in nested dict
+                dy_weight_data[era][shift_str] = bjet_dict
 
     # create and save the correction set
     cset = cs.CorrectionSet(
@@ -313,5 +310,5 @@ if __name__ == "__main__":
     )
 
     print(cset.model_dump_json(exclude_unset=True))
-    with gzip.open("hbt_corrections_btag_stat_shifts.json.gz", "wt") as f:
+    with gzip.open("hbt_corrections.json.gz", "wt") as f:
         f.write(cset.model_dump_json(exclude_unset=True))
