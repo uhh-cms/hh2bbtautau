@@ -54,7 +54,7 @@ class _vbf_dnn_evaluation(Producer):
         # custom columns created upstream, probably by a selector
         "channel_id",
         # nano columns
-        "event",
+        "event", "run", "luminosityBlock",
         "Tau.{eta,phi,pt,mass,charge,decayMode}",
         "Electron.{eta,phi,pt,mass,charge}",
         "Muon.{eta,phi,pt,mass,charge}",
@@ -548,6 +548,7 @@ class _vbf_dnn_evaluation(Producer):
             ],
         )
 
+        from IPython import embed; embed(header="after VBF DNN evaluation")  # noqa: E501
         print(f"As VBF-classified events:{ak.sum(ak.argmax(scores, axis=1) == 0)} from {len(scores)} events")
         # TODO: check if still accurate
         if ak.sum(~np.isfinite(scores)) > 0:
