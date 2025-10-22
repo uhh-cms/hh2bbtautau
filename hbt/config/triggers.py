@@ -771,7 +771,7 @@ def add_triggers_2017(config: od.Config) -> None:
             "offline_cuts": {
                 "pt_jet1": 115.0,
                 "pt_jet2": 40.0,
-                "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
+                "mjj": 650.0,
                 "delta_eta_jj": None,
             },
         },
@@ -1015,7 +1015,7 @@ def add_triggers_2018(config: od.Config) -> None:
             "offline_cuts": {
                 "pt_jet1": 115.0,
                 "pt_jet2": 40.0,
-                "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
+                "mjj": 650.0,
                 "delta_eta_jj": None,
             },
         },
@@ -1252,7 +1252,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 "offline_cuts": {
                     "pt_jet1": 115.0,
                     "pt_jet2": 40.0,
-                    "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
+                    "mjj": 650.0,
                     "delta_eta_jj": None,
                 },
             },
@@ -1557,7 +1557,7 @@ def add_triggers_2023(config: od.Config) -> None:
             "offline_cuts": {
                 "pt_jet1": 115.0,
                 "pt_jet2": 40.0,
-                "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
+                "mjj": 650.0,
                 "delta_eta_jj": None,
             },
         },
@@ -1682,6 +1682,14 @@ def add_triggers_2023(config: od.Config) -> None:
                 ]),
             ),
         ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 45.0,
+                "pt_jet2": 45.0,
+                "mjj": 500.0,
+                "delta_eta_jj": 2.5,
+            },
+        },
         applies_to_dataset=(
             (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
             campaign_postfix == "preBPix")

@@ -68,8 +68,6 @@ def jet_trigger_matching(
             event_mask=trigger_fired,
         )
 
-    # TODO: check matching threshold für jets, 0.4 or 0.5?
-
     # all triggers with two jet legs
     # catch config errors
     if is_cross_vbf:
@@ -440,21 +438,7 @@ def jet_selection(
     # redefine the trigger matched list after it was updated with tautaujet ids
     matched_trigger_ids_list = [events.matched_trigger_ids]
 
-    # Note: the jet thresholds are the same ones as the trigger paths, no addition for turn-ons
-    # TODO: check if more clever to do ttj together with vbf...
-    # maybe not since the jets to be matched are different (ttj matches the HHbjets, vbf the vbfjets)
-    # jet_trigger_selection_criteria = {
-    #     tid: {
-    #         "pt_jet1": 75.0,
-    #         "pt_jet2": None,
-    #         "mjj": None,
-    #         "delta_eta_jj": None,
-    #     }
-    #     for tid in self.trigger_ids_ttj
-    # }
-
     parking_vbf_double_counting = full_like(events.event, False, dtype=bool)
-    # TODO: check whether channel specific selection might be necessary
     if all_vbf_trigger:
         vbf_trigger_fired_all_matched = full_like(events.event, False, dtype=bool)
         for trigger, _, leg_masks in trigger_results.x.trigger_data:
