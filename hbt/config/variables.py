@@ -532,6 +532,16 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
 
+    add_variable(
+        config,
+        name="nbjets_pnet_no_overflow",
+        expression=partial(build_nbjets, which="btagPNetB"),
+        aux={"inputs": build_nbjets.inputs, "overflow": False},
+        binning=(4, -0.5, 3.5),
+        x_title=r"Number of b-jets (PNet medium)",
+        discrete_x=True,
+    )
+
     # variables for DY studies
     add_variable(
         config,
@@ -872,6 +882,15 @@ def add_variables(config: od.Config) -> None:
         expression=lambda events: ak.num(events.Jet["pt"], axis=1),
         aux={"inputs": {"Jet.pt"}},
         binning=(11, -0.5, 10.5),
+        x_title="Number of jets",
+    )
+
+    add_variable(
+        config,
+        name="njets_overflow",
+        expression=lambda events: ak.num(events.Jet["pt"], axis=1),
+        aux={"inputs": {"Jet.pt"}, "overflow": True},
+        binning=(8, -0.5, 7.5),
         x_title="Number of jets",
     )
 

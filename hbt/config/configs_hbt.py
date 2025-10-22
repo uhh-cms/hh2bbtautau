@@ -1341,9 +1341,13 @@ def add_config(
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             correction="dy_weight",
-            systs=[],  # TODO: add systematics once existing
+            systs=[
+                "stat_btag0_up", "stat_btag0_down",
+                "stat_btag1_up", "stat_btag1_down",
+                "stat_btag2_up", "stat_btag2_down"
+            ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
-            get_ntags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
+            get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
             used_columns={"Jet.btagPNetB"},
         )
 
@@ -1586,17 +1590,11 @@ def add_config(
         cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
-    """
-    cfg.add_shift(name="dy_weight_up", id=210, type="shape")
-    cfg.add_shift(name="dy_weight_down", id=211, type="shape")
-    add_shift_aliases(
-        cfg,
-        "dy_weight",
-        {
-            "dy_weight": "dy_weight_{direction}",
-        },
-    )
-    """
+    # dy scale factors
+    for i, nb in enumerate([0, 1, 2]):
+        cfg.add_shift(name=f"dy_stat_btag{nb}_up", id=210 + 2 * i, type="shape")
+        cfg.add_shift(name=f"dy_stat_btag{nb}_down", id=211 + 2 * i, type="shape")
+        add_shift_aliases(cfg, f"dy_stat_btag{nb}", {"dy_weight": f"dy_weight_stat_btag{nb}_{{direction}}"})
 
     ################################################################################################
     # external files
@@ -1738,7 +1736,7 @@ def add_config(
         # dy weight and recoil corrections
         # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))  # noqa: E501
-        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_pt_njets-ntags.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections.json.gz", "v1"))  # noqa: E501
         # add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/analysis/hh2bbtautau/hbt_corrections_only_pT.json.gz", "v1"))  # noqa: E501
 
         # trigger scale factors
@@ -1838,11 +1836,10 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        if dataset.has_tag("ttbar"):
-            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        # if dataset.has_tag("ttbar"):
+        # dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
-            # dataset.x.event_weights = {"dy_weight": get_shifts("dy_weight")}  # TODO: list dy weight unceratinties
-            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
+            dataset.x.event_weights = {"dy_weight": get_shifts(*(f"dy_stat_btag{nb}" for nb in [0, 1, 2]))}
 
     cfg.x.shift_groups = {
         "jec": [
