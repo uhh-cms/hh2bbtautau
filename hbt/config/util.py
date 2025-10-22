@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from order import UniqueObject, TagMixin
+from order import UniqueObject, TagMixin, AuxMixin
 from order.util import typed
 
 from columnflow.types import Callable, Any, Sequence, Hashable, ClassVar
@@ -98,7 +98,7 @@ class TriggerLeg(object):
         return trigger_bits
 
 
-class Trigger(UniqueObject, TagMixin):
+class Trigger(UniqueObject, TagMixin, AuxMixin):
     """
     Container class storing information about triggers:
 
@@ -127,9 +127,11 @@ class Trigger(UniqueObject, TagMixin):
         legs: dict[Hashable, TriggerLeg] | Sequence[TriggerLeg] | None = None,
         applies_to_dataset: Callable | bool | Any = True,
         tags: Any = None,
+        aux: dict[str, Any] | None = None,
     ):
         UniqueObject.__init__(self, name, id)
         TagMixin.__init__(self, tags=tags)
+        AuxMixin.__init__(self, aux=aux)
 
         # force the id to be positive
         if self.id < 0:

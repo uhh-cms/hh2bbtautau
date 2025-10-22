@@ -143,7 +143,18 @@ def jet_selection(
     https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookNanoAOD?rev=100#Jets
     """
     is_2016 = self.config_inst.campaign.x.year == 2016
+    is_2023_pre = (
+        self.config_inst.campaign.x.year == 2023 and
+        self.config_inst.campaign.has_tag("preBPix")
+    )
+    is_2023_post = (
+        self.config_inst.campaign.x.year == 2023 and
+        self.config_inst.campaign.has_tag("postBPix")
+    )
     ch_tautau = self.config_inst.get_channel("tautau")
+
+    if self.dataset_inst.has_tag("parking_vbf") and not (is_2023_pre or is_2023_post):
+        raise ValueError("VBF parking datasets should only be used in 2023")
 
     # recompute jet ids
     events = self[jet_id](events, **kwargs)
@@ -221,7 +232,13 @@ def jet_selection(
     )
 
     # create mask for events that matched taus in any vbf trigger -> not tautau channel specific!
-    all_vbf_trigger = self.trigger_ids_ttv + self.trigger_ids_tv + self.trigger_ids_vbf + self.trigger_ids_ev + self.trigger_ids_mv  # noqa: E501
+    all_vbf_trigger = (
+        self.trigger_ids_ttv +
+        self.trigger_ids_tv +
+        self.trigger_ids_vbf +
+        self.trigger_ids_ev +
+        self.trigger_ids_mv
+    )
     vbf_lep_trigger_mask = (
         ak.any(reduce(
             or_,
@@ -436,48 +453,6 @@ def jet_selection(
     #     for tid in self.trigger_ids_ttj
     # }
 
-    jet_trigger_selection_criteria = {}
-
-    for tid in self.trigger_ids_ttv:
-        jet_trigger_selection_criteria[tid] = {
-            "pt_jet1": 115.0,
-            "pt_jet2": 40.0,
-            "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
-            "delta_eta_jj": None,
-        }
-
-    for tid in self.trigger_ids_tv:
-        jet_trigger_selection_criteria[tid] = {
-            "pt_jet1": 45.0,
-            "pt_jet2": 45.0,
-            "mjj": 500.0,
-            "delta_eta_jj": 2.5,
-        }
-
-    for tid in self.trigger_ids_vbf:
-        jet_trigger_selection_criteria[tid] = {
-            "pt_jet1": 105.0,
-            "pt_jet2": 40.0,
-            "mjj": 1000.0,
-            "delta_eta_jj": 3.5,
-        }
-
-    for tid in self.trigger_ids_ev:
-        jet_trigger_selection_criteria[tid] = {
-            "pt_jet1": 45.0,
-            "pt_jet2": 45.0,
-            "mjj": 500.0,
-            "delta_eta_jj": 2.5,
-        }
-
-    for tid in self.trigger_ids_mv:
-        jet_trigger_selection_criteria[tid] = {
-            "pt_jet1": 90.0,
-            "pt_jet2": 40.0,
-            "mjj": 600.0,
-            "delta_eta_jj": 2.5,
-        }
-
     parking_vbf_double_counting = full_like(events.event, False, dtype=bool)
     # TODO: check whether channel specific selection might be necessary
     if all_vbf_trigger:
@@ -485,12 +460,10 @@ def jet_selection(
         for trigger, _, leg_masks in trigger_results.x.trigger_data:
             if trigger.id in all_vbf_trigger:
                 # create event-level trigger requirements mask
-                pt_jet_1 = jet_trigger_selection_criteria[trigger.id].get("pt_jet1", None)
-                pt_jet_2 = jet_trigger_selection_criteria[trigger.id].get("pt_jet2", None)
-                mjj = jet_trigger_selection_criteria[trigger.id].get("mjj", None)
-                delta_eta_jj = jet_trigger_selection_criteria[trigger.id].get("delta_eta_jj", None)
-
-                n_required_jets = 2 if pt_jet_2 is not None else 1
+                pt_jet_1 = trigger.x.offline_cuts.get("pt_jet1", None)
+                pt_jet_2 = trigger.x.offline_cuts.get("pt_jet2", None)
+                mjj = trigger.x.offline_cuts.get("mjj", None)
+                delta_eta_jj = trigger.x.offline_cuts.get("delta_eta_jj", None)
 
                 # create the mask for the trigger requirements, unnecessarily complicated due to the possibility
                 # of less than 2 vbf jets being present
@@ -522,6 +495,7 @@ def jet_selection(
                     **kwargs,
                 )
 
+                n_required_jets = 2 if pt_jet_2 is not None else 1
                 _trigger_fired_all_matched = (
                     trigger_fired_leptons_matched &
                     trig_req_mask &
@@ -530,10 +504,6 @@ def jet_selection(
                 vbf_trigger_fired_all_matched = vbf_trigger_fired_all_matched | _trigger_fired_all_matched
                 ids = ak.where(_trigger_fired_all_matched, np.float32(trigger.id), np.float32(np.nan))
                 matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
-                print("trigger", trigger.name)
-                print("matched", ak.sum(_trigger_fired_all_matched))
-
-        print("overall vbf matches", ak.sum(vbf_trigger_fired_all_matched))
 
         # store the matched trigger ids
         matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
@@ -542,17 +512,10 @@ def jet_selection(
         # remove events if from parking_vbf datasets and matched by another trigger
         if self.dataset_inst.has_tag("parking_vbf"):
             set_trigger_tags_no_parking = {
-                "single_e", "single_mu", "cross_e_tau", "cross_mu_tau",
-                "cross_tau_tau", "cross_tau_tau_jet",
+                "single_e", "single_mu", "cross_e_tau", "cross_mu_tau", "cross_tau_tau", "cross_tau_tau_jet",
             }
-            is_2023 = self.config_inst.campaign.x.year == 2023
-            if is_2023:
-                # in 2023 pre, the cross_tau_tau_vbf trigger was stored in the Tau dataset
-                campaign_postfix = "preBPix" if self.config_inst.campaign.has_tag("preBPix") else "postBPix"
-                if campaign_postfix == "preBPix":
-                    set_trigger_tags_no_parking.add("cross_tau_tau_vbf")
-            else:
-                raise ValueError("The parking_vbf dataset should only be used in 2023")
+            if is_2023_pre:
+                set_trigger_tags_no_parking.add("cross_tau_tau_vbf")
             trigger_ids_no_parking = [
                 trigger.id for trigger in self.config_inst.x.triggers
                 if trigger.has_tag(set_trigger_tags_no_parking)
@@ -568,10 +531,7 @@ def jet_selection(
         # that fired vbf and tautaujet triggers and matched the leptons but not the jets
         lep_tid = [
             trigger.id for trigger in self.config_inst.x.triggers
-            if trigger.has_tag({
-                "single_e", "single_mu", "cross_e_tau", "cross_mu_tau",
-                "cross_tau_tau",
-            })
+            if trigger.has_tag({"single_e", "single_mu", "cross_e_tau", "cross_mu_tau", "cross_tau_tau"})
         ]
         lep_trigger_matched_mask = (
             ak.any(reduce(

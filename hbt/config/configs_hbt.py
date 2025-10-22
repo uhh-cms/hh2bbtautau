@@ -442,12 +442,11 @@ def add_config(
         *if_era(year=2023, tag="preBPix", values=[
             f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
         ]),
-        # *if_era(year=2023, tag="preBPix", values=[
-        #     f"data_{stream}_c{v}" for stream in ["parking_vbf"] for v in "34"
-        # ]),
+        *if_era(year=2023, tag="preBPix", values=[
+            f"data_{stream}_c{v}" for stream in ["parking_vbf"] for v in "34"
+        ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau"] for v in "12"
-            # f"data_{stream}_d{v}" for stream in ["e", "mu", "tau", "parking_vbf"] for v in "12"
+            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau", "parking_vbf"] for v in "12"
         ]),
         *if_era(year=2024, values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cdefghi"

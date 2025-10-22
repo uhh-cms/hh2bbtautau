@@ -91,7 +91,6 @@ trigger_bits = DotDict.wrap({
     # checked with https://github.com/cms-sw/cmssw/blob/CMSSW_15_0_X/PhysicsTools/NanoAOD/python/triggerObjects_cff.py#L235C1-L237C152  # noqa: E501
     # and in particular https://github.com/cms-sw/cmssw/blob/66b501ce9c2458f70674d1b977771ad22fe448eb/PhysicsTools/NanoAOD/python/triggerObjects_cff.py  # noqa: E501
 
-
     "e": {
         "CaloIdLTrackIdLIsoVL": Bits(v12=1, v14="v12", v15="v12"),
         "WPTightTrackIso": Bits(v12=2, v14="v12", v15="v12"),
@@ -768,6 +767,14 @@ def add_triggers_2017(config: od.Config) -> None:
                 trigger_bits=1,
             ),
         ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 115.0,
+                "pt_jet2": 40.0,
+                "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
+                "delta_eta_jj": None,
+            },
+        },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
         tags={"cross_trigger", "cross_tau_tau_vbf"},
     )
@@ -1004,6 +1011,14 @@ def add_triggers_2018(config: od.Config) -> None:
                 trigger_bits=1,
             ),
         ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 115.0,
+                "pt_jet2": 40.0,
+                "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
+                "delta_eta_jj": None,
+            },
+        },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
         tags={"cross_trigger", "cross_tau_tau_vbf"},
     )
@@ -1233,6 +1248,14 @@ def add_triggers_2022(config: od.Config) -> None:
                     ]),
                 ),
             ),
+            aux={
+                "offline_cuts": {
+                    "pt_jet1": 115.0,
+                    "pt_jet2": 40.0,
+                    "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
+                    "delta_eta_jj": None,
+                },
+            },
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
             tags={"cross_trigger", "cross_tau_tau_vbf"},
         )
@@ -1530,6 +1553,14 @@ def add_triggers_2023(config: od.Config) -> None:
                 ]),
             ),
         ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 115.0,
+                "pt_jet2": 40.0,
+                "mjj": 650.0,  # TODO: check why? does not seem to be in the trigger filters...
+                "delta_eta_jj": None,
+            },
+        },
         applies_to_dataset=(lambda dataset_inst: ((
             (dataset_inst.is_mc or dataset_inst.has_tag("tautau")) and
             campaign_postfix == "preBPix"
@@ -1563,6 +1594,14 @@ def add_triggers_2023(config: od.Config) -> None:
                 ]),
             ),
         ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 105.0,
+                "pt_jet2": 40.0,
+                "mjj": 1000.0,
+                "delta_eta_jj": 3.5,
+            },
+        },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
         tags={"cross_trigger", "cross_vbf"},
     )
@@ -1599,6 +1638,14 @@ def add_triggers_2023(config: od.Config) -> None:
                 ]),
             ),
         ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 90.0,
+                "pt_jet2": 40.0,
+                "mjj": 600.0,
+                "delta_eta_jj": 2.5,
+            },
+        },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
         tags={"cross_trigger", "cross_mu_vbf"},
     )
@@ -1674,6 +1721,14 @@ def add_triggers_2023(config: od.Config) -> None:
                 ]),
             ),
         ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 45.0,
+                "pt_jet2": 45.0,
+                "mjj": 500.0,
+                "delta_eta_jj": 2.5,
+            },
+        },
         applies_to_dataset=(
             (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
             campaign_postfix == "postBPix")
@@ -1718,6 +1773,14 @@ def add_triggers_2023(config: od.Config) -> None:
                 ]),
             ),
         ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 45.0,
+                "pt_jet2": 45.0,
+                "mjj": 500.0,
+                "delta_eta_jj": 2.5,
+            },
+        },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
         tags={"cross_trigger", "cross_tau_vbf"},
     )
