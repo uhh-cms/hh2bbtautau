@@ -562,7 +562,42 @@ class reg_dnn_moe(_reg_dnn):
     exposed = True
 
 
-class run3_dnn_moe(reg_dnn_moe):
+#
+# producers for evaluating run 3 models trained with the legacy setup but on run 3 data
+#
+
+class _run3_dnn(_res_dnn):
+
+    parametrized = False
+    use_pnet = True
+    dir_name = None
+    fold = None
+    n_folds = 5
+
+    @property
+    def output_prefix(self) -> str:
+        return self.cls_name
+
+    def update_event_mask(self, events: ak.Array, event_mask: ak.Array) -> ak.Array:
+        # when a fold is defined, select only events that match this fold
+        # (all other events were potentially used for the training)
+        if self.fold is not None:
+            event_fold = events.event % self.n_folds
+            event_mask = event_mask & (event_fold == self.fold)
+
+        return event_mask
+
+
+# derive evaluation producers for all folds
+for fold in range(_run3_dnn.n_folds):
+    _run3_dnn.derive(f"run3_dnn_fold{fold}_moe", cls_dict={
+        "fold": fold,
+        "external_name": f"run3_dnn_fold{fold}_moe",
+        "exposed": True,
+    })
+
+
+class run3_dnn_simple(_run3_dnn):
     """
     Simple version of the run 3 dnn with a single fold for quick comparisons. Trained with kl 1 and 0.
     """
