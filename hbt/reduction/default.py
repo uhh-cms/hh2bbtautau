@@ -7,12 +7,8 @@ Custom event and object reducers.
 from columnflow.reduction import Reducer, reducer
 from columnflow.reduction.default import cf_default
 from columnflow.production.cms.dy import gen_dilepton, recoil_corrected_met
-<<<<<<< HEAD
-# from columnflow.production.cms.top_pt_weight import gen_parton_top as cf_gen_parton_top
-=======
 from columnflow.production.cms.gen_particles import gen_higgs_lookup, gen_top_lookup, gen_dy_lookup
 
->>>>>>> master
 from columnflow.util import maybe_import
 
 from hbt.util import IF_DATASET_HAS_HIGGS, IF_DATASET_HAS_TOP, IF_DATASET_IS_DY
