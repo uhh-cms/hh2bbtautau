@@ -29,10 +29,16 @@ ak = maybe_import("awkward")
         IF_DATASET_HAS_TOP(gen_top_lookup),
         IF_DATASET_IS_DY(gen_dy_lookup, gen_dilepton, recoil_corrected_met),
     },
+    check_produced_columns=False,
 )
 def default(self: Reducer, events: ak.Array, selection: ak.Array, **kwargs) -> ak.Array:
     # run cf's default reduction which handles event selection and collection creation
     events = self[cf_default](events, selection, **kwargs)
+
+    # when there are no events left, return immediately
+    # (ReduceEvents would anyway not write this chunk to disk and skips it during merging)
+    if len(events) == 0:
+        return events
 
     # add generator particles, depending on the dataset
     if self.has_dep(gen_higgs_lookup):
