@@ -1,5 +1,8 @@
-# version 10
+# version 1
 
 -r ../modules/columnflow/sandboxes/columnar.txt
 
 tensorflow~=2.16.1
+torch~=2.8.0
+torchmetrics~=1.8.2
+torchdata~=0.11.0

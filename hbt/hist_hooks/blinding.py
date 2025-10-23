@@ -10,8 +10,10 @@ import law
 import order as od
 
 from columnflow.util import maybe_import
+from columnflow.types import TYPE_CHECKING
 
-hist = maybe_import("hist")
+if TYPE_CHECKING:
+    hist = maybe_import("hist")
 
 
 def add_hooks(analysis_inst: od.Analysis) -> None:

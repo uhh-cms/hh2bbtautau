@@ -974,6 +974,68 @@ def add_variables(config: od.Config) -> None:
             x_title=rf"DNN {proc.upper()} output node",
         )
 
+        add_variable(
+            config,
+            name=f"run3_dnn_moe_{proc}_10",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=(10, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output node",
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_moe_{proc}_fine",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_moe_{proc}_fine_5k",
+            expression=f"run3_dnn_moe_{proc}",
+            binning=(5000, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_{proc}_fine",
+            expression=f"run3_dnn_simple_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_kl1_{proc}_fine",
+            expression=f"run3_dnn_simple_kl1_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_kl0_{proc}_fine",
+            expression=f"run3_dnn_simple_kl0_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            config,
+            name=f"run3_dnn_simple_allkl_{proc}_fine",
+            expression=f"run3_dnn_simple_allkl_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"DNN {proc.upper()} output node",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
 
 # helper to add a variable to the config with some defaults
 def add_variable(config: od.Config, *args, **kwargs) -> od.Variable:

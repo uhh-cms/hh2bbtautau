@@ -42,10 +42,9 @@ top_pt_weight = cf_top_pt_weight.derive("top_pt_weight", cls_dict={"require_data
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
-    # TODO: uncomment once reduction ran and saved met variations
-    # shifts={
-    #     "minbias_xs_{up,down}",  # PuppiMET used in categories, and depends on pu/minbias_xs through met phi correction
-    # },
+    shifts={
+        "minbias_xs_{up,down}",  # PuppiMET used in categories, and depends on pu/minbias_xs through met phi correction
+    },
     # whether weight producers should be added and called
     produce_weights=True,
 )

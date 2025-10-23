@@ -7,7 +7,8 @@ Default inference model.
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+import functools
+import collections
 
 import law
 import order as od
@@ -20,6 +21,12 @@ from hbt.inference.base import HBTInferenceModelBase
 
 logger = law.logger.get_logger(__name__)
 
+get_all_datasets_from_process = functools.partial(
+    get_datasets_from_process,
+    strategy="all",
+    only_first=False,
+)
+
 
 class default(HBTInferenceModelBase):
     """
@@ -29,9 +36,6 @@ class default(HBTInferenceModelBase):
     add_qcd = True
     fake_data = True
     variable = "run3_dnn_moe_hh_fine"
-    # variable = "run3_dnn_simple_hh_fine"
-    # variable = "run3_dnn_moe_hh_10"
-    # variable = "jet1_pt"
 
     def init_proc_map(self) -> None:
         # mapping of process names in the datacard ("combine name") to configs and process names in a dict
@@ -111,6 +115,7 @@ class default(HBTInferenceModelBase):
                     },
                     data_from_processes=fake_processes,
                     mc_stats=10.0,
+                    empty_bin_value=1e-5,  # setting this to 0 disables empty bin filling
                     flow_strategy=FlowStrategy.move,
                 )
 
@@ -125,7 +130,7 @@ class default(HBTInferenceModelBase):
                 if not is_dynamic:
                     dataset_names = [
                         dataset.name
-                        for dataset in get_datasets_from_process(config_inst, proc_name, strategy="all")
+                        for dataset in get_all_datasets_from_process(config_inst, proc_name)
                     ]
                     if not dataset_names:
                         logger.debug(
@@ -344,7 +349,7 @@ class default(HBTInferenceModelBase):
             )
 
         # btag
-        btag_map: defaultdict[str, list[od.Config]] = defaultdict(list)
+        btag_map: collections.defaultdict[str, list[od.Config]] = collections.defaultdict(list)
         for config_inst in self.config_insts:
             for name in config_inst.x.btag_unc_names:
                 btag_map[name].append(config_inst)
@@ -516,8 +521,27 @@ def default_no_shifts(self):
 
     # remove all parameters that require a shift source other than nominal
     for category_name, process_name, parameter in self.iter_parameters():
-        if parameter.type.is_shape or any(trafo.from_shape for trafo in parameter.transformations):
+        if parameter.type.is_shape or parameter.transformations.any_from_shape:
             self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
     # repeat the cleanup
     self.init_cleanup()
+
+
+default_no_shifts_simple = default_no_shifts.derive(
+    "default_no_shifts_simple",
+    cls_dict={"variable": "run3_dnn_simple_hh_fine"},
+)
+
+# for variables from networks trained with different kl variations
+for kl in ["kl1", "kl0", "allkl"]:
+    default_no_shifts.derive(
+        f"default_no_shifts_simple_{kl}",
+        cls_dict={"variable": f"run3_dnn_simple_{kl}_hh_fine"},
+    )
+
+# even 5k binning
+default_no_shifts_simple_5k = default_no_shifts.derive(
+    "default_no_shifts_simple_5k",
+    cls_dict={"variable": "run3_dnn_moe_hh_fine_5k"},
+)

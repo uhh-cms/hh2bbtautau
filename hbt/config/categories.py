@@ -4,12 +4,14 @@
 Definition of categories.
 """
 
+from __future__ import annotations
+
 import functools
 
 import law
 import order as od
 
-from columnflow.config_util import add_category, create_category_combinations, track_category_changes, CategoryGroup
+from columnflow.config_util import add_category, create_category_combinations, CategoryGroup, track_category_changes
 from columnflow.types import Any
 
 
@@ -43,39 +45,23 @@ def add_categories(config: od.Config) -> None:
 
     # kinematic categories
     _add_category(config, name="incl", id="+", selection="cat_incl", label="inclusive")
-
-    # jet multiplicity categories
+    _add_category(config, name="ge0j", id="+", selection="cat_ge0j", label="")
     _add_category(config, name="eq0j", id="+", selection="cat_eq0j", label="0 jets")
     _add_category(config, name="eq1j", id="+", selection="cat_eq1j", label="1 jet")
     _add_category(config, name="eq2j", id="+", selection="cat_eq2j", label="2 jets")
     _add_category(config, name="eq3j", id="+", selection="cat_eq3j", label="3 jets")
     _add_category(config, name="eq4j", id="+", selection="cat_eq4j", label="4 jets")
     _add_category(config, name="eq5j", id="+", selection="cat_eq5j", label="5 jets")
-    _add_category(config, name="ge0j", id="+", selection="cat_ge0j", label=r"$\geq$ 0 jets")
-    _add_category(config, name="ge4j", id="+", selection="cat_ge4j", label=r"$\geq$ 4 jets")
-    _add_category(config, name="ge5j", id="+", selection="cat_ge5j", label=r"$\geq$ 5 jets")
-    _add_category(config, name="ge6j", id="+", selection="cat_ge6j", label=r"$\geq$ 6 jets")
-
-    _add_category(config, name="eq2vbfj", id="+", selection="cat_eq2vbfj", label="2 VBF jets")
-    _add_category(config, name="eq3vbfj", id="+", selection="cat_eq3vbfj", label="3 VBF jets")
-    _add_category(config, name="ge4vbfj", id="+", selection="cat_ge4vbfj", label=r"$\geq$ 4 VBF jets")
-
-    _add_category(config, name="eq2totalj", id="+", selection="cat_eq2totalj", label="2 jets (total)")
-    _add_category(config, name="eq3totalj", id="+", selection="cat_eq3totalj", label="3 jets (total)")
-    _add_category(config, name="ge4totalj", id="+", selection="cat_ge4totalj", label=r"$\geq$ 4 jets (total)")
-
-    # bjet multiplicity categories
-    _add_category(config, name="eq0b", id="+", selection="cat_eq0b", label="0 b-jets")
-    _add_category(config, name="eq1b", id="+", selection="cat_eq1b", label="1 b-jet")
-    _add_category(config, name="eq2b", id="+", selection="cat_eq2b", label="2 b-jets")
-    _add_category(config, name="eq3b", id="+", selection="cat_eq3b", label="3 b-jets")
-    _add_category(config, name="ge0b", id="+", selection="cat_ge0b", label=r"$\geq$ 0 b-jets")
-    _add_category(config, name="ge1b", id="+", selection="cat_ge1b", label=r"$\geq$ 1 b-jets")
-    _add_category(config, name="ge2b", id="+", selection="cat_ge2b", label=r"$\geq$ 2 b-jets")
-    _add_category(config, name="ge3b", id="+", selection="cat_ge3b", label=r"$\geq$ 3 b-jets")
-
-    _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY region")
+    _add_category(config, name="ge4j", id="+", selection="cat_ge4j", label=r"$\geq$4 jets")
+    _add_category(config, name="ge5j", id="+", selection="cat_ge5j", label=r"$\geq$5 jets")
+    _add_category(config, name="ge6j", id="+", selection="cat_ge6j", label=r"$\geq$6 jets")
+    _add_category(config, name="ge0b", id="+", selection="cat_ge0b", label="")
+    _add_category(config, name="eq0b", id="+", selection="cat_eq0b", label="0 b-tags")
+    _add_category(config, name="eq1b", id="+", selection="cat_eq1b", label="1 b-tag")
+    _add_category(config, name="eq2b", id="+", selection="cat_eq2b", label="2 b-tags")
+    _add_category(config, name="ge2b", id="+", selection="cat_ge2b", label=r"$\geq$2 b-tags")
     _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
+    _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY region")
     _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
     _add_category(config, name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
     _add_category(config, name="mll40", id="+", selection="cat_mll40", label=r"$m_{ll} > 40$")
@@ -110,9 +96,9 @@ def add_categories(config: od.Config) -> None:
             "aux": aux,
             # label
             "label": ", ".join([
-                cat.label or cat.name
+                cat.label
                 for cat in categories.values()
-                if cat.name != "os" and cat.name != "iso"  # os and iso are the defaults
+                if cat.label and cat.name != "os" and cat.name != "iso"  # os and iso are the defaults
             ]) or None,
         }
 
@@ -138,21 +124,13 @@ def add_categories(config: od.Config) -> None:
 
     # control categories
     control_categories = {
-        # channels first
+        # channels
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
-
-        # kinematic regions in the middle (to be extended)
+        # kinematic regions
         "kin": CategoryGroup(["incl", "dy", "dyc", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
-
-        # jet categories
-        "jets": CategoryGroup(
-            ["eq2j", "eq3j", "eq4j", "eq5j", "ge0j", "ge4j", "ge6j"],
-            is_complete=True, has_overlap=True),
-        "bjets": CategoryGroup(
-            ["eq0b", "eq1b", "eq2b", "ge0b", "ge1b", "ge2b", "ge3b"],
-            is_complete=True, has_overlap=True),
-
-        # relative sign last
+        "jets": CategoryGroup(["ge0j", "eq2j", "eq3j", "eq4j", "ge4j", "eq5j", "ge6j"], is_complete=True, has_overlap=True),  # noqa: E501
+        "tags": CategoryGroup(["ge0b", "eq0b", "eq1b", "eq2b", "ge2b"], is_complete=True, has_overlap=True),
+        # relative sign
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
 

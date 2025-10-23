@@ -70,7 +70,8 @@ law run cf.ReduceEventsWrapper \
   - [DAS](https://cmsweb.cern.ch/das)
 NanoAOD:
   - [Nano documentation](https://gitlab.cern.ch/cms-nanoAOD/nanoaod-doc)
-  - [Correctionlib files](https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration)
+  - [CAT Metadata](https://cms-analysis-corrections.docs.cern.ch)
+  - [Correctionlib files (old!)](https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration)
 - JME
   - [Docs](https://cms-jerc.web.cern.ch)
 - BTV

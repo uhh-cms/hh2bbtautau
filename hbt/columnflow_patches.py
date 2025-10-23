@@ -83,8 +83,26 @@ def patch_merge_reduction_stats_inputs():
 
 
 @memoize
+def patch_unite_columns_events_filter():
+    """
+    Patches the UniteColumns task to use a custom event filter function to only keep events whose "keep_in_union" is
+    true-ish.
+    """
+    from columnflow.tasks.union import UniteColumns
+
+    UniteColumns.filter_events = lambda self, events: (
+        (events.keep_in_union == 1)
+        if "keep_in_union" in events.fields
+        else (events.event >= 0)
+    )
+
+    logger.debug(f"patched filter_events method of {UniteColumns.task_family}")
+
+
+@memoize
 def patch_all():
     patch_bundle_repo_exclude_files()
     patch_remote_workflow_poll_interval()
     patch_htcondor_workflow_naf_resources()
     patch_merge_reduction_stats_inputs()
+    patch_unite_columns_events_filter()

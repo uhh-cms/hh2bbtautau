@@ -6,17 +6,18 @@ Histogram hooks for QCD estimation.
 
 from __future__ import annotations
 
-from collections import defaultdict
+import collections
+import functools
 
 import law
 import order as od
 import scinum as sn
 
 from columnflow.util import maybe_import, DotDict
-from columnflow.types import Any
+from columnflow.types import TYPE_CHECKING, Any
 
-np = maybe_import("numpy")
-hist = maybe_import("hist")
+if TYPE_CHECKING:
+    hist = maybe_import("hist")
 
 
 logger = law.logger.get_logger(__name__)
@@ -61,7 +62,19 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         config_inst: od.Config,
         hists: dict[od.Process, Any],
         requested_category: str | None = None,
+        empty_bin_value: float = 1e-5,
+        # set the variance to zero in bins where the relative data stat. error exceeds that of MC (see code for details)
+        fill_empty_larger_data_unc: bool = True,
+        # fill *empty_bin_value* (zero) into values (variances) in case one of the two integrals for the transfer factor
+        # calculation is negative
+        fill_empty_negative_norms: bool = True,
+        # residual filling of *empty_bin_value* (zero) into values (variances) where the bin content is <= 0
+        fill_empty_residual: bool = True,
+        **kwargs,
     ) -> dict[od.Process, Any]:
+        import numpy as np
+        import hist
+
         # get the qcd process
         qcd_proc = config_inst.get_process("qcd", default=None)
         if not qcd_proc:
@@ -81,7 +94,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             category_names.update(list(cat_ax))
 
         # create qcd groups
-        qcd_groups: dict[str, dict[str, od.Category]] = defaultdict(DotDict)
+        qcd_groups: dict[str, dict[str, od.Category]] = collections.defaultdict(DotDict)
         requested_group = None
         for cat_name in category_names:
             # store references to the four category objects
@@ -186,29 +199,39 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             os_iso_qcd_variances = os_iso_qcd(sn.UP, sn.ALL, unc=True)**2
 
             # define uncertainties
-            unc_data = os_iso_qcd(sn.UP, ["os_noniso_data", "ss_iso_data", "ss_noniso_data"], unc=True)
             unc_mc = os_iso_qcd(sn.UP, ["os_noniso_mc", "ss_iso_mc", "ss_noniso_mc"], unc=True)
-            unc_data_rel = abs(unc_data / os_iso_qcd_values)
             unc_mc_rel = abs(unc_mc / os_iso_qcd_values)
+            unc_data = os_iso_qcd(sn.UP, ["os_noniso_data", "ss_iso_data", "ss_noniso_data"], unc=True)
+            unc_data_rel = abs(unc_data / os_iso_qcd_values)
 
-            # only keep the MC uncertainty if it is larger than the data uncertainty and larger than 15%
-            keep_variance_mask = (
-                np.isfinite(unc_mc_rel) &
-                (unc_mc_rel > unc_data_rel) &
-                (unc_mc_rel > 0.15)
-            )
+            # only keep the MC uncertainty if it is larger than the data uncertainty
+            # reason: the per-bin variance of all MC shapes (data-driven or not) is used by the autoMCstats feature to
+            # determine how to treat the stat. uncertainty in each bin: either with a Poisson nuisance per bin *and* per
+            # process ("Barlow-Beeston"), or, if the total, approx. number of true MC events across all processes is
+            # larger than 10, with a single Gaussian nuisance per bin ("Barlow-Beeston-lite"); now, we do *not* want to
+            # include the data uncertainty into this treatment, and therefore, we do not "combine" the data and MC stat.
+            # uncertainties (e.g. in quadrature) into a single per-bin variance, but we rather make sure that we only
+            # keep the MC-only-based variance in case it is larger
+            keep_variance_mask = np.isfinite(unc_mc_rel)
+            if fill_empty_larger_data_unc:
+                keep_variance_mask &= unc_mc_rel > unc_data_rel
             os_iso_qcd_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
-            os_iso_qcd_variances[~keep_variance_mask] = 0
+            os_iso_qcd_variances[~keep_variance_mask] = 0.0
 
             # retro-actively set values to zero for shifts that had negative integrals
             neg_int_mask = int_ss_iso_neg | int_ss_noniso_neg
-            os_iso_qcd_values[neg_int_mask] = 1e-5
-            os_iso_qcd_variances[neg_int_mask] = 0
+            if fill_empty_negative_norms:
+                os_iso_qcd_values[neg_int_mask] = empty_bin_value
+                os_iso_qcd_variances[neg_int_mask] = 0.0
 
             # residual zero filling
-            zero_mask = os_iso_qcd_values <= 0
-            os_iso_qcd_values[zero_mask] = 1e-5
-            os_iso_qcd_variances[zero_mask] = 0
+            if fill_empty_residual:
+                zero_mask = os_iso_qcd_values <= 0
+                # when keeping negative norms, do exclude them from the usual zero filling
+                if not fill_empty_negative_norms:
+                    zero_mask &= ~neg_int_mask
+                os_iso_qcd_values[zero_mask] = empty_bin_value
+                os_iso_qcd_variances[zero_mask] = 0.0
 
             # insert values into the qcd histogram
             cat_axis = qcd_hist.axes["category"]
@@ -229,6 +252,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         task: law.Task,
         hists: dict[od.Config, dict[od.Process, Any]],
         category_name: str,
+        variable_name: str,
         **kwargs,
     ) -> dict[od.Config, dict[od.Process, Any]]:
         return {
@@ -237,9 +261,16 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 config_inst,
                 hists[config_inst],
                 requested_category=category_name,
+                **kwargs,
             )
             for config_inst in hists.keys()
         }
 
-    # add the hook
+    # add different hook variations
     analysis_inst.x.hist_hooks.qcd = qcd_estimation
+    analysis_inst.x.hist_hooks.qcd_raw = functools.partial(
+        qcd_estimation,
+        fill_empty_larger_data_unc=False,
+        fill_empty_negative_norms=False,
+        fill_empty_residual=False,
+    )
