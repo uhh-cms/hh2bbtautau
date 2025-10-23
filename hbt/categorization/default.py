@@ -301,7 +301,12 @@ def cat_dy_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
 
-@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
+@categorizer(
+    uses={
+        "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
+        MET_COLUMN("{pt,phi"),
+    },
+)
 def cat_dyc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
 
