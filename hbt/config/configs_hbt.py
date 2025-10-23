@@ -228,10 +228,8 @@ def add_config(
         # hh vbf
         "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
         "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-        *if_not_era(year=2024, values=[
-            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-            "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96_madgraph",
-        ]),
+        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+        "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96_madgraph",
         "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
         "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
         "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
@@ -260,9 +258,16 @@ def add_config(
         "tt_fh_powheg",
 
         # single top
-        *if_not_era(year=2024, values=[  # TODO: check status
+        *if_not_era(year=2024, values=[
             "st_tchannel_t_4f_powheg",
             "st_tchannel_tbar_4f_powheg",
+        ]),
+        # dedicated decay channels in 2024
+        *if_era(year=2024, values=[
+            "st_tchannel_t_had_4f_powheg",
+            "st_tchannel_t_lep_4f_powheg",
+            "st_tchannel_tbar_had_4f_powheg",
+            "st_tchannel_tbar_lep_4f_powheg",
         ]),
         "st_twchannel_t_sl_powheg",
         "st_twchannel_tbar_sl_powheg",
@@ -276,8 +281,8 @@ def add_config(
         ]),
 
         # tt + v
+        "ttw_wlnu_amcatnlo",
         *if_not_era(year=2024, values=[  # TODO: check status
-            "ttw_wlnu_amcatnlo",
             "ttz_zqq_amcatnlo",
         ]),
         "ttz_zll_m4to50_amcatnlo",
@@ -310,8 +315,8 @@ def add_config(
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
         # specific tautau datasets with pythia bug fix
+        "dy_tautau_m50toinf_0j_amcatnlo",
         *if_not_era(year=2024, values=[  # TODO: check status
-            "dy_tautau_m50toinf_0j_amcatnlo",
             "dy_tautau_m50toinf_1j_amcatnlo",
             "dy_tautau_m50toinf_2j_amcatnlo",
         ]),
@@ -411,18 +416,14 @@ def add_config(
         "h_vbf_hbb_powheg",
         # TODO: present in 2024, do we add it?
         # "h_vbf_hww2l2nu_powheg",
-        *if_not_era(year=2024, values=[  # TODO: check status
-            "wmh_wlnu_hbb_powheg",
-            "wph_wlnu_hbb_powheg",
-        ]),
+        "wmh_wlnu_hbb_powheg",
+        "wph_wlnu_hbb_powheg",
         "wph_htt_powheg",
         "wmh_htt_powheg",
-        *if_not_era(year=2024, values=[  # TODO: check status
-            "wph_wqq_hbb_powheg",
-            "wmh_wqq_hbb_powheg",
-            "zh_zll_hbb_powheg",
-            "zh_zqq_hbb_powheg",
-        ]),
+        "wph_wqq_hbb_powheg",
+        "wmh_wqq_hbb_powheg",
+        "zh_zll_hbb_powheg",
+        "zh_zqq_hbb_powheg",
         "zh_htt_powheg",
         "zh_gg_zll_hbb_powheg",
         "zh_gg_zqq_hbb_powheg",
