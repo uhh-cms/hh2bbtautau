@@ -28,19 +28,17 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
         > law run hbt.ComuteDYWeights \
             --config 22pre_v14 \
             --processes sm_bkg \
-            --version prod8_dy \
+            --version prod17_dy \
             --hist-producer no_dy_weights \
-            --categories mumu__dyc__os \
-            --variables njets-dilep_pt or njets or nbjets_pnet_overflow
+            --categories mumu__dyc__ge0j__ge0b__os \
+            --variables njets-dilep_pt or nbjets_pnet_overflow
     """
 
     single_config = True
 
     @classmethod
     def resolve_param_values(cls, params: dict[str, Any]) -> dict[str, Any]:
-        print("DY pre resolve params")
         params = super().resolve_param_values(params)
-        print("DY post resolve params")
         return params
 
     def __init__(self, *args, **kwargs) -> None:
@@ -60,8 +58,8 @@ class ComuteDYWeights(HBTTask, HistogramsUserSingleShiftBase):
             raise ValueError(f"{self.task_family} requires exactly one variable, got {self.variables}")
         self.variable = self.variables[0]
         # for now, variable must be "njets-dilep_pt"
-        if self.variable not in ["njets-dilep_pt", "njets", "nbjets_pnet_overflow"]:
-            raise ValueError(f"variable must be either 'njets-dilep_pt' or 'nbjets_pnet_overflow', got {self.variable}")
+        if self.variable not in ["dilep_pt", "nbjets_pnet_overflow"]:
+            raise ValueError(f"variable must be either 'dilep_pt' or 'nbjets_pnet_overflow', got {self.variable}")
 
     def output(self):
         return self.target(f"dy_weight_data_{self.categories[0]}_{self.variables[0]}.pkl")
