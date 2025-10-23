@@ -10,8 +10,6 @@ from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
 from columnflow.production.cms.top_pt_weight import top_pt_weight as cf_top_pt_weight
 from columnflow.production.cms.dy import dy_weights
-# from columnflow.production.cms.dy import dy_weights_uhh as dy_weights
-# from columnflow.production.cms.dy import dy_njet_weights_uhh as dy_njet_weights
 from columnflow.util import maybe_import
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 
