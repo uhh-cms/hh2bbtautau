@@ -7,6 +7,7 @@ Exemplary selection methods.
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections, full_like
 from columnflow.util import maybe_import
+from hbt.util import MET_COLUMN
 
 ak = maybe_import("awkward")
 
