@@ -319,11 +319,6 @@ def cat_dyc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak
     return events, mask_cclub
 
 
-@cat_dyc.init
-def cat_dyc_init(self: Categorizer) -> None:
-    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
-
-
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_tt(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # tt region: met > 30 (due to neutrino presence in leptonic w decays)
