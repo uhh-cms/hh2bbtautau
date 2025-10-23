@@ -161,22 +161,39 @@ def cat_ge0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, all_true(events)
 
 
+def get_bjets(events: ak.Array, config_inst):
+    wp = config_inst.x.btag_working_points["particleNet"]["medium"]
+    return ak.sum(events.Jet.btagPNetB > wp, axis=-1)
+
+
 @categorizer(uses={"Jet.btagPNetB"})
 def cat_eq0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = self.config_inst.x.btag_working_points.particleNet.medium
-    return events, ak.sum(events.Jet.btagPNetB > wp, axis=1) == 0
+    return events, get_bjets(events, self.config_inst) == 0
 
 
 @categorizer(uses={"Jet.btagPNetB"})
 def cat_eq1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = self.config_inst.x.btag_working_points.particleNet.medium
-    return events, ak.sum(events.Jet.btagPNetB > wp, axis=1) == 1
+    return events, get_bjets(events, self.config_inst) == 1
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_eq2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, get_bjets(events, self.config_inst) == 2
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_eq3b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, get_bjets(events, self.config_inst) == 3
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_ge1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, get_bjets(events, self.config_inst) >= 1
 
 
 @categorizer(uses={"Jet.btagPNetB"})
 def cat_ge2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = self.config_inst.x.btag_working_points.particleNet.medium
-    return events, ak.sum(events.Jet.btagPNetB > wp, axis=1) >= 2
+    return events, get_bjets(events, self.config_inst) >= 2
 
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
@@ -281,6 +298,24 @@ def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
 
 @cat_dy.init
 def cat_dy_init(self: Categorizer) -> None:
+    self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+
+
+@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
+def cat_dyc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+
+    mask_cclub = (
+        (leps.sum(axis=1).mass >= 70) &
+        (leps.sum(axis=1).mass <= 110) &
+        (events[self.config_inst.x.met_name].pt < 45)
+    )
+
+    return events, mask_cclub
+
+
+@cat_dyc.init
+def cat_dyc_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
 
