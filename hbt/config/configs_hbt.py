@@ -1341,9 +1341,9 @@ def add_config(
             era=dy_era,
             correction="dy_weight",
             systs=[
-                "stat_btag0_up", "stat_btag0_down",
-                "stat_btag1_up", "stat_btag1_down",
-                "stat_btag2_up", "stat_btag2_down",
+                # "stat_btag0_up", "stat_btag0_down",
+                # "stat_btag1_up", "stat_btag1_down",
+                # "stat_btag2_up", "stat_btag2_down",
             ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
             get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
@@ -1713,6 +1713,8 @@ def add_config(
     add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    # pytorch models
+    add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
 
     # run specific files
     if run == 2:
