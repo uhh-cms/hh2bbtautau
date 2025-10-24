@@ -1341,9 +1341,9 @@ def add_config(
             era=dy_era,
             correction="dy_weight",
             systs=[
-                "stat_btag0_up", "stat_btag0_down",
-                "stat_btag1_up", "stat_btag1_down",
-                "stat_btag2_up", "stat_btag2_down",
+                # "stat_btag0_up", "stat_btag0_down",
+                # "stat_btag1_up", "stat_btag1_down",
+                # "stat_btag2_up", "stat_btag2_down",
             ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
             get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501

@@ -305,7 +305,7 @@ def cat_dy_init(self: Categorizer) -> None:
 @categorizer(
     uses={
         "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
-        MET_COLUMN("{pt,phi"),
+        MET_COLUMN("{pt,phi}"),
     },
 )
 def cat_dyc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
