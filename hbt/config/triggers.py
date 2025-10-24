@@ -1539,13 +1539,259 @@ def add_triggers_2024(config: od.Config) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
     https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
-
-    TODO: add references
+    Tau Trigger: https://twiki.cern.ch/twiki/bin/viewauth/CMS/TauTrigger#Trigger_Table_for_2024
+    Electron Trigger: https://cmshltinfo.app.cern.ch/summary?search=WPTight&year=2024&paths=true&prescaled=false&stream-types=Physics,Scouting,Parking
+    Muon Trigger: https://twiki.cern.ch/twiki/bin/view/CMS/MuonHLT2024
+    # No changes were made to the NanoAOD Tau Trigger objects, so the same filterbits as V14 are used in V15 as well. 
     """
-    # get the nano version
-    # nano_version = config.campaign.x.version
-    # get_bit_sum_v = functools.partial(get_bit_sum, nano_version)
+    nano_version = config.campaign.x.version
+    get_bit_sum_v = functools.partial(get_bit_sum, nano_version)
 
     config.x.triggers = od.UniqueObjectIndex(Trigger)
 
-    # TODO: add triggers
+    #     
+    # single electron
+    #
+    config.x.triggers.add(
+        name="HLT_Ele30_WPTight_Gsf", #https://cms-talk.web.cern.ch/t/single-e-trigger-recommendation-for-run-3-2024/128908/2
+        id=205,
+        legs=dict(
+            e=TriggerLeg(
+                pdg_id=11,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # WPTightTrackIso
+                trigger_bits=get_bit_sum_v("e", [
+                    "WPTightTrackIso",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("etau") or
+            dataset_inst.has_tag("ee") or
+            dataset_inst.has_tag("emu_from_e") or
+            dataset_inst.has_tag("emu_from_mu")
+        )),
+        tags={"single_trigger", "single_e"},
+    )
+    #
+    # single muon
+    #
+    config.x.triggers.add(
+        name="HLT_IsoMu24",
+        id=105,
+        legs=dict(
+            mu=TriggerLeg(
+                pdg_id=13,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered0p08 (1mu + Iso)
+                trigger_bits=get_bit_sum_v("mu", [
+                    "Iso",
+                    "SingleMuon",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("mutau") or
+            dataset_inst.has_tag("emu_from_e") or
+            dataset_inst.has_tag("emu_from_mu") or
+            dataset_inst.has_tag("mumu")
+        )),
+        tags={"single_trigger", "single_mu"},
+    )
+    #
+    # e tauh #deeptau
+    #
+    config.x.triggers.add(
+        name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseDeepTauPFTauHPS30_eta2p1_CrossL1",
+        id=405,
+        legs=dict(
+            e=TriggerLeg(
+                pdg_id=11,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (OverlapFilter)
+                trigger_bits=get_bit_sum_v("e", [
+                    "OverlapFilterPFTau",
+                    "EleTau",
+                ]),
+            ),
+            tau=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
+                trigger_bits=get_bit_sum_v("tau", [
+                    "DeepTau",
+                    "HPS",
+                    "OverlapFilterIsoEle",
+                    "ETauFilter" if nano_version == 15 else None,
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("etau")),
+        tags={"cross_trigger", "cross_e_tau"},
+    )
+    #
+    # mu tauh
+    #
+    config.x.triggers.add(
+        name="HLT_IsoMu20_eta2p1_LooseDeepTauPFTauHPS27_eta2p1_CrossL1",
+        id=304,
+        legs=dict(
+            mu=TriggerLeg(
+                pdg_id=13,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded (OverlapFilter PFTau)
+                trigger_bits=get_bit_sum_v("mu", [
+                    "OverlapFilterPFTau",
+                    "MuTau",
+                ]),
+            ),
+            tau=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsSelectedPFTau27LooseMuTauWPDeepTauVsJetsAgainstMuonL1HLTMatched (DeepTau + HPS)
+                trigger_bits=get_bit_sum_v("tau", [
+                    "DeepTau",
+                    "HPS",
+                    "OverlapFilterIsoMu",
+                    "MuTauFilter" if nano_version == 15 else None,
+                    "MatchL1HLT",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("mutau")),
+        tags={"cross_trigger", "cross_mu_tau"},
+    )
+    #
+    # tauh tauh
+    #
+    config.x.triggers.add(
+        name="HLT_DoubleMediumDeepTauPFTauHPS35_L2NN_eta2p1",
+        id=507,
+        legs=dict(
+            tau1=TriggerLeg(
+                pdg_id=15,  
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
+                trigger_bits=get_bit_sum_v("tau", [
+                    "DeepTauDiTau",
+                    "HPS",
+                    "Medium" if nano_version == 15 else None,
+                ]),
+            ),
+            tau2=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
+                trigger_bits=get_bit_sum_v("tau", [
+                    "DeepTauDiTau",
+                    "HPS",
+                    "Medium" if nano_version == 15 else None,
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        tags={"cross_trigger", "cross_tau_tau"},
+    )
+
+    #
+    # tau tau jet
+    #
+    config.x.triggers.add(
+        name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60",
+        id=701,
+        legs=dict(
+            tau1=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
+                trigger_bits=get_bit_sum_v("tau", [
+                    "DiTauAndPFJet",
+                ]),
+            ),
+            tau2=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsDoublePFTau30MediumDitauWPDeepTauL1HLTMatchedDoubleTauJet
+                trigger_bits=get_bit_sum_v("tau", [
+                    "DiTauAndPFJet",
+                ]),
+            ),
+            jet=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterDeepTauDoublePFTau30PFJet60
+                trigger_bits=get_bit_sum_v("jet", [
+                    "DoubleTau+Jet",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        tags={"cross_trigger", "cross_tau_tau_jet"},
+    )
+
+    #
+    # vbf
+    #
+    config.x.triggers.add(
+        name="HLT_VBF_DoubleMediumDeepTauPFTauHPS20_eta2p1",
+        id=602,
+        legs=dict(
+            tau1=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
+                trigger_bits=get_bit_sum_v("tau", [
+                    "VBFDiTau" if nano_version == 15 else None,
+                    "HPS",
+                    "DeepTau",
+                ]),
+            ),
+            tau2=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
+                trigger_bits=get_bit_sum_v("tau", [
+                    "VBFDiTau" if nano_version == 15 else None,
+                    "HPS",
+                    "DeepTau",
+                ]),
+            ),
+            # TODO: check if vbf legs are needed
+            # additional leg infos for vbf jets
+            vbf1=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFcrossCleanedDeepTauPFTau" if nano_version == 15 else None,
+                ]),
+            ),
+            vbf2=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFcrossCleanedDeepTauPFTau" if nano_version == 15 else None,
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        tags={"cross_trigger", "cross_tau_tau_vbf"},
+    )
