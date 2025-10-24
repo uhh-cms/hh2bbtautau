@@ -27,6 +27,7 @@ from columnflow.columnar_util import (
     ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, layout_ak_array,
     set_ak_column,
 )
+from columnflow.hist_util import create_hist_from_variables, fill_hist
 
 from hbt.tasks.base import HBTTask
 
@@ -155,13 +156,44 @@ class DYWeights(
             data_events, bkg_events, dy_events = self.load_data()
             outputs["data"].dump((data_events, bkg_events, dy_events), formatter="pickle")
 
+        # get fit using dilep_pt
+        for njet_min, njet_max in [(2, 3), (3, 4), (4, 101)]:
+            var = self.dilep_pt_variable_inst
+            var_name = self.dilep_pt_variable_inst.name
+
+            # filter events per njet category
+            def get_jet_mask(events):
+                mask = (
+                    (events.njets >= njet_min) &
+                    (events.njets < njet_max) &
+                    (events.channel_id == self.config_inst.channels.n.mumu.id)
+                )
+                return mask
+
+            data_mask = get_jet_mask(data_events)
+            dy_mask = get_jet_mask(dy_events)
+            bkg_mask = get_jet_mask(bkg_events)
+
+            # 1. Get unweighted histograms/plots: dilep_pt, nbjets_pnet_overflow, njets.
+            data_h = self.hist_function(var, data_events[var_name][data_mask], data_events.weight[data_mask])
+            dy_h = self.hist_function(var, dy_events[var_name][dy_mask], dy_events.weight[dy_mask])
+            bkg_h = self.hist_function(var, bkg_events[var_name][bkg_mask], bkg_events.weight[bkg_mask])
+            # TODO: continue here :)
+
+            # 2. Do the fit using gen_dilep_pt to get fit function, fit string, and fit plot
+
+            # 3. Evaluate fit with dilep_pt values and save new weight column for DY events
+
+            # 4. Get histograms/plots with new DY weight applied: dilep_pt, nbjets_pnet_overflow, njets.
+
+            # 5. Calculate normalization factor based on nbjets_min, nbjets_max and save new weight column
+
+            # 6. Get histograms/plots with both DY weights applied: dilep_pt, nbjets_pnet_overflow, njets, etc.
+
         import correctionlib.schemav2 as cs
         from hbt.studies.dy_weights.create_clib_file import create_dy_weight_correction
 
     def load_data(self):
-        # prepare columns to write
-        route_filter = RouteFilter(keep=self.write_columns)
-
         data_events = []
         bkg_events = []
         dy_events = []
@@ -169,6 +201,10 @@ class DYWeights(
         # loop over datasets and load inputs
         for dataset_name, inps in self.input().items():
             self.publish_message(f"Loading dataset '{dataset_name}'")
+
+            # prepare columns to write
+            route_filter = RouteFilter(keep=self.write_columns)
+
             # define columns to read
             read_columns = [
                 *self.read_columns,
@@ -181,9 +217,9 @@ class DYWeights(
             read_columns += dataset_weight_columns
 
             # loop over each file per input
-            col = inps["reduction"].collection
-            for i in range(len(col)):
-                targets = [col.targets[i]["events"]]
+            coll = inps["reduction"].collection
+            for i in range(len(coll)):
+                targets = [coll.targets[i]["events"]]
                 for prod in self.producers:
                     targets.append(inps["production"][prod].collection.targets[i]["columns"])
 
@@ -219,8 +255,8 @@ class DYWeights(
                             value_type=np.int32,
                         )
 
-                        wp_value = self.config_inst.x.btag_working_points["particleNet"]["medium"]
-                        bjet_mask = events.Jet["btagPNetB"] >= wp_value
+                        wp_value = self.config_inst.x.btag_working_points.particleNet.medium
+                        bjet_mask = events.Jet.btagPNetB >= wp_value
                         events = set_ak_column(
                             events,
                             "nbjets",
@@ -235,8 +271,10 @@ class DYWeights(
                         )
 
                         weight = np.ones(len(events), dtype=np.float32)
-                        for col in self.event_weight_columns + dataset_weight_columns:
-                            weight = weight * events[col]
+                        if not dataset_name.startswith("data_"):
+                            for col in self.event_weight_columns + dataset_weight_columns:
+                                if col in events.fields:
+                                    weight = weight * events[col]
                         events = set_ak_column(events, "weight", weight)
 
                         # filter columns to read at the end
@@ -256,3 +294,8 @@ class DYWeights(
         dy_events = ak.concatenate(dy_events, axis=0) if dy_events else None
 
         return data_events, bkg_events, dy_events
+
+    def hist_function(self, var, data, weights):
+        h = create_hist_from_variables(var, weight=True)
+        fill_hist(h, {var.name: data, "weight": weights})
+        return h
