@@ -122,7 +122,7 @@ class _external_dnn(Producer):
         reqs["external_files"] = BundleExternalFiles.req(task)
 
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
-        from hbt.ml.torch_evaluator import TorchEvaluator
+        from hbt.ml.evaluators import TorchEvaluator
 
         if not getattr(task, "taf_torch_evaluator", None):
             task.taf_torch_evaluator = TorchEvaluator()

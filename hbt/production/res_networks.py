@@ -125,7 +125,7 @@ class _res_dnn_evaluation(Producer):
         reqs["external_files"] = BundleExternalFiles.req(task)
 
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
-        from hbt.ml.tf_evaluator import TFEvaluator
+        from hbt.ml.evaluators import TFEvaluator
 
         if not getattr(task, "taf_tf_evaluator", None):
             task.taf_tf_evaluator = TFEvaluator()

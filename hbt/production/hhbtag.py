@@ -212,7 +212,7 @@ def hhbtag_setup(
     """
     Sets up the two HHBtag TF models.
     """
-    from hbt.ml.tf_evaluator import TFEvaluator
+    from hbt.ml.evaluators import TFEvaluator
 
     if not getattr(task, "taf_tf_evaluator", None):
         task.taf_tf_evaluator = TFEvaluator()
