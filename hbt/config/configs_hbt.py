@@ -1064,18 +1064,19 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
-        # eec and eer
-        cfg.x.eec = EGammaCorrectionConfig(
-            correction_set="Scale",
-            value_type="total_correction",
-            uncertainty_type="total_uncertainty",
-        )
-        cfg.x.eer = EGammaCorrectionConfig(
-            correction_set="Smearing",
-            compound=False,
-            value_type="rho",
-            uncertainty_type="err_rho",
-        )
+        # TODO: disabled for now, need to adapt once new run 2 processing is done
+        # # eec and eer
+        # cfg.x.eec = EGammaCorrectionConfig(
+        #     correction_set="Scale",
+        #     value_type="total_correction",
+        #     uncertainty_type="total_uncertainty",
+        # )
+        # cfg.x.eer = EGammaCorrectionConfig(
+        #     correction_set="Smearing",
+        #     compound=False,
+        #     value_type="rho",
+        #     uncertainty_type="err_rho",
+        # )
     elif run == 3:
         # SFs
         if year == 2022:
@@ -1116,26 +1117,12 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele24_TightID",
         )
-        # eec and eer
-        if year == 2022:
-            e_tag = {"": "preEE", "EE": "postEE"}[campaign.x.postfix]
-        elif year == 2023:
-            # note the upper-case IX
-            e_tag = {"": "preBPIX", "BPix": "postBPIX"}[campaign.x.postfix]
-        elif year == 2024:
-            e_tag = "FIXME"  # TODO: look up!
-        else:
-            assert False
-        cfg.x.eec = EGammaCorrectionConfig(
-            correction_set=f"EGMScale_Compound_Ele_{year}{e_tag}",
-            value_type="scale",
-            uncertainty_type="escale",
-            compound=True,
-        )
-        cfg.x.eer = EGammaCorrectionConfig(
-            correction_set=f"EGMSmearAndSyst_ElePTsplit_{year}{e_tag}",
-            value_type="smear",
-            uncertainty_type="esmear",
+        # electron scale and smearing (eec and eer)
+        cfg.x.ess = EGammaCorrectionConfig(
+            scale_correction_set="Scale",
+            scale_compound=True,
+            smear_syst_correction_set="SmearAndSyst",
+            systs=["scale_down", "scale_up", "smear_down", "smear_up"],
         )
     else:
         assert False
@@ -1744,11 +1731,9 @@ def add_config(
         if year != 2024:  # TODO: not yet available
             add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
         # electron scale factors
-        # TODO: the postfix will be obsolete soon, see https://gitlab.cern.ch/cms-analysis-corrections/EGM/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/-/issues/1 # noqa: E501
-        egm_postfix = "_v1" if year == 2024 else ""
-        add_external("electron_sf", (cat_info.get_file("egm", f"electron{egm_postfix}.json.gz"), "v1"))
+        add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
         # electron energy correction and smearing
-        add_external("electron_ss", (cat_info.get_file("egm", f"electronSS_EtDependent{egm_postfix}.json.gz"), "v1"))
+        add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         add_external("hh_btag_repo", Ext(
             f"{central_hbt_dir}/HHbtag-863627a.tar.gz",
