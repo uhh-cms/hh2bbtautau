@@ -6,20 +6,17 @@ Tasks to create correction_lib file for scale factor calculation for DY events.
 
 from __future__ import annotations
 
-import re
-import gzip
-
 import luigi
 import law
 import order as od
-import numpy as np
 import awkward as ak
+import dataclasses
 
-from columnflow.tasks.framework.base import ConfigTask, TaskShifts
+from columnflow.tasks.framework.base import TaskShifts
 from columnflow.tasks.framework.mixins import (
     DatasetsProcessesMixin, ProducerClassesMixin, CalibratorClassesMixin,
     SelectorClassMixin, ReducerClassMixin,
-    )
+)
 from columnflow.tasks.production import ProduceColumns
 from columnflow.tasks.reduction import ProvideReducedEvents
 from columnflow.util import maybe_import
@@ -31,7 +28,26 @@ from columnflow.hist_util import create_hist_from_variables, fill_hist
 
 from hbt.tasks.base import HBTTask
 
+import numpy as np
+from scipy import optimize
+from matplotlib import pyplot as plt
+from scipy.interpolate import UnivariateSpline
+
 hist = maybe_import("hist")
+
+
+@dataclasses.dataclass
+class Norm:
+    nom: float
+    unc: float
+
+    @property
+    def up(self) -> float:
+        return self.nom + self.unc
+
+    @property
+    def down(self) -> float:
+        return max(0.0, self.nom - self.unc)
 
 
 class DYWeights(
@@ -65,7 +81,18 @@ class DYWeights(
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+        # get era
+        era = self.config_inst.aux.get('dy_weight_config').era
+
+        # initialize dictionary to store results
+        dy_weight_data = {}
+
+        # get variable instances
+        self.gen_dilep_pt_inst = self.config_inst.variables.n.gen_dilepton_pt
         self.dilep_pt_variable_inst = self.config_inst.variables.n.dilep_pt
+        self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow
+        self.njets_inst = self.config_inst.variables.n.njets
+
         self.read_columns = [
             "Jet.btagPNetB",
             "channel_id",
@@ -105,6 +132,7 @@ class DYWeights(
             "category_ids",
             "process_id",
             "dilep_pt",
+            "gen_dilep_pt",
             "weight",
             "njets",
             "nbjets",
@@ -151,52 +179,137 @@ class DYWeights(
 
         # read data, potentially from cache
         if not self.reload and outputs["data"].exists():
-            data_events, bkg_events, dy_events = outputs["data"].load(formatter="pickle")
+            data_events, dy_events, bkg_events = outputs["data"].load(formatter="pickle")
         else:
-            data_events, bkg_events, dy_events = self.load_data()
-            outputs["data"].dump((data_events, bkg_events, dy_events), formatter="pickle")
+            data_events, dy_events, bkg_events = self.load_data()
+            outputs["data"].dump((data_events, dy_events, bkg_events), formatter="pickle")
 
-        # get fit using dilep_pt
+        # initialize dictionary to store results
+        dy_weight_data[era] = {}
+
+        fit_dict = {}
+        fit_dict[era] = {}
+        fit_dict[era]["nom"] = {}
+
+        # use dilep_pt to get fit functions per njet category
         for njet_min, njet_max in [(2, 3), (3, 4), (4, 101)]:
-            var = self.dilep_pt_variable_inst
-            var_name = self.dilep_pt_variable_inst.name
-
             # filter events per njet category
-            def get_jet_mask(events):
-                mask = (
-                    (events.njets >= njet_min) &
-                    (events.njets < njet_max) &
-                    (events.channel_id == self.config_inst.channels.n.mumu.id)
-                )
-                return mask
+            data_mask = self.get_njet_mask(data_events, njet_min, njet_max)
+            dy_mask = self.get_njet_mask(dy_events, njet_min, njet_max)
+            bkg_mask = self.get_njet_mask(bkg_events, njet_min, njet_max)
 
-            data_mask = get_jet_mask(data_events)
-            dy_mask = get_jet_mask(dy_events)
-            bkg_mask = get_jet_mask(bkg_events)
+            # define variable instances
+            variable_insts = [self.dilep_pt_inst, self.nbjets_inst, self.njets_inst]
 
-            # 1. Get unweighted histograms/plots: dilep_pt, nbjets_pnet_overflow, njets.
-            data_h = self.hist_function(var, data_events[var_name][data_mask], data_events.weight[data_mask])
-            dy_h = self.hist_function(var, dy_events[var_name][dy_mask], dy_events.weight[dy_mask])
-            bkg_h = self.hist_function(var, bkg_events[var_name][bkg_mask], bkg_events.weight[bkg_mask])
-            # TODO: continue here :)
+            data_hists = {}
+            dy_hists = {}
+            bkg_hists = {}
 
-            # 2. Do the fit using gen_dilep_pt to get fit function, fit string, and fit plot
+            # get histograms for data, dy and bkg
+            for var in variable_insts:
+                data_hists[var.name] = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])  # noqa: E501
+                dy_hists[var.name] = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])
+                bkg_hists[var.name] = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])  # noqa: E501
 
-            # 3. Evaluate fit with dilep_pt values and save new weight column for DY events
+            # --------------------------------------------------------------------------------
+            # do fit using dilep_pt
 
-            # 4. Get histograms/plots with new DY weight applied: dilep_pt, nbjets_pnet_overflow, njets.
+            # calculate (data-bkg)/dy ratio for dilep_pt with corresponding statistical error
+            ratio_values, ratio_err, bin_centers = self.get_ratio_values(
+                data_hists['dilep_pt'],
+                dy_hists['dilep_pt'],
+                bkg_hists['dilep_pt'],
+                self.dilep_pt_inst,
+            )
 
-            # 5. Calculate normalization factor based on nbjets_min, nbjets_max and save new weight column
+            # define starting values with respective bounds
+            starting_values = [1, 1, 10, 3, 1, 0, 50]
+            lower_bounds = [0.6, 0, 0, 0, 0, -2, 20]
+            upper_bounds = [1.2, 10, 50, 20, 2, 3, 100]
 
-            # 6. Get histograms/plots with both DY weights applied: dilep_pt, nbjets_pnet_overflow, njets, etc.
+            # perform the fit
+            popt, pcov = optimize.curve_fit(
+                self.get_fit_function,
+                bin_centers,
+                ratio_values,
+                p0=starting_values, method="trf",
+                sigma=np.maximum(ratio_err, 1e-5),
+                absolute_sigma=True,
+                bounds=(lower_bounds, upper_bounds),
+            )
+
+            # get post-fit parameters
+            c, n, mu, sigma, a, b, r = popt
+
+            # build fit function string
+            for var_name in ['c', 'n', 'mu', 'sigma', 'a', 'b', 'r']:
+                locals()[var_name] = f"{locals()[var_name]:.9f}"
+            gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((min(x,200)-{mu})/{sigma})^2)))"
+            pol = f"(({a})+({b})*min(x,200))"
+            fit_string = f"(0.5*(erf(-0.08*(min(x,200)-{r}))+1))*{gauss}+(0.5*(erf(0.08*(min(x,200)-{r}))+1))*{pol}"
+
+            # save function string with post-fit parameters to dictionary
+            inf = float("inf")
+            fit_dict[era]["nom"][(njet_min, njet_max)] = [(-inf, inf, fit_string)]
+
+            # TODO: ---> CREATE PDF FIT PLOT
+
+            # evaluate fit using gen_dilep_pt and save dy weight in new column
+            dy_weights_pt = self.get_fit_function(dy_events.gen_dilep_pt, *popt)
+            dy_events = set_ak_column(
+                dy_events,
+                "dy_weight_pt",
+                dy_weights_pt,
+                value_type=np.float64,
+            )
+
+            # get reweighted DY histograms
+            updated_dy_weight = dy_events.weight[dy_mask] * dy_events.dy_weight_pt[dy_mask]
+            for var in variable_insts:
+                dy_hists[var.name + "_postfit"] = self.hist_function(var, dy_events[var.name][dy_mask], updated_dy_weight)  # noqa: E501
+
+        # --------------------------------------------------------------------------------
+        # use nbjets_pnet_overflow to get normalization factor per njet-nbjet category
+        for njet_min, njet_max in [(2, 3), (3, 4), (4, 5), (5, 6), (6, 101)]:
+            # filter events per njet category
+            data_mask = self.get_njet_mask(data_events, njet_min, njet_max)
+            dy_mask = self.get_njet_mask(dy_events, njet_min, njet_max)
+            bkg_mask = self.get_njet_mask(bkg_events, njet_min, njet_max)
+
+            # define variable instances
+            variable_insts = [self.dilep_pt_inst, self.nbjets_inst, self.njets_inst]
+
+            data_hists = {}
+            dy_hists = {}
+            bkg_hists = {}
+
+            # get histograms for data, dy and bkg (with _postfit for DY)
+            for var in variable_insts:
+                data_hists[var.name] = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])  # noqa: E501
+                dy_hists[var.name + "_postfit"] = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])  # noqa: E501
+                bkg_hists[var.name] = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])  # noqa: E501
+
+            # calculate (data-bkg)/dy ratio for nbjets == 0, 1, >= 2
+            ratio_values, ratio_err, bin_centers = self.get_ratio_values(
+                data_hists['nbjets'],
+                dy_hists['nbjets_postfit'],
+                bkg_hists['nbjets'],
+                self.nbjets_inst,
+            )
+
+        # TODO: continue here :)
+
+        # 5. Calculate normalization factor based on nbjets_min, nbjets_max and save new weight column
+
+        # 6. Get histograms/plots with both DY weights applied: dilep_pt, nbjets_pnet_overflow, njets, etc.
 
         import correctionlib.schemav2 as cs
         from hbt.studies.dy_weights.create_clib_file import create_dy_weight_correction
 
     def load_data(self):
         data_events = []
-        bkg_events = []
         dy_events = []
+        bkg_events = []
 
         # loop over datasets and load inputs
         for dataset_name, inps in self.input().items():
@@ -267,7 +380,13 @@ class DYWeights(
                         events = set_ak_column(
                             events,
                             "dilep_pt",
-                            self.dilep_pt_variable_inst.expression(events),
+                            self.dilep_pt_inst.expression(events),
+                        )
+
+                        events = set_ak_column(
+                            events,
+                            "gen_dilep_pt",
+                            self.gen_dilep_pt_inst.expression(events),
                         )
 
                         weight = np.ones(len(events), dtype=np.float32)
@@ -282,20 +401,104 @@ class DYWeights(
                         events.behavior = None
 
                         # save events by dataset type
-                        if dataset_name.startswith("dy_"):
-                            dy_events.append(events)
-                        elif dataset_name.startswith("data_"):
+                        if dataset_name.startswith("data_"):
                             data_events.append(events)
+                        elif dataset_name.startswith("dy_"):
+                            dy_events.append(events)
                         else:
                             bkg_events.append(events)
 
         data_events = ak.concatenate(data_events, axis=0) if data_events else None
-        bkg_events = ak.concatenate(bkg_events, axis=0) if bkg_events else None
         dy_events = ak.concatenate(dy_events, axis=0) if dy_events else None
+        bkg_events = ak.concatenate(bkg_events, axis=0) if bkg_events else None
 
-        return data_events, bkg_events, dy_events
+        return data_events, dy_events, bkg_events
+
+    def get_njet_masks(self, events, njet_min, njet_max):
+        mask = (
+            (events.njets >= njet_min) &
+            (events.njets < njet_max) &
+            (events.channel_id == self.config_inst.channels.n.mumu.id)
+        )
+        return mask
 
     def hist_function(self, var, data, weights):
         h = create_hist_from_variables(var, weight=True)
         fill_hist(h, {var.name: data, "weight": weights})
         return h
+
+    def get_ratio_values(
+            data_h: hist.Hist,
+            dy_h: hist.Hist,
+            bkg_h: hist.Hist,
+            variable_inst: od.Variable
+    ) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
+
+        # under/overflow treatment
+        for h in [data_h, dy_h, bkg_h]:
+            h = h.copy()
+            if variable_inst.x("underflow", False):
+                v = h.view(flow=True)
+                v.value[..., 1] += v.value[..., 0]
+                v.variance[..., 1] += v.variance[..., 0]
+                v.value[..., 0] = 0.0
+                v.variance[..., 0] = 0.0
+            if variable_inst.x("overflow", False):
+                v = h.view(flow=True)
+                v.value[..., -2] += v.value[..., -1]
+                v.variance[..., -2] += v.variance[..., -1]
+                v.value[..., -1] = 0.0
+                v.variance[..., -1] = 0.0
+
+        # get bin centers
+        bin_centers = dy_h.axes[-1].centers
+
+        # get histogram values and errors
+        data_values = data_h.view().value
+        data_err = data_h.view().variance**0.5
+
+        dy_values = dy_h.view().value
+        dy_err = dy_h.view().variance**0.5
+
+        bkg_values = bkg_h.view().value
+        bkg_err = bkg_h.view().variance**0.5
+
+        # calculate (data-bkg)/dy ratio factor with statistical error
+        ratio_values = (data_values - bkg_values) / dy_values
+        ratio_err = (1 / dy_values) * np.sqrt(data_err**2 + bkg_err**2 + (ratio_values * dy_err)**2)
+
+        # fill nans/infs and negative errors with 0.0
+        ratio_values = np.nan_to_num(ratio_values, nan=0.0)
+        ratio_values = np.where(np.isinf(ratio_values), 0.0, ratio_values)
+        ratio_values = np.where(ratio_values < 0, 0.0, ratio_values)
+        ratio_err = np.nan_to_num(ratio_err, nan=0.0)
+        ratio_err = np.where(np.isinf(ratio_err), 0.0, ratio_err)
+        ratio_err = np.where(ratio_err < 0, 0.0, ratio_err)
+
+        return (ratio_values, ratio_err, bin_centers)
+
+    def get_fit_function(x, c, n, mu, sigma, a, b, r):
+
+        from scipy import special
+
+        """
+        x: dependent variable (i.g., dilep_pt)
+        c: Gaussian offset
+        n: Gaussian normalization
+        mu and sigma: Gaussian parameters
+        a, b: polinomial parameters
+        r: regime boundary between Guassian and linear fits
+        """
+
+        # choose guassian and linear functions to do the fit
+        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((x - mu) / sigma) ** 2))
+        pol = a + b * x
+
+        # parameter to control the transition smoothness between the two functions
+        step_par = 0.08
+
+        # use scipy erf function to create smooth transition
+        sci_erf_neg = (0.5 * (special.erf(-step_par * (x - r)) + 1))
+        sci_erf_pos = (0.5 * (special.erf(step_par * (x - r)) + 1))
+
+        return sci_erf_neg * gauss + sci_erf_pos * pol
