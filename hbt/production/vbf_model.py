@@ -244,6 +244,13 @@ class _vbf_dnn_evaluation(Producer):
         has_fatjet = ak.num(events.FatJet) >= 1
         has_vbf_jets = ak.num(events.VBFJet) >= 2
 
+        padded_vbfjets = ak.pad_none(events.VBFJet, 2, axis=1)
+        vbfjet1, vbfjet2 = padded_vbfjets[:, :1], padded_vbfjets[:, 1:2]
+        vbf_preselection_mask = (
+            ak.fill_none(ak.firsts((vbfjet1 + vbfjet2).mass) > 500, False) &
+            ak.firsts(ak.any(vbfjet1.metric_table(vbfjet2) > 2.5, axis=2))
+        )
+
         # before preparing the network inputs, define a mask of events which have categorical features
         # that are actually covered by the networks embedding layers; other events cannot be evaluated!
         event_mask = (
@@ -253,7 +260,8 @@ class _vbf_dnn_evaluation(Producer):
             np.isin(dm2, self.embedding_expected_inputs["decay_mode2"]) &  # removes ee, mumu and emu events
             np.isin(vis_tau1.charge, self.embedding_expected_inputs["charge1"]) &
             np.isin(vis_tau2.charge, self.embedding_expected_inputs["charge2"]) &
-            (has_jet_pair | has_fatjet | has_vbf_jets)  # should always be the case, but fine...
+            (has_jet_pair | has_fatjet) &
+            has_vbf_jets & ak.fill_none(vbf_preselection_mask, False)
         )
 
         # hook to update the event mask base on additional event info
@@ -401,32 +409,26 @@ class _vbf_dnn_evaluation(Producer):
                         (f.vbfjet1_py + f.vbfjet2_py)**2 -
                         (f.vbfjet1_pz + f.vbfjet2_pz)**2)**0.5
 
-        vbfjet_1_phi = np.arctan2(f.vbfjet1_py, f.vbfjet1_px)
-        vbfjet_2_phi = np.arctan2(f.vbfjet2_py, f.vbfjet2_px)
-        # valid for pz > 0
-        vbfjet1_eta = -np.log(np.tan(0.5 * np.arctan2(
-            (f.vbfjet1_px**2 + f.vbfjet1_py**2)**0.5,
-            (f.vbfjet1_px**2 + f.vbfjet1_py**2 + f.vbfjet1_pz**2)**0.5,
-        )))
-        vbfjet2_eta = -np.log(np.tan(0.5 * np.arctan2(
-            (f.vbfjet2_px**2 + f.vbfjet2_py**2)**0.5,
-            (f.vbfjet2_px**2 + f.vbfjet2_py**2 + f.vbfjet2_pz**2)**0.5,
-        )))
-        f.VBFdeltaR = ((vbfjet1_eta - vbfjet2_eta)**2 + (vbfjet_1_phi - vbfjet_2_phi)**2)**0.5
+        vbfjet1_phi = np.arctan2(f.vbfjet1_py, f.vbfjet1_px)
+        vbfjet2_phi = np.arctan2(f.vbfjet2_py, f.vbfjet2_px)
+
+        vbfjet1_costheta = f.vbfjet1_pz / (f.vbfjet1_px**2 + f.vbfjet1_py**2 + f.vbfjet1_pz**2)**0.5
+        vbfjet1_eta = -0.5 * np.log((1 - vbfjet1_costheta) / (1 + vbfjet1_costheta))
+        vbfjet2_costheta = f.vbfjet2_pz / (f.vbfjet2_px**2 + f.vbfjet2_py**2 + f.vbfjet2_pz**2)**0.5
+        vbfjet2_eta = -0.5 * np.log((1 - vbfjet2_costheta) / (1 + vbfjet2_costheta))
+
+        f.VBFdeltaR = ((vbfjet1_eta - vbfjet2_eta)**2 + (vbfjet1_phi - vbfjet2_phi)**2)**0.5
         f.etaprod_vbfjvbfj = vbfjet1_eta * vbfjet2_eta
         # default values
         # TODO: check default values: -999 or using the values needed for calculating?
         mask_values(~has_vbf_jets, -999.0, "VBFjj_mass", "VBFdeltaR", "etaprod_vbfjvbfj")
 
         # bb system variables
-        bjet1_eta = -np.log(np.tan(0.5 * np.arctan2(
-            (f.bjet1_px**2 + f.bjet1_py**2)**0.5,
-            (f.bjet1_px**2 + f.bjet1_py**2 + f.bjet1_pz**2)**0.5,
-        )))
-        bjet2_eta = -np.log(np.tan(0.5 * np.arctan2(
-            (f.bjet2_px**2 + f.bjet2_py**2)**0.5,
-            (f.bjet2_px**2 + f.bjet2_py**2 + f.bjet2_pz**2)**0.5,
-        )))
+        bjet1_costheta = f.bjet1_pz / (f.bjet1_px**2 + f.bjet1_py**2 + f.bjet1_pz**2)**0.5
+        bjet1_eta = -0.5 * np.log((1 - bjet1_costheta) / (1 + bjet1_costheta))
+        bjet2_costheta = f.bjet2_pz / (f.bjet2_px**2 + f.bjet2_py**2 + f.bjet2_pz**2)**0.5
+        bjet2_eta = -0.5 * np.log((1 - bjet2_costheta) / (1 + bjet2_costheta))
+
         f.etaprod_bb = bjet1_eta * bjet2_eta
         # default values
         # TODO: check default values: -999 or using the values needed for calculating?
@@ -523,10 +525,6 @@ class _vbf_dnn_evaluation(Producer):
             ]
             if t is not None
         ]
-        # except Exception as e:
-        #     print("Error while building continous inputs for VBF DNN:", e)
-        #     from IPython import embed; embed(headers="in call_func of vbf_dnn_evaluation")  # noqa: E501
-        #     raise e
 
         # build categorical inputs
         # (order exactly as documented in link above)
@@ -548,8 +546,7 @@ class _vbf_dnn_evaluation(Producer):
             ],
         )
 
-        from IPython import embed; embed(header="after VBF DNN evaluation")  # noqa: E501
-        print(f"As VBF-classified events:{ak.sum(ak.argmax(scores, axis=1) == 0)} from {len(scores)} events")
+        print(f"As VBF-classified events:{ak.sum(ak.argmax(scores, axis=1) == 3)} from {len(scores)} events")
         # TODO: check if still accurate
         if ak.sum(~np.isfinite(scores)) > 0:
             raise RuntimeError("NaN scores in VBF DNN evaluation!")
