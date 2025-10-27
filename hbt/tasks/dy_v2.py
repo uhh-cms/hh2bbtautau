@@ -187,12 +187,67 @@ class DYWeights(
         # initialize dictionary to store results
         dy_weight_data[era] = {}
 
+        corr_setup = {
+            (2, 3): {
+                (2, 3): [(0, 1), (1, 2), (2, 101)],
+            },
+            (3, 4): {
+                (3, 4): [(0, 1), (1, 2), (2, 101)]
+            },
+            (4, 101): {
+                (4, 5): [(0, 1), (1, 2), (2, 101)],
+                (5, 6): [(0, 1), (1, 2), (2, 101)],
+                (6, 101): [(0, 1), (1, 2), (2, 101)],
+            },
+        }
+
+
+
+        where_to_fit = ...
+        how_to_norm = ...
+
         fit_dict = {}
         fit_dict[era] = {}
         fit_dict[era]["nom"] = {}
 
-        # use dilep_pt to get fit functions per njet category
-        for njet_min, njet_max in [(2, 3), (3, 4), (4, 101)]:
+        # add dummy values for both weights
+        dy_events = set_ak_column(dy_events, "dy_weight_1", np.ones(len(events), dtype=np.float32))
+        dy_events = set_ak_column(dy_events, "dy_weight_2", np.ones(len(events), dtype=np.float32))
+
+        for (njet_fit_min, njet_fit_max), norm_data in corr_setup.items():
+            mask = ...
+            fit = ...
+
+            # save weights
+            weights1 = ak.where(mask, the_weight, dy_events.dy_weight_1)
+            dy_events = set_ak_column(
+                dy_events,
+                "dy_weight_1",
+                weights1,
+            )
+
+            for (njet_norm_min, njet_norm_max), btag_data in norm_data.items():
+                for nbjet_min, nbjet_max in btag_data:
+                    mask = ...
+                    # update hists
+                    norm = ...
+
+                    # save weights
+                    weights2 = ak.where(mask, norm, dy_events.dy_weight_2)
+                    dy_events = set_ak_column(
+                        dy_events,
+                        "dy_weight_2",
+                        weights2,
+                    )
+
+        # combine both weights
+        dy_events = set_ak_column(
+            dy_events,
+            "dy_weight",
+            dy_events.dy_weight_1 * dy_events.dy_weight_2,
+        )
+
+
             # filter events per njet category
             data_mask = self.get_njet_mask(data_events, njet_min, njet_max)
             dy_mask = self.get_njet_mask(dy_events, njet_min, njet_max)
@@ -211,83 +266,69 @@ class DYWeights(
                 dy_hists[var.name] = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])
                 bkg_hists[var.name] = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])  # noqa: E501
 
+            # TODO: ---> CREATE PDF UNWEIGHTED PLOTS
+
             # --------------------------------------------------------------------------------
-            # do fit using dilep_pt
+            # 1. use dilep_pt to get fit functions per njet categories
+            if (njet_min, njet_max) in [(2, 3), (3, 4), (4, 101)]:
 
-            # calculate (data-bkg)/dy ratio for dilep_pt with corresponding statistical error
-            ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                data_hists['dilep_pt'],
-                dy_hists['dilep_pt'],
-                bkg_hists['dilep_pt'],
-                self.dilep_pt_inst,
-            )
+                # calculate (data-bkg)/dy ratio for dilep_pt with corresponding statistical error
+                ratio_values, ratio_err, bin_centers = self.get_ratio_values(
+                    data_hists['dilep_pt'],
+                    dy_hists['dilep_pt'],
+                    bkg_hists['dilep_pt'],
+                    self.dilep_pt_inst,
+                )
 
-            # define starting values with respective bounds
-            starting_values = [1, 1, 10, 3, 1, 0, 50]
-            lower_bounds = [0.6, 0, 0, 0, 0, -2, 20]
-            upper_bounds = [1.2, 10, 50, 20, 2, 3, 100]
+                # define starting values with respective bounds
+                starting_values = [1, 1, 10, 3, 1, 0, 50]
+                lower_bounds = [0.6, 0, 0, 0, 0, -2, 20]
+                upper_bounds = [1.2, 10, 50, 20, 2, 3, 100]
 
-            # perform the fit
-            popt, pcov = optimize.curve_fit(
-                self.get_fit_function,
-                bin_centers,
-                ratio_values,
-                p0=starting_values, method="trf",
-                sigma=np.maximum(ratio_err, 1e-5),
-                absolute_sigma=True,
-                bounds=(lower_bounds, upper_bounds),
-            )
+                # perform the fit
+                popt, pcov = optimize.curve_fit(
+                    self.get_fit_function,
+                    bin_centers,
+                    ratio_values,
+                    p0=starting_values, method="trf",
+                    sigma=np.maximum(ratio_err, 1e-5),
+                    absolute_sigma=True,
+                    bounds=(lower_bounds, upper_bounds),
+                )
 
-            # get post-fit parameters
-            c, n, mu, sigma, a, b, r = popt
+                # get post-fit parameters
+                c, n, mu, sigma, a, b, r = popt
 
-            # build fit function string
-            for var_name in ['c', 'n', 'mu', 'sigma', 'a', 'b', 'r']:
-                locals()[var_name] = f"{locals()[var_name]:.9f}"
-            gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((min(x,200)-{mu})/{sigma})^2)))"
-            pol = f"(({a})+({b})*min(x,200))"
-            fit_string = f"(0.5*(erf(-0.08*(min(x,200)-{r}))+1))*{gauss}+(0.5*(erf(0.08*(min(x,200)-{r}))+1))*{pol}"
+                # build fit function string
+                for var_name in ['c', 'n', 'mu', 'sigma', 'a', 'b', 'r']:
+                    locals()[var_name] = f"{locals()[var_name]:.9f}"
+                gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((min(x,200)-{mu})/{sigma})^2)))"
+                pol = f"(({a})+({b})*min(x,200))"
+                fit_string = f"(0.5*(erf(-0.08*(min(x,200)-{r}))+1))*{gauss}+(0.5*(erf(0.08*(min(x,200)-{r}))+1))*{pol}"
 
-            # save function string with post-fit parameters to dictionary
-            inf = float("inf")
-            fit_dict[era]["nom"][(njet_min, njet_max)] = [(-inf, inf, fit_string)]
+                # save function string with post-fit parameters to dictionary
+                inf = float("inf")
+                fit_dict[era]["nom"][(njet_min, njet_max)] = [(-inf, inf, fit_string)]
 
-            # TODO: ---> CREATE PDF FIT PLOT
+                # TODO: ---> CREATE PDF FIT PLOTS
 
-            # evaluate fit using gen_dilep_pt and save dy weight in new column
-            dy_weights_pt = self.get_fit_function(dy_events.gen_dilep_pt, *popt)
-            dy_events = set_ak_column(
-                dy_events,
-                "dy_weight_pt",
-                dy_weights_pt,
-                value_type=np.float64,
-            )
 
-            # get reweighted DY histograms
-            updated_dy_weight = dy_events.weight[dy_mask] * dy_events.dy_weight_pt[dy_mask]
-            for var in variable_insts:
-                dy_hists[var.name + "_postfit"] = self.hist_function(var, dy_events[var.name][dy_mask], updated_dy_weight)  # noqa: E501
+            # TODO: ---> CREATE PDF WEIGHTED PLOTS WITH : POSTFIT PT WEIGHTS
 
-        # --------------------------------------------------------------------------------
-        # use nbjets_pnet_overflow to get normalization factor per njet-nbjet category
-        for njet_min, njet_max in [(2, 3), (3, 4), (4, 5), (5, 6), (6, 101)]:
-            # filter events per njet category
-            data_mask = self.get_njet_mask(data_events, njet_min, njet_max)
-            dy_mask = self.get_njet_mask(dy_events, njet_min, njet_max)
-            bkg_mask = self.get_njet_mask(bkg_events, njet_min, njet_max)
+            # --------------------------------------------------------------------------------
+            # 2. use nbjets to get normalization factor per njet-nbjet category and do second reweighting of DY events
 
-            # define variable instances
-            variable_insts = [self.dilep_pt_inst, self.nbjets_inst, self.njets_inst]
+            # get histograms for data, dy and bkg with reweighted DY events
+            if not dy_events.dy_weight_pt:
+                updated_dy_weight = dy_events.weight[dy_mask]
+            else:
+                updated_dy_weight = dy_events.weight[dy_mask] * dy_events.dy_weight_pt[dy_mask]
 
-            data_hists = {}
-            dy_hists = {}
-            bkg_hists = {}
-
-            # get histograms for data, dy and bkg (with _postfit for DY)
             for var in variable_insts:
                 data_hists[var.name] = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])  # noqa: E501
-                dy_hists[var.name + "_postfit"] = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])  # noqa: E501
+                dy_hists[var.name + "_postfit"] = self.hist_function(var, dy_events[var.name][dy_mask], updated_dy_weight)  # noqa: E501
                 bkg_hists[var.name] = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])  # noqa: E501
+
 
             # calculate (data-bkg)/dy ratio for nbjets == 0, 1, >= 2
             ratio_values, ratio_err, bin_centers = self.get_ratio_values(
@@ -297,10 +338,11 @@ class DYWeights(
                 self.nbjets_inst,
             )
 
+            # TODO: ---> CREATE PDF WEIGHTED PLOTS WITH : POSTFIT PT WEIGHTS * NORM WEIGHTS
+
         # TODO: continue here :)
 
-        # 5. Calculate normalization factor based on nbjets_min, nbjets_max and save new weight column
-
++
         # 6. Get histograms/plots with both DY weights applied: dilep_pt, nbjets_pnet_overflow, njets, etc.
 
         import correctionlib.schemav2 as cs
