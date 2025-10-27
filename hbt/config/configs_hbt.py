@@ -642,7 +642,7 @@ def add_config(
                 }
         # drell-yan, amcatnlo, using tautau inclusive dataset for 2024
         if year == 2024 and "dy_tautau_m50toinf_amcatnlo" in cfg.datasets:
-            # TODO: add stitching config, but somehow merge with the one above
+            # TODO: 2024: add stitching config, but somehow merge with the one above
             pass
         # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
@@ -1728,7 +1728,7 @@ def add_config(
         # muon scale factors
         add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
         # met phi correction
-        if year != 2024:  # TODO: not yet available
+        if year != 2024:  # TODO: 2024: not yet available
             add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
         # electron scale factors
         add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
@@ -1782,7 +1782,7 @@ def add_config(
                 version="v1",
             ))
         elif year == 2024:
-            # TODO: add once available
+            # TODO: 2024: add once available
             pass
 
     else:
