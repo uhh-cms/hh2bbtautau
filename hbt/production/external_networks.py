@@ -1,8 +1,7 @@
 # coding: utf-8
 
 """
-Producer for evaluating the pDNN developed for the resonant run 2 analysis.
-See https://github.com/uhh-cms/tautauNN
+Producers for evaluating torch-based models.
 """
 
 from __future__ import annotations
@@ -18,6 +17,8 @@ from columnflow.columnar_util import (
 )
 from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.types import Any
+
+from hbt.util import MET_COLUMN
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -39,38 +40,22 @@ def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Arr
     return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
 
-class _res_dnn_evaluation(Producer):
+class _external_dnn(Producer):
     """
-    Base producer for dnn evaluations of the resonant run 2 analyses, whose models are considered external and thus part
-    of producers rather than standalone ml model objects. The output scores are classifying if incoming events are HH,
-    Drell-Yan or ttbar. The network uses continous, categorical and parametrized inputs. A list of all inputs in the
-    correct order can be found in the tautauNN repo:
-    https://github.com/uhh-cms/tautauNN/blob/f1ca194/evaluation/interface.py#L67
+    Base class for evaluating DNNs trained externally with PyTorch and our "standard" set of input features.
     """
 
     uses = {
         attach_coffea_behavior,
-        # custom columns created upstream, probably by a selector
         "channel_id",
-        # nano columns
         "event",
         "Tau.{eta,phi,pt,mass,charge,decayMode}",
         "Electron.{eta,phi,pt,mass,charge}",
         "Muon.{eta,phi,pt,mass,charge}",
-        "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+        "HHBJet.{pt,eta,phi,mass,hhbtag,btagPNet*}",
         "FatJet.{eta,phi,pt,mass}",
-        # MET variables added in dynamic init
+        MET_COLUMN("{pt,phi,covXX,covXY,covYY}"),
     }
-
-    # whether to use pnet instead of deepflavor for btagging variables
-    use_pnet: bool = False
-
-    # whether the model is parameterized in mass, spin and year
-    # (this is a slight forward declaration but simplifies the code reasonably well in our use case)
-    parametrized: bool | None = None
-
-    # directory of the unpacked model archive (no subdirectory is expected when None)
-    dir_name: str | None = None
 
     # limited chunk size to avoid memory issues
     max_chunk_size: int = 10_000
@@ -89,14 +74,16 @@ class _res_dnn_evaluation(Producer):
     exposed = False
 
     @property
+    def output_prefix(self) -> str:
+        # prefix for output columns
+        return self.cls_name
+
+    @property
     def external_name(self) -> str:
         # name of the model bundle in the external files
         return self.cls_name
 
     def init_func(self, **kwargs) -> None:
-        # add met variables to used columns
-        self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi,covXX,covXY,covYY}}")
-
         # set feature production options when requested
         if self.produce_features is None:
             self.produce_features = self.config_inst.x.sync
@@ -117,6 +104,16 @@ class _res_dnn_evaluation(Producer):
             if shift_inst.has_tag({"jec", "jer", "tec", "eec", "eer"})
         })
 
+        # output column names
+        # (could be generalized to allow inheriting classes to define different targets)
+        self.output_columns = [
+            f"{self.output_prefix}_{name}"
+            for name in ["hh", "tt", "dy"]
+        ]
+
+        # update produced columns
+        self.produces |= set(self.output_columns)
+
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
         if "external_files" in reqs:
             return
@@ -125,73 +122,36 @@ class _res_dnn_evaluation(Producer):
         reqs["external_files"] = BundleExternalFiles.req(task)
 
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
-        from hbt.ml.evaluators import TFEvaluator
+        from hbt.ml.evaluators import TorchEvaluator
 
-        if not getattr(task, "taf_tf_evaluator", None):
-            task.taf_tf_evaluator = TFEvaluator()
-        self.evaluator = task.taf_tf_evaluator
+        if not getattr(task, "taf_torch_evaluator", None):
+            task.taf_torch_evaluator = TorchEvaluator()
+        self.evaluator = task.taf_torch_evaluator
 
-        # some checks
-        if not isinstance(self.parametrized, bool):
-            raise AttributeError("'parametrized' must be set in the producer configuration")
-
-        # unpack the model archive
         bundle = reqs["external_files"]
         bundle.files
-        model_dir = bundle.files_dir.child(f"{self.external_name}_unpacked", type="d")
-        getattr(bundle.files, self.external_name).load(model_dir, formatter="tar")
-        if self.dir_name:
-            model_dir = model_dir.child(self.dir_name, type="d")
-
-        # setup the evaluator
-        self.evaluator.add_model(self.cls_name, model_dir.abspath, signature_key="serving_default")
+        model_path = getattr(bundle.files, self.external_name)
+        self.evaluator.add_model(self.cls_name, model_path.abspath)
 
         # categorical values handled by the network
         # (names and values from training code that was aligned to KLUB notation)
         self.embedding_expected_inputs = {
-            "pair_type": [0, 1, 2],  # see mapping below
+            "channel_id": [1, 2, 3],  # see mapping below
             "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
             "decay_mode2": [0, 1, 10, 11],
             "charge1": [-1, 1],
             "charge2": [-1, 1],
             "is_boosted": [0, 1],  # whether a selected fatjet is present
             "has_jet_pair": [0, 1],  # whether two or more jets are present
-            "spin": [0, 2],
-            "year": [0, 1, 2, 3],  # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018
         }
-
-        # our channel ids mapped to KLUB "pair_type"
-        self.channel_id_to_pair_type = {
-            # known during training
-            self.config_inst.channels.n.mutau.id: 0,
-            self.config_inst.channels.n.etau.id: 1,
-            self.config_inst.channels.n.tautau.id: 2,
-            # unknown during training
-            self.config_inst.channels.n.ee.id: 1,
-            self.config_inst.channels.n.mumu.id: 0,
-            self.config_inst.channels.n.emu.id: 1,
-        }
-
-        # define the year based on the incoming campaign
-        # (the training was done only for run 2, so map run 3 campaigns to 2018)
-        self.year_flag = {
-            (2016, "APV"): 0,
-            (2016, ""): 1,
-            (2017, ""): 2,
-            (2018, ""): 3,
-            (2022, ""): 3,
-            (2022, "EE"): 3,
-            (2023, ""): 3,
-            (2023, "BPix"): 3,
-        }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:
         """
-        Stops the TF evaluator.
+        Stops the Torch evaluator.
         """
-        if (evaluator := getattr(task, "taf_tf_evaluator", None)):
+        if (evaluator := getattr(task, "taf_torch_evaluator", None)):
             evaluator.stop()
-        task.taf_tf_evaluator = None
+        task.taf_torch_evaluator = None
         self.evaluator = None
 
     def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
@@ -206,10 +166,8 @@ class _res_dnn_evaluation(Producer):
             **kwargs,
         )
 
-        # define the pair type (KLUBs channel id)
-        pair_type = np.zeros(len(events), dtype=np.int32)
-        for channel_id, pair_type_id in self.channel_id_to_pair_type.items():
-            pair_type[events.channel_id == channel_id] = pair_type_id
+        # get the channel id
+        channel_id = events.channel_id
 
         # get visible tau decay products, consider them all as tau types
         vis_taus = attach_behavior(
@@ -246,13 +204,12 @@ class _res_dnn_evaluation(Producer):
         # before preparing the network inputs, define a mask of events which have caregorical features
         # that are actually covered by the networks embedding layers; other events cannot be evaluated!
         event_mask = (
-            np.isin(pair_type, self.embedding_expected_inputs["pair_type"]) &
+            np.isin(channel_id, self.embedding_expected_inputs["channel_id"]) &
             np.isin(dm1, self.embedding_expected_inputs["decay_mode1"]) &
             np.isin(dm2, self.embedding_expected_inputs["decay_mode2"]) &
             np.isin(vis_tau1.charge, self.embedding_expected_inputs["charge1"]) &
             np.isin(vis_tau2.charge, self.embedding_expected_inputs["charge2"]) &
-            (has_jet_pair | has_fatjet) &
-            (self.year_flag in self.embedding_expected_inputs["year"])
+            (has_jet_pair | has_fatjet)
         )
 
         # hook to update the event mask base on additional event info
@@ -260,7 +217,7 @@ class _res_dnn_evaluation(Producer):
 
         # apply to all arrays needed until now
         _events = events[event_mask]
-        pair_type = pair_type[event_mask]
+        channel_id = channel_id[event_mask]
         vis_tau1, vis_tau2 = vis_tau1[event_mask], vis_tau2[event_mask]
         tautau_mask = tautau_mask[event_mask]
         dm1, dm2 = dm1[event_mask], dm2[event_mask]
@@ -288,17 +245,17 @@ class _res_dnn_evaluation(Producer):
         # bjet 1
         f.bjet1_px, f.bjet1_py = rotate_to_phi(phi_lep, bjets[:, 0].px, bjets[:, 0].py)
         f.bjet1_pz, f.bjet1_e = bjets[:, 0].pz, bjets[:, 0].energy
-        f.bjet1_tag_b = bjets[:, 0]["btagPNetB" if self.use_pnet else "btagDeepFlavB"]
-        f.bjet1_tag_cvsb = bjets[:, 0]["btagPNetCvB" if self.use_pnet else "btagDeepFlavCvB"]
-        f.bjet1_tag_cvsl = bjets[:, 0]["btagPNetCvL" if self.use_pnet else "btagDeepFlavCvL"]
+        f.bjet1_tag_b = bjets[:, 0].btagPNetB
+        f.bjet1_tag_cvsb = bjets[:, 0].btagPNetCvB
+        f.bjet1_tag_cvsl = bjets[:, 0].btagPNetCvL
         f.bjet1_hhbtag = bjets[:, 0].hhbtag
 
         # bjet 2
         f.bjet2_px, f.bjet2_py = rotate_to_phi(phi_lep, bjets[:, 1].px, bjets[:, 1].py)
         f.bjet2_pz, f.bjet2_e = bjets[:, 1].pz, bjets[:, 1].energy
-        f.bjet2_tag_b = bjets[:, 1]["btagPNetB" if self.use_pnet else "btagDeepFlavB"]
-        f.bjet2_tag_cvsb = bjets[:, 1]["btagPNetCvB" if self.use_pnet else "btagDeepFlavCvB"]
-        f.bjet2_tag_cvsl = bjets[:, 1]["btagPNetCvL" if self.use_pnet else "btagDeepFlavCvL"]
+        f.bjet2_tag_b = bjets[:, 1].btagPNetB
+        f.bjet2_tag_cvsb = bjets[:, 1].btagPNetCvB
+        f.bjet2_tag_cvsl = bjets[:, 1].btagPNetCvL
         f.bjet2_hhbtag = bjets[:, 1].hhbtag
 
         # fatjet variables
@@ -355,7 +312,7 @@ class _res_dnn_evaluation(Producer):
         f.met_cov00, f.met_cov01, f.met_cov11 = _met.covXX, _met.covXY, _met.covYY
 
         # assign categorical inputs via names too
-        f.pair_type = pair_type
+        f.channel_id = channel_id
         f.dm1 = dm1
         f.dm2 = dm2
         f.vis_tau1_charge = vis_tau1.charge
@@ -379,7 +336,6 @@ class _res_dnn_evaluation(Producer):
                 f.hbb_e, f.hbb_px, f.hbb_py, f.hbb_pz,
                 f.htthbb_e, f.htthbb_px, f.htthbb_py, f.htthbb_pz,
                 f.httfatjet_e, f.httfatjet_px, f.httfatjet_py, f.httfatjet_pz,
-                (self.mass * np.ones(len(_events), dtype=np.float32)) if self.parametrized else None,
             ]
             if t is not None
         ]
@@ -388,22 +344,20 @@ class _res_dnn_evaluation(Producer):
         # (order exactly as documented in link above)
         categorical_inputs = [
             np.asarray(t[..., None], dtype=np.int32) for t in [
-                f.pair_type,
+                f.channel_id,
                 f.dm1, f.dm2,
                 f.vis_tau1_charge, f.vis_tau2_charge,
                 f.has_jet_pair, f.has_fatjet,
-                (self.year_flag * np.ones(len(_events), dtype=np.int32)) if self.parametrized else None,
-                (self.spin * np.ones(len(_events), dtype=np.int32)) if self.parametrized else None,
             ] if t is not None
         ]
 
         # evaluate the model
         scores = self.evaluator(
             self.cls_name,
-            inputs=[
-                np.concatenate(continous_inputs, axis=1),
+            (
                 np.concatenate(categorical_inputs, axis=1),
-            ],
+                np.concatenate(continous_inputs, axis=1),
+            ),
         )
 
         # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
@@ -439,7 +393,7 @@ class _res_dnn_evaluation(Producer):
                 "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz",
             ]
             cat_inputs_cols = [
-                "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
+                "channel_id", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
             ]
             for c in cont_inputs_cols + cat_inputs_cols:
                 values = self.empty_value * np.ones(len(events), dtype=np.float32)
@@ -452,251 +406,5 @@ class _res_dnn_evaluation(Producer):
         return event_mask
 
 
-#
-# producers for classification-only networks
-# (combined network)
-#
-
-class _res_dnn(_res_dnn_evaluation):
-
-    dir_name = "model_fold0"
-    output_prefix = "res_dnn"
-
-    def init_func(self, **kwargs) -> None:
-        super().init_func(**kwargs)
-
-        # output column names (in this order)
-        self.output_columns = [
-            f"{self.output_prefix}_{name}"
-            for name in ["hh", "tt", "dy"]
-        ]
-
-        # update produced columns
-        self.produces |= set(self.output_columns)
-
-
-class res_pdnn(_res_dnn):
-    """
-    Parameterized network, trained with Radion (spin 0) and Graviton (spin 2) samples up to mX = 3000 GeV in all run 2
-    eras.
-    """
-
-    parametrized = True
-    dir_name = "model_fold0"
+class torch_test_dnn(_external_dnn):
     exposed = True
-    mass = 500
-    spin = 0
-
-    def init_func(self, **kwargs) -> None:
-        super().init_func(**kwargs)
-
-        # check spin value and mass values
-        if self.spin not in {0, 2}:
-            raise ValueError(f"invalid spin value: {self.spin}")
-        if self.mass < 250:
-            raise ValueError(f"invalid mass value: {self.mass}")
-
-
-class res_dnn(_res_dnn):
-    """
-    Non-parameterized network, trained only with Radion (spin 0) samples up to mX = 800 GeV across all run 2 eras.
-    """
-
-    parametrized = False
-    dir_name = "model_fold0"
-    exposed = True
-
-
-class res_dnn_pnet(res_dnn):
-    """
-    Same as :py:class:`res_dnn` but using pnet btagging variables and storing inputs.
-    """
-
-    external_name = "res_dnn"
-    use_pnet = True
-    produce_features = True
-    output_prefix = "res_dnn_pnet"
-
-
-#
-# producers for multi-output regression networks
-# (tobi's regression)
-#
-
-class _reg_dnn(_res_dnn_evaluation):
-
-    empty_value = 0.0
-    parametrized = False
-
-    def init_func(self, **kwargs) -> None:
-        super().init_func(**kwargs)
-
-        # output column names (in this order)
-        self.output_columns = [
-            f"{self.output_prefix}_nu{i}_{v}"
-            for i in range(1, 2 + 1)
-            for v in ["px", "py", "pz"]
-        ]
-
-        # update produced columns
-        self.produces |= set(self.output_columns)
-
-
-class reg_dnn(_reg_dnn):
-    """
-    Single regression network, trained with Radion samples and a flat mass range.
-    """
-
-    dir_name = "model_fold0_seed0"
-    output_prefix = "reg_dnn"
-    exposed = True
-
-
-class reg_dnn_moe(_reg_dnn):
-    """
-    Mixture of experts regression network, trained with Radion samples and a flat mass range.
-    """
-
-    dir_name = "model_fold0_moe"
-    output_prefix = "reg_dnn_moe"
-    exposed = True
-
-
-#
-# producers for evaluating run 3 models trained with the legacy setup but on run 3 data
-#
-
-class _run3_dnn(_res_dnn):
-
-    parametrized = False
-    use_pnet = True
-    dir_name = None
-    fold = None
-    n_folds = 5
-
-    @property
-    def output_prefix(self) -> str:
-        return self.cls_name
-
-    def update_event_mask(self, events: ak.Array, event_mask: ak.Array) -> ak.Array:
-        # when a fold is defined, select only events that match this fold
-        # (all other events were potentially used for the training)
-        if self.fold is not None:
-            event_fold = events.event % self.n_folds
-            event_mask = event_mask & (event_fold == self.fold)
-
-        return event_mask
-
-
-# derive evaluation producers for all folds
-for fold in range(_run3_dnn.n_folds):
-    _run3_dnn.derive(f"run3_dnn_fold{fold}_moe", cls_dict={
-        "fold": fold,
-        "external_name": f"run3_dnn_fold{fold}_moe",
-        "exposed": True,
-    })
-
-
-class run3_dnn_simple(_run3_dnn):
-    """
-    Simple version of the run 3 dnn with a single fold for quick comparisons. Trained with kl 1 and 0.
-    """
-
-    fold = None
-    external_name = "run3_dnn_simple"
-    exposed = True
-
-
-# same as :py:class:`run3_dnn_simple` but trained for different kl variations
-for kl in ["kl1", "kl0", "allkl"]:
-    run3_dnn_simple.derive(f"run3_dnn_simple_{kl}", cls_dict={"external_name": f"run3_dnn_simple_{kl}"})
-
-
-#
-# producer for combining the results of all folds
-#
-
-class run3_dnn_moe(Producer):
-
-    # require ProduceColumns tasks per fold first when True, otherwise evaluate all folds in the same task
-    require_producers = True
-
-    # when require_producers is False, the sandbox must be set
-    # sandbox = _run3_dnn.sandbox
-
-    # when require_producers is True, decide whether to remove their outputs after successful combination
-    remove_producers = True
-
-    # used and produced columns
-    # (used ones are updated dynamically in init_func)
-    uses = {"event"}
-    produces = {"run3_dnn_moe_{hh,tt,dy}"}
-
-    def init_func(self, **kwargs) -> None:
-        # store dnn evaluation classes
-        self.dnn_classes = {
-            f: _run3_dnn.get_cls(f"run3_dnn_fold{f}_moe")
-            for f in range(_run3_dnn.n_folds)
-        }
-
-        # update used columns / dependencies
-        for dnn_cls in self.dnn_classes.values():
-            self.uses.add(f"{dnn_cls.cls_name}_{{hh,tt,dy}}" if self.require_producers else dnn_cls)
-
-    def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
-        if not self.require_producers:
-            return
-
-        from columnflow.tasks.production import ProduceColumns
-        reqs["run3_dnn_folds"] = {
-            f: ProduceColumns.req_other_producer(task, producer=dnn_cls.cls_name)
-            for f, dnn_cls in self.dnn_classes.items()
-        }
-
-    def setup_func(
-        self,
-        task: law.Task,
-        reqs: dict,
-        inputs: dict,
-        reader_targets: law.util.InsertableDict,
-        **kwargs,
-    ) -> None:
-        if not self.require_producers:
-            return
-
-        # add outputs of required producers to list of columnar files that are read in the producer loop
-        reader_targets.update({
-            f"run3_dnn_fold{f}": inp["columns"]
-            for f, inp in inputs["run3_dnn_folds"].items()
-        })
-
-        # potentially store references to inputs to removal later on
-        if self.remove_producers:
-            self.remove_producer_inputs = [inp["columns"] for inp in inputs["run3_dnn_folds"].values()]
-
-    def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
-        event_fold = events.event % _run3_dnn.n_folds
-
-        # invoke the evaluations of all folds when not requiring them as dedicated producers
-        if not self.require_producers:
-            for dnn_cls in self.dnn_classes.values():
-                events = self[dnn_cls](events, **kwargs)
-
-        for out in ["hh", "tt", "dy"]:
-            # fill score from columns at positions with different folds
-            score = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
-            for f in range(_run3_dnn.n_folds):
-                score[event_fold == f] = events[f"run3_dnn_fold{f}_moe_{out}"][event_fold == f]
-
-            # assign to new column
-            events = set_ak_column_f32(events, f"run3_dnn_moe_{out}", score)
-
-        return events
-
-    def teardown_func(self, task: law.Task, **kwargs) -> None:
-        super().teardown_func(task, **kwargs)
-
-        # remove outputs of required producers
-        if self.require_producers and self.remove_producers:
-            for inp in self.remove_producer_inputs:
-                inp.remove()

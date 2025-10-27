@@ -32,8 +32,7 @@ analysis_hbt.x.versions = {}
 # (used in cf.HTCondorWorkflow)
 analysis_hbt.x.bash_sandboxes = [
     "$CF_BASE/sandboxes/cf.sh",
-    "$CF_BASE/sandboxes/venv_columnar.sh",
-    "$HBT_BASE/sandboxes/venv_columnar_tf.sh",
+    "$HBT_BASE/sandboxes/venv_hbt.sh",
 ]
 
 # files of cmssw sandboxes that might be required by remote tasks
@@ -144,6 +143,14 @@ add_lazy_config(
     campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14",
     config_name="23post_v14",
     config_id=8014,
+)
+
+# 2024
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2024_nano_v15",
+    campaign_attr="campaign_run3_2024_nano_local_v15",
+    config_name="24_v15",
+    config_id=9015,
 )
 
 #

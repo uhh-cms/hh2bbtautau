@@ -10,8 +10,10 @@ import law
 import order as od
 
 from columnflow.util import maybe_import
+from columnflow.types import TYPE_CHECKING
 
-hist = maybe_import("hist")
+if TYPE_CHECKING:
+    hist = maybe_import("hist")
 
 
 def add_hooks(analysis_inst: od.Analysis) -> None:
@@ -21,6 +23,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     def remove_data_hists(
         task: law.Task,
         hists: dict[od.Config, dict[od.Process, hist.Hist]],
+        **kwargs,
     ) -> dict[od.Config, dict[od.Process, hist.Hist]]:
         """
         Remove data histograms from the input histograms.

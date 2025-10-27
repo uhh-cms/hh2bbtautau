@@ -50,7 +50,6 @@ def add_met_filters(config: od.Config) -> None:
             "Flag.BadPFMuonDzFilter",
             "Flag.hfNoisyHitsFilter",
             "Flag.eeBadScFilter",
-            "Flag.ecalBadCalibFilter",  # dynamically removed in selection if needed
         ]
 
         # same filter for mc and data

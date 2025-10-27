@@ -7,6 +7,7 @@ Style definitions.
 from __future__ import annotations
 
 import re
+import random
 from collections import defaultdict
 
 import order as od
@@ -122,44 +123,45 @@ def stylize_processes(config: od.Config) -> None:
         dark_green="#269c00",
     )
 
-    ggf_colors = {
-        "0": cfg.x.colors.bright_orange,
-        "1": cfg.x.colors.dark_blue,
-        "2p45": cfg.x.colors.red,
-        "5": cfg.x.colors.green,
-    }
-
-    for kl in ["0", "1", "2p45", "5"]:
+    for kl, *opts in [
+        ("0", cfg.x.colors.bright_orange),
+        ("1", cfg.x.colors.dark_blue),
+        ("2p45", cfg.x.colors.red),
+        ("5", cfg.x.colors.green),
+    ]:
+        # if kl == "0":
+        #     p.color1 = cfg.x.colors.bright_blue
+        # elif kl == "1":
+        #     p.color1 = cfg.x.colors.dark_blue
+        # elif kl == "2p45":
+        #     p.color1 = cfg.x.colors.dark_orange
+        # elif kl == "5":
+        #     p.color1 = cfg.x.colors.grey
+        # unpack additional options with defaults
+        color, *_ = (opts + [cfg.x.colors.dark_blue])[:1]
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
-            # if kl == "0":
-            #     p.color1 = cfg.x.colors.bright_blue
-            # elif kl == "1":
-            #     p.color1 = cfg.x.colors.dark_blue
-            # elif kl == "2p45":
-            #     p.color1 = cfg.x.colors.dark_orange
-            # elif kl == "5":
-            #     p.color1 = cfg.x.colors.grey
-            # p.color1 = cfg.x.colors.dark_blue
-            p.color1 = ggf_colors.get(kl, cfg.x.colors.dark_blue)
+            p.color1 = color
             kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"}, group=False)
             p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
-    for kv, k2v, kl in [
-        ("1", "1", "1"),
-        ("1", "0", "1"),
+    for kv, k2v, kl, *opts in [
+        ("1", "1", "1", cfg.x.colors.bright_orange),
+        ("1", "0", "1", cfg.x.colors.dark_blue),
         ("1", "2", "1"),
         ("1", "1", "2"),
         ("1p74", "1p37", "14p4"),
+        ("2p12", "3p87", "m5p96"),
         ("m0p012", "0p03", "10p2"),
         ("m0p758", "1p44", "m19p3"),
         ("m0p962", "0p959", "m1p43"),
         ("m1p21", "1p94", "m0p94"),
         ("m1p6", "2p72", "m1p36"),
         ("m1p83", "3p57", "m3p39"),
-        ("m2p12", "3p87", "m5p96"),
     ]:
+        # unpack additional options with defaults
+        color, *_ = (opts + [cfg.x.colors.brown])[:1]  # colors.dark_blue
         if (p := config.get_process(f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}", default=None)):
-            p.color1 = cfg.x.colors.dark_blue  # brown
+            p.color1 = color
             kappa_label = create_kappa_label(**{"2V": k2v, r"\lambda": kl, "V": kv})
             p.label = rf"$HH_{{vbf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
@@ -215,6 +217,21 @@ def stylize_processes(config: od.Config) -> None:
 
     if (p := config.get_process("qcd", default=None)):
         p.color1 = cfg.x.colors.red
+
+    seed_orig = random.seed()
+    random.seed(1)
+    for i, n in enumerate([
+        "dy_m50toinf_0j",
+        "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
+        "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
+        "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
+        "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+        "dy_m50toinf_ge3j",
+    ]):
+        if (p := config.get_process(n, default=None)):
+            # random color with values in the range 0 to 255
+            p.color1 = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    random.seed(seed_orig)
 
 
 def legend_entries_per_column(ax, handles: list, labels: list, n_cols: int) -> list[int]:

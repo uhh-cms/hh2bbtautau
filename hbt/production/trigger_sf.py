@@ -419,9 +419,9 @@ def tautau_trigger_weight(
     events = self[tau_trigger_effs_cclub](events, **kwargs)
 
     # find out which tautau triggers are passed
-    tt_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
-    ttj_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
-    # ttv_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    tt_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
+    ttj_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
+    # ttv_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     for trigger in self.config_inst.x.triggers:
         if trigger.has_tag("cross_tau_tau"):
             tt_trigger_passed = tt_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)
@@ -542,8 +542,8 @@ def emu_trigger_weight(
     Producer for emu trigger scale factors.
     """
     # find out which triggers are passed
-    mu_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
-    e_trigger_passed = ak.zeros_like(events.channel_id, dtype=np.bool)
+    mu_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
+    e_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     for trigger in self.config_inst.x.triggers:
         if trigger.has_tag("single_mu"):
             mu_trigger_passed = mu_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)
