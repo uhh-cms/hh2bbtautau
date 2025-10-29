@@ -58,8 +58,10 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="ge0b", id="+", selection="cat_ge0b", label="")
     _add_category(config, name="eq0b", id="+", selection="cat_eq0b", label="0 b-tags")
     _add_category(config, name="eq1b", id="+", selection="cat_eq1b", label="1 b-tag")
+    _add_category(config, name="eq2b", id="+", selection="cat_eq2b", label="2 b-tags")
     _add_category(config, name="ge2b", id="+", selection="cat_ge2b", label=r"$\geq$2 b-tags")
     _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
+    _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY region")
     _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
     _add_category(config, name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
     _add_category(config, name="mll40", id="+", selection="cat_mll40", label=r"$m_{ll} > 40$")
@@ -125,9 +127,9 @@ def add_categories(config: od.Config) -> None:
         # channels
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions
-        "kin": CategoryGroup(["incl", "dy", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
+        "kin": CategoryGroup(["incl", "dy", "dyc", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
         "jets": CategoryGroup(["ge0j", "eq2j", "eq3j", "eq4j", "ge4j", "eq5j", "ge6j"], is_complete=True, has_overlap=True),  # noqa: E501
-        "tags": CategoryGroup(["ge0b", "eq0b", "eq1b", "ge2b"], is_complete=True, has_overlap=True),
+        "tags": CategoryGroup(["ge0b", "eq0b", "eq1b", "eq2b", "ge2b"], is_complete=True, has_overlap=True),
         # relative sign
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
