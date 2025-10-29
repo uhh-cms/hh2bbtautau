@@ -2771,6 +2771,29 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         morphing_type="fit",
     )
 
+    ###############################################################################
+    ###############################################################################
+    ###############################################################################
+
+    import itertools
+
+    for i, combination in enumerate(itertools.combinations([
+        "kv1_k2v1_kl1", "kv1_k2v0_kl1",
+        "kv1p74_k2v1p37_kl14p4", "kvm0p758_k2v1p44_klm19p3",
+        "kvm0p012_k2v0p03_kl10p2", "kvm0p962_k2v0p959_klm1p43",
+        "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
+        "kvm1p83_k2v3p57_klm3p39",
+    ], 6)):
+        analysis_inst.x.hist_hooks[f"hh_vbf_exact_morphing_kv2p12_k2v3p87_klm5p96_basis_{i}"] = partial(
+            general_higgs_morphing,
+            production_channel="vbf",
+            guidance_points=list(combination),
+            target_point="kv2p12_k2v3p87_klm5p96",
+            morphing_type="exact",
+        )
+
 # Remark on new Process for morphing: single ID for all morphed processes, but different names
 # in order to be able to distinguish them in the plot functions, maybe need to find a way to create
 # a unique ID for each morphed process.
+
+
