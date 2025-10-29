@@ -37,12 +37,14 @@ Current status:
 302 -> HLT_IsoMu19_eta2p1_LooseIsoPFTau20_SingleL1
 303 -> HLT_IsoMu20_eta2p1_LooseChargedIsoPFTau27_eta2p1_CrossL1
 304 -> HLT_IsoMu20_eta2p1_LooseDeepTauPFTauHPS27_eta2p1_CrossL1
+305 -> HLT_IsoMu20_eta2p1_PNetTauhPFJet27_Loose_eta2p3_CrossL1
 
 401 -> HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau20_SingleL1
 402 -> HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau20
 403 -> HLT_Ele24_eta2p1_WPLoose_Gsf_LooseIsoPFTau30
 404 -> HLT_Ele24_eta2p1_WPTight_Gsf_LooseChargedIsoPFTau30_eta2p1_CrossL1
 405 -> HLT_Ele24_eta2p1_WPTight_Gsf_LooseDeepTauPFTauHPS30_eta2p1_CrossL1
+406 -> HLT_Ele24_eta2p1_WPTight_Gsf_PNetTauhPFJet30_Loose_eta2p3_CrossL1
 
 501 -> HLT_DoubleMediumIsoPFTau35_Trk1_eta2p1_Reg
 502 -> HLT_DoubleMediumCombinedIsoPFTau35_Trk1_eta2p1_Reg
@@ -53,14 +55,17 @@ Current status:
 507 -> HLT_DoubleMediumDeepTauPFTauHPS35_L2NN_eta2p1
 508 -> HLT_DoubleMediumChargedIsoPFTauHPS40_Trk1_eta2p1
 509 -> HLT_DoubleMediumChargedIsoDisplacedPFTauHPS32_Trk1_eta2p1
+510 -> HLT_DoublePNetTauhPFJet30_Medium_L2NN_eta2p3
 
 601 -> HLT_VBF_DoubleLooseChargedIsoPFTau20_Trk1_eta2p1_Reg
 602 -> HLT_VBF_DoubleMediumDeepTauPFTauHPS20_eta2p1
 603 -> HLT_VBF_DoubleLooseChargedIsoPFTauHPS20_Trk1_eta2p1
 604 -> HLT_DoublePFJets40_Mass500_MediumDeepTauPFTauHPS45_L2NN_MediumDeepTauPFTauHPS20_eta2p1
+605 -> HLT_VBF_DoublePNetTauhPFJet20_eta2p2
 
 701 -> HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60
 702 -> HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet75
+703 -> HLT_DoublePNetTauhPFJet26_L2NN_eta2p3_PFJet60
 """
 
 from __future__ import annotations
@@ -82,122 +87,126 @@ trigger_bits = DotDict.wrap({
     # for v14:
     # from https://github.com/cms-sw/cmssw/tree/f50cf84669608dbe67fd8430660abe651d5b46fd/PhysicsTools/NanoAOD/python/triggerObjects_cff.py  # noqa
     # last update in https://github.com/cms-sw/cmssw/blob/CMSSW_14_0_X/PhysicsTools/NanoAOD/python/triggerObjects_cff.py
-
+    # for v15
+    # from https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py#L132-L171
+    # No changes were made to the NanoAOD Tau Trigger objects, so the same filterbits as V14 are used in V15 as well. 
+    # https://docs.google.com/spreadsheets/d/1Mo8EPgkpkF57FZmKqgnR8Soq9X0oT79n16BJni0K7hY/edit?usp=sharing
     "e": {
-        "CaloIdLTrackIdLIsoVL": Bits(v12=1, v14="v12"),
-        "WPTightTrackIso": Bits(v12=2, v14="v12"),
-        "WPLooseTrackIso": Bits(v12=4, v14="v12"),
-        "OverlapFilterPFTau": Bits(v12=8, v14="v12"),
-        "DiElectron": Bits(v12=16),
-        "DiElectronLeg1": Bits(v14=16),
-        "DiElectronLeg2": Bits(v14=32),
-        "MuEle": Bits(v12=32, v14=64),
-        "EleTau": Bits(v12=64, v14=128),
-        "TripleElectron": Bits(v12=128, v14=256),
-        "SingleMuonDiEle": Bits(v12=256, v14=512),
-        "DiMuonSingleEle": Bits(v12=512, v14=1024),
-        "SingleEle_L1DoubleAndSingleEle": Bits(v12=1024, v14=2048),
-        "SingleEle_CaloIdVT_GsfTrkIdT": Bits(v12=2048, v14=4096),
-        "SingleEle_PFJet": Bits(v12=4096, v14=8192),
-        "Photon175_Photon200": Bits(v12=8192, v14=16384),
-        "DoubleEle_CaloIdL_MW_seeded": Bits(v14=32768),
-        "DoubleEle_CaloIdL_MW_unseeded": Bits(v14=65536),
-        "EleTauPNet": Bits(v14=131072),
+        "CaloIdLTrackIdLIsoVL": Bits(v12=1, v14="v12", v15="v14"),
+        "WPTightTrackIso": Bits(v12=2, v14="v12", v15="v14"),
+        "WPLooseTrackIso": Bits(v12=4, v14="v12", v15="v14"),
+        "OverlapFilterPFTau": Bits(v12=8, v14="v12", v15="v14"),
+        "DiElectron": Bits(v12=16, v14="v12", v15="v14"),
+        "DiElectronLeg1": Bits(v14=16, v15="v14"),
+        "DiElectronLeg2": Bits(v14=32, v15="v14"),
+        "MuEle": Bits(v12=32, v14=64, v15="v14"),
+        "EleTau": Bits(v12=64, v14=128, v15="v14"),
+        "TripleElectron": Bits(v12=128, v14=256, v15="v14"),
+        "SingleMuonDiEle": Bits(v12=256, v14=512, v15="v14"),
+        "DiMuonSingleEle": Bits(v12=512, v14=1024, v15="v14"),
+        "SingleEle_L1DoubleAndSingleEle": Bits(v12=1024, v14=2048, v15="v14"),
+        "SingleEle_CaloIdVT_GsfTrkIdT": Bits(v12=2048, v14=4096, v15="v14"),
+        "SingleEle_PFJet": Bits(v12=4096, v14=8192, v15="v14"),
+        "Photon175_Photon200": Bits(v12=8192, v14=16384, v15="v14"),
+        "DoubleEle_CaloIdL_MW_seeded": Bits(v14=32768, v15="v14"),
+        "DoubleEle_CaloIdL_MW_unseeded": Bits(v14=65536, v15="v14"),
+        "EleTauPNet": Bits(v14=131072, v15="v14"),
     },
     "mu": {
-        "TrkIsoVVL": Bits(v12=1, v14="v12"),
-        "Iso": Bits(v12=2, v14="v12"),
-        "OverlapFilterPFTau": Bits(v12=4, v14="v12"),
-        "SingleMuon": Bits(v12=8, v14="v12"),
-        "DiMuon": Bits(v12=16, v14="v12"),
-        "MuEle": Bits(v12=32, v14="v12"),
-        "MuTau": Bits(v12=64, v14="v12"),
-        "TripleMuon": Bits(v12=128, v14="v12"),
-        "DiMuonSingleEle": Bits(v12=256, v14="v12"),
-        "SingleMuonDiEle": Bits(v12=512, v14="v12"),
-        "Mu50": Bits(v12=1024, v14="v12"),
-        "Mu100": Bits(v12=2048, v14="v12"),
-        "SingleMuonSinglePhoton": Bits(v12=4096, v14="v12"),
-        "MuTauPNet": Bits(v14=8192),
+        "TrkIsoVVL": Bits(v12=1, v14="v12", v15="v14"),
+        "Iso": Bits(v12=2, v14="v12", v15="v14"),
+        "OverlapFilterPFTau": Bits(v12=4, v14="v12", v15="v14"),
+        "SingleMuon": Bits(v12=8, v14="v12", v15="v14"),
+        "DiMuon": Bits(v12=16, v14="v12", v15="v14"),
+        "MuEle": Bits(v12=32, v14="v12", v15="v14"),
+        "MuTau": Bits(v12=64, v14="v12", v15="v14"),
+        "TripleMuon": Bits(v12=128, v14="v12", v15="v14"),
+        "DiMuonSingleEle": Bits(v12=256, v14="v12", v15="v14"),
+        "SingleMuonDiEle": Bits(v12=512, v14="v12", v15="v14"),
+        "Mu50": Bits(v12=1024, v14="v12", v15="v14"),
+        "Mu100": Bits(v12=2048, v14="v12", v15="v14"),
+        "SingleMuonSinglePhoton": Bits(v12=4096, v14="v12", v15="v14"),
+        "MuTauPNet": Bits(v14=8192, v15="v14"),
     },
     "tau": {  # general comment: lot of v14 paths contain PNet paths, not available in v12, e.g. OverlapFilterIsoEle
         "LooseChargedIso": Bits(v12=1),
-        "Loose": Bits(v14=1),
+        "Loose": Bits(v14=1, v15="v14"),
         "MediumChargedIso": Bits(v12=2),
-        "Medium": Bits(v14=2),
+        "Medium": Bits(v14=2, v15="v14"),
         "TightChargedIso": Bits(v12=4),
-        "Tight": Bits(v14=4),
-        "DeepTau": Bits(v12=8, v14="v12"),
-        "PNet": Bits(v14=16),
+        "Tight": Bits(v14=4, v15="v14"),
+        "DeepTau": Bits(v12=8, v14="v12", v15="v14"),
+        "PNet": Bits(v14=16, v15="v14"),
         "TightOOSCPhotons": Bits(v12=16),
-        "HPS": Bits(v12=32, v14=268435456),
-        "ChargedIso": Bits(v14=32),
+        "HPS": Bits(v12=32, v14=268435456, v15="v14"),  # HPS is bit 28 in v14/v15
+        "ChargedIso": Bits(v14=32, v15="v14"),
         "ChargedIsoDiTau": Bits(v12=64),
-        "Dxy": Bits(v14=64),
+        "Dxy": Bits(v14=64, v15="v14"),
         "DeepTauDiTau": Bits(v12=128, v14=2048 + 8),  # manually created bit combinations for v14
-        "ETauFilter": Bits(v14=128),
-        "MuTauFilter": Bits(v14=256),
-        "OverlapFilterIsoEle": Bits(v12=256, v14=4096),  # contains HPS in v14, not in v12
-        "OverlapFilterIsoMu": Bits(v12=512, v14=8192),  # contains HPS in v14, not in v12
-        "SingleTau": Bits(v14=512),
+        "PNetDiTau": Bits(v15=2048 + 16),
+        "ETauFilter": Bits(v14=128, v15="v14"),
+        "MuTauFilter": Bits(v14=256, v15="v14"),
+        "OverlapFilterIsoEle": Bits(v12=256, v14=4096, v15="v14"),  # contains HPS in v14, not in v12
+        "OverlapFilterIsoMu": Bits(v12=512, v14=8192, v15="v14"),  # contains HPS in v14, not in v12
+        "SingleTau": Bits(v14=512, v15="v14"),
         "SingleTauOrTauMet": Bits(v12=1024),  # more general paths than SingleTau in v14
-        "VBFDiTau": Bits(v14=1024),
+        "VBFDiTau": Bits(v14=1024, v15="v14"),
         "VBFpDoublePFTau_run2": Bits(v12=2048),
         "VBFpDoublePFTau_run3": Bits(v12=4096),  # warning: this trigger bit expects "ChargedIso" in the filter name, this does not correspond to our actual VBF filter name  # noqa
-        "DiTau": Bits(v14=2048),
+        "DiTau": Bits(v14=2048, v15="v14"),
         "DiPFJetAndDiTau": Bits(v12=8192),
-        "DiTauAndPFJet": Bits(v12=16384, v14="v12"),
+        "DiTauAndPFJet": Bits(v12=16384, v14="v12", v15="v14"),
         "DisplacedTau": Bits(v12=32768),
-        "ETauDisplaced": Bits(v14=32768),
-        "MuTauDisplaced": Bits(v14=65536),
-        "DiTauDisplaced": Bits(v14=131072),
-        "Monitoring": Bits(v12=65536, v14=262144),
-        "MonitoringForVBFIsoTau": Bits(v14=524288),
-        "MonitoringDiTauAndPFJet": Bits(v14=1048576),
-        "MonitoringMuTauDisplaced": Bits(v14=2097152),
-        "MonitoringDiTau": Bits(v14=8388608),
-        "VBFDoubleTauMonitoring": Bits(v14=33554432),
-        "OverlapFilter": Bits(v14=16777216),
-        "RegionalPaths": Bits(v12=131072),
-        "L1SeededPaths": Bits(v12=262144),
+        "ETauDisplaced": Bits(v14=32768, v15="v14"),
+        "MuTauDisplaced": Bits(v14=65536, v15="v14"),
+        "DiTauDisplaced": Bits(v14=131072, v15="v14"),
+        "Monitoring": Bits(v12=65536, v14=262144, v15="v14"),
+        "MonitoringForVBFIsoTau": Bits(v14=524288, v15="v14"),
+        "MonitoringDiTauAndPFJet": Bits(v14=1048576, v15="v14"),
+        "MonitoringMuTauDisplaced": Bits(v14=2097152, v15="v14"),
+        "MonitoringDiTau": Bits(v14=8388608, v15="v14"),
+        "VBFDoubleTauMonitoring": Bits(v14=33554432, v15="v14"),
+        "OverlapFilter": Bits(v14=16777216, v15="v14"),
+        "RegionalPaths": Bits(v12=131072, v15="v12"),
+        "L1SeededPaths": Bits(v12=262144, v15="v12"),
         "MatchL1HLT": Bits(v12=262144, v14=134217728),  # for v12: alias for v12-v14 compatibility
         "1Prong": Bits(v12=524288),
-        "OneProng": Bits(v14=4194304),  # just changed "1" to "One" for v14, still means different filters
-        "SinglePFTauFilter": Bits(v14=536870912),
-        "VBFSingleTau": Bits(v14=1073741824),
+        "OneProng": Bits(v14=4194304, v15="v14"),  # just changed "1" to "One" for v14, still means different filters
+        "SinglePFTauFilter": Bits(v14=536870912, v15="v14"),
+        "VBFSingleTau": Bits(v14=1073741824, v15="v14"),
     },
     "jet": {
-        "4PixelOnlyPFCentralJetTightIDPt20": Bits(v12=1, v14="v12"),
-        "3PixelOnlyPFCentralJetTightIDPt30": Bits(v12=2, v14="v12"),
-        "PFJetFilterTwoC30": Bits(v12=4, v14="v12"),
-        "4PFCentralJetTightIDPt30": Bits(v12=8, v14="v12"),
-        "4PFCentralJetTightIDPt35": Bits(v12=16, v14="v12"),
-        "QuadCentralJet30": Bits(v12=32, v14="v12"),
+        "4PixelOnlyPFCentralJetTightIDPt20": Bits(v12=1, v14="v12", v15="v14"),
+        "3PixelOnlyPFCentralJetTightIDPt30": Bits(v12=2, v14="v12", v15="v14"),
+        "PFJetFilterTwoC30": Bits(v12=4, v14="v12", v15="v14"),
+        "4PFCentralJetTightIDPt30": Bits(v12=8, v14="v12", v15="v14"),
+        "4PFCentralJetTightIDPt35": Bits(v12=16, v14="v12", v15="v14"),
+        "QuadCentralJet30": Bits(v12=32, v14="v12", v15="v14"),
         "2PixelOnlyPFCentralJetTightIDPt40": Bits(v12=64, v14="v12"),
         "L1sTripleJetVBF_orHTT_orDoubleJet_orSingleJet": Bits(v12=128, v14="v12"),
-        "3PFCentralJetTightIDPt40": Bits(v12=256, v14="v12"),
-        "3PFCentralJetTightIDPt45": Bits(v12=512, v14="v12"),
-        "L1sQuadJetsHT": Bits(v12=1024, v14="v12"),
-        "BTagCaloDeepCSVp17Double": Bits(v12=2048, v14="v12"),
-        "PFCentralJetLooseIDQuad30": Bits(v12=4096, v14="v12"),
-        "1PFCentralJetLooseID75": Bits(v12=8192, v14="v12"),
-        "2PFCentralJetLooseID60": Bits(v12=16384, v14="v12"),
-        "3PFCentralJetLooseID45": Bits(v12=32768, v14="v12"),
-        "4PFCentralJetLooseID40": Bits(v12=65536, v14="v12"),
-        "DoubleTau+Jet": Bits(v12=131072, v14="v12"),  # v14 also contains PNet paths
-        "VBFcrossCleanedDeepTauPFTau": Bits(v12=262144, v14="v12"),  # more general VBFDiTauJets in v14  TODO: change name?  # noqa
-        "VBFcrossCleanedUsingDijetCorr": Bits(v12=524288, v14="v12"),  # more general VBFSingleTauJets in v14  TODO: change name?  # noqa
-        "MonitoringMuon+Tau+Jet": Bits(v12=1048576, v14="v12"),
-        "2PFCentralJetTightIDPt50": Bits(v12=2097152, v14="v12"),
-        "1PixelOnlyPFCentralJetTightIDPt60": Bits(v12=4194304, v14="v12"),
-        "1PFCentralJetTightIDPt70": Bits(v12=8388608, v14="v12"),
-        "BTagPFDeepJet1p5Single": Bits(v12=16777216, v14="v12"),
-        "BTagPFDeepJet4p5Triple": Bits(v12=33554432, v14="v12"),
-        "2BTagSumOR2BTagMeanPaths": Bits(v12=67108864, v14="v12"),
-        "2/1PixelOnlyPFCentralJetTightIDPt20/50": Bits(v12=134217728, v14="v12"),
-        "2PFCentralJetTightIDPt30": Bits(v12=268435456, v14="v12"),
-        "1PFCentralJetTightIDPt60": Bits(v12=536870912, v14="v12"),
-        "PF2CentralJetPt30PNet2BTagMean0p50": Bits(v12=1073741824, v14="v12"),
+        "3PFCentralJetTightIDPt40": Bits(v12=256, v14="v12", v15="v14"),
+        "3PFCentralJetTightIDPt45": Bits(v12=512, v14="v12", v15="v14"),
+        "L1sQuadJetsHT": Bits(v12=1024, v14="v12", v15="v14"),
+        "BTagCaloDeepCSVp17Double": Bits(v12=2048, v14="v12", v15="v14"),
+        "PFCentralJetLooseIDQuad30": Bits(v12=4096, v14="v12", v15="v14"),
+        "1PFCentralJetLooseID75": Bits(v12=8192, v14="v12", v15="v14"),
+        "2PFCentralJetLooseID60": Bits(v12=16384, v14="v12", v15="v14"),
+        "3PFCentralJetLooseID45": Bits(v12=32768, v14="v12", v15="v14"),
+        "4PFCentralJetLooseID40": Bits(v12=65536, v14="v12", v15="v14"),
+        "DoubleTau+Jet": Bits(v12=131072, v14="v12", v15="v14"),  # v14 also contains PNet paths
+        "VBFcrossCleanedDeepTauPFTau": Bits(v12=262144, v14="v12", v15="v14"),  # more general VBFDiTauJets in v14  TODO: change name?  # noqa
+        "VBFcrossCleanedUsingDijetCorr": Bits(v12=524288, v14="v12", v15="v14"),  # more general VBFSingleTauJets in v14  TODO: change name?  # noqa
+        "MonitoringMuon+Tau+Jet": Bits(v12=1048576, v14="v12", v15="v14"),
+        "2PFCentralJetTightIDPt50": Bits(v12=2097152, v14="v12", v15="v14"),
+        "1PixelOnlyPFCentralJetTightIDPt60": Bits(v12=4194304, v14="v12", v15="v14"),
+        "1PFCentralJetTightIDPt70": Bits(v12=8388608, v14="v12", v15="v14"),
+        "BTagPFDeepJet1p5Single": Bits(v12=16777216, v14="v12", v15="v14"),
+        "BTagPFDeepJet4p5Triple": Bits(v12=33554432, v14="v12", v15="v14"),
+        "2BTagSumOR2BTagMeanPaths": Bits(v12=67108864, v14="v12", v15="v14"),
+        "2/1PixelOnlyPFCentralJetTightIDPt20/50": Bits(v12=134217728, v14="v12", v15="v14"),
+        "2PFCentralJetTightIDPt30": Bits(v12=268435456, v14="v12", v15="v14"),
+        "1PFCentralJetTightIDPt60": Bits(v12=536870912, v14="v12", v15="v14"),
+        "PF2CentralJetPt30PNet2BTagMean0p50": Bits(v12=1073741824, v14="v12", v15="v14"),
     },
 })
 
@@ -1636,7 +1645,7 @@ def add_triggers_2024(config: od.Config) -> None:
         tags={"cross_trigger", "cross_e_tau"},
     )
     #
-    # mu tauh
+    # mu tauh deeptau
     #
     config.x.triggers.add(
         name="HLT_IsoMu20_eta2p1_LooseDeepTauPFTauHPS27_eta2p1_CrossL1",
@@ -1670,7 +1679,7 @@ def add_triggers_2024(config: od.Config) -> None:
         tags={"cross_trigger", "cross_mu_tau"},
     )
     #
-    # tauh tauh
+    # tauh tauh deeptau
     #
     config.x.triggers.add(
         name="HLT_DoubleMediumDeepTauPFTauHPS35_L2NN_eta2p1",
@@ -1702,9 +1711,8 @@ def add_triggers_2024(config: od.Config) -> None:
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
         tags={"cross_trigger", "cross_tau_tau"},
     )
-
     #
-    # tau tau jet
+    # tau tau jet deeptau
     #
     config.x.triggers.add(
         name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60",
@@ -1741,7 +1749,6 @@ def add_triggers_2024(config: od.Config) -> None:
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
         tags={"cross_trigger", "cross_tau_tau_jet"},
     )
-
     #
     # vbf
     #
@@ -1795,3 +1802,196 @@ def add_triggers_2024(config: od.Config) -> None:
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
         tags={"cross_trigger", "cross_tau_tau_vbf"},
     )
+"""
+    #
+    # e tauh pnet
+    #
+    config.x.triggers.add(
+        name="HLT_Ele24_eta2p1_WPTight_Gsf_PNetTauhPFJet30_Loose_eta2p3_CrossL1",
+        id=406,
+        legs=dict(
+            e=TriggerLeg(
+                pdg_id=11,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPPNetPFTau30L1Seeded (OverlapFilter)
+                trigger_bits=get_bit_sum_v("e", [
+                    "OverlapFilterPFTau",
+                    "EleTau",
+                ]),
+            ),
+            tau=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPPNetPFTau30L1Seeded
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNet",
+                    "HPS",
+                    "OverlapFilterIsoEle",
+                    "ETauFilter" if nano_version == 15 else None,
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("etau")),
+        tags={"cross_trigger", "cross_e_tau"},
+    )
+     #
+    # mu tauh pnet
+    #
+    config.x.triggers.add(
+        name="HLT_IsoMu20_eta2p1_PNetTauhPFJet27_Loose_eta2p3_CrossL1",
+        id=305,
+        legs=dict(
+            mu=TriggerLeg(
+                pdg_id=13,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoMu20LooseMuTauWPPNetPFJet27 (OverlapFilter PFTau)
+                trigger_bits=get_bit_sum_v("mu", [
+                    "OverlapFilterPFTau",
+                    "MuTau",
+                ]),
+            ),
+            tau=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoMu20LooseMuTauWPPNetPFJet27 (PNet + HPS)
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNet",
+                    "HPS",
+                    "OverlapFilterIsoMu",
+                    "MuTauFilter" if nano_version == 15 else None,
+                    "MatchL1HLT",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("mutau")),
+        tags={"cross_trigger", "cross_mu_tau"},
+    )
+     #
+    # tauh tauh pnet
+    #
+    config.x.triggers.add(
+        name="HLT_DoublePNetTauhPFJet30_Medium_L2NN_eta2p3",
+        id=510,
+        legs=dict(
+            tau1=TriggerLeg(
+                pdg_id=15,  
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltDoublePFJets30PNetTauhTagMediumWPL2DoubleTau (PNet + HPS)
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNetDiTau",
+                    "HPS",
+                    "Medium" if nano_version == 15 else None,
+                ]),
+            ),
+            tau2=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltDoublePFJets30PNetTauhTagMediumWPL2DoubleTau (PNet + HPS)
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNetDiTau",
+                    "HPS",
+                    "Medium" if nano_version == 15 else None,
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        tags={"cross_trigger", "cross_tau_tau"},
+    )
+ #
+    # tau tau jet pnet
+    #
+    config.x.triggers.add(
+        name="HLT_DoublePNetTauhPFJet26_L2NN_eta2p3_PFJet60",
+        id=701,
+        legs=dict(
+            tau1=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterDoublePNetTauh26PFJet60
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNet",
+                    "DiTauAndPFJet",
+                ]),
+            ),
+            tau2=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterDoublePNetTauh26PFJet60
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNet",
+                    "DiTauAndPFJet",
+                ]),
+            ),
+            jet=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterDoublePNetTauh26PFJet60
+                trigger_bits=get_bit_sum_v("jet", [
+                    "PNet",
+                    "DoubleTau+Jet",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        tags={"cross_trigger", "cross_tau_tau_jet"},
+    )
+
+    #
+    # vbf pnet
+    #
+    config.x.triggers.add(
+        name="HLT_VBF_DoublePNetTauhPFJet20_eta2p2", #to match the CClub one
+        id=605,
+        legs=dict(
+            tau1=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                trigger_bits=get_bit_sum_v("tau", [
+                    "VBFDiTau" if nano_version == 15 else None,
+                    "HPS",
+                    "PNet",
+                ]),
+            ),
+            tau2=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                trigger_bits=get_bit_sum_v("tau", [
+                    "VBFDiTau" if nano_version == 15 else None,
+                    "HPS",
+                    "PNet",
+                ]),
+            ),
+            # TODO: check if vbf legs are needed
+            # additional leg infos for vbf jets
+            vbf1=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFcrossCleanedDeepTauPFTau" if nano_version == 15 else None, #same a cclub group
+                ]),
+            ),
+            vbf2=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFcrossCleanedDeepTauPFTau" if nano_version == 15 else None,
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        tags={"cross_trigger", "cross_tau_tau_vbf"},
+    )
+"""
