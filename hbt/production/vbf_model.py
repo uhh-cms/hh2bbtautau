@@ -337,7 +337,6 @@ class _vbf_dnn_evaluation(Producer):
         # mask values as done during training of the network
         def mask_values(mask, value, *fields):
             if not ak.any(mask):
-                print("No values to mask for fields:", fields)
                 return
             for field in fields:
                 arr = ak.fill_none(f[field], value, axis=0)
@@ -521,7 +520,8 @@ class _vbf_dnn_evaluation(Producer):
             ],
         )
 
-        print(f"As VBF-classified events:{ak.sum(ak.argmax(scores, axis=1) == 3)} from {len(scores)} events")
+        print(f"As VBF-classified events:{ak.sum(ak.argmax(scores, axis=1) == 3)} from {len(scores)} events, so {ak.sum(ak.argmax(scores, axis=1) == 3)/len(scores)*100}%")  # noqa: E501
+        print(f"As VBF categorized events: {ak.sum(scores[:,3] > 0.5)} from {len(scores)} events, so {ak.sum(scores[:,3] > 0.5)/len(scores)*100}%")  # noqa: E501
 
         # TODO: check if still accurate
         if ak.sum(~np.isfinite(scores)) > 0:
@@ -595,7 +595,7 @@ class _vbf_dnn(_vbf_dnn_evaluation):
         # output column names (in this order)
         self.output_columns = [
             f"{self.output_prefix}_{name}"
-            for name in ["VBF", "ggF", "tt", "dy"]
+            for name in ["ggF", "tt", "dy", "VBF"]
         ]
 
         # update produced columns
@@ -650,7 +650,7 @@ class run3_vbf_dnn(Producer):
     # used and produced columns
     # (used ones are updated dynamically in init_func)
     uses = {"event"}
-    produces = {"run3_vbf_dnn_{VBF,ggF,tt,dy}"}
+    produces = {"run3_vbf_dnn_{ggF,tt,dy,VBF}"}
     exposed = True
 
     def init_func(self, **kwargs) -> None:
@@ -662,7 +662,7 @@ class run3_vbf_dnn(Producer):
 
         # update used columns / dependencies
         for dnn_cls in self.dnn_classes.values():
-            self.uses.add(f"{dnn_cls.cls_name}_{{VBF,ggF,tt,dy}}" if self.require_producers else dnn_cls)
+            self.uses.add(f"{dnn_cls.cls_name}_{{ggF,tt,dy,VBF}}" if self.require_producers else dnn_cls)
 
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
         if not self.require_producers:
@@ -703,7 +703,7 @@ class run3_vbf_dnn(Producer):
             for dnn_cls in self.dnn_classes.values():
                 events = self[dnn_cls](events, **kwargs)
 
-        for out in ["VBF", "ggF", "tt", "dy"]:
+        for out in ["ggF", "tt", "dy", "VBF"]:
             # fill score from columns at positions with different folds
             score = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
             for f in range(_run3_vbf_dnn.n_folds):
