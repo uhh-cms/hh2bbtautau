@@ -159,7 +159,7 @@ def stylize_processes(config: od.Config) -> None:
         ("m1p83", "3p57", "m3p39"),
     ]:
         # unpack additional options with defaults
-        color, *_ = (opts + [cfg.x.colors.brown])[:1]  # colors.dark_blue
+        color, *_ = (opts + [cfg.x.colors.dark_blue])[:1]  # colors.brown
         if (p := config.get_process(f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}", default=None)):
             p.color1 = color
             kappa_label = create_kappa_label(**{"2V": k2v, r"\lambda": kl, "V": kv})

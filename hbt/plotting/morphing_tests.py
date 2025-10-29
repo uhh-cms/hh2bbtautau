@@ -291,6 +291,8 @@ def plot_morphing_comparison(
         }
         hists |= remove_residual_axis(unstacked_hists, "shift", select_value="nominal")
 
+    print("content morphed histogram", list(hists.values())[0].values())
+
     plot_config = prepare_plot_config_custom_ratio(
         hists,
         shape_norm=shape_norm,
@@ -1305,7 +1307,7 @@ plot_3d_morphing_2022_pre_chi2_sm_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
-        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kv2p12_k2v3p87_klm5p96", "type": ""},
     ],
     distance_measure="chi2",
 )
@@ -1325,7 +1327,7 @@ plot_3d_morphing_2022_pre_binval_sm_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
-        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kv2p12_k2v3p87_klm5p96", "type": ""},
     ],
     distance_measure="bin_val",
 )
@@ -1345,7 +1347,7 @@ plot_3d_morphing_2022_pre_ratio_sm_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": ""},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": ""},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": ""},
-        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": ""},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kv2p12_k2v3p87_klm5p96", "type": ""},
     ],
     distance_measure="ratio",
 )
@@ -1365,7 +1367,7 @@ plot_3d_morphing_2022_pre_chi2_all_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": "morphed"},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
-        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kv2p12_k2v3p87_klm5p96", "type": "morphed"},
     ],
     distance_measure="chi2",
 )
@@ -1385,7 +1387,7 @@ plot_3d_morphing_2022_pre_ratio_all_morphed = partial(
         {"kv": -1.21, "k2v": 1.94, "kl": -0.94, "name": "kvm1p21_k2v1p94_klm0p94", "type": "morphed"},
         {"kv": -1.6, "k2v": 2.72, "kl": -1.36, "name": "kvm1p6_k2v2p72_klm1p36", "type": "morphed"},
         {"kv": -1.83, "k2v": 3.57, "kl": -3.39, "name": "kvm1p83_k2v3p57_klm3p39", "type": "morphed"},
-        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kvm2p12_k2v3p87_klm5p96", "type": "morphed"},
+        {"kv": 2.12, "k2v": 3.87, "kl": -5.96, "name": "kv2p12_k2v3p87_klm5p96", "type": "morphed"},
     ],
     distance_measure="ratio",
 )
