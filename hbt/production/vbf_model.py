@@ -343,31 +343,17 @@ class _vbf_dnn_evaluation(Producer):
                 arr = ak.fill_none(f[field], value, axis=0)
                 flat_np_view(arr)[mask] = value
                 f[field] = arr
-        def mask_values_with_array(mask, value_array, *fields):
-            if not ak.any(mask):
-                print("No values to mask for fields:", fields)
-                return
-            for field in fields:
-                if ak.sum(ak.is_none(f[field]) | mask) > ak.sum(mask):
-                    raise RuntimeError("Still some None values in field: {} despite masking!".format(field))
-                arr = ak.fill_none(f[field], 0., axis=0)
-                flat_np_view(arr)[mask] = flat_np_view(value_array)[mask]
-                f[field] = arr
 
-        # TODO: check default values, should be rotated from -999 pt and -999 phi
-        default_value_all = -999.0
-        default_value_px_py = rotate_to_phi(phi_lep, default_value_all * np.cos(default_value_all), default_value_all * np.sin(default_value_all))  # noqa: E501
-        mask_values_with_array(~has_jet_pair, default_value_px_py[0], "bjet1_px", "bjet2_px")
-        mask_values_with_array(~has_jet_pair, default_value_px_py[1], "bjet1_py", "bjet2_py")
-        mask_values(~has_jet_pair, default_value_all, "bjet1_pz", "bjet1_e", "bjet2_pz", "bjet2_e")
-        mask_values(~has_jet_pair, default_value_all, "bjet1_tag_b", "bjet1_tag_cvsb", "bjet1_tag_cvsl", "bjet1_hhbtag")
-        mask_values(~has_jet_pair, default_value_all, "bjet2_tag_b", "bjet2_tag_cvsb", "bjet2_tag_cvsl", "bjet2_hhbtag")
-        mask_values_with_array(~has_fatjet, default_value_px_py[0], "fatjet_px")
-        mask_values_with_array(~has_fatjet, default_value_px_py[1], "fatjet_py")
-        mask_values(~has_fatjet, default_value_all, "fatjet_pz", "fatjet_e")
-        mask_values_with_array(~has_vbf_jets, default_value_px_py[0], "vbfjet1_px", "vbfjet2_px")
-        mask_values_with_array(~has_vbf_jets, default_value_px_py[1], "vbfjet1_py", "vbfjet2_py")
-        mask_values(~has_vbf_jets, default_value_all, "vbfjet1_pz", "vbfjet1_e", "vbfjet2_pz", "vbfjet2_e", "vbfjet1_pnet_QvsG", "vbfjet2_pnet_QvsG")  # noqa: E501
+        mask_values(~has_jet_pair, 0., "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e")
+        mask_values(~has_jet_pair, 0., "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e")
+        mask_values(~has_jet_pair, -1., "bjet1_tag_b", "bjet1_tag_cvsb", "bjet1_tag_cvsl", "bjet1_hhbtag")
+        mask_values(~has_jet_pair, -1., "bjet2_tag_b", "bjet2_tag_cvsb", "bjet2_tag_cvsl", "bjet2_hhbtag")
+        mask_values(~has_fatjet, 0., "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e")
+
+        # does never happen due to preselection
+        # mask_values(~has_vbf_jets, 0., "vbfjet1_px", "vbfjet1_py", "vbfjet1_pz", "vbfjet1_e")
+        # mask_values(~has_vbf_jets, 0., "vbfjet2_px", "vbfjet2_py", "vbfjet2_pz", "vbfjet2_e")
+        # mask_values(~has_vbf_jets, -1., "vbfjet1_pnet_QvsG", "vbfjet2_pnet_QvsG")
 
         # define neutrino energy
         nu1_e = (f.nu1_px**2 + f.nu1_py**2 + f.nu1_pz**2)**0.5
@@ -384,24 +370,21 @@ class _vbf_dnn_evaluation(Producer):
         f.hbb_px = f.bjet1_px + f.bjet2_px
         f.hbb_py = f.bjet1_py + f.bjet2_py
         f.hbb_pz = f.bjet1_pz + f.bjet2_pz
-        # TODO: modify default value -> -999 or the sum of the rotated -999s bjets?
-        mask_values(~has_jet_pair, -999.0, "hbb_e", "hbb_px", "hbb_py", "hbb_pz")
+        mask_values(~has_jet_pair, 0., "hbb_e", "hbb_px", "hbb_py", "hbb_pz")
 
         # htt + hbb
         f.htthbb_regr_e = f.htt_regr_e + f.hbb_e
         f.htthbb_regr_px = f.htt_regr_px + f.hbb_px
         f.htthbb_regr_py = f.htt_regr_py + f.hbb_py
         f.htthbb_regr_pz = f.htt_regr_pz + f.hbb_pz
-        # TODO: modify default value
-        mask_values(~has_jet_pair, -999.0, "htthbb_regr_e", "htthbb_regr_px", "htthbb_regr_py", "htthbb_regr_pz")
+        mask_values(~has_jet_pair, 0., "htthbb_regr_e", "htthbb_regr_px", "htthbb_regr_py", "htthbb_regr_pz")
 
         # htt + fatjet
         f.httfatjet_regr_e = f.htt_regr_e + f.fatjet_e
         f.httfatjet_regr_px = f.htt_regr_px + f.fatjet_px
         f.httfatjet_regr_py = f.htt_regr_py + f.fatjet_py
         f.httfatjet_regr_pz = f.htt_regr_pz + f.fatjet_pz
-        # TODO: modify default value
-        mask_values(~has_fatjet, -999.0, "httfatjet_regr_e", "httfatjet_regr_px", "httfatjet_regr_py", "httfatjet_regr_pz")  # noqa: E501
+        mask_values(~has_fatjet, 0., "httfatjet_regr_e", "httfatjet_regr_px", "httfatjet_regr_py", "httfatjet_regr_pz")  # noqa: E501
 
         # vbf jets system variables
         f.VBFjj_mass = ((f.vbfjet1_e + f.vbfjet2_e)**2 -
@@ -419,9 +402,8 @@ class _vbf_dnn_evaluation(Producer):
 
         f.VBFdeltaR = ((vbfjet1_eta - vbfjet2_eta)**2 + (vbfjet1_phi - vbfjet2_phi)**2)**0.5
         f.etaprod_vbfjvbfj = vbfjet1_eta * vbfjet2_eta
-        # default values
-        # TODO: check default values: -999 or using the values needed for calculating?
-        mask_values(~has_vbf_jets, -999.0, "VBFjj_mass", "VBFdeltaR", "etaprod_vbfjvbfj")
+        # # default values unneeded due to preselection
+        # mask_values(~has_vbf_jets, 0., "VBFjj_mass", "VBFdeltaR", "etaprod_vbfjvbfj")
 
         # bb system variables
         bjet1_costheta = f.bjet1_pz / (f.bjet1_px**2 + f.bjet1_py**2 + f.bjet1_pz**2)**0.5
@@ -431,22 +413,20 @@ class _vbf_dnn_evaluation(Producer):
 
         f.etaprod_bb = bjet1_eta * bjet2_eta
         # default values
-        # TODO: check default values: -999 or using the values needed for calculating?
-        mask_values(~has_jet_pair, -999.0, "etaprod_bb")
+        mask_values(~has_jet_pair, 0., "etaprod_bb")
 
         # M_chi
         # M_chi = HH_mass - (Hbb_mass - 125.0) - (Htt_mass - 125.0);
         # definition from  https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHRun3DNNInterface.cc?ref_type=heads#L517  # noqa: E501
-        # TODO: add fatjet case for Hbb_mass for boosted events
         f.M_chi = (
             (f.htthbb_regr_e**2 - f.htthbb_regr_px**2 - f.htthbb_regr_py**2 - f.htthbb_regr_pz**2)**0.5 -
             ((f.hbb_e**2 - f.hbb_px**2 - f.hbb_py**2 - f.hbb_pz**2)**0.5 - 125.0) -
             ((f.htt_regr_e**2 - f.htt_regr_px**2 - f.htt_regr_py**2 - f.htt_regr_pz**2)**0.5 - 125.0)
         )
         # default values
-        mask_values(~has_jet_pair, -999.0, "M_chi")
-        # once fatjet in there:
-        # mask_values(~(has_jet_pair | has_fatjet), -999.0, "M_chi")
+        mask_values(~has_jet_pair, 0., "M_chi")
+        # for v4, fatjet were not included in M_chi definition
+        # mask_values(~(has_jet_pair | has_fatjet), 0., "M_chi")
 
         # fox wolfram moments
         # defined in https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHUtils.cc?ref_type=heads#L742-811  # noqa: E501
@@ -478,14 +458,9 @@ class _vbf_dnn_evaluation(Producer):
         f.fwMoment_s_2 = ak.sum(weight_s * legendre_2, axis=1)
         # TODO: add terms for j = fatjet
 
-        # default values
-        mask_values(
-            ~(has_jet_pair & has_vbf_jets), -999.0,
-            "fwMoment_s_0", "fwMoment_T_0", "fwMoment_1_0", "fwMoment_s_2",
-        )
-        # TODO: mask fatjet events too once included
+        # # default values not needed due to preselection
         # mask_values(
-        #     ~((has_jet_pair | has_fatjet) & has_vbf_jets), -999.0,
+        #     ~(has_jet_pair & has_vbf_jets), 0.,
         #     "fwMoment_s_0", "fwMoment_T_0", "fwMoment_1_0", "fwMoment_s_2",
         # )
 
@@ -545,6 +520,8 @@ class _vbf_dnn_evaluation(Producer):
                 np.concatenate(categorical_inputs, axis=1),
             ],
         )
+
+        # from IPython import embed; embed(header="check vbf dnn eval")
 
         print(f"As VBF-classified events:{ak.sum(ak.argmax(scores, axis=1) == 3)} from {len(scores)} events")
         # TODO: check if still accurate

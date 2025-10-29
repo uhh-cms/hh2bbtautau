@@ -1706,8 +1706,7 @@ def add_config(
 
     for fold in range(5):
         # TODO: add correct path for vbf model
-        vbf_model_version = "v3"
-        add_external(f"run3_vbf_dnn_fold{fold}", (f"/afs/desy.de/user/p/prouvost/test_dir/model_{fold}.tgz", "v1"))  # noqa: E501
+        add_external(f"run3_vbf_dnn_fold{fold}", (f"/afs/desy.de/user/p/prouvost/test_dir/vbf_model_v4_tar/model_{fold}.tgz", "v1"))  # noqa: E501
 
     # run specific files
     if run == 2:
