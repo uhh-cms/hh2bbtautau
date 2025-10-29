@@ -45,8 +45,8 @@ class _vbf_dnn_evaluation(Producer):
     and thus part of producers rather than standalone ml model objects.
     The output scores are classifying if incoming events are VBF, GGF, Drell-Yan or ttbar.
     The network uses continous and categorical inputs. A list of all inputs in the
-    correct order can be found in the Filip's eos space:
-    https://cernbox.cern.ch/files/spaces/eos/user/f/fbilandz/meta.json
+    correct order can be found in the CCLUB implementation:
+    https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/19cc9e8c02dda68a37c7d9ee308100a9e1821648/src/HHRun3DNNInterface.cc#L325-339
     """
 
     uses = {
@@ -489,6 +489,7 @@ class _vbf_dnn_evaluation(Producer):
                 f.fatjet_px, f.fatjet_py, f.fatjet_pz, f.fatjet_e,
                 f.htt_regr_px, f.htt_regr_py, f.htt_regr_pz, f.htt_regr_e,
                 f.hbb_px, f.hbb_py, f.hbb_pz, f.hbb_e,
+                f.htthbb_regr_e, f.htthbb_regr_px, f.htthbb_regr_py, f.htthbb_regr_pz,
                 f.httfatjet_regr_px, f.httfatjet_regr_py, f.httfatjet_regr_pz, f.httfatjet_regr_e,
                 f.vbfjet1_px, f.vbfjet1_py, f.vbfjet1_pz, f.vbfjet1_e, f.vbfjet1_pnet_QvsG,
                 f.vbfjet2_px, f.vbfjet2_py, f.vbfjet2_pz, f.vbfjet2_e, f.vbfjet2_pnet_QvsG,
@@ -496,7 +497,6 @@ class _vbf_dnn_evaluation(Producer):
                 f.VBFjj_mass, f.VBFdeltaR,
                 f.etaprod_bb, f.etaprod_vbfjvbfj,
                 f.fwMoment_s_0, f.fwMoment_T_0, f.fwMoment_1_0, f.fwMoment_s_2,
-                f.htthbb_regr_e, f.htthbb_regr_px, f.htthbb_regr_py, f.htthbb_regr_pz,
             ]
             if t is not None
         ]
@@ -521,9 +521,8 @@ class _vbf_dnn_evaluation(Producer):
             ],
         )
 
-        # from IPython import embed; embed(header="check vbf dnn eval")
-
         print(f"As VBF-classified events:{ak.sum(ak.argmax(scores, axis=1) == 3)} from {len(scores)} events")
+
         # TODO: check if still accurate
         if ak.sum(~np.isfinite(scores)) > 0:
             raise RuntimeError("NaN scores in VBF DNN evaluation!")
@@ -557,6 +556,7 @@ class _vbf_dnn_evaluation(Producer):
                 "fatjet_px", "fatjet_py", "fatjet_pz", "fatjet_e",
                 "htt_regr_px", "htt_regr_py", "htt_regr_pz", "htt_regr_e",
                 "hbb_px", "hbb_py", "hbb_pz", "hbb_e",
+                "htthbb_regr_e", "htthbb_regr_px", "htthbb_regr_py", "htthbb_regr_pz",
                 "httfatjet_regr_px", "httfatjet_regr_py", "httfatjet_regr_pz", "httfatjet_regr_e",
                 "vbfjet1_px", "vbfjet1_py", "vbfjet1_pz", "vbfjet1_e", "vbfjet1_pnet_QvsG",
                 "vbfjet2_px", "vbfjet2_py", "vbfjet2_pz", "vbfjet2_e", "vbfjet2_pnet_QvsG",
@@ -564,7 +564,6 @@ class _vbf_dnn_evaluation(Producer):
                 "VBFjj_mass", "VBFdeltaR",
                 "etaprod_bb", "etaprod_vbfjvbfj",
                 "fwMoment_s_0", "fwMoment_T_0", "fwMoment_1_0", "fwMoment_s_2",
-                "htthbb_regr_e", "htthbb_regr_px", "htthbb_regr_py", "htthbb_regr_pz",
             ]
             cat_inputs_cols = [
                 "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet", "has_vbf_jets",  # noqa: E501
