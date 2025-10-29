@@ -230,6 +230,8 @@ class TFModel(BaseModel):
     def imports(cls):
         print("importing tensorflow ...")
         import tensorflow as tf  # type: ignore[import-not-found,import-untyped]
+        tf.config.threading.set_intra_op_parallelism_threads(1)
+        tf.config.threading.set_inter_op_parallelism_threads(1)
         print("done")
         return tf
 
@@ -281,6 +283,8 @@ class TorchModel(BaseModel):
         print("importing torch ...")
         import numpy as np
         import torch  # type: ignore[import-not-found,import-untyped]
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
         print("done")
         return torch, np
 

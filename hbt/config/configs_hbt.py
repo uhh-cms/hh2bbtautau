@@ -275,15 +275,13 @@ def add_config(
         "st_twchannel_tbar_dl_powheg",
         "st_twchannel_t_fh_powheg",
         "st_twchannel_tbar_fh_powheg",
-        *if_not_era(year=2024, values=[  # TODO: check status
-            "st_schannel_t_lep_4f_amcatnlo",
-            "st_schannel_tbar_lep_4f_amcatnlo",
-        ]),
+        "st_schannel_t_lep_4f_amcatnlo",
+        "st_schannel_tbar_lep_4f_amcatnlo",
 
         # tt + v
         "ttw_wlnu_amcatnlo",
         *if_not_era(year=2024, values=[  # TODO: check status
-            "ttz_zqq_amcatnlo",
+            "ttz_zqq_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=TTZ-ZtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8&campaign=*2024Summer24* # noqa
         ]),
         "ttz_zll_m4to50_amcatnlo",
         "ttz_zll_m50toinf_amcatnlo",
@@ -299,7 +297,7 @@ def add_config(
         # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
         # "dy_m10to50_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
         *if_not_era(year=2024, values=[  # TODO: check status
-            "dy_m50toinf_amcatnlo",  # also affected by the pythia bug in 22+23, need to stitch lepton decays below
+            "dy_m50toinf_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=DYto2L-2Jets_Bin-MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8&campaign=*2024Summer24* # noqa
             "dy_m50toinf_0j_amcatnlo",
             "dy_m50toinf_1j_amcatnlo",
             "dy_m50toinf_2j_amcatnlo",
@@ -314,16 +312,25 @@ def add_config(
         "dy_m50toinf_2j_pt200to400_amcatnlo",
         "dy_m50toinf_2j_pt400to600_amcatnlo",
         "dy_m50toinf_2j_pt600toinf_amcatnlo",
-        # specific tautau datasets with pythia bug fix
-        "dy_tautau_m50toinf_0j_amcatnlo",
-        *if_not_era(year=2024, values=[  # TODO: check status
-            "dy_tautau_m50toinf_1j_amcatnlo",
-            "dy_tautau_m50toinf_2j_amcatnlo",
+        # specific tautau datasets, with pythia bug fix for 2022/23
+        *if_era(year=2024, values=[
+            "dy_tautau_m50toinf_amcatnlo",  # was not produced for 2022/23
         ]),
-        # disabled for now
-        # "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-        # "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-        # "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        "dy_tautau_m50toinf_0j_amcatnlo",
+        *if_not_era(year=2024, values=[
+            "dy_tautau_m50toinf_1j_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=DYto2Tau-2Jets*amc*&campaign=*2024Summer24* # noqa
+            "dy_tautau_m50toinf_2j_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=DYto2Tau-2Jets*amc*&campaign=*2024Summer24* # noqa
+        ]),
+        # additionally filtered datasets for 2022/2023 disabled for now
+        # *if_not_era(year=2024, values=[
+        #     "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+        #     "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+        #     "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        # ]),
+        # TODO for 2024:
+        # - stitching strategy changes:
+        #   - no lepton-inclusive datasets available (yet), need to add xsecs manually to cmsdb and disable stitching
+        #   - njet-inclusive, tautau filtered dataset available in 2024, need stitching there
 
         # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
@@ -359,7 +366,8 @@ def add_config(
         # "dy_tautau_m6000toinf_powheg",
 
         # w + jets
-        *if_not_era(year=2024, values=[  # TODO: check status
+        # inclusive samples not produced for 2024
+        *if_not_era(year=2024, values=[
             "w_lnu_amcatnlo",
             "w_lnu_0j_amcatnlo",
             "w_lnu_1j_amcatnlo",
@@ -390,9 +398,7 @@ def add_config(
 
         # vbf w/z production
         "w_vbf_wlnu_madgraph",
-        *if_not_era(year=2024, values=[  # TODO: currently invalid, check status
-            "z_vbf_zll_m50toinf_madgraph",
-        ]),
+        "z_vbf_zll_m50toinf_madgraph",
 
         # vv
         "zz_pythia",
@@ -407,15 +413,9 @@ def add_config(
 
         # single H
         "h_ggf_htt_powheg",
-        *if_not_era(year=2024, values=[  # TODO: check status
-            "h_ggf_hbb_powheg",
-        ]),
-        # TODO: present in 2024, do we add it?
-        # "h_ggf_hww2l2nu_powheg",
+        "h_ggf_hbb_powheg",
         "h_vbf_htt_powheg",
         "h_vbf_hbb_powheg",
-        # TODO: present in 2024, do we add it?
-        # "h_vbf_hww2l2nu_powheg",
         "wmh_wlnu_hbb_powheg",
         "wph_wlnu_hbb_powheg",
         "wph_htt_powheg",
@@ -430,8 +430,6 @@ def add_config(
         "zh_gg_znunu_hbb_powheg",
         "tth_hbb_powheg",
         "tth_hnonbb_powheg",
-        # TODO: present in 2024, do we add it?
-        # "ttwh_madgraph",
 
         # data
         *if_era(year=2022, tag="preEE", values=[
@@ -480,7 +478,7 @@ def add_config(
             # (not adding the tags will result in the default selection and stitching behavior)
             if dataset.name.endswith("_amcatnlo"):
                 dataset.add_tag("dy_lep_amcatnlo")  # trigges the lepton channel stitching in the default selector
-                if re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
+                if run == 3 and re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
                     dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
         if (
             re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name) or
@@ -600,28 +598,10 @@ def add_config(
     }
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
-    # TODO: 2024 disabled for now, need to re-check when more datasets are available
-    if run == 3 and not sync_mode and year != 2024:
-        # drell-yan, amcatnlo
-        if "dy_m50toinf_amcatnlo" in cfg.datasets:
-            if not cfg.datasets.n.dy_m50toinf_amcatnlo.has_tag("dy_drop_tautau"):
-                # default stitching, without lepton enriched datasets
-                cfg.x.dy_amcatnlo_stitching = {
-                    "m50toinf": {
-                        "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
-                        "leaf_processes": [
-                            # the following processes cover the full njet and pt phasespace
-                            cfg.get_process("dy_m50toinf_0j"),
-                            *(
-                                cfg.get_process(f"dy_m50toinf_{nj}j_pt{pt}")
-                                for nj in [1, 2]
-                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                            ),
-                            cfg.get_process("dy_m50toinf_ge3j"),
-                        ],
-                    },
-                }
-            else:
+    if run == 3 and not sync_mode:
+        # drell-yan, amcatnlo, using fully inclusive dataset
+        if year in {2022, 2023} and "dy_m50toinf_amcatnlo" in cfg.datasets:
+            if cfg.datasets.n.dy_m50toinf_amcatnlo.has_tag("dy_drop_tautau"):
                 # more involved stitching with additional lepton enriched datasets
                 expand_lep = lambda names: [
                     procs.get(f"dy_{ll}_{name}")
@@ -643,6 +623,27 @@ def add_config(
                         ],
                     },
                 }
+            else:
+                # default stitching, without lepton enriched datasets
+                cfg.x.dy_amcatnlo_stitching = {
+                    "m50toinf": {
+                        "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace
+                            cfg.get_process("dy_m50toinf_0j"),
+                            *(
+                                cfg.get_process(f"dy_m50toinf_{nj}j_pt{pt}")
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ),
+                            cfg.get_process("dy_m50toinf_ge3j"),
+                        ],
+                    },
+                }
+        # drell-yan, amcatnlo, using tautau inclusive dataset for 2024
+        if year == 2024 and "dy_tautau_m50toinf_amcatnlo" in cfg.datasets:
+            # TODO: 2024: add stitching config, but somehow merge with the one above
+            pass
         # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
             cfg.x.dy_powheg_stitching = {
@@ -661,7 +662,7 @@ def add_config(
                 },
             }
         # w + jets
-        if "w_lnu_amcatnlo" in cfg.datasets:
+        if year in {2022, 2023} and "w_lnu_amcatnlo" in cfg.datasets:
             cfg.x.w_lnu_stitching = {
                 "incl": {
                     "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
@@ -758,7 +759,6 @@ def add_config(
     ################################################################################################
 
     # lumi values in 1/pb (= 1000/fb)
-    # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2?rev=7
     # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun3?rev=27
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     # difference pre-post VFP: https://cds.cern.ch/record/2854610/files/DP2023_006.pdf
@@ -805,8 +805,8 @@ def add_config(
             "lumi_13p6TeV_2023": 0.013j,
         })
     elif year == 2024:
-        cfg.x.luminosity = Number(109_080.0, {  # TODO: update number
-            "lumi_13p6TeV_2024": 0.013j,
+        cfg.x.luminosity = Number(108_952.7546, {
+            "lumi_13p6TeV_2024": 0.013j,  # TODO 2024: update uncertainty once available
         })
     else:
         assert False
@@ -878,21 +878,21 @@ def add_config(
             (2022, "EE"): "_22Sep2023",
             (2023, ""): "Prompt23",
             (2023, "BPix"): "Prompt23",
-            (2024, ""): "Prompt24",  # TODO: correct?
+            (2024, ""): "Prompt24",
         }[(year, campaign.x.postfix)]
         jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         jec_version = {
             (2022, ""): "V3",
             (2022, "EE"): "V3",
-            (2023, ""): "V3",
-            (2023, "BPix"): "V3",
-            (2024, ""): "V3",  # TODO: correct?
+            (2023, ""): "V2",
+            (2023, "BPix"): "V2",
+            (2024, ""): "V1",
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
-        jer_version = "JR" + {2022: "V1", 2023: "V1", 2024: "V1"}[year]  # TODO: check 2024!
+        jer_version = "JR" + {2022: "V1", 2023: "V1", 2024: "V1"}[year]
         jet_type = "AK4PFPuppi"
     else:
         assert False
@@ -963,7 +963,7 @@ def add_config(
         "Jet": {
             "campaign": jec_campaign,
             "version": jec_version,
-            "data_per_era": True if year == 2022 else False,  # 2022 JEC has the era as a corrlib input argument
+            "data_per_era": year == 2022,  # 2022 JEC has the era in the correction set name
             "jet_type": jet_type,
             "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
             "levels_for_type1_met": ["L1FastJet"],
@@ -999,7 +999,7 @@ def add_config(
         cfg.x.tau_tagger = "DeepTau2017v2p1"
     elif run == 3:
         # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3?rev=9
-        cfg.x.tau_tagger = "DeepTau2018v2p5"
+        cfg.x.tau_tagger = "DeepTau2018v2p5"  # TODO: 2024: still correct? also check ids below
     else:
         assert False
 
@@ -1064,18 +1064,19 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
-        # eec and eer
-        cfg.x.eec = EGammaCorrectionConfig(
-            correction_set="Scale",
-            value_type="total_correction",
-            uncertainty_type="total_uncertainty",
-        )
-        cfg.x.eer = EGammaCorrectionConfig(
-            correction_set="Smearing",
-            compound=False,
-            value_type="rho",
-            uncertainty_type="err_rho",
-        )
+        # TODO: disabled for now, need to adapt once new run 2 processing is done
+        # # eec and eer
+        # cfg.x.eec = EGammaCorrectionConfig(
+        #     correction_set="Scale",
+        #     value_type="total_correction",
+        #     uncertainty_type="total_uncertainty",
+        # )
+        # cfg.x.eer = EGammaCorrectionConfig(
+        #     correction_set="Smearing",
+        #     compound=False,
+        #     value_type="rho",
+        #     uncertainty_type="err_rho",
+        # )
     elif run == 3:
         # SFs
         if year == 2022:
@@ -1083,7 +1084,7 @@ def add_config(
         elif year == 2023:
             e_postfix = {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix]
         elif year == 2024:
-            e_postfix = "FIXME"  # TODO: lookup!
+            e_postfix = "FIXME"  # TODO: 2024: lookup!
         else:
             assert False
         cfg.x.electron_sf_names = ElectronSFConfig(
@@ -1116,26 +1117,12 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             hlt_path="HLT_SF_Ele24_TightID",
         )
-        # eec and eer
-        if year == 2022:
-            e_tag = {"": "preEE", "EE": "postEE"}[campaign.x.postfix]
-        elif year == 2023:
-            # note the upper-case IX
-            e_tag = {"": "preBPIX", "BPix": "postBPIX"}[campaign.x.postfix]
-        elif year == 2024:
-            e_tag = "FIXME"  # TODO: look up!
-        else:
-            assert False
-        cfg.x.eec = EGammaCorrectionConfig(
-            correction_set=f"EGMScale_Compound_Ele_{year}{e_tag}",
-            value_type="scale",
-            uncertainty_type="escale",
-            compound=True,
-        )
-        cfg.x.eer = EGammaCorrectionConfig(
-            correction_set=f"EGMSmearAndSyst_ElePTsplit_{year}{e_tag}",
-            value_type="smear",
-            uncertainty_type="esmear",
+        # electron scale and smearing (eec and eer)
+        cfg.x.ess = EGammaCorrectionConfig(
+            scale_correction_set="Scale",
+            scale_compound=True,
+            smear_syst_correction_set="SmearAndSyst",
+            systs=["scale_down", "scale_up", "smear_down", "smear_up"],
         )
     else:
         assert False
@@ -1331,7 +1318,8 @@ def add_config(
         elif year == 2023:
             dy_era += "preBPix" if campaign.has_tag("preBPix") else "postBPix"
         elif year == 2024:
-            dy_era += "FIXME"  # TODO: look up!
+            # no postfix for 2024
+            pass
         else:
             assert False
 
@@ -1481,29 +1469,26 @@ def add_config(
     add_shift_aliases(cfg, "e", {"electron_weight": "electron_weight_{direction}"})
 
     # electron shifts
-    # TODO: energy corrections are currently only available for 2022 (Jan 2025)
-    #       include them when available
-    if run == 3 and year == 2022:
-        logger.debug("adding ees and eer shifts")
-        cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
-        cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
-        add_shift_aliases(
-            cfg,
-            "ees",
-            {
-                "Electron.pt": "Electron.pt_scale_{direction}",
-            },
-        )
+    logger.debug("adding ees and eer shifts")
+    cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
+    cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
+    add_shift_aliases(
+        cfg,
+        "ees",
+        {
+            "Electron.pt": "Electron.pt_scale_{direction}",
+        },
+    )
 
-        cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
-        cfg.add_shift(name="eer_down", id=95, type="shape", tags={"eer"})
-        add_shift_aliases(
-            cfg,
-            "eer",
-            {
-                "Electron.pt": "Electron.pt_res_{direction}",
-            },
-        )
+    cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
+    cfg.add_shift(name="eer_down", id=95, type="shape", tags={"eer"})
+    add_shift_aliases(
+        cfg,
+        "eer",
+        {
+            "Electron.pt": "Electron.pt_smear_{direction}",
+        },
+    )
 
     cfg.add_shift(name="mu_up", id=100, type="shape")
     cfg.add_shift(name="mu_down", id=101, type="shape")
@@ -1621,28 +1606,28 @@ def add_config(
                 vnano=12,
                 era="22CDSep23-Summer22",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-10-22", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
             (2022, "EE", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="22EFGSep23-Summer22EE",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-10-22", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
             (2023, "", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23CSep23-Summer23",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-10-22", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23DSep23-Summer23BPix",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-04-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-10-22", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
                 run=3,
@@ -1650,7 +1635,7 @@ def add_config(
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
                 # TODO: tau and lum not yet available
-                snapshot=CATSnapshot(btv="2025-08-19", dc="2025-07-25", egm="2025-08-15", jme="2025-07-17", muo="2025-08-27"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-19", dc="2025-07-25", egm="2025-10-22", jme="2025-07-17", muo="2025-10-17"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1743,14 +1728,12 @@ def add_config(
         # muon scale factors
         add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
         # met phi correction
-        if year != 2024:  # TODO: not yet available
+        if year != 2024:  # TODO: 2024: not yet available
             add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
         # electron scale factors
-        # TODO: the postfix will be obsolete soon, see https://gitlab.cern.ch/cms-analysis-corrections/EGM/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/-/issues/1 # noqa: E501
-        egm_postfix = "_v1" if year == 2024 else ""
-        add_external("electron_sf", (cat_info.get_file("egm", f"electron{egm_postfix}.json.gz"), "v1"))
+        add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
         # electron energy correction and smearing
-        add_external("electron_ss", (cat_info.get_file("egm", f"electronSS_EtDependent{egm_postfix}.json.gz"), "v1"))
+        add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         add_external("hh_btag_repo", Ext(
             f"{central_hbt_dir}/HHbtag-863627a.tar.gz",
@@ -1799,7 +1782,7 @@ def add_config(
                 version="v1",
             ))
         elif year == 2024:
-            # TODO: add once available
+            # TODO: 2024: add once available
             pass
 
     else:
