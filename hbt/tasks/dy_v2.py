@@ -32,6 +32,7 @@ import numpy as np
 from scipy import optimize
 from matplotlib import pyplot as plt
 from scipy.interpolate import UnivariateSpline
+from typing import Literal
 
 hist = maybe_import("hist")
 
@@ -147,7 +148,7 @@ class DYWeights(
     def output(self):
         outputs = {
             "plots": [],
-            "json": self.target("corrections.json.gz"),
+            "weights": self.target("weights.pkl"),
             "data": self.target("data.pkl", optional=True),
         }
 
@@ -181,7 +182,6 @@ class DYWeights(
         # initialize dictionary to store results
         era = self.config_inst.aux.get('dy_weight_config').era
         dy_weight_data = {}
-        dy_weight_data[era] = {}
 
         norm_content: dict[int, Norm | None] = {
             0: None,
@@ -326,7 +326,9 @@ class DYWeights(
         # TODO: include up/down shifts for btag normalization
 
         # TODO: include fit up/down shifts
-
+        # store them
+        dy_weight_data = self.get_dy_weight_data(dict_setup)
+        outputs["weights"].dump(dy_weight_data, formatter="pickle")
         # TODO: export dictionary as correction lib json
 
     def load_data(self):
@@ -532,3 +534,35 @@ class DYWeights(
         fit_string = f"(0.5*(erf(-0.08*(min(x,200)-{r}))+1))*{gauss}+(0.5*(erf(0.08*(min(x,200)-{r}))+1))*{pol}"
 
         return fit_string
+
+    def get_factor(
+        dict_setup: dict,
+        njet_key: tuple,
+        btag_bin: Norm,
+        direction: Literal["nom", "up", "down"],
+        fit_str: str,
+    ):
+        btag_bin = dict_setup[njet_key][btag_bin]
+        fit_str = dict_setup[njet_key]["fit_str"]
+        dict_entry = f"{getattr(btag_bin, direction)}*({fit_str})"
+        return [(0.0, float("inf"), dict_entry)]
+
+    def get_dy_weight_data(self, dict_setup: dict):
+        dict_content = {}
+
+        # loop over njet bins
+        for njet_bin in dict_setup.keys():
+            fit_string = dict_setup[njet_bin]["fit_str"]
+            nbjet_bins = list(dict_setup[njet_bin])[1:]
+            # loop over btag bins
+            for nbjet_bin in nbjet_bins:
+                for btag in [0, 1, 2]:
+                    #btag = 0
+                    norm_var = dict_setup[njet_bin][nbjet_bin][btag]
+                    norm_value = getattr(norm_var, "nom")
+                    expr = [(0.0, float("inf"), f"{norm_value}*({fit_string})")]
+                    dict_data = {nbjet_bin: {btag: expr}}
+                print(dict_data)
+
+        # continue here :)
+        # TODO: FIX THIS
