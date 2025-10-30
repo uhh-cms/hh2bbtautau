@@ -7,6 +7,7 @@ Exemplary selection methods.
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections, full_like
 from columnflow.util import maybe_import
+from hbt.util import MET_COLUMN
 
 ak = maybe_import("awkward")
 
@@ -299,6 +300,24 @@ def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
 @cat_dy.init
 def cat_dy_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+
+
+@categorizer(
+    uses={
+        "{Electron,Muon,Tau}.{pt,eta,phi,mass}",
+        MET_COLUMN("{pt,phi}"),
+    },
+)
+def cat_dyc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+
+    mask_cclub = (
+        (leps.sum(axis=1).mass >= 70) &
+        (leps.sum(axis=1).mass <= 110) &
+        (events[self.config_inst.x.met_name].pt < 45)
+    )
+
+    return events, mask_cclub
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
