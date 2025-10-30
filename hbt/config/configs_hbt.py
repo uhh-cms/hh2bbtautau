@@ -1701,6 +1701,10 @@ def add_config(
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
 
+    for fold in range(5):
+        # TODO: add correct path for vbf model
+        add_external(f"run3_vbf_dnn_fold{fold}", (f"/afs/desy.de/user/p/prouvost/test_dir/vbf_model_v4_tar/model_{fold}.tgz", "v1"))  # noqa: E501
+
     # run specific files
     if run == 2:
         # tau energy correction and scale factors
