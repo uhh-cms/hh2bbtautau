@@ -209,6 +209,7 @@ class DYWeights(
         dy_events = set_ak_column(dy_events, "dy_weight_postfit", np.ones(len(dy_events), dtype=np.float32))
         dy_events = set_ak_column(dy_events, "dy_weight_norm", np.ones(len(dy_events), dtype=np.float32))
 
+        # fill dict_setup with fit functions and btag Norm content
         for (njet_fit_min, njet_fit_max), fit_data in dict_setup.items():
             # filter events
             data_mask = self.get_njet_mask(data_events, njet_fit_min, njet_fit_max)
@@ -323,12 +324,13 @@ class DYWeights(
 
             # TODO: ---> CREATE PDF WEIGHTED PLOTS WITH : POSTFIT PT WEIGHTS * NORM WEIGHTS
 
-        # TODO: include up/down shifts for btag normalization
+        # restructure dict_setup for correction lib json, including btag up/down shifts
+        dy_weight_data = self.get_dy_weight_data(dict_setup)
 
         # TODO: include fit up/down shifts
-        # store them
-        dy_weight_data = self.get_dy_weight_data(dict_setup)
+
         outputs["weights"].dump(dy_weight_data, formatter="pickle")
+
         # TODO: export dictionary as correction lib json
 
     def load_data(self):
@@ -604,5 +606,4 @@ class DYWeights(
                         # save shifted dict
                         dict_data[shift_str][nbjet_bin] = shifted_dict
 
-        # continue here :)
-        # TODO: FIX THIS
+        return dict_data
