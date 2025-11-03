@@ -180,13 +180,12 @@ class DYWeights(
             outputs["data"].dump((data_events, dy_events, bkg_events), formatter="pickle")
 
         # initialize dictionary to store results
-        era = self.config_inst.aux.get('dy_weight_config').era
         dy_weight_data = {}
 
         norm_content: dict[int, Norm | None] = {
-            0: None,
-            1: None,
-            2: None,
+            (0, 1): None,
+            (1, 2): None,
+            (2, 101): None,
         }
 
         dict_setup = {
@@ -290,19 +289,20 @@ class DYWeights(
                 self.nbjets_inst,
             )
 
-            # save Norm values per btag category
+            # save nominal btag normalizations in new event column
             for key, norm_data in fit_data.items():
                 if isinstance(key, str):
                     continue
                 (njet_min, njet_max) = key
                 norm_data = norm_content.copy()
                 for btag, btag_data in norm_data.items():
-                    # update njet mask and define nbtag mask
+                    # update njet mask and define btag mask
                     dy_norm_mask = self.get_njet_mask(dy_events, njet_min, njet_max)
-                    btag_mask = (dy_norm_mask) & (self.get_btag_mask(dy_events, btag))
+                    n_btag = btag[0]
+                    btag_mask = (dy_norm_mask) & (self.get_btag_mask(dy_events, n_btag))
 
-                    # get normalization factor with statistical uncertainty
-                    norm_data[btag] = Norm(ratio_values[btag], ratio_err[btag])
+                    # save normalization factor with statistical uncertainty
+                    norm_data[btag] = Norm(ratio_values[n_btag], ratio_err[n_btag])
 
                     # update dy_weight_norm column for corresponding events
                     dy_weight_norm = ak.where(
@@ -548,21 +548,61 @@ class DYWeights(
         return [(0.0, float("inf"), dict_entry)]
 
     def get_dy_weight_data(self, dict_setup: dict):
-        dict_content = {}
+        """
+        Function to build the nested dictionary structure to export DY weight info to a correction lib json.
+        """
+        dict_data = {}
 
+        # fill nominal dict first with nominal btag normalizations and fit functions
+        dict_data["nom"] = {}
         # loop over njet bins
         for njet_bin in dict_setup.keys():
             fit_string = dict_setup[njet_bin]["fit_str"]
             nbjet_bins = list(dict_setup[njet_bin])[1:]
             # loop over btag bins
             for nbjet_bin in nbjet_bins:
-                for btag in [0, 1, 2]:
-                    #btag = 0
+                dict_data["nom"][nbjet_bin] = {}
+                for btag in dict_setup[njet_bin][nbjet_bin].keys():
                     norm_var = dict_setup[njet_bin][nbjet_bin][btag]
                     norm_value = getattr(norm_var, "nom")
                     expr = [(0.0, float("inf"), f"{norm_value}*({fit_string})")]
-                    dict_data = {nbjet_bin: {btag: expr}}
-                print(dict_data)
+                    # save expression in nested dict
+                    dict_data["nom"][nbjet_bin][btag] = expr
+
+        # fill statistical up/down btag shifts considering # btag as separate sources of uncertainty
+        nbjet_bins = dict_data["nom"].keys()
+        btag_bins = dict_data["nom"][nbjet_bin].keys()
+        for btag_bin in btag_bins:
+            btag = btag_bin[0]  # get btag value: 0, 1, 2
+            for direction in ["up", "down"]:
+                # create new uncertainty entry in dict_data
+                shift_str = f"stat_btag{btag}_{direction}"
+                dict_data[shift_str] = {}
+                # shift 0/1/2 btag entry for all njet entries at once
+                for njet_bin in dict_setup.keys():
+                    fit_string = dict_setup[njet_bin]["fit_str"]
+                    updated_content = {}
+                    for nbjet_bin in nbjet_bins:
+                        # only update if corresponding nbjet_bin exists
+                        if nbjet_bin not in dict_setup[njet_bin]:
+                            continue
+                        dict_data[shift_str][nbjet_bin] = {}
+
+                        # get shifted btag normalization with corresponfing fit function string
+                        norm_var = dict_setup[njet_bin][nbjet_bin][btag_bin]
+                        norm_value = getattr(norm_var, direction)
+                        fit_string = dict_setup[njet_bin]["fit_str"]
+                        expr = [(0.0, float("inf"), f"{norm_value}*({fit_string})")]
+
+                        # copy nominal content, updating only the corresponding btag entry
+                        updated_content[btag_bin] = expr
+                        shifted_dict = law.util.merge_dicts(
+                            dict_data["nom"][nbjet_bin],
+                            updated_content, deep=True
+                        )
+
+                        # save shifted dict
+                        dict_data[shift_str][nbjet_bin] = shifted_dict
 
         # continue here :)
         # TODO: FIX THIS
