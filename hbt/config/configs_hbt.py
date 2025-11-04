@@ -707,15 +707,16 @@ def add_config(
             "hh_vbf_hbb_htt_kv1_k2v1_kl1_*madgraph",
             *backgrounds_unstitched,
         ]),
-        "sm_ggf_data": data_group + sm_ggf_group,
-        "sm_data": data_group + sm_group,
-        "sm_data_unstitched": data_group + sm_group_unstitched,
-        "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
-        "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
+        "sm_ggf_data": sm_ggf_group + data_group,
+        "sm_data": sm_group + data_group,
+        "sm_data_unstitched": sm_group_unstitched + data_group,
+        "bkg_data": backgrounds + data_group,
         "bkg_data_dy": backgrounds + [
             dataset.name for dataset in cfg.datasets
             if dataset.is_data and re.match(r"^data_(e|mu)_.+$", dataset.name)
         ],
+        "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
+        "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
     }
 
     # category groups for conveniently looping over certain categories
