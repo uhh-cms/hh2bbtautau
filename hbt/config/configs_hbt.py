@@ -1836,28 +1836,35 @@ def add_config(
         },
         "cf.UniteColumns": {
             # all columns except for shifts
-            "*", *skip_column("*_{up,down}"),
+            "all": {
+                "*",
+                *skip_column("*_{up,down}"),
+            },
 
             # columns for typical dnn training
-            # ColumnCollection.MANDATORY_COFFEA,
-            # "tau2_isolated", "leptons_os", "process_id", "channel_id", "*_weight*",
-            # "Electron.{eta,phi,pt,mass,charge}",
-            # "Muon.{eta,phi,pt,mass,charge}",
-            # "Tau.{eta,phi,pt,mass,charge,decayMode}",
-            # "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
-            # "FatJet.{eta,phi,pt,mass}",
-            # f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
-            # "res_dnn_pnet_*",
-            # "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
-            # "run3_dnn{,_moe}_*",
-            # "nu_truth.*.*",
-            # *skip_column("*_{up,down}"),
+            "dnn": {
+                ColumnCollection.MANDATORY_COFFEA,
+                "tau2_isolated", "leptons_os", "process_id", "channel_id", "*_weight*",
+                "Electron.{eta,phi,pt,mass,charge}",
+                "Muon.{eta,phi,pt,mass,charge}",
+                "Tau.{eta,phi,pt,mass,charge,decayMode}",
+                "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+                "FatJet.{eta,phi,pt,mass}",
+                f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
+                "res_dnn_pnet_*",
+                "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
+                "run3_dnn{,_moe}_*",
+                "nu_truth.*.*",
+                *skip_column("*_{up,down}"),
+            },
 
             # columns for dnn-based dy weight tests
-            # ColumnCollection.MANDATORY_COFFEA,
-            # "channel_id", "dy_weight",
-            # "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
-            # "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}", "met_{pt,phi}",
+            "dy_studies": {
+                ColumnCollection.MANDATORY_COFFEA,
+                "channel_id", "dy_weight",
+                "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
+                "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}", "met_{pt,phi}",
+            },
         },
     })
 
