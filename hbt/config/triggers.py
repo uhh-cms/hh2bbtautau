@@ -1562,7 +1562,7 @@ def add_triggers_2024(config: od.Config) -> None:
     # single electron
     #
     config.x.triggers.add(
-        name="HLT_Ele30_WPTight_Gsf", #https://cms-talk.web.cern.ch/t/single-e-trigger-recommendation-for-run-3-2024/128908/2
+        name="HLT_Ele30_WPTight_Gsf",  # https://cms-talk.web.cern.ch/t/single-e-trigger-recommendation-for-run-3-2024/128908/2
         id=205,
         legs=dict(
             e=TriggerLeg(
@@ -1612,7 +1612,7 @@ def add_triggers_2024(config: od.Config) -> None:
         tags={"single_trigger", "single_mu"},
     )
     #
-    # e tauh #deeptau
+    # e tauh deeptau
     #
     config.x.triggers.add(
         name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseDeepTauPFTauHPS30_eta2p1_CrossL1",
@@ -1778,7 +1778,6 @@ def add_triggers_2024(config: od.Config) -> None:
                     "DeepTau",
                 ]),
             ),
-            # TODO: check if vbf legs are needed
             # additional leg infos for vbf jets
             vbf1=TriggerLeg(
                 pdg_id=1,
@@ -1914,7 +1913,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 pdg_id=15,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
-                # hltHpsOverlapFilterDoublePNetTauh26PFJet60
+                # hltDoublePFJets26PNetTauhTagL2DoubleTauJet
                 trigger_bits=get_bit_sum_v("tau", [
                     "PNet",
                     "DiTauAndPFJet",
@@ -1924,7 +1923,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 pdg_id=15,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
-                # hltHpsOverlapFilterDoublePNetTauh26PFJet60
+                # hltDoublePFJets26PNetTauhTagL2DoubleTauJet
                 trigger_bits=get_bit_sum_v("tau", [
                     "PNet",
                     "DiTauAndPFJet",
@@ -1949,12 +1948,14 @@ def add_triggers_2024(config: od.Config) -> None:
     # vbf pnet
     #
     config.x.triggers.add(
-        name="HLT_VBF_DoublePNetTauhPFJet20_eta2p2", #to match the CClub one
+        name="HLT_VBF_DoublePNetTauhPFJet20_eta2p2",  # to match the CClub one
         id=605,
         legs=dict(
             tau1=TriggerLeg(
                 pdg_id=15,
                 # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter name: 
+                # hltDoublePFJets20PNetTauhTagL2DoubleTau
                 trigger_bits=get_bit_sum_v("tau", [
                     "VBFDiTau" if nano_version == 15 else None,
                     "HPS",
@@ -1964,28 +1965,29 @@ def add_triggers_2024(config: od.Config) -> None:
             tau2=TriggerLeg(
                 pdg_id=15,
                 # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter name: 
+                # hltDoublePFJets20PNetTauhTagL2DoubleTau
                 trigger_bits=get_bit_sum_v("tau", [
                     "VBFDiTau" if nano_version == 15 else None,
                     "HPS",
                     "PNet",
                 ]),
             ),
-            # TODO: check if vbf legs are needed
             # additional leg infos for vbf jets
             vbf1=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
-                # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                # hltMatchedVBFTwoPFJets2CrossCleanedFromDouble20PNetTauhTag
                 trigger_bits=get_bit_sum_v("jet", [
-                    "VBFcrossCleanedDeepTauPFTau" if nano_version == 15 else None, #same a cclub group
+                    "VBFcrossCleanedDeepTauPFTau" if nano_version == 15 else None,  # same as cclub group
                 ]),
             ),
             vbf2=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
-                # hltMatchedVBFTwoPFJets2CrossCleanedFromDoubleMediumDeepTauDitauWPPFTauHPS20?
+                # hltMatchedVBFTwoPFJets2CrossCleanedFromDouble20PNetTauhTag
                 trigger_bits=get_bit_sum_v("jet", [
                     "VBFcrossCleanedDeepTauPFTau" if nano_version == 15 else None,
                 ]),
