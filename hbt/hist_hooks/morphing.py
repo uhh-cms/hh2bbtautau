@@ -2784,6 +2784,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         "kvm1p21_k2v1p94_klm0p94", "kvm1p6_k2v2p72_klm1p36",
         "kvm1p83_k2v3p57_klm3p39",
     ], 6)):
+        # print("basis combination ", i, combination)
+        # continue
         analysis_inst.x.hist_hooks[f"hh_vbf_exact_morphing_kv2p12_k2v3p87_klm5p96_basis_{i}"] = partial(
             general_higgs_morphing,
             production_channel="vbf",
@@ -2791,6 +2793,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             target_point="kv2p12_k2v3p87_klm5p96",
             morphing_type="exact",
         )
+    # import sys
+    # sys.exit(0)
 
 # Remark on new Process for morphing: single ID for all morphed processes, but different names
 # in order to be able to distinguish them in the plot functions, maybe need to find a way to create
