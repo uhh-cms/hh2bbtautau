@@ -1817,6 +1817,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 trigger_bits=get_bit_sum_v("e", [
                     "OverlapFilterPFTau",
                     "EleTau",
+                    "EleTauPNet",
                 ]),
             ),
             tau=TriggerLeg(
@@ -1850,6 +1851,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 trigger_bits=get_bit_sum_v("mu", [
                     "OverlapFilterPFTau",
                     "MuTau",
+                    "MuTauPNet",
                 ]),
             ),
             tau=TriggerLeg(
@@ -1882,7 +1884,8 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltDoublePFJets30PNetTauhTagMediumWPL2DoubleTau (PNet + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
-                    "PNetDiTau",
+                    "DiTau",
+                    "PNet",
                     "HPS",
                     "Medium" if nano_version == 15 else None,
                 ]),
@@ -1935,7 +1938,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsOverlapFilterDoublePNetTauh26PFJet60
                 trigger_bits=get_bit_sum_v("jet", [
-                    "PNet",
                     "DoubleTau+Jet",
                 ]),
             ),
@@ -1958,7 +1960,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 # hltDoublePFJets20PNetTauhTagL2DoubleTau
                 trigger_bits=get_bit_sum_v("tau", [
                     "VBFDiTau" if nano_version == 15 else None,
-                    "HPS",
                     "PNet",
                 ]),
             ),
@@ -1969,7 +1970,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 # hltDoublePFJets20PNetTauhTagL2DoubleTau
                 trigger_bits=get_bit_sum_v("tau", [
                     "VBFDiTau" if nano_version == 15 else None,
-                    "HPS",
                     "PNet",
                 ]),
             ),
