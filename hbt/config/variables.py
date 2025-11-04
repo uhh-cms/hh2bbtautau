@@ -503,6 +503,26 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
 
+    add_variable(
+        config,
+        name="nbjets_pnet_overflow",
+        expression=config.variables.n.nbjets_pnet.expression,
+        aux={**config.variables.n.nbjets_pnet.aux, "overflow": True},
+        binning=(4, -0.5, 3.5),
+        x_title=r"Number of b-jets (PNet medium)",
+        discrete_x=True,
+    )
+
+    add_variable(
+        config,
+        name="nbjets_pnet_no_overflow",
+        expression=config.variables.n.nbjets_pnet.expression,
+        aux={**config.variables.n.nbjets_pnet.aux, "overflow": False},
+        binning=(4, -0.5, 3.5),
+        x_title=r"Number of b-jets (PNet medium)",
+        discrete_x=True,
+    )
+
     # dilepton variables
     add_variable(
         config,
