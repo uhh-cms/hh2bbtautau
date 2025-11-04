@@ -11,13 +11,15 @@ import law
 import order as od
 import awkward as ak
 import dataclasses
+import gzip
 
-from columnflow.tasks.framework.base import TaskShifts
+from columnflow.tasks.framework.base import TaskShifts, ConfigTask
 from columnflow.tasks.framework.mixins import (
     DatasetsProcessesMixin, ProducerClassesMixin, CalibratorClassesMixin,
     SelectorClassMixin, ReducerClassMixin,
 )
 from columnflow.tasks.production import ProduceColumns
+from columnflow.plotting.plot_functions_1d import plot_variable_stack
 from columnflow.tasks.reduction import ProvideReducedEvents
 from columnflow.util import maybe_import
 from columnflow.columnar_util import (
@@ -147,8 +149,10 @@ class DYWeights(
 
     def output(self):
         outputs = {
-            "plots": [],
             "weights": self.target("weights.pkl"),
+            "plots": {
+
+            } self.target("test_dy_plot.pdf", optional=True),
             "data": self.target("data.pkl", optional=True),
         }
 
@@ -208,6 +212,8 @@ class DYWeights(
         # add dummy values for both weights
         dy_events = set_ak_column(dy_events, "dy_weight_postfit", np.ones(len(dy_events), dtype=np.float32))
         dy_events = set_ak_column(dy_events, "dy_weight_norm", np.ones(len(dy_events), dtype=np.float32))
+
+        bkg_process = od.Process(name="Backgrounds", id="+", color1="#e76300")
 
         # fill dict_setup with fit functions and btag Norm content
         for (njet_fit_min, njet_fit_max), fit_data in dict_setup.items():
@@ -280,7 +286,31 @@ class DYWeights(
             for (var, var_name) in variables:
                 dy_hists[var_name + "_postfit"] = self.hist_function(var, dy_events[var_name][dy_mask], updated_dy_weight[dy_mask])  # noqa: E501
 
+            ####################################################################
             # TODO: ---> CREATE PDF WEIGHTED PLOTS WITH : POSTFIT PT WEIGHTS
+            hists = {
+                self.config_inst.get_process("dy"): dy_hists["dilep_pt_postfit"],
+                bkg_process: bkg_hists["dilep_pt"],
+                self.config_inst.get_process("data"): data_hists["dilep_pt"],
+            }
+
+            fig, _ = plot_variable_stack(
+                hists=hists,
+                config_inst=self.config_inst,
+                category_inst=self.config_inst.get_category("mumu__dyc__eq2j__eq0b__os"),
+                variable_insts=[self.config_inst.get_variable("dilep_pt")],
+                shift_insts=[self.config_inst.get_shift("nominal")],
+                # style_config: dict | None = None,
+                # density: bool | None = False,
+                # shape_norm: bool | None = False,
+                # yscale: str | None = "",
+                # process_settings: dict | None = None,
+                # variable_settings: dict | None = None,
+                # **kwargs,
+            )
+            outputs["plots"].dump(fig, formatter="mpl")
+
+            ####################################################################
 
             # get btag normalization factors using the reweighted DY histograms
             ratio_values, ratio_err, bin_centers = self.get_ratio_values(
@@ -607,3 +637,53 @@ class DYWeights(
                         dict_data[shift_str][nbjet_bin] = shifted_dict
 
         return dict_data
+
+
+class ExportDYWeights(HBTTask, ConfigTask):
+    """
+    Example command:
+
+        > law run hbt.ExportDYWeights \
+            --configs 22pre_v14,22post_v14,... \
+            --version some_version
+    """
+    single_config = False
+
+    def requires(self):
+        return {
+            config_inst: DYWeights.req(
+                self,
+                config=config_inst.name,
+                datasets=("bkg_data",),
+            )
+            for config_inst in self.config_insts
+        }
+
+    def output(self):
+        return self.target("hbt_corrections.json.gz")
+
+    def run(self):
+        import correctionlib.schemav2 as cs
+        from hbt.studies.dy_weights.create_clib_file import create_dy_weight_correction
+
+        dy_weight_data = {}
+
+        for config_inst, inps in self.input().items():
+            weight_data = inps["weights"].load(formatter="pickle")
+            era = config_inst.x.dy_weight_config.era
+            dy_weight_data[era] = weight_data
+
+        cset = cs.CorrectionSet(
+            schema_version=2,
+            description="Corrections derived for the hh2bbtautau analysis.",
+            corrections=[
+                create_dy_weight_correction(dy_weight_data),
+            ],
+        )
+
+        outp = self.output()
+        with gzip.open(outp.abspath, "wt") as f:
+            f.write(cset.model_dump_json(exclude_unset=True))
+
+        # validate the content
+        law.util.interruptable_popen(f"correction summary {outp.abspath}", shell=True)
