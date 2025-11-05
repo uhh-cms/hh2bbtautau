@@ -1884,7 +1884,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 trigger_bits=get_bit_sum_v("tau", [
                     "DiTau",
                     "PNet",
-                    "HPS",
                     "Medium" if nano_version == 15 else None,
                 ]),
             ),
@@ -1896,7 +1895,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 trigger_bits=get_bit_sum_v("tau", [
                     "DiTau",
                     "PNet",
-                    "HPS",
                     "Medium" if nano_version == 15 else None,
                 ]),
             ),
