@@ -1008,8 +1008,8 @@ def add_config(
         # TODO: still correct? what about 2p5?
         cfg.x.tau_tagger = "DeepTau2017v2p1"
     elif run == 3:
-        # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3?rev=9
-        cfg.x.tau_tagger = "DeepTau2018v2p5"  # TODO: 2024: still correct? also check ids below
+        # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3?rev=11
+        cfg.x.tau_tagger = "DeepTau2018v2p5"
     else:
         assert False
 
