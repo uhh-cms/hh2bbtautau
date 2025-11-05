@@ -41,6 +41,7 @@ def jet_trigger_matching(
     trigger: Trigger,
     trigger_fired: ak.Array,
     leg_masks: dict[str, ak.Array],
+    jet_object_mask: ak.Array | None = None,
     **kwargs,
 ) -> tuple[ak.Array]:
     """
@@ -57,16 +58,34 @@ def jet_trigger_matching(
     is_cross_e_vbf = trigger.has_tag("cross_e_vbf")
     is_cross_mu_vbf = trigger.has_tag("cross_mu_vbf")
     assert is_cross_e_vbf or is_cross_mu_vbf or is_cross_tau_vbf or is_cross_tau_tau_jet or is_cross_vbf or is_cross_tau_tau_vbf  # noqa: E501
+
+    # define the jet objects to be considered for matching
+    if jet_object_mask is not None:
+        masked_jets = events.Jet[jet_object_mask]
+    else:
+        masked_jets = events.Jet
+
+    # define the back mapping to the original jet collection
+
+    def map_to_full_jet_array(matched_mask: ak.Array) -> ak.Array:
+        if jet_object_mask is None:
+            return matched_mask
+        full_mask = full_like(events.Jet.pt, False, dtype=bool)
+        flat_full_mask = flat_np_view(full_mask)
+        flat_full_mask[flat_np_view(jet_object_mask)] = flat_np_view(matched_mask)
+        return full_mask
+
     # start per-jet mask with trigger object matching per leg
     if is_cross_tau_tau_jet:
         assert trigger.n_legs == len(leg_masks) == 3
         assert abs(trigger.legs["jet"].pdg_id) == 1
-        # match leg 1
-        return trigger_object_matching(
-            events.Jet,
+        # match jet lag
+        match_leg = trigger_object_matching(
+            masked_jets,
             events.TrigObj[leg_masks["jet"]],
             event_mask=trigger_fired,
         )
+        return map_to_full_jet_array(match_leg)
 
     # all triggers with two jet legs
     # catch config errors
@@ -79,14 +98,16 @@ def jet_trigger_matching(
     assert abs(trigger.legs["vbf1"].pdg_id) == 1
     assert abs(trigger.legs["vbf2"].pdg_id) == 1
 
+    assert jet_object_mask is not None, "For dijet triggers, jet_object_mask must be defined to match only the 2 candidate jets"  # noqa: E501
+
     # match both legs
     matches_leg0 = trigger_object_matching(
-        events.Jet,
+        masked_jets,
         events.TrigObj[leg_masks["vbf1"]],
         event_mask=trigger_fired,
     )
     matches_leg1 = trigger_object_matching(
-        events.Jet,
+        masked_jets,
         events.TrigObj[leg_masks["vbf2"]],
         event_mask=trigger_fired,
     )
@@ -98,15 +119,24 @@ def jet_trigger_matching(
         ak.any(matches_leg0, axis=1) &
         ak.any(matches_leg1, axis=1)
     )
-    # TODO: correct matching: it is not enough for any tau to match each leg,
-    # each needs to be one of the two we will select... (also for taus)
-    # Solution 1: apply object mask to check only the two objects we are interested in
-    # and bring it back to full array
 
-    # TODO: correct legs such that each leg shows different objects or correct matches such that
-    # the matched object may not be the same
-    # Solution 1: check if the two legs have common objects and if yes, check that the index of the
-    # matched trigger object is different for both objects
+    # additional condition: there must be at least two matched trigger objects
+    # since the same trigger object could fulfill both legs trigger bits and
+    # thus both reconstructed taus could match to the same trigger object
+
+    mask_leg_1 = mask_from_indices(leg_masks["vbf1"], events.TrigObj.pt)
+    mask_leg_2 = mask_from_indices(leg_masks["vbf2"], events.TrigObj.pt)
+    mask_all_legs = mask_leg_1 | mask_leg_2
+    matched_trig_objs = trigger_object_matching(
+        events.TrigObj[mask_all_legs],
+        masked_jets,
+        event_mask=trigger_fired,
+    )
+
+    matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
+
+    # bring the mask back to the full jet collection
+    matches = map_to_full_jet_array(matches)
 
     return matches
 
@@ -476,6 +506,7 @@ def jet_selection(
                     trigger=trigger,
                     trigger_fired=trigger_fired_leptons_matched,
                     leg_masks=leg_masks,
+                    jet_object_mask=vbfjet_mask,
                     **kwargs,
                 )
 

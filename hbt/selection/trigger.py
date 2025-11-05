@@ -69,9 +69,6 @@ def trigger_selection(
                 for bits in leg.trigger_bits:
                     leg_mask = leg_mask & ((events.TrigObj.filterBits & bits) > 0)
             leg_masks[key] = index[leg_mask]
-            # TODO: handle legs with several matches, especially if several legs exist pointing to same objects
-            # e.g. vbf trigger jet legs would point to the same (at least) two objects
-            # what happens of there are more then two objects present matching these criteria?
 
             # at least one object must match this leg
             all_legs_match = all_legs_match & ak.any(leg_mask, axis=1)

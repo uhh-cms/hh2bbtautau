@@ -12,7 +12,7 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.columnar_util import set_ak_column, sorted_indices_from_mask, flat_np_view, full_like
+from columnflow.columnar_util import set_ak_column, sorted_indices_from_mask, flat_np_view, full_like, mask_from_indices, layout_ak_array  # noqa: E501
 from columnflow.util import maybe_import
 
 from hbt.util import IF_NANO_V9, IF_NANO_GE_V10
@@ -56,7 +56,10 @@ def trigger_object_matching(
         full_any_match = full_like(vectors1.pt, False, dtype=bool)
         flat_full_any_match = flat_np_view(full_any_match)
         flat_full_any_match[flat_np_view(full_any_match | event_mask)] = flat_np_view(any_match)
-        any_match = full_any_match
+        # for some awkward reason, a masked array does not get a proper np view here,
+        # so we need to layout the flattened array in case the original array was masked
+
+        any_match = layout_ak_array(flat_full_any_match, full_any_match)
 
     return any_match
 
@@ -434,6 +437,7 @@ def tau_trigger_matching(
     trigger: Trigger,
     trigger_fired: ak.Array,
     leg_masks: dict[str, ak.Array],
+    tau_object_mask: ak.Array | None = None,
     **kwargs,
 ) -> tuple[ak.Array]:
     """
@@ -452,17 +456,34 @@ def tau_trigger_matching(
     is_any_cross_ditau = is_cross_tau or is_cross_tau_vbf or is_cross_tau_jet
     assert is_cross_e or is_cross_mu or is_any_cross_ditau or is_cross_vbf
 
+    # define the tau objects to be considered for matching
+    if tau_object_mask is not None:
+        masked_taus = events.Tau[tau_object_mask]
+    else:
+        masked_taus = events.Tau
+
+    # define the back mapping to the original tau collection
+
+    def map_to_full_tau_array(matched_mask: ak.Array) -> ak.Array:
+        if tau_object_mask is None:
+            return matched_mask
+        full_mask = full_like(events.Tau.pt, False, dtype=bool)
+        flat_full_mask = flat_np_view(full_mask)
+        flat_full_mask[flat_np_view(tau_object_mask)] = flat_np_view(matched_mask)
+        return full_mask
+
     # start per-tau mask with trigger object matching per leg
     if is_cross_e or is_cross_mu or is_cross_vbf:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) == (3 if is_cross_vbf else 2)
         assert abs(trigger.legs["tau"].pdg_id) == 15
-        # match leg 1
-        return trigger_object_matching(
-            events.Tau,
+        # match leg
+        match_leg = trigger_object_matching(
+            masked_taus,
             events.TrigObj[leg_masks["tau"]],
             event_mask=trigger_fired,
         )
+        return map_to_full_tau_array(match_leg)
 
     # is_any_cross_ditau
     # catch config errors
@@ -470,14 +491,16 @@ def tau_trigger_matching(
     assert abs(trigger.legs["tau1"].pdg_id) == 15
     assert abs(trigger.legs["tau2"].pdg_id) == 15
 
+    assert tau_object_mask is not None, "For ditau triggers, tau_object_mask must be defined to match only the 2 candidate taus"  # noqa: E501
+
     # match both legs
     matches_leg0 = trigger_object_matching(
-        events.Tau,
+        masked_taus,
         events.TrigObj[leg_masks["tau1"]],
         event_mask=trigger_fired,
     )
     matches_leg1 = trigger_object_matching(
-        events.Tau,
+        masked_taus,
         events.TrigObj[leg_masks["tau2"]],
         event_mask=trigger_fired,
     )
@@ -489,8 +512,24 @@ def tau_trigger_matching(
         ak.any(matches_leg0, axis=1) &
         ak.any(matches_leg1, axis=1)
     )
-    # TODO: correct matching: it is not enough for any tau to match each leg,
-    # each needs to be one of the two we will select...
+
+    # additional condition: there must be at least two matched trigger objects
+    # since the same trigger object could fulfill both legs trigger bits and
+    # thus both reconstructed taus could match to the same trigger object
+
+    mask_leg_1 = mask_from_indices(leg_masks["tau1"], events.TrigObj.pt)
+    mask_leg_2 = mask_from_indices(leg_masks["tau2"], events.TrigObj.pt)
+    mask_all_legs = mask_leg_1 | mask_leg_2
+    matched_trig_objs = trigger_object_matching(
+        events.TrigObj[mask_all_legs],
+        masked_taus,
+        event_mask=trigger_fired,
+    )
+
+    matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
+
+    # bring the mask back to the full tau collection
+    matches = map_to_full_tau_array(matches)
 
     return matches
 
@@ -755,9 +794,15 @@ def lepton_selection(
             # fold trigger matching into the selection if needed
             trig_tau_mask = ch_base_tau_mask
             if not trigger.has_tag("cross_vbf"):
+                # create a mask selecting only the two most isolated taus among the base selected ones
+                # and with the layout of the original tau collection
+                most_isolated_tau_mask = tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]][:, :2]
+                most_isolated_tau_mask = mask_from_indices(most_isolated_tau_mask, events.Tau.pt)
+
+                # trigger matching for the taus
                 trig_tau_mask = (
                     trig_tau_mask &
-                    self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
+                    self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
                 )
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
