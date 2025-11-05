@@ -150,12 +150,17 @@ class DYWeights(
     def output(self):
         outputs = {
             "weights": self.target("weights.pkl"),
-            "plots": {
-
-            } self.target("test_dy_plot.pdf", optional=True),
+            "plots": {},
             "data": self.target("data.pkl", optional=True),
         }
 
+        for channel in ["mumu", "ee"]:
+            for cat in ["eq2j", "eq3j", "ge4j"]:
+                for var_name in ["dilep_pt", "nbjets", "njets"]:
+                    for string in ["_no_dy", "_postfit", "_norm"]:
+                        outputs["plots"][f"{channel}_{var_name}{string}_weights_{cat}"] = self.target(
+                            f"{channel}_{var_name}{string}_weights_{cat}.pdf"
+                        )
         return outputs
 
     def requires(self):
@@ -217,10 +222,14 @@ class DYWeights(
 
         # fill dict_setup with fit functions and btag Norm content
         for (njet_fit_min, njet_fit_max), fit_data in dict_setup.items():
-            # filter events
-            data_mask = self.get_njet_mask(data_events, njet_fit_min, njet_fit_max)
-            dy_mask = self.get_njet_mask(dy_events, njet_fit_min, njet_fit_max)
-            bkg_mask = self.get_njet_mask(bkg_events, njet_fit_min, njet_fit_max)
+            # filter events per category
+            data_mask_mumu = self.get_njet_mask(data_events, njet_fit_min, njet_fit_max, "mumu")
+            dy_mask_mumu = self.get_njet_mask(dy_events, njet_fit_min, njet_fit_max, "mumu")
+            bkg_mask_mumu = self.get_njet_mask(bkg_events, njet_fit_min, njet_fit_max, "mumu")
+
+            data_mask_ee = self.get_njet_mask(data_events, njet_fit_min, njet_fit_max, "ee")
+            dy_mask_ee = self.get_njet_mask(dy_events, njet_fit_min, njet_fit_max, "ee")
+            bkg_mask_ee = self.get_njet_mask(bkg_events, njet_fit_min, njet_fit_max, "ee")
 
             # define variable instances
             variables = [(self.dilep_pt_inst, 'dilep_pt'), (self.nbjets_inst, 'nbjets'), (self.njets_inst, 'njets')]
@@ -229,19 +238,25 @@ class DYWeights(
             dy_hists = {}
             bkg_hists = {}
 
-            # get histograms for data, dy and bkg
+            # get hists before reweighting
             for (var, var_name) in variables:
-                data_hists[var_name] = self.hist_function(var, data_events[var_name][data_mask], data_events.weight[data_mask])  # noqa: E501
-                dy_hists[var_name] = self.hist_function(var, dy_events[var_name][dy_mask], dy_events.weight[dy_mask])
-                bkg_hists[var_name] = self.hist_function(var, bkg_events[var_name][bkg_mask], bkg_events.weight[bkg_mask])  # noqa: E501
+                data_hists[f"mumu_{var_name}"] = self.hist_function(var, data_events[var_name][data_mask_mumu], data_events.weight[data_mask_mumu])  # noqa: E501
+                dy_hists[f"mumu_{var_name}_no_dy"] = self.hist_function(var, dy_events[var_name][dy_mask_mumu], dy_events.weight[dy_mask_mumu])  # noqa: E501
+                bkg_hists[f"mumu_{var_name}"] = self.hist_function(var, bkg_events[var_name][bkg_mask_mumu], bkg_events.weight[bkg_mask_mumu])  # noqa: E501
 
-            # TODO: ---> CREATE PDF UNWEIGHTED PLOTS
+                data_hists[f"ee_{var_name}"] = self.hist_function(var, data_events[var_name][data_mask_ee], data_events.weight[data_mask_ee])  # noqa: E501
+                dy_hists[f"ee_{var_name}_no_dy"] = self.hist_function(var, dy_events[var_name][dy_mask_ee], dy_events.weight[dy_mask_ee])  # noqa: E501
+                bkg_hists[f"ee_{var_name}"] = self.hist_function(var, bkg_events[var_name][bkg_mask_ee], bkg_events.weight[bkg_mask_ee])  # noqa: E501
 
-            # calculate (data-bkg)/dy ratio for dilep_pt with corresponding statistical error
+            # create unweighted plots
+            self.get_plots(dy_hists, data_hists, bkg_hists, bkg_process, njet_fit_min, variables, "mumu", "_no_dy")
+            self.get_plots(dy_hists, data_hists, bkg_hists, bkg_process, njet_fit_min, variables, "ee", "_no_dy")
+
+            # calculate (data-bkg)/dy ratio in dilep_pt using mumu channel
             ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                data_hists['dilep_pt'],
-                dy_hists['dilep_pt'],
-                bkg_hists['dilep_pt'],
+                data_hists['mumu_dilep_pt'],
+                dy_hists['mumu_dilep_pt_no_dy'],
+                bkg_hists['mumu_dilep_pt'],
                 self.dilep_pt_inst,
             )
 
@@ -270,11 +285,13 @@ class DYWeights(
             fit_str = self.get_fit_str(*popt)
             fit_data["fit_str"] = fit_str
 
-            # evaluate weights for dy events passing the njet mask and update weight column
+            # evaluate weights for ee and mumu DY events passing the njet mask
             dy_weight_postfit = ak.where(
-                dy_mask,
+                (dy_mask_mumu | dy_mask_ee),
                 self.get_fit_function(dy_events.gen_dilepton_pt, *popt),
                 dy_events.dy_weight_postfit)
+
+            # create new weight column
             dy_events = set_ak_column(
                 dy_events,
                 "dy_weight_postfit",
@@ -284,39 +301,18 @@ class DYWeights(
             # get reweighted dy histograms
             updated_dy_weight = dy_events.weight * dy_events.dy_weight_postfit
             for (var, var_name) in variables:
-                dy_hists[var_name + "_postfit"] = self.hist_function(var, dy_events[var_name][dy_mask], updated_dy_weight[dy_mask])  # noqa: E501
+                dy_hists[f"mumu_{var_name}_postfit"] = self.hist_function(var, dy_events[var_name][dy_mask_mumu], updated_dy_weight[dy_mask_mumu])  # noqa: E501
+                dy_hists[f"ee_{var_name}_postfit"] = self.hist_function(var, dy_events[var_name][dy_mask_ee], updated_dy_weight[dy_mask_ee])  # noqa: E501
 
-            ####################################################################
-            # TODO: ---> CREATE PDF WEIGHTED PLOTS WITH : POSTFIT PT WEIGHTS
-            hists = {
-                self.config_inst.get_process("dy"): dy_hists["dilep_pt_postfit"],
-                bkg_process: bkg_hists["dilep_pt"],
-                self.config_inst.get_process("data"): data_hists["dilep_pt"],
-            }
-
-            fig, _ = plot_variable_stack(
-                hists=hists,
-                config_inst=self.config_inst,
-                category_inst=self.config_inst.get_category("mumu__dyc__eq2j__eq0b__os"),
-                variable_insts=[self.config_inst.get_variable("dilep_pt")],
-                shift_insts=[self.config_inst.get_shift("nominal")],
-                # style_config: dict | None = None,
-                # density: bool | None = False,
-                # shape_norm: bool | None = False,
-                # yscale: str | None = "",
-                # process_settings: dict | None = None,
-                # variable_settings: dict | None = None,
-                # **kwargs,
-            )
-            outputs["plots"].dump(fig, formatter="mpl")
-
-            ####################################################################
+            # create postfit plots
+            self.get_plots(dy_hists, data_hists, bkg_hists, bkg_process, njet_fit_min, variables, "mumu", "_postfit")
+            self.get_plots(dy_hists, data_hists, bkg_hists, bkg_process, njet_fit_min, variables, "ee", "_postfit")
 
             # get btag normalization factors using the reweighted DY histograms
             ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                data_hists['nbjets'],
-                dy_hists['nbjets_postfit'],
-                bkg_hists['nbjets'],
+                data_hists['mumu_nbjets'],
+                dy_hists['mumu_nbjets_postfit'],
+                bkg_hists['mumu_nbjets'],
                 self.nbjets_inst,
             )
 
@@ -328,7 +324,7 @@ class DYWeights(
                 norm_data = norm_content.copy()
                 for btag, btag_data in norm_data.items():
                     # update njet mask and define btag mask
-                    dy_norm_mask = self.get_njet_mask(dy_events, njet_min, njet_max)
+                    dy_norm_mask = self.get_njet_mask(dy_events, njet_min, njet_max, "mumu")
                     n_btag = btag[0]
                     btag_mask = (dy_norm_mask) & (self.get_btag_mask(dy_events, n_btag))
 
@@ -350,9 +346,12 @@ class DYWeights(
             # get reweighted dy histograms
             updated_dy_weight = dy_events.weight * dy_events.dy_weight_postfit * dy_events.dy_weight_norm
             for (var, var_name) in variables:
-                dy_hists[var_name + "_norm"] = self.hist_function(var, dy_events[var_name][dy_mask], updated_dy_weight[dy_mask])  # noqa: E501
+                dy_hists[f"mumu_{var_name}_norm"] = self.hist_function(var, dy_events[var_name][dy_mask_mumu], updated_dy_weight[dy_mask_mumu])  # noqa: E501
+                dy_hists[f"ee_{var_name}_norm"] = self.hist_function(var, dy_events[var_name][dy_mask_ee], updated_dy_weight[dy_mask_ee])  # noqa: E501
 
-            # TODO: ---> CREATE PDF WEIGHTED PLOTS WITH : POSTFIT PT WEIGHTS * NORM WEIGHTS
+            # create norm plots
+            self.get_plots(dy_hists, data_hists, bkg_hists, bkg_process, njet_fit_min, variables, "mumu", "_norm")
+            self.get_plots(dy_hists, data_hists, bkg_hists, bkg_process, njet_fit_min, variables, "ee", "_norm")
 
         # restructure dict_setup for correction lib json, including btag up/down shifts
         dy_weight_data = self.get_dy_weight_data(dict_setup)
@@ -360,8 +359,6 @@ class DYWeights(
         # TODO: include fit up/down shifts
 
         outputs["weights"].dump(dy_weight_data, formatter="pickle")
-
-        # TODO: export dictionary as correction lib json
 
     def load_data(self):
         data_events = []
@@ -465,12 +462,12 @@ class DYWeights(
 
         return data_events, dy_events, bkg_events
 
-    def get_njet_mask(self, events, njet_min, njet_max):
-        mask = (
-            (events.njets >= njet_min) &
-            (events.njets < njet_max) &
-            (events.channel_id == self.config_inst.channels.n.mumu.id)
-        )
+    def get_njet_mask(self, events, njet_min, njet_max, channel):
+        mask = ((events.njets >= njet_min) & (events.njets < njet_max))
+        if channel == "ee":
+            mask = mask & (events.channel_id == self.config_inst.channels.n.ee.id)
+        elif channel == "mumu":
+            mask = mask & (events.channel_id == self.config_inst.channels.n.mumu.id)
         return mask
 
     def get_btag_mask(self, events, btag):
@@ -637,6 +634,47 @@ class DYWeights(
                         dict_data[shift_str][nbjet_bin] = shifted_dict
 
         return dict_data
+
+    def get_plots(
+        self,
+        dy_hists,
+        data_hists,
+        bkg_hists,
+        bkg_process,
+        njet_fit_min: int,
+        variables: list[tuple[od.Variable, str]],
+        channel: Literal["mumu", "ee"],
+        plt_string: Literal["_no_dy", "_postfit", "_norm"]
+    ):
+
+        outputs = self.output()
+
+        if njet_fit_min >= 4:
+            cat = "ge4j"
+        else:
+            cat = f"eq{njet_fit_min}j"
+
+        cat_label = f"{channel}__dyc__{cat}__ge0b__os"
+
+        for (var, var_name) in variables:
+            out_key = f"{channel}_{var_name}{plt_string}_weights_{cat}"
+
+            # get hists
+            hists = {
+                self.config_inst.get_process("dy"): dy_hists[f"{channel}_{var_name}{plt_string}"],
+                self.config_inst.get_process("data"): data_hists[f"{channel}_{var_name}"],
+                bkg_process: bkg_hists[f"{channel}_{var_name}"],
+            }
+
+            # create plots
+            fig, _ = plot_variable_stack(
+                hists=hists,
+                config_inst=self.config_inst,
+                category_inst=self.config_inst.get_category(cat_label),
+                variable_insts=[var,],
+                shift_insts=[self.config_inst.get_shift("nominal")],
+            )
+            outputs["plots"][out_key].dump(fig, formatter="mpl")
 
 
 class ExportDYWeights(HBTTask, ConfigTask):
