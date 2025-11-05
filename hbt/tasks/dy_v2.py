@@ -310,6 +310,10 @@ class DYWeights(
             self.get_plots(dy_hists, data_hists, bkg_hists, bkg_process, njet_fit_min, variables, "mumu", "_postfit")
             self.get_plots(dy_hists, data_hists, bkg_hists, bkg_process, njet_fit_min, variables, "ee", "_postfit")
 
+            # TODO: FIX THIS, IT'S WRONG
+            # UPDATE dy_mask_mumu mask for each njet bin
+            # get ratio_values per njet dependency!
+
             # get btag normalization factors using the reweighted DY histograms
             ratio_values, ratio_err, bin_centers = self.get_ratio_values(
                 data_hists['mumu_nbjets'],
@@ -344,6 +348,9 @@ class DYWeights(
                         dy_weight_norm,
                     )
                 fit_data[key] = norm_data
+
+            if njet_fit_min == 4:
+                from IPython import embed; embed(header="debugger")
 
             # get reweighted dy histograms
             updated_dy_weight = dy_events.weight * dy_events.dy_weight_postfit * dy_events.dy_weight_norm
@@ -489,7 +496,7 @@ class DYWeights(
     ) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
 
         # under/overflow treatment
-        for h in [data_h, dy_h, bkg_h]:
+        def fix_flow(h: hist.Hist):
             h = h.copy()
             if variable_inst.x("underflow", False):
                 v = h.view(flow=True)
@@ -503,6 +510,11 @@ class DYWeights(
                 v.variance[..., -2] += v.variance[..., -1]
                 v.value[..., -1] = 0.0
                 v.variance[..., -1] = 0.0
+            return h
+
+        data_h = fix_flow(data_h)
+        dy_h = fix_flow(dy_h)
+        bkg_h = fix_flow(bkg_h)
 
         # get bin centers
         bin_centers = dy_h.axes[-1].centers
