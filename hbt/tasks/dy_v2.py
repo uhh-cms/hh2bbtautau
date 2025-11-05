@@ -28,6 +28,8 @@ from columnflow.columnar_util import (
 )
 from columnflow.hist_util import create_hist_from_variables, fill_hist
 
+import correctionlib.schemav2 as cs
+
 from hbt.tasks.base import HBTTask
 
 import numpy as np
@@ -701,9 +703,6 @@ class ExportDYWeights(HBTTask, ConfigTask):
         return self.target("hbt_corrections.json.gz")
 
     def run(self):
-        import correctionlib.schemav2 as cs
-        from hbt.studies.dy_weights.create_clib_file import create_dy_weight_correction
-
         dy_weight_data = {}
 
         for config_inst, inps in self.input().items():
@@ -715,7 +714,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
             schema_version=2,
             description="Corrections derived for the hh2bbtautau analysis.",
             corrections=[
-                create_dy_weight_correction(dy_weight_data),
+                self.create_dy_weight_correction(dy_weight_data),
             ],
         )
 
@@ -725,3 +724,86 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
         # validate the content
         law.util.interruptable_popen(f"correction summary {outp.abspath}", shell=True)
+
+    def expr_in_range(self, expr: str, lower_bound: float | int, upper_bound: float | int) -> str:
+        # lower bound must be smaller than upper bound
+        assert lower_bound < upper_bound
+        return expr
+
+    def create_dy_weight_correction(self, dy_weight_data: dict) -> cs.Correction:
+        # create the correction object
+        dy_weight_correction = cs.Correction(
+            name="dy_weight",
+            description="DY weights derived in the phase space of the hh2bbtautau analysis, supposed to correct njet and "
+            "ptll distributions, as well as correlated quantities.",
+            version=1,
+            inputs=[
+                cs.Variable(name="era", type="string", description="Era name."),
+                cs.Variable(name="njets", type="int", description="Number of jets in the event."),
+                cs.Variable(name="ntags", type="int", description="Number of (PNet) b-tagged jets."),
+                cs.Variable(name="ptll", type="real", description="Gen level pT of the dilepton system [GeV]."),
+                cs.Variable(name="syst", type="string", description="Systematic variation."),
+            ],
+            output=cs.Variable(name="weight", type="real", description="DY event weight."),
+            data=cs.Category(
+                nodetype="category",
+                input="era",
+                content=[],
+            ),
+        )
+        # dynamically fill it
+        for era, era_data in dy_weight_data.items():
+            era_category_content = []
+            for syst, syst_data in era_data.items():
+                njet_bin_content = []
+                for (min_njet, max_njet), ntag_data in syst_data.items():
+                    ntag_bin_content = []
+                    for (min_ntag, max_ntag), formulas in ntag_data.items():
+                        # create a joined expression for all formulas
+                        expr = "+".join(
+                            self.expr_in_range(formula, lower_bound, upper_bound)
+                            for lower_bound, upper_bound, formula in formulas
+                        )
+                        # add formula object to binning content
+                        ntag_bin_content.append(
+                            cs.Formula(
+                                nodetype="formula",
+                                variables=["ptll"],
+                                parser="TFormula",
+                                expression=expr,
+                            ),
+                        )
+                    njet_bin_content.append(
+                        cs.Binning(
+                            nodetype="binning",
+                            input="ntags",
+                            flow="error",
+                            edges=sorted(set(sum(map(list, ntag_data.keys()), []))),
+                            content=ntag_bin_content,
+                        ),
+                    )
+                # add a new category item for the jet bins
+                era_category_content.append(
+                    cs.CategoryItem(
+                        key=syst,
+                        value=cs.Binning(
+                            nodetype="binning",
+                            input="njets",
+                            flow="error",
+                            edges=sorted(set(sum(map(list, syst_data.keys()), []))),
+                            content=njet_bin_content,
+                        ),
+                    ),
+                )
+            # add a new category item for the era
+            dy_weight_correction.data.content.append(
+                cs.CategoryItem(
+                    key=era,
+                    value=cs.Category(
+                        nodetype="category",
+                        input="syst",
+                        content=era_category_content,
+                    ),
+                ),
+            )
+        return dy_weight_correction
