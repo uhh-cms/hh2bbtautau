@@ -1826,7 +1826,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPPNetPFTau30L1Seeded
                 trigger_bits=get_bit_sum_v("tau", [
-                    "PNet",
                     "HPS",
                     "OverlapFilterIsoEle",
                     "ETauFilter" if nano_version == 15 else None,
@@ -1860,7 +1859,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsOverlapFilterIsoMu20LooseMuTauWPPNetPFJet27 (PNet + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
-                    "PNet",
                     "HPS",
                     "OverlapFilterIsoMu",
                     "MuTauFilter" if nano_version == 15 else None,
@@ -1896,7 +1894,8 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltDoublePFJets30PNetTauhTagMediumWPL2DoubleTau (PNet + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
-                    "PNetDiTau",
+                    "DiTau",
+                    "PNet",
                     "HPS",
                     "Medium" if nano_version == 15 else None,
                 ]),
