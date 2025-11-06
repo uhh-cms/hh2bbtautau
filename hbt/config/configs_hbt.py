@@ -441,8 +441,11 @@ def add_config(
         *if_era(year=2023, tag="preBPix", values=[
             f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
         ]),
+        *if_era(year=2023, tag="preBPix", values=[
+            f"data_{stream}_c{v}" for stream in ["parking_vbf"] for v in "34"
+        ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau"] for v in "12"
+            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau", "parking_vbf"] for v in "12"
         ]),
         *if_era(year=2024, values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cdefghi"
@@ -462,6 +465,8 @@ def add_config(
             dataset.add_tag({"mutau", "emu_from_mu", "mumu"})
         if dataset.name.startswith("data_tau_"):
             dataset.add_tag({"tautau"})
+        if dataset.name.startswith("data_parking_vbf_"):
+            dataset.add_tag({"parking_vbf"})
         if dataset.name.startswith("tt_"):
             dataset.add_tag({"has_top", "ttbar", "tt"})
         if dataset.name.startswith("st_"):
@@ -707,15 +712,16 @@ def add_config(
             "hh_vbf_hbb_htt_kv1_k2v1_kl1_*madgraph",
             *backgrounds_unstitched,
         ]),
-        "sm_ggf_data": data_group + sm_ggf_group,
-        "sm_data": data_group + sm_group,
-        "sm_data_unstitched": data_group + sm_group_unstitched,
-        "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
-        "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
+        "sm_ggf_data": sm_ggf_group + data_group,
+        "sm_data": sm_group + data_group,
+        "sm_data_unstitched": sm_group_unstitched + data_group,
+        "bkg_data": backgrounds + data_group,
         "bkg_data_dy": backgrounds + [
             dataset.name for dataset in cfg.datasets
             if dataset.is_data and re.match(r"^data_(e|mu)_.+$", dataset.name)
         ],
+        "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
+        "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
     }
 
     # category groups for conveniently looping over certain categories
@@ -885,7 +891,7 @@ def add_config(
             (2022, ""): "V3",
             (2022, "EE"): "V3",
             (2023, ""): "V2",
-            (2023, "BPix"): "V2",
+            (2023, "BPix"): "V3",
             (2024, ""): "V1",
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
@@ -900,17 +906,31 @@ def add_config(
     # full list of jec sources in a fixed order that is used to assign consistent ids across configs
     # (please add new sources at the bottom to preserve the order of existing ones)
     # the boolean flag decides whether to use them in the JEC config and if shifts should be created for them
+    jec_source_era = f"{year}{campaign.x.postfix}"
     all_jec_sources = {
-        "AbsoluteStat": False,
-        "AbsoluteScale": False,
-        "AbsoluteSample": False,
         "AbsoluteFlavMap": False,
         "AbsoluteMPFBias": False,
-        "Fragmentation": False,
-        "SinglePionECAL": False,
-        "SinglePionHCAL": False,
+        "AbsoluteSample": False,
+        "AbsoluteScale": False,
+        "AbsoluteStat": False,
+        "FlavorPhotonJet": False,
+        "FlavorPureBottom": False,
+        "FlavorPureCharm": False,
+        "FlavorPureGluon": False,
+        "FlavorPureQuark": False,
         "FlavorQCD": False,
-        "TimePtEta": False,
+        "FlavorZJet": False,
+        "Fragmentation": False,
+        "PileUpDataMC": False,
+        "PileUpEnvelope": False,
+        "PileUpMuZero": False,
+        "PileUpPtBB": False,
+        "PileUpPtEC1": False,
+        "PileUpPtEC2": False,
+        "PileUpPtHF": False,
+        "PileUpPtRef": False,
+        "RelativeBal": False,
+        "RelativeFSR": False,
         "RelativeJEREC1": False,
         "RelativeJEREC2": False,
         "RelativeJERHF": False,
@@ -918,45 +938,40 @@ def add_config(
         "RelativePtEC1": False,
         "RelativePtEC2": False,
         "RelativePtHF": False,
-        "RelativeBal": False,
         "RelativeSample": False,
-        "RelativeFSR": False,
-        "RelativeStatFSR": False,
         "RelativeStatEC": False,
+        "RelativeStatFSR": False,
         "RelativeStatHF": False,
-        "PileUpDataMC": False,
-        "PileUpPtRef": False,
-        "PileUpPtBB": False,
-        "PileUpPtEC1": False,
-        "PileUpPtEC2": False,
-        "PileUpPtHF": False,
-        "PileUpMuZero": False,
-        "PileUpEnvelope": False,
-        "SubTotalPileUp": False,
-        "SubTotalRelative": False,
-        "SubTotalPt": False,
-        "SubTotalScale": False,
+        "SinglePionECAL": False,
+        "SinglePionHCAL": False,
         "SubTotalAbsolute": False,
         "SubTotalMC": False,
+        "SubTotalPileUp": False,
+        "SubTotalPt": False,
+        "SubTotalRelative": False,
+        "SubTotalScale": False,
+        "TimePtEta": False,
         "Total": True,
         "TotalNoFlavor": False,
-        "TotalNoTime": False,
         "TotalNoFlavorNoTime": False,
-        "FlavorZJet": False,
-        "FlavorPhotonJet": False,
-        "FlavorPureGluon": False,
-        "FlavorPureQuark": False,
-        "FlavorPureCharm": False,
-        "FlavorPureBottom": False,
-        "TimeRunA": False,
-        "TimeRunB": False,
-        "TimeRunC": False,
-        "TimeRunD": False,
-        "CorrelationGroupMPFInSitu": True,
-        "CorrelationGroupIntercalibration": True,
-        "CorrelationGroupbJES": True,
-        "CorrelationGroupFlavor": True,
-        "CorrelationGroupUncorrelated": True,
+        "TotalNoTime": False,
+        "CorrelationGroupFlavor": False,
+        "CorrelationGroupIntercalibration": False,
+        "CorrelationGroupMPFInSitu": False,
+        "CorrelationGroupUncorrelated": False,
+        "CorrelationGroupbJES": False,
+        "Regrouped_Absolute": True,
+        f"Regrouped_Absolute_{jec_source_era}": True,
+        "Regrouped_BBEC1": True,
+        f"Regrouped_BBEC1_{jec_source_era}": True,
+        "Regrouped_EC2": True,
+        f"Regrouped_EC2_{jec_source_era}": True,
+        "Regrouped_FlavorQCD": True,
+        "Regrouped_HF": True,
+        f"Regrouped_HF_{jec_source_era}": True,
+        "Regrouped_RelativeBal": True,
+        f"Regrouped_RelativeSample_{jec_source_era}": True,
+        "Regrouped_Total": True,
     }
 
     cfg.x.jec = DotDict.wrap({
@@ -998,8 +1013,8 @@ def add_config(
         # TODO: still correct? what about 2p5?
         cfg.x.tau_tagger = "DeepTau2017v2p1"
     elif run == 3:
-        # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3?rev=9
-        cfg.x.tau_tagger = "DeepTau2018v2p5"  # TODO: 2024: still correct? also check ids below
+        # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3?rev=11
+        cfg.x.tau_tagger = "DeepTau2018v2p5"
     else:
         assert False
 
@@ -1193,34 +1208,34 @@ def add_config(
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23BPix
         cfg.x.btag_working_points = DotDict.wrap({
             "deepjet": {
-                "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.2431, "2023BPix": 0.2435, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.6553, "2023BPix": 0.6563, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.7667, "2023BPix": 0.7671, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.9459, "2023BPix": 0.9483, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048, "2024": None}[btag_key],
+                "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.2431, "2023BPix": 0.2435, "2024": None}[btag_key],
+                "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.6553, "2023BPix": 0.6563, "2024": None}[btag_key],
+                "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.7667, "2023BPix": 0.7671, "2024": None}[btag_key],
+                "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.9459, "2023BPix": 0.9483, "2024": None}[btag_key],  # noqa: E501
             },
             "particleNet": {
-                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359, "2024": None}[btag_key],
+                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919, "2024": None}[btag_key],
+                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133, "2024": None}[btag_key],
+                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544, "2024": None}[btag_key],
+                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688, "2024": None}[btag_key],
             },
-            "robustParticleTransformer": {
-                "loose": {"2022": 0.0849, "2022EE": 0.0897, "2023": 0.0681, "2023BPix": 0.0683, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "medium": {"2022": 0.4319, "2022EE": 0.451, "2023": 0.3487, "2023BPix": 0.3494, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "tight": {"2022": 0.8482, "2022EE": 0.8604, "2023": 0.7969, "2023BPix": 0.7994, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "xtight": {"2022": 0.9151, "2022EE": 0.9234, "2023": 0.8882, "2023BPix": 0.8877, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "xxtight": {"2022": 0.9874, "2022EE": 0.9893, "2023": 0.9883, "2023BPix": 0.9883, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+            "upart": {
+                "loose": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.0246}[btag_key],
+                "medium": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.1272}[btag_key],
+                "tight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.4648}[btag_key],
+                "xtight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.6298}[btag_key],
+                "xxtight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.9739}[btag_key],
             },
             # TODO: fallback to run2, due to missing wp values
             # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005 chapter 4.5 in v12
             # performance studies for run 3 available and show improvements:
             # https://cds.cern.ch/record/2904691/files/DP2024_055.pdf
             "particleNetMD": {
-                "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
-                "lp": {"2022": 0.9088, "2022EE": 0.9137, "2023": 0.9105, "2023BPix": 0.9172, "2024": 0.0}[btag_key],  # TODO: look up! # noqa: E501
+                "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880, "2024": None}[btag_key],
+                "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734, "2024": None}[btag_key],
+                "lp": {"2022": 0.9088, "2022EE": 0.9137, "2023": 0.9105, "2023BPix": 0.9172, "2024": None}[btag_key],
             },
         })
     else:
@@ -1830,28 +1845,35 @@ def add_config(
         },
         "cf.UniteColumns": {
             # all columns except for shifts
-            "*", *skip_column("*_{up,down}"),
+            "all": {
+                "*",
+                *skip_column("*_{up,down}"),
+            },
 
             # columns for typical dnn training
-            # ColumnCollection.MANDATORY_COFFEA,
-            # "tau2_isolated", "leptons_os", "process_id", "channel_id", "*_weight*",
-            # "Electron.{eta,phi,pt,mass,charge}",
-            # "Muon.{eta,phi,pt,mass,charge}",
-            # "Tau.{eta,phi,pt,mass,charge,decayMode}",
-            # "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
-            # "FatJet.{eta,phi,pt,mass}",
-            # f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
-            # "res_dnn_pnet_*",
-            # "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
-            # "run3_dnn{,_moe}_*",
-            # "nu_truth.*.*",
-            # *skip_column("*_{up,down}"),
+            "dnn": {
+                ColumnCollection.MANDATORY_COFFEA,
+                "tau2_isolated", "leptons_os", "process_id", "channel_id", "*_weight*",
+                "Electron.{eta,phi,pt,mass,charge}",
+                "Muon.{eta,phi,pt,mass,charge}",
+                "Tau.{eta,phi,pt,mass,charge,decayMode}",
+                "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+                "FatJet.{eta,phi,pt,mass}",
+                f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
+                "res_dnn_pnet_*",
+                "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
+                "run3_dnn{,_moe}_*",
+                "nu_truth.*.*",
+                *skip_column("*_{up,down}"),
+            },
 
             # columns for dnn-based dy weight tests
-            # ColumnCollection.MANDATORY_COFFEA,
-            # "channel_id", "dy_weight",
-            # "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
-            # "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}", "met_{pt,phi}",
+            "dy_studies": {
+                ColumnCollection.MANDATORY_COFFEA,
+                "channel_id", "dy_weight",
+                "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
+                "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}", "met_{pt,phi}",
+            },
         },
     })
 
