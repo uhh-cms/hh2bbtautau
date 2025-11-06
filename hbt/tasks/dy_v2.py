@@ -167,6 +167,12 @@ class DYWeights(
             "data": self.target("data.pkl", optional=True),
         }
 
+        # define plot outputs for fit functions
+        for cat in ["eq2j", "eq3j", "ge4j"]:
+            identifier = f"fit_mumu_dilep_pt_{cat}"
+            outputs["plots"][identifier] = self.target(f"{identifier}.pdf")
+
+        # define plot outputs for kinematic variables
         for channel in self.channels:
             for var_name in self.variables_names:
                 for cat in self.cats:
@@ -283,7 +289,8 @@ class DYWeights(
             fit_str = self.get_fit_str(*popt)
             fit_data["fit_str"] = fit_str
 
-            # TODO: ---> CREATE PDF FIT PLOTS
+            # plot the fit result
+            self.get_fit_plot(cat_fit, self.get_fit_function, popt, ratio_values, ratio_err, bin_centers)
 
             # update dy_weight_postfit column using fitted function
             dy_njet_mask = self.get_njet_mask(dy_events, njet_fit_min, njet_fit_max)
@@ -586,15 +593,15 @@ class DYWeights(
 
         # choose guassian and linear functions to do the fit
         # we cap x at 200 GeV to avoid falling off the function range
-        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((np.minimum(x,200) - mu) / sigma) ** 2))
-        pol = a + b * np.minimum(x,200)
+        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((np.minimum(x, 200) - mu) / sigma) ** 2))
+        pol = a + b * np.minimum(x, 200)
 
         # parameter to control the transition smoothness between the two functions
         step_par = 0.08
 
         # use scipy erf function to create smooth transition
-        sci_erf_neg = (0.5 * (special.erf(-step_par * (np.minimum(x,200) - r)) + 1))
-        sci_erf_pos = (0.5 * (special.erf(step_par * (np.minimum(x,200) - r)) + 1))
+        sci_erf_neg = (0.5 * (special.erf(-step_par * (np.minimum(x, 200) - r)) + 1))
+        sci_erf_pos = (0.5 * (special.erf(step_par * (np.minimum(x, 200) - r)) + 1))
 
         return sci_erf_neg * gauss + sci_erf_pos * pol
 
@@ -605,6 +612,38 @@ class DYWeights(
         fit_string = f"(0.5*(erf(-0.08*(min(x,200)-{r}))+1))*{gauss}+(0.5*(erf(0.08*(min(x,200)-{r}))+1))*{pol}"
 
         return fit_string
+
+    def get_fit_plot(self, cat, fit_function, popt, ratio_values, ratio_err, bin_centers):
+        outputs = self.output()
+
+        # prepare fit curve
+        s = np.linspace(0, 200, 1000)
+        y = [fit_function(v, *popt) for v in s]
+
+        # create plot
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(s, y, color="black", label="Fit", lw=1, linestyle="--")
+        ax.errorbar(
+            bin_centers,
+            ratio_values,
+            yerr=ratio_err,
+            fmt=".",
+            color="black",
+            linestyle="none",
+            ecolor="black",
+            elinewidth=0.5,
+        )
+        ax.legend(loc="upper right")
+        ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
+        ax.set_ylabel("Ratio (data-non DY MC)/DY")
+        ax.grid(True)
+        era = self.config_inst.x.dy_weight_config.era
+        title = f"{era}, njets = {cat}" if cat != "ge4j" else f"{era}, njets >= 4"
+        ax.set_title(title)
+
+        # save plot
+        identifier = f"fit_mumu_dilep_pt_{cat}"
+        outputs["plots"][identifier].dump(fig, formatter="mpl")
 
     def get_factor(
         dict_setup: dict,
