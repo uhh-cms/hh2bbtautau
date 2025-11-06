@@ -78,7 +78,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             sufficient.
             """
             # prepare parameters
-            low_edge, max_edge = 0, 1
+            ax = signal_hist.axes[variable_name]
+            low_edge, max_edge = ax.edges[0], ax.edges[-1]
             bin_edges = [max_edge]
 
             # bookkeep reasons for stopping binning
@@ -88,9 +89,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             y_min = 1.0e-5
 
             # prepare signal
-            # fine binned histograms bin centers are approx equivalent to dnn output
             # flip arrays to start from the right
-            dnn_score_signal = np.flip(signal_hist.axes[-1].centers, axis=-1)
+            signal_values = np.flip(signal_hist.axes[-1].centers, axis=-1)
             y = np.flip(signal_hist.counts(), axis=-1)
 
             # set negative yields to zero and warn about it
@@ -179,7 +179,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                     edge_value = low_edge
                 else:
                     # calculate bin center as new edge
-                    edge_value = float(dnn_score_signal[stop_idx - 1:stop_idx + 1].mean())
+                    edge_value = float(signal_values[stop_idx - 1:stop_idx + 1].mean())
                 # prevent out of bounds values and push them to the boundaries
                 bin_edges.append(max(min(edge_value, max_edge), low_edge))
 
