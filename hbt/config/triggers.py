@@ -143,7 +143,6 @@ trigger_bits = DotDict.wrap({
         "ChargedIsoDiTau": Bits(v12=64),
         "Dxy": Bits(v14=64, v15="v14"),
         "DeepTauDiTau": Bits(v12=128, v14=2048 + 8),  # manually created bit combinations for v14
-        "PNetDiTau": Bits(v15=2048 + 16),
         "ETauFilter": Bits(v14=128, v15="v14"),
         "MuTauFilter": Bits(v14=256, v15="v14"),
         "OverlapFilterIsoEle": Bits(v12=256, v14=4096, v15="v14"),  # contains HPS in v14, not in v12
