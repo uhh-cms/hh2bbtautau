@@ -377,7 +377,6 @@ class DYWeights(
                         continue
                     (njet_min, njet_max) = key
                     cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
-
                     [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
                         data_hists, dy_hists, bkg_hists,
                         data_events, dy_events, bkg_events,
@@ -387,7 +386,7 @@ class DYWeights(
                         "_norm",
                     )
 
-            # handle special case for ge4j category
+            # get norm hists and plots for ge4j category
             if cat_fit == "ge4j":
                 [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
                     data_hists, dy_hists, bkg_hists,
@@ -621,7 +620,7 @@ class DYWeights(
         y = [fit_function(v, *popt) for v in s]
 
         # create plot
-        fig, ax = plt.subplots(figsize=(10, 5))
+        fig, ax = plt.subplots(figsize=(10, 8))
         ax.plot(s, y, color="black", label="Fit", lw=1, linestyle="--")
         ax.errorbar(
             bin_centers,
