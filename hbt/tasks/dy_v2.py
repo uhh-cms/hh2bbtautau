@@ -35,7 +35,6 @@ from hbt.tasks.base import HBTTask
 import numpy as np
 from scipy import optimize
 from matplotlib import pyplot as plt
-from scipy.interpolate import UnivariateSpline
 from typing import Literal
 
 hist = maybe_import("hist")
@@ -55,7 +54,7 @@ class Norm:
         return max(0.0, self.nom - self.unc)
 
 
-class DYWeights(
+class DYBaseTask(
     HBTTask,
     CalibratorClassesMixin,
     SelectorClassMixin,
@@ -70,8 +69,6 @@ class DYWeights(
     single_config = True
     allow_empty_processes = True
 
-    reload = luigi.BoolParameter(default=False, significant=False)
-
     @classmethod
     def modify_param_values(cls, params):
         params = super().modify_param_values(params)
@@ -82,6 +79,143 @@ class DYWeights(
     def resolve_param_values(cls, params):
         params["known_shifts"] = TaskShifts()
         return super().resolve_param_values(params)
+
+    def store_parts(self):
+        parts = super().store_parts()
+        parts.insert_before("version", "datasets", f"datasets_{self.datasets_repr}")
+        return parts
+
+
+class LoadDYData(DYBaseTask):
+    """
+    some description
+    """
+
+    def output(self):
+        return self.target("data.pkl")
+
+    def requires(self):
+        reqs = {}
+        for dataset in self.datasets:
+            reqs[dataset] = {
+                "reduction": ProvideReducedEvents.req(self, dataset=dataset),
+                "production": {
+                    prod: ProduceColumns.req(self, dataset=dataset, producer=prod)
+                    for prod in self.producers
+                },
+            }
+
+        return reqs
+
+    def run(self):
+        outputs = self.output()
+
+        data_events = []
+        dy_events = []
+        bkg_events = []
+
+        # loop over datasets and load inputs
+        for dataset_name, inps in self.input().items():
+            self.publish_message(f"Loading dataset '{dataset_name}'")
+
+            # prepare columns to write
+            route_filter = RouteFilter(keep=self.write_columns)
+
+            # define columns to read
+            read_columns = [
+                *self.read_columns,
+                *self.event_weight_columns,
+            ]
+            dataset_weight_columns = []
+            for pattern, cols in self.dataset_event_weight_columns.items():
+                if law.util.multi_match(dataset_name, pattern):
+                    dataset_weight_columns += cols
+            read_columns += dataset_weight_columns
+
+            # loop over each file per input
+            coll = inps["reduction"].collection
+            for i in range(len(coll)):
+                targets = [coll.targets[i]["events"]]
+                for prod in self.producers:
+                    targets.append(inps["production"][prod].collection.targets[i]["columns"])
+
+                # prepare inputs for localization
+                with law.localize_file_targets(targets, mode="r") as local_inps:
+                    reader = ChunkedIOHandler(
+                        [t.abspath for t in local_inps],
+                        source_type=len(targets) * ["awkward_parquet"],
+                        read_columns=len(targets) * [read_columns],
+                        chunk_size=50_000,
+                    )
+                    for (events, *columns), pos in reader:
+                        events = update_ak_array(events, *columns)
+                        events = attach_coffea_behavior(events)
+
+                        # filter events for DY weight derivation
+                        cat_mask = np.isin(ak.flatten(events.category_ids), self.category_ids)
+                        cat_mask = layout_ak_array(cat_mask, events.category_ids)
+                        event_mask = (
+                            ak.any(cat_mask, axis=1) &
+                            (
+                                (events.channel_id == self.config_inst.channels.n.ee.id) |
+                                (events.channel_id == self.config_inst.channels.n.mumu.id)
+                            )
+                        )
+                        events = events[event_mask]
+
+                        # compute additional columns
+                        events = set_ak_column(
+                            events,
+                            "njets",
+                            ak.num(events.Jet, axis=1),
+                            value_type=np.int32,
+                        )
+
+                        wp_value = self.config_inst.x.btag_working_points.particleNet.medium
+                        bjet_mask = events.Jet.btagPNetB >= wp_value
+                        events = set_ak_column(
+                            events,
+                            "nbjets",
+                            ak.sum(bjet_mask, axis=1),
+                            value_type=np.int32,
+                        )
+
+                        events = set_ak_column(
+                            events,
+                            "dilep_pt",
+                            self.dilep_pt_inst.expression(events),
+                        )
+
+                        weight = np.ones(len(events), dtype=np.float32)
+                        if not dataset_name.startswith("data_"):
+                            for col in self.event_weight_columns + dataset_weight_columns:
+                                if col in events.fields:
+                                    weight = weight * events[col]
+                        events = set_ak_column(events, "weight", weight)
+
+                        # filter columns to read at the end
+                        events = route_filter(events)
+                        events.behavior = None
+
+                        # save events by dataset type
+                        if dataset_name.startswith("data_"):
+                            data_events.append(events)
+                        elif dataset_name.startswith("dy_"):
+                            dy_events.append(events)
+                        else:
+                            bkg_events.append(events)
+
+        data_events = ak.concatenate(data_events, axis=0) if data_events else None
+        dy_events = ak.concatenate(dy_events, axis=0) if dy_events else None
+        bkg_events = ak.concatenate(bkg_events, axis=0) if bkg_events else None
+
+        outputs["data"].dump((data_events, dy_events, bkg_events), formatter="pickle")
+
+
+class DYWeights(DYBaseTask):
+    """
+    some description
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -155,16 +289,10 @@ class DYWeights(
         self.cats = ["eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j"]
         self.postfixes = ["", "_postfit", "_norm"]
 
-    def store_parts(self):
-        parts = super().store_parts()
-        parts.insert_before("version", "datasets", f"datasets_{self.datasets_repr}")
-        return parts
-
     def output(self):
         outputs = {
             "weights": self.target("weights.pkl"),
             "plots": {},
-            "data": self.target("data.pkl", optional=True),
         }
 
         # define plot outputs for fit functions
@@ -183,29 +311,13 @@ class DYWeights(
         return outputs
 
     def requires(self):
-        if not self.reload and self.output()["data"].exists():
-            return []
-        reqs = {}
-        for dataset in self.datasets:
-            reqs[dataset] = {
-                "reduction": ProvideReducedEvents.req(self, dataset=dataset),
-                "production": {
-                    prod: ProduceColumns.req(self, dataset=dataset, producer=prod)
-                    for prod in self.producers
-                },
-            }
-
-        return reqs
+        return LoadDYData.req(self)
 
     def run(self):
         outputs = self.output()
 
         # read data, potentially from cache
-        if not self.reload and outputs["data"].exists():
-            data_events, dy_events, bkg_events = outputs["data"].load(formatter="pickle")
-        else:
-            data_events, dy_events, bkg_events = self.load_data()
-            outputs["data"].dump((data_events, dy_events, bkg_events), formatter="pickle")
+        data_events, dy_events, bkg_events = self.input().load(formatter="pickle")
 
         # initialize dictionary to store results
         dy_weight_data = {}
@@ -406,108 +518,6 @@ class DYWeights(
         # save final dy weights
         outputs["weights"].dump(dy_weight_data, formatter="pickle")
 
-    def load_data(self):
-        data_events = []
-        dy_events = []
-        bkg_events = []
-
-        # loop over datasets and load inputs
-        for dataset_name, inps in self.input().items():
-            self.publish_message(f"Loading dataset '{dataset_name}'")
-
-            # prepare columns to write
-            route_filter = RouteFilter(keep=self.write_columns)
-
-            # define columns to read
-            read_columns = [
-                *self.read_columns,
-                *self.event_weight_columns,
-            ]
-            dataset_weight_columns = []
-            for pattern, cols in self.dataset_event_weight_columns.items():
-                if law.util.multi_match(dataset_name, pattern):
-                    dataset_weight_columns += cols
-            read_columns += dataset_weight_columns
-
-            # loop over each file per input
-            coll = inps["reduction"].collection
-            for i in range(len(coll)):
-                targets = [coll.targets[i]["events"]]
-                for prod in self.producers:
-                    targets.append(inps["production"][prod].collection.targets[i]["columns"])
-
-                # prepare inputs for localization
-                with law.localize_file_targets(targets, mode="r") as local_inps:
-                    reader = ChunkedIOHandler(
-                        [t.abspath for t in local_inps],
-                        source_type=len(targets) * ["awkward_parquet"],
-                        read_columns=len(targets) * [read_columns],
-                        chunk_size=50_000,
-                    )
-                    for (events, *columns), pos in reader:
-                        events = update_ak_array(events, *columns)
-                        events = attach_coffea_behavior(events)
-
-                        # filter events for DY weight derivation
-                        cat_mask = np.isin(ak.flatten(events.category_ids), self.category_ids)
-                        cat_mask = layout_ak_array(cat_mask, events.category_ids)
-                        event_mask = (
-                            ak.any(cat_mask, axis=1) &
-                            (
-                                (events.channel_id == self.config_inst.channels.n.ee.id) |
-                                (events.channel_id == self.config_inst.channels.n.mumu.id)
-                            )
-                        )
-                        events = events[event_mask]
-
-                        # compute additional columns
-                        events = set_ak_column(
-                            events,
-                            "njets",
-                            ak.num(events.Jet, axis=1),
-                            value_type=np.int32,
-                        )
-
-                        wp_value = self.config_inst.x.btag_working_points.particleNet.medium
-                        bjet_mask = events.Jet.btagPNetB >= wp_value
-                        events = set_ak_column(
-                            events,
-                            "nbjets",
-                            ak.sum(bjet_mask, axis=1),
-                            value_type=np.int32,
-                        )
-
-                        events = set_ak_column(
-                            events,
-                            "dilep_pt",
-                            self.dilep_pt_inst.expression(events),
-                        )
-
-                        weight = np.ones(len(events), dtype=np.float32)
-                        if not dataset_name.startswith("data_"):
-                            for col in self.event_weight_columns + dataset_weight_columns:
-                                if col in events.fields:
-                                    weight = weight * events[col]
-                        events = set_ak_column(events, "weight", weight)
-
-                        # filter columns to read at the end
-                        events = route_filter(events)
-                        events.behavior = None
-
-                        # save events by dataset type
-                        if dataset_name.startswith("data_"):
-                            data_events.append(events)
-                        elif dataset_name.startswith("dy_"):
-                            dy_events.append(events)
-                        else:
-                            bkg_events.append(events)
-
-        data_events = ak.concatenate(data_events, axis=0) if data_events else None
-        dy_events = ak.concatenate(dy_events, axis=0) if dy_events else None
-        bkg_events = ak.concatenate(bkg_events, axis=0) if bkg_events else None
-
-        return data_events, dy_events, bkg_events
-
     def get_njet_mask(self, events, njet_min, njet_max, channel=None):
         mask = ((events.njets >= njet_min) & (events.njets < njet_max))
         if channel == "ee":
@@ -643,18 +653,6 @@ class DYWeights(
         # save plot
         identifier = f"fit_mumu_dilep_pt_{cat}"
         outputs["plots"][identifier].dump(fig, formatter="mpl")
-
-    def get_factor(
-        dict_setup: dict,
-        njet_key: tuple,
-        btag_bin: Norm,
-        direction: Literal["nom", "up", "down"],
-        fit_str: str,
-    ):
-        btag_bin = dict_setup[njet_key][btag_bin]
-        fit_str = dict_setup[njet_key]["fit_str"]
-        dict_entry = f"{getattr(btag_bin, direction)}*({fit_str})"
-        return [(0.0, float("inf"), dict_entry)]
 
     def get_dy_weight_data(self, dict_setup: dict):
         """
