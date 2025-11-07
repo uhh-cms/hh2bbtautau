@@ -32,11 +32,9 @@ set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
 
 @producer(
     uses={
-        # nano columns
         "Electron.pt", "Muon.pt", "Jet.pt", "HHBJet.pt",
     },
     produces={
-        # new columns
         "n_electron", "ht", "n_jet", "n_hhbtag", "n_electron", "n_muon",
     },
 )
@@ -52,15 +50,12 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 @producer(
     uses={
         mc_weight, category_ids,
-        # nano columns
-        "Jet.pt", "Jet.eta", "Jet.phi", "Electron.pt",
+        "Jet.{pt,eta,phi}", "Electron.pt",
     },
     produces={
         mc_weight, category_ids,
-        # new columns
-        "cutflow.n_jet", "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt",
-        "cutflow.jet1_eta", "cutflow.jet1_phi", "cutflow.jet2_pt", "cutflow.n_ele",
-        "cutflow.n_ele_selected",
+        "cutflow.n_jet", "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt", "cutflow.jet1_eta",
+        "cutflow.jet1_phi", "cutflow.jet2_pt", "cutflow.n_ele", "cutflow.n_ele_selected",
     },
 )
 def cutflow_features(
@@ -223,7 +218,7 @@ def dy_dnn_features_setup(
 
 @producer(
     uses={"gen_higgs.*"},
-    produces={"nu_truth.{nu,tau_vis}.{pt,eta,phi,mass}"},
+    produces={"nu_truth.nu.{pt,eta,phi,mass,pdgId}", "nu_truth.tau_vis.{pt,eta,phi,mass}"},
 )
 def nu_truth_htt(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # for single higgs -> tautau datasets, there is just one higgs decay in gen_higgs

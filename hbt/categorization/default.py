@@ -123,6 +123,11 @@ def cat_eq1j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 
 
 @categorizer(uses={"Jet.pt"})
+def cat_ge2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.num(events.Jet, axis=1) >= 2
+
+
+@categorizer(uses={"Jet.pt"})
 def cat_eq2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, ak.num(events.Jet, axis=1) == 2
 

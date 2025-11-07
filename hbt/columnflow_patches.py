@@ -83,6 +83,21 @@ def patch_merge_reduction_stats_inputs():
 
 
 @memoize
+def patch_unite_columns_keep_columns_key_default():
+    """
+    Patches the keep_columns_key parameter of the UniteColumns task to have a custum default value of "all".
+    """
+    from columnflow.tasks.union import UniteColumns
+
+    UniteColumns.keep_columns_key = UniteColumns.keep_columns_key.copy(
+        default="all",
+        add_default_to_description=True,
+    )
+
+    logger.debug(f"patched keep_columns_key parameter of {UniteColumns.task_family}")
+
+
+@memoize
 def patch_unite_columns_events_filter():
     """
     Patches the UniteColumns task to use a custom event filter function to only keep events whose "keep_in_union" is
@@ -105,4 +120,5 @@ def patch_all():
     patch_remote_workflow_poll_interval()
     patch_htcondor_workflow_naf_resources()
     patch_merge_reduction_stats_inputs()
+    patch_unite_columns_keep_columns_key_default()
     patch_unite_columns_events_filter()

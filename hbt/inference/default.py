@@ -13,7 +13,7 @@ import collections
 import law
 import order as od
 
-from columnflow.inference import ParameterType, FlowStrategy
+from columnflow.inference import ParameterType, FlowStrategy  # , ParameterTransformation
 from columnflow.config_util import get_datasets_from_process
 
 from hbt.inference.base import HBTInferenceModelBase
@@ -206,7 +206,7 @@ class default(HBTInferenceModelBase):
         # theory uncertainties
         self.add_parameter(
             "BR_hbb",
-            type=ParameterType.rate_gauss,
+            type=ParameterType.shape,
             process=["*_hbb", "*_hbbhtt"],
             effect=(0.9874, 1.0124),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
@@ -521,7 +521,11 @@ def default_no_shifts(self):
 
     # remove all parameters that require a shift source other than nominal
     for category_name, process_name, parameter in self.iter_parameters():
-        if parameter.type.is_shape or parameter.transformations.any_from_shape:
+        remove = (
+            (parameter.type.is_shape and not parameter.transformations.any_from_rate) or
+            (parameter.type.is_rate and parameter.transformations.any_from_shape)
+        )
+        if remove:
             self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
     # repeat the cleanup
