@@ -1745,11 +1745,13 @@ def add_config(
         # electron energy correction and smearing
         add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
+        hhb_postfix = "_2024" if year == 2024 else ""
         add_external("hh_btag_repo", Ext(
-            f"{central_hbt_dir}/HHbtag-863627a.tar.gz",
+            f"{central_hbt_dir}/HHbtag-79225dd.tar.gz",
             subpaths=DotDict(
-                even="HHbtag-863627a294472b37073143499ee346e2e0b7160b/models/HHbtag_v3_par_0",
-                odd="HHbtag-863627a294472b37073143499ee346e2e0b7160b/models/HHbtag_v3_par_1"),
+                even=f"HHbtag-79225dd94019b1c0d6cc8bb416f55e4acf1c1f47/models/HHbtag_v3{hhb_postfix}_par_0",
+                odd=f"HHbtag-79225dd94019b1c0d6cc8bb416f55e4acf1c1f47/models/HHbtag_v3{hhb_postfix}_par_1",
+            ),
             version="v3",
         ))
         # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB
