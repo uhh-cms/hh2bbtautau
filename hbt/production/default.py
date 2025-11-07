@@ -11,7 +11,7 @@ from columnflow.production.cms.muon import muon_weights
 from columnflow.production.cms.top_pt_weight import top_pt_weight as cf_top_pt_weight
 from columnflow.production.cms.dy import dy_weights
 from columnflow.util import maybe_import
-from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
+from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections, set_ak_column
 
 from hbt.production.weights import (
     stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_pdf_weight,
@@ -25,6 +25,14 @@ ak = maybe_import("awkward")
 
 
 top_pt_weight = cf_top_pt_weight.derive("top_pt_weight", cls_dict={"require_dataset_tag": None})
+
+muon_weights_lowpt = muon_weights.derive(
+    "muon_weights_lowpt",
+    cls_dict={
+        "get_muon_file": (lambda self, external_files: external_files.muon_sf_lowpt),
+        "get_muon_config": (lambda self: self.config_inst.x.muon_sf_lowpt),
+    },
+)
 
 
 @producer(
@@ -89,6 +97,16 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         # muon weights
         if self.has_dep(muon_weights):
             events = self[muon_weights](events, **kwargs)
+            # when the muon weight producer has a minimum pt configured, also run the low-pt weights for muons below
+            # that pt threshold
+            if self.has_dep(muon_weights_lowpt) and self[muon_weights].muon_config.min_pt > 0.0:
+                lowpt_mask = events.Muon.pt < self[muon_weights].muon_config.min_pt
+                if ak.any(lowpt_mask):
+                    # evaluate low-pt weights and multiple to existing ones
+                    events2 = self[muon_weights_lowpt](events, muon_mask=lowpt_mask, **kwargs)
+                    for r in self[muon_weights].produced_columns:
+                        events = set_ak_column(events, r, r.apply(events) * r.apply(events2))
+                    del events2
 
         # trigger weight
         if self.has_dep(trigger_weight):
@@ -116,6 +134,10 @@ def default_init(self: Producer, **kwargs) -> None:
 
         self.uses |= weight_producers
         self.produces |= weight_producers
+
+        # additional muon weight for low-pt
+        if self.config_inst.has_aux("muon_sf_lowpt"):
+            self.uses.add(muon_weights_lowpt)
 
 
 empty = default.derive("empty", cls_dict={"produce_weights": False})
