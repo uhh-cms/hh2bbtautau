@@ -1102,7 +1102,7 @@ def add_config(
             e_postfix = "FIXME"  # TODO: 2024: lookup!
         else:
             assert False
-        cfg.x.electron_sf_names = ElectronSFConfig(
+        cfg.x.electron_sf = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
@@ -1150,9 +1150,10 @@ def add_config(
     # (used in the muon producer)
     from columnflow.production.cms.muon import MuonSFConfig
     if run == 2:
-        cfg.x.muon_sf_names = MuonSFConfig(correction="NUM_TightRelIso_DEN_TightIDandIPCut")
+        cfg.x.muon_sf = MuonSFConfig(correction="NUM_TightRelIso_DEN_TightIDandIPCut")
     elif run == 3:
-        cfg.x.muon_sf_names = MuonSFConfig(correction="NUM_TightPFIso_DEN_TightID")
+        cfg.x.muon_sf = MuonSFConfig(correction="NUM_TightPFIso_DEN_TightID", min_pt=15.0)
+        cfg.x.muon_sf_lowpt = MuonSFConfig(correction="NUM_TightID_DEN_TrackerMuons")
         cfg.x.muon_trigger_sf_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
         )
@@ -1168,7 +1169,6 @@ def add_config(
         cfg.x.cross_trigger_muon_mc_effs_cfg = MuonSFConfig(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
         )
-
     else:
         assert False
 
@@ -1746,6 +1746,7 @@ def add_config(
         add_external("jet_id", (cat_info.get_file("jme", "jetid.json.gz"), "v1"))
         # muon scale factors
         add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
+        add_external("muon_sf_lowpt", (cat_info.get_file("muo", "muon_JPsi.json.gz"), "v1"))
         # met phi correction
         if year != 2024:  # TODO: 2024: not yet available
             add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
@@ -1754,11 +1755,13 @@ def add_config(
         # electron energy correction and smearing
         add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
+        hhb_postfix = "_2024" if year == 2024 else ""
         add_external("hh_btag_repo", Ext(
-            f"{central_hbt_dir}/HHbtag-863627a.tar.gz",
+            f"{central_hbt_dir}/HHbtag-79225dd.tar.gz",
             subpaths=DotDict(
-                even="HHbtag-863627a294472b37073143499ee346e2e0b7160b/models/HHbtag_v3_par_0",
-                odd="HHbtag-863627a294472b37073143499ee346e2e0b7160b/models/HHbtag_v3_par_1"),
+                even=f"HHbtag-79225dd94019b1c0d6cc8bb416f55e4acf1c1f47/models/HHbtag_v3{hhb_postfix}_par_0",
+                odd=f"HHbtag-79225dd94019b1c0d6cc8bb416f55e4acf1c1f47/models/HHbtag_v3{hhb_postfix}_par_1",
+            ),
             version="v3",
         ))
         # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB
