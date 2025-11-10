@@ -47,15 +47,19 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     return events
 
 
+cutflow_category_ids = category_ids.derive("cutflow_category_ids", cls_dict={
+    "skip_category": (lambda self, category_inst: category_inst.has_tag("skip_cutflow")),
+})
+
+
 @producer(
     uses={
-        mc_weight, category_ids,
+        mc_weight, cutflow_category_ids,
         "Jet.{pt,eta,phi}", "Electron.pt",
     },
     produces={
-        mc_weight, category_ids,
-        "cutflow.n_jet", "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt", "cutflow.jet1_eta",
-        "cutflow.jet1_phi", "cutflow.jet2_pt", "cutflow.n_ele", "cutflow.n_ele_selected",
+        mc_weight, cutflow_category_ids,
+        "cutflow.{n_jet,n_jet_selected,ht,jet1_pt,jet1_eta,jet1_phi,jet2_pt,n_ele,n_ele_selected}",
     },
 )
 def cutflow_features(
@@ -65,7 +69,7 @@ def cutflow_features(
     **kwargs,
 ) -> ak.Array:
     # columns required for cutflow plots
-    events = self[category_ids](events, **kwargs)
+    events = self[cutflow_category_ids](events, **kwargs)
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
