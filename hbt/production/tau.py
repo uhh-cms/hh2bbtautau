@@ -125,7 +125,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         genuine_mask = dm_mask & (taus_flat.genPartFlav == 5)
         if mask is not None:
             genuine_mask = genuine_mask & mask
-        sfs_flat[genuine_mask] = self.id_vs_jet_corrector(
+        sfs_flat[genuine_mask] = self.id_vs_jet_corrector.evaluate(
             taus_flat.pt[genuine_mask], taus_flat.decayMode[genuine_mask], 5, vs_jet_wp, vs_e_wp, syst, "dm",
         )
 
@@ -134,7 +134,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         fake_mask = dm_mask & ((taus_flat.genPartFlav == 1) | (taus_flat.genPartFlav == 3))
         if mask is not None:
             fake_mask = fake_mask & mask
-        sfs_flat[fake_mask] = self.id_vs_e_corrector(
+        sfs_flat[fake_mask] = self.id_vs_e_corrector.evaluate(
             abseta_flat[fake_mask], taus_flat.decayMode[fake_mask], taus_flat.genPartFlav[fake_mask], vs_e_wp, syst,
         )
 
@@ -144,7 +144,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             fake_mask = (ch_flat == ch.id) & ((taus_flat.genPartFlav == 2) | (taus_flat.genPartFlav == 4))
             if mask is not None:
                 fake_mask = fake_mask & mask
-            sfs_flat[fake_mask] = self.id_vs_mu_corrector(
+            sfs_flat[fake_mask] = self.id_vs_mu_corrector.evaluate(
                 abseta_flat[fake_mask], taus_flat.genPartFlav[fake_mask], vs_mu_wp[ch.name], syst,
             )
 
@@ -334,7 +334,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
             else:
                 raise ValueError(f"Unknown channel {corr_channel}")
             sf_nom = np.ones_like(pt, dtype=np.float32)
-            sf_nom[mask] = self.tau_trig_corrector(*eval_args(mask, corr_channel_arg, "nom"))
+            sf_nom[mask] = self.tau_trig_corrector.evaluate(*eval_args(mask, corr_channel_arg, "nom"))
             # create and store weights
             events = set_ak_column_f32(
                 events,
@@ -360,7 +360,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
                     # only possible with object-level information
                     sf_unc = ak.copy(events[f"tau_trigger_eff_{kind}_{ch}"])
                     sf_unc_flat = flat_np_view(sf_unc, axis=1)
-                    sf_unc_flat[flat_decay_mode_mask] = self.tau_trig_corrector(
+                    sf_unc_flat[flat_decay_mode_mask] = self.tau_trig_corrector.evaluate(
                         *eval_args(flat_decay_mode_mask, ch_corr, direction),
                     )
                     events = set_ak_column_f32(

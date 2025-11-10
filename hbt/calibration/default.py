@@ -11,6 +11,7 @@ from columnflow.calibration.cms.met import met_phi_run2, met_phi
 from columnflow.calibration.cms.jets import jec, jer
 from columnflow.calibration.cms.tau import tec
 from columnflow.calibration.cms.egamma import electron_scale_smear
+from columnflow.calibration.cms.muon import muon_sr
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.electron import electron_sceta
 from columnflow.production.cms.seeds import (
@@ -86,6 +87,8 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         events = self[self.jec_nominal_cls](events, **kwargs)
         # nominal ess
         events = self[self.ess_nominal_cls](events, **kwargs)
+        # nominal muon scale and resolution
+        events = self[self.muon_sr_nominal_cls](events, **kwargs)
     else:
         # for mc, when the nominal shift is requested, apply calibrations with uncertainties (i.e. full), otherwise
         # invoke calibrators configured not to evaluate and save uncertainties
@@ -97,6 +100,8 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
             events = self[self.tec_full_cls](events, **kwargs)
             # full ess
             events = self[self.ess_full_cls](events, **kwargs)
+            # full muon scale and resolution
+            events = self[self.muon_sr_full_cls](events, **kwargs)
         else:
             # nominal jec and jer
             events = self[self.jec_nominal_cls](events, **kwargs)
@@ -105,6 +110,8 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
             events = self[self.tec_nominal_cls](events, **kwargs)
             # nominal ess
             events = self[self.ees_nominal_cls](events, **kwargs)
+            # nominal muon scale and resolution
+            events = self[self.muon_sr_nominal_cls](events, **kwargs)
 
     # apply met phi correction
     if self.has_dep(self.met_phi_cls):
@@ -162,6 +169,11 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "deterministic_seed_index": 0,
             "with_uncertainties": False,
         })
+        # derive muon scale and resolution calibrators
+        add_calib_cls("muon_sr_full", muon_sr)
+        add_calib_cls("muon_sr_nominal", muon_sr, cls_dict={
+            "with_uncertainties": False,
+        })
         # derive met_phi calibrator
         add_calib_cls("met_phi", met_phi_run2 if self.config_inst.campaign.x.run == 2 else met_phi)
 
@@ -177,6 +189,8 @@ def default_init(self: Calibrator, **kwargs) -> None:
     self.tec_nominal_cls = self.config_inst.x.calib_tec_nominal_cls
     self.ess_full_cls = self.config_inst.x.calib_ess_full_cls
     self.ess_nominal_cls = self.config_inst.x.calib_ess_nominal_cls
+    self.muon_sr_full_cls = self.config_inst.x.calib_muon_sr_full_cls
+    self.muon_sr_nominal_cls = self.config_inst.x.calib_muon_sr_nominal_cls
     self.met_phi_cls = self.config_inst.x.calib_met_phi_cls
 
     # collect derived calibrators and add them to the calibrator uses and produces
@@ -189,6 +203,8 @@ def default_init(self: Calibrator, **kwargs) -> None:
         self.tec_nominal_cls,
         IF_RUN_3(self.ess_full_cls),
         IF_RUN_3(self.ess_nominal_cls),
+        IF_RUN_3(self.muon_sr_full_cls),
+        IF_RUN_3(self.muon_sr_nominal_cls),
         self.met_phi_cls,
     }
     self.uses |= derived_calibrators

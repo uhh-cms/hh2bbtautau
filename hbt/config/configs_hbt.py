@@ -173,10 +173,10 @@ def add_config(
         "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        "radion_hh_ggf_hbb_htt_m450",
-        "radion_hh_ggf_hbb_htt_m1200",
-        "graviton_hh_ggf_hbb_htt_m450",
-        "graviton_hh_ggf_hbb_htt_m1200",
+        # "radion_hh_ggf_hbb_htt_m450",
+        # "radion_hh_ggf_hbb_htt_m1200",
+        # "graviton_hh_ggf_hbb_htt_m450",
+        # "graviton_hh_ggf_hbb_htt_m1200",
     ]
     for process_name in process_names:
         if process_name in procs:
@@ -245,12 +245,12 @@ def add_config(
         # "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
 
         # x -> hh resonances
-        *if_era(year=2022, values=[
-            "radion_hh_ggf_hbb_htt_m450_madgraph",
-            "radion_hh_ggf_hbb_htt_m1200_madgraph",
-            "graviton_hh_ggf_hbb_htt_m450_madgraph",
-            "graviton_hh_ggf_hbb_htt_m1200_madgraph",
-        ]),
+        # *if_era(year=2022, values=[
+        #     "radion_hh_ggf_hbb_htt_m450_madgraph",
+        #     "radion_hh_ggf_hbb_htt_m1200_madgraph",
+        #     "graviton_hh_ggf_hbb_htt_m450_madgraph",
+        #     "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+        # ]),
 
         # ttbar
         "tt_sl_powheg",
@@ -327,8 +327,7 @@ def add_config(
         #     "dy_tautau_m50toinf_1j_filtered_amcatnlo",
         #     "dy_tautau_m50toinf_2j_filtered_amcatnlo",
         # ]),
-        # TODO for 2024:
-        # - stitching strategy changes:
+        # TODO: 2024: stitching strategy changes:
         #   - no lepton-inclusive datasets available (yet), need to add xsecs manually to cmsdb and disable stitching
         #   - njet-inclusive, tautau filtered dataset available in 2024, need stitching there
 
@@ -530,8 +529,13 @@ def add_config(
         # bad ecalBadCalibFilter MET filter in 2022 data
         # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2?rev=172#ECal_BadCalibration_Filter_Flag
         # https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
-        if year == 2022 and dataset.is_data and dataset.x.era in "FG":
+        if year == 2022 and dataset.is_data and dataset.x.era in {"F", "G"}:
             dataset.add_tag("needs_custom_ecalBadCalibFilter")
+
+        # electron veto due to noisy EB channel in a single fill, see
+        # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=185#From_ECAL_and_EGM
+        if year == 2022 and dataset.is_data and dataset.x.era == "G":
+            dataset.add_tag("needs_eb_noise_electron_veto")
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
@@ -812,7 +816,7 @@ def add_config(
         })
     elif year == 2024:
         cfg.x.luminosity = Number(108_952.7546, {
-            "lumi_13p6TeV_2024": 0.013j,  # TODO 2024: update uncertainty once available
+            "lumi_13p6TeV_2024": 0.013j,  # TODO: 2024: update uncertainty once available
         })
     else:
         assert False
@@ -1066,6 +1070,8 @@ def add_config(
     # electron settings
     ################################################################################################
 
+    # https://twiki.cern.ch/twiki/bin/viewauth/CMS/EgammSFandSSRun3
+
     # names of electron correction sets and working points
     from columnflow.production.cms.electron import ElectronSFConfig
     from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
@@ -1102,10 +1108,20 @@ def add_config(
             e_postfix = "FIXME"  # TODO: 2024: lookup!
         else:
             assert False
-        cfg.x.electron_sf = ElectronSFConfig(
+        # TODO: 2024: different files being used for id and reco sfs
+        cfg.x.electron_id_sf = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
+        )
+        cfg.x.electron_reco_sf = ElectronSFConfig(
+            correction="Electron-ID-SF",
+            campaign=f"{year}{e_postfix}",
+            working_point={
+                "RecoBelow20": (lambda variables: variables["pt"] < 20.0),
+                "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
+                "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
+            },
         )
         cfg.x.electron_trigger_sf_names = ElectronSFConfig(
             correction="Electron-HLT-SF",
@@ -1152,8 +1168,12 @@ def add_config(
     if run == 2:
         cfg.x.muon_sf = MuonSFConfig(correction="NUM_TightRelIso_DEN_TightIDandIPCut")
     elif run == 3:
-        cfg.x.muon_sf = MuonSFConfig(correction="NUM_TightPFIso_DEN_TightID", min_pt=15.0)
-        cfg.x.muon_sf_lowpt = MuonSFConfig(correction="NUM_TightID_DEN_TrackerMuons")
+        # id and iso
+        cfg.x.muon_id_sf = MuonSFConfig(correction="NUM_TightID_DEN_TrackerMuons", min_pt=15.0)
+        cfg.x.muon_id_sf_lowpt = MuonSFConfig(correction="NUM_TightID_DEN_TrackerMuons")  # producer uses min_pt above
+        cfg.x.muon_iso_sf = MuonSFConfig(correction="NUM_TightPFIso_DEN_TightID", min_pt=15.0)
+
+        # trigger
         cfg.x.muon_trigger_sf_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
         )
@@ -1168,6 +1188,12 @@ def add_config(
         )
         cfg.x.cross_trigger_muon_mc_effs_cfg = MuonSFConfig(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
+        )
+
+        # mec/mer
+        from columnflow.calibration.cms.muon import MuonSRConfig
+        cfg.x.muon_sr = MuonSRConfig(
+            systs=["scale_up", "scale_down", "res_up", "res_down"],
         )
     else:
         assert False
@@ -1384,10 +1410,10 @@ def add_config(
         cfg,
         "minbias_xs",
         {
-            "pu_weight": "pu_weight_{name}",
-            "normalized_pu_weight": "normalized_pu_weight_{name}",
-            "PuppiMET.pt": "PuppiMET.pt_{name}",
-            "PuppiMET.phi": "PuppiMET.phi_{name}",
+            "pu_weight": r"pu_weight_{name}",
+            "normalized_pu_weight": r"normalized_pu_weight_{name}",
+            f"{cfg.x.met_name}.pt": f"{cfg.x.met_name}.pt_{{name}}",
+            f"{cfg.x.met_name}.phi": f"{cfg.x.met_name}.phi_{{name}}",
         },
     )
 
@@ -1479,36 +1505,42 @@ def add_config(
         cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_{{direction}}"})
 
-    cfg.add_shift(name="e_up", id=90, type="shape")
-    cfg.add_shift(name="e_down", id=91, type="shape")
-    add_shift_aliases(cfg, "e", {"electron_weight": "electron_weight_{direction}"})
+    # electron weights
+    cfg.add_shift(name="e_id_up", id=90, type="shape")
+    cfg.add_shift(name="e_id_down", id=91, type="shape")
+    add_shift_aliases(cfg, "e_id", {"electron_id_weight": "electron_id_weight_{direction}"})
 
-    # electron shifts
-    logger.debug("adding ees and eer shifts")
-    cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
-    cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
-    add_shift_aliases(
-        cfg,
-        "ees",
-        {
-            "Electron.pt": "Electron.pt_scale_{direction}",
-        },
-    )
+    cfg.add_shift(name="e_reco_up", id=92, type="shape")
+    cfg.add_shift(name="e_reco_down", id=93, type="shape")
+    add_shift_aliases(cfg, "e_reco", {"electron_reco_weight": "electron_reco_weight_{direction}"})
 
-    cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
-    cfg.add_shift(name="eer_down", id=95, type="shape", tags={"eer"})
-    add_shift_aliases(
-        cfg,
-        "eer",
-        {
-            "Electron.pt": "Electron.pt_smear_{direction}",
-        },
-    )
+    # electron scale and smearing
+    cfg.add_shift(name="ees_up", id=94, type="shape", tags={"eec"})
+    cfg.add_shift(name="ees_down", id=95, type="shape", tags={"eec"})
+    add_shift_aliases(cfg, "ees", {"Electron.pt": "Electron.pt_scale_{direction}"})
 
-    cfg.add_shift(name="mu_up", id=100, type="shape")
-    cfg.add_shift(name="mu_down", id=101, type="shape")
-    add_shift_aliases(cfg, "mu", {"muon_weight": "muon_weight_{direction}"})
+    cfg.add_shift(name="eer_up", id=96, type="shape", tags={"eer"})
+    cfg.add_shift(name="eer_down", id=97, type="shape", tags={"eer"})
+    add_shift_aliases(cfg, "eer", {"Electron.pt": "Electron.pt_smear_{direction}"})
 
+    # muon weights
+    cfg.add_shift(name="mu_id_up", id=100, type="shape")
+    cfg.add_shift(name="mu_id_down", id=101, type="shape")
+    add_shift_aliases(cfg, "mu_id", {"muon_id_weight": "muon_id_weight_{direction}"})
+
+    cfg.add_shift(name="mu_iso_up", id=102, type="shape")
+    cfg.add_shift(name="mu_iso_down", id=103, type="shape")
+    add_shift_aliases(cfg, "mu_iso", {"muon_iso_weight": "muon_iso_weight_{direction}"})
+
+    # muon scale and resolution
+    cfg.add_shift(name="mec_up", id=104, type="shape", tags={"mec"})
+    cfg.add_shift(name="mec_down", id=105, type="shape", tags={"mec"})
+    add_shift_aliases(cfg, "mec", {"Muon.pt": "Muon.pt_scale_{direction}"})
+    cfg.add_shift(name="mer_up", id=106, type="shape", tags={"mer"})
+    cfg.add_shift(name="mer_down", id=107, type="shape", tags={"mer"})
+    add_shift_aliases(cfg, "mer", {"Muon.pt": "Muon.pt_res_{direction}"})
+
+    # btagging shifts
     cfg.x.btag_unc_names = [
         "hf", "lf",
         "hfstats1", "hfstats2",
@@ -1598,11 +1630,20 @@ def add_config(
 
     cfg.x.external_files = DotDict()
 
-    # helper
+    # helpers
     def add_external(name, value):
         if isinstance(value, dict):
             value = DotDict.wrap(value)
-        cfg.x.external_files[name] = value
+        cfg.x.external_files[name] = wrap_ext(value)
+
+    def wrap_ext(obj):
+        if isinstance(obj, Ext):
+            return obj
+        if isinstance(obj, tuple):
+            if len(obj) != 2:
+                raise ValueError(f"cannot wrap tuple '{obj}' into ExternalFile, expected length 2")
+            return Ext(location=obj[0], version=obj[1])
+        return law.util.map_struct(wrap_ext, obj, map_tuple=False)
 
     # prepare run/era/nano meta data info to determine files in the CAT metadata structure
     # see https://cms-analysis-corrections.docs.cern.ch
@@ -1763,15 +1804,18 @@ def add_config(
             ),
             version="v3",
         ))
-        # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB
+        # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB, https://indico.cern.ch/event/1590750/contributions/6784135/attachments/3169657/5634394/Jet_taggers_0711.pdf # noqa
         add_external("vbf_jtag_repo", Ext(
-            f"{central_hbt_dir}/VBFjtag-CCLUB-3905dcc.tar.gz",
+            f"{central_hbt_dir}/VBFjtag-0f0bec9.tar.gz",
             subpaths=DotDict(
-                even="VBFjtag-3905dcce38cbd9e768596542f2e396651fb690f8/models/VBFjTag_par_0",
-                odd="VBFjtag-3905dcce38cbd9e768596542f2e396651fb690f8/models/VBFjTag_par_1",
+                even="VBFjtag-0f0bec91c848c026156227ccecdcabc4f9daef89/models/VBFjTag_par_0",
+                odd="VBFjtag-0f0bec91c848c026156227ccecdcabc4f9daef89/models/VBFjTag_par_1",
             ),
-            version="v1",
+            version="v2",
         ))
+        # muon energy (scale and resolution) corrections and helper tools
+        add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
+        add_external("muon_sr_tools", (f"{central_hbt_dir}/central_muo_files/muonscarekit/scripts/MuonScaRe.py", "v1"))
         # dy weight and recoil corrections
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))
         # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_ntags.json.gz", "v1"))
@@ -1818,7 +1862,7 @@ def add_config(
 
     # columns to keep after certain steps
     cfg.x.keep_columns = DotDict.wrap({
-        # !! note that this set is used by the cf_default reducer
+        # ! note that this set is used by the cf_default reducer
         "cf.ReduceEvents": {
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,
@@ -1896,8 +1940,10 @@ def add_config(
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
         "normalized_njet_btag_weight_pnet": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
-        "electron_weight": get_shifts("e"),
-        "muon_weight": get_shifts("mu"),
+        "electron_id_weight": get_shifts("e_id"),
+        "electron_reco_weight": get_shifts("e_reco"),
+        "muon_id_weight": get_shifts("mu_id"),
+        "muon_iso_weight": get_shifts("mu_iso"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
         "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in cfg.x.trigger_legs)),
     })
@@ -1915,7 +1961,7 @@ def add_config(
             if shift_inst.has_tag(("jec", "jer"))
         ],
         "lepton_sf": [
-            shift_inst.name for shift_inst in (*get_shifts("e"), *get_shifts("mu"))
+            shift_inst.name for shift_inst in get_shifts("e_id", "e_reco", "mu_id", "mu_iso")
         ],
         "tec": [
             shift_inst.name for shift_inst in cfg.shifts

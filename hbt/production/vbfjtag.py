@@ -2,7 +2,8 @@
 
 """
 Producers for the VBFjTag score.
-See https://github.com/elviramartinv/VBFjtag/
+For more info, see https://github.com/elviramartinv/VBFjtag and
+https://indico.cern.ch/event/1590750/contributions/6784135/attachments/3169657/5634394/Jet_taggers_0711.pdf.
 """
 
 import law
@@ -76,8 +77,19 @@ def vbfjtag(
     n_jets_capped = ak.num(jets, axis=1)
     is_hhbjet = ak.values_astype(is_hhbjet_mask[jet_sorting_indices][vbfjet_mask_sorted][event_mask][..., :n_jets_max], np.float32)  # noqa: E501
 
+    # additional features for v2 network
+    if self.vbfjtag_version == "v2":
+        # centrality
+        eta_min, eta_max = ak.min(jets.eta, axis=1), ak.max(jets.eta, axis=1)
+        eta_c = (eta_min + eta_max) * 0.5
+        centrality = 1.0 - 2 * abs(jets.eta - eta_c) / (eta_max - eta_min)
+
+        # isolation
+        dr = jets.metric_table(jets)
+        isolation = ak.min(dr[dr > 0], axis=2)
+
     # get input features
-    input_features = [
+    input_features = list(filter(lambda f: f is not None, [
         jet_shape * 1,
         jets.pt,
         jets.eta,
@@ -87,6 +99,8 @@ def vbfjtag(
         jets.btagPNetB,
         jets.delta_phi(htt),
         is_hhbjet,
+        centrality if self.vbfjtag_version == "v2" else None,
+        isolation if self.vbfjtag_version == "v2" else None,
         jet_shape * (self.vbfjtag_campaign),
         jet_shape * self.vbfjtag_channel_map[events[event_mask].channel_id],
         jet_shape * htt.pt,
@@ -94,7 +108,7 @@ def vbfjtag(
         jet_shape * htt.delta_phi(met),
         jet_shape * (met.pt / htt.pt),
         jet_shape * ak.sum(leps.pt, axis=1),
-    ]
+    ]))
 
     # helper to split events, cast to float32, concatenate across new axis,
     # then pad with zeros for up to n_jets_max jets
@@ -246,6 +260,7 @@ def vbfjtag_setup(
 
     # get the model version (coincides with the external file version)
     self.vbfjtag_version = self.config_inst.x.external_files.vbf_jtag_repo.version
+    assert self.vbfjtag_version in {"v1", "v2"}
 
     # prepare mappings for the VBFjTag model (see links above for mapping information)
     channel_map = {

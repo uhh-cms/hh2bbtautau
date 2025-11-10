@@ -160,13 +160,25 @@ def electron_selection(
             ~in_ecal_overlap
         )
 
-        # additional cut in 2022 post-EE
-        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=162#From_ECAL_and_EGM
+        # additional cut in 2022 postEE
+        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=185#From_ECAL_and_EGM
         if is_2022_post:
             default_mask = default_mask & ~(
                 (events.Electron.eta > 1.556) &
                 (events.Electron.seediEtaOriX < 45) &
                 (events.Electron.seediPhiOriY > 72)
+            )
+
+        # additional eb noise veto in 2022 postEE for data only (decision handled by dataset tag through config)
+        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=185#From_ECAL_and_EGM
+        if self.dataset_inst.is_data and self.dataset_inst.has_tag("needs_eb_noise_electron_veto"):
+            noisy_runs = [362430, 362433, 362434, 362435, 362436, 362437, 362438, 362439]
+            default_mask = default_mask & ~(
+                (events.Electron.pt > 700.0) &
+                (events.Electron.pt < 900.0) &
+                (events.Electron.seediEtaOriX == -21) &
+                (events.Electron.seediPhiOriY == 260) &
+                np.isin(events.run, noisy_runs)
             )
 
         # control mask for the electron selection
@@ -269,7 +281,7 @@ def muon_selection(
             (abs(events.Muon.eta) < eta_cut) &
             (abs(events.Muon.dxy) < 0.045) &
             (abs(events.Muon.dz) < 0.2) &
-            (events.Muon.pfRelIso04_all < 0.15)
+            (events.Muon.pfRelIso04_all < 0.15)  # tight iso working point
         )
         # pt control mask cut updated to 6 GeV for VBF strategy in 2023,
         # but applied for all channels and eras
