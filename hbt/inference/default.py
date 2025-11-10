@@ -461,6 +461,12 @@ class default(HBTInferenceModelBase):
         # eer
         pass  # TODO
 
+        # mec
+        pass  # TODO
+
+        # mer
+        pass  # TODO
+
         #
         # shape parameters based on entire dataset variations
         #

@@ -1164,6 +1164,11 @@ def add_config(
             correction="NUM_IsoMu20_DEN_CutBasedIdTight_and_PFIsoTight_MCeff",
         )
 
+        # mec/mer
+        from columnflow.calibration.cms.muon import MuonSRConfig
+        cfg.x.muon_sr = MuonSRConfig(
+            systs=["scale_up", "scale_down", "res_up", "res_down"],
+        )
     else:
         assert False
 
@@ -1504,6 +1509,15 @@ def add_config(
     cfg.add_shift(name="mu_down", id=101, type="shape")
     add_shift_aliases(cfg, "mu", {"muon_weight": "muon_weight_{direction}"})
 
+    # muon scale and resolution
+    cfg.add_shift(name="mec_up", id=104, type="shape", tags={"mec"})
+    cfg.add_shift(name="mec_down", id=105, type="shape", tags={"mec"})
+    add_shift_aliases(cfg, "mec", {"Muon.pt": "Muon.pt_scale_{direction}"})
+    cfg.add_shift(name="mer_up", id=106, type="shape", tags={"mer"})
+    cfg.add_shift(name="mer_down", id=107, type="shape", tags={"mer"})
+    add_shift_aliases(cfg, "mer", {"Muon.pt": "Muon.pt_res_{direction}"})
+
+    # btagging shifts
     cfg.x.btag_unc_names = [
         "hf", "lf",
         "hfstats1", "hfstats2",
@@ -1763,6 +1777,9 @@ def add_config(
             ),
             version="v1",
         ))
+        # muon energy (scale and resolution) corrections and helper tools
+        add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
+        add_external("muon_sr_tools", (f"{central_hbt_dir}/central_muo_files/muonscarekit/scripts/MuonScaRe.py", "v1"))
         # dy weight and recoil corrections
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))
         # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_ntags.json.gz", "v1"))
