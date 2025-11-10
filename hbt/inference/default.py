@@ -522,6 +522,12 @@ def default_no_shifts(self):
     self.init_cleanup()
 
 
+default_no_shifts_no_vbf = default_no_shifts.derive(
+    "default_no_shifts_no_vbf",
+    cls_dict={"category_names": ["res1b_novbf", "res2b_novbf", "boosted_novbf"]},
+)
+
+
 default_no_shifts_simple = default_no_shifts.derive(
     "default_no_shifts_simple",
     cls_dict={"variable": "run3_dnn_simple_hh_fine"},
