@@ -173,10 +173,10 @@ def add_config(
         "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        "radion_hh_ggf_hbb_htt_m450",
-        "radion_hh_ggf_hbb_htt_m1200",
-        "graviton_hh_ggf_hbb_htt_m450",
-        "graviton_hh_ggf_hbb_htt_m1200",
+        # "radion_hh_ggf_hbb_htt_m450",
+        # "radion_hh_ggf_hbb_htt_m1200",
+        # "graviton_hh_ggf_hbb_htt_m450",
+        # "graviton_hh_ggf_hbb_htt_m1200",
     ]
     for process_name in process_names:
         if process_name in procs:
@@ -245,12 +245,12 @@ def add_config(
         # "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
 
         # x -> hh resonances
-        *if_era(year=2022, values=[
-            "radion_hh_ggf_hbb_htt_m450_madgraph",
-            "radion_hh_ggf_hbb_htt_m1200_madgraph",
-            "graviton_hh_ggf_hbb_htt_m450_madgraph",
-            "graviton_hh_ggf_hbb_htt_m1200_madgraph",
-        ]),
+        # *if_era(year=2022, values=[
+        #     "radion_hh_ggf_hbb_htt_m450_madgraph",
+        #     "radion_hh_ggf_hbb_htt_m1200_madgraph",
+        #     "graviton_hh_ggf_hbb_htt_m450_madgraph",
+        #     "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+        # ]),
 
         # ttbar
         "tt_sl_powheg",
@@ -327,8 +327,7 @@ def add_config(
         #     "dy_tautau_m50toinf_1j_filtered_amcatnlo",
         #     "dy_tautau_m50toinf_2j_filtered_amcatnlo",
         # ]),
-        # TODO for 2024:
-        # - stitching strategy changes:
+        # TODO: 2024: stitching strategy changes:
         #   - no lepton-inclusive datasets available (yet), need to add xsecs manually to cmsdb and disable stitching
         #   - njet-inclusive, tautau filtered dataset available in 2024, need stitching there
 
@@ -525,7 +524,7 @@ def add_config(
         # bad ecalBadCalibFilter MET filter in 2022 data
         # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2?rev=172#ECal_BadCalibration_Filter_Flag
         # https://cms-talk.web.cern.ch/t/noise-met-filters-in-run-3/63346/5
-        if year == 2022 and dataset.is_data and dataset.x.era in "FG":
+        if year == 2022 and dataset.is_data and dataset.x.era in {"F", "G"}:
             dataset.add_tag("needs_custom_ecalBadCalibFilter")
 
         # apply an optional limit on the number of files
@@ -807,7 +806,7 @@ def add_config(
         })
     elif year == 2024:
         cfg.x.luminosity = Number(108_952.7546, {
-            "lumi_13p6TeV_2024": 0.013j,  # TODO 2024: update uncertainty once available
+            "lumi_13p6TeV_2024": 0.013j,  # TODO: 2024: update uncertainty once available
         })
     else:
         assert False
@@ -1060,6 +1059,8 @@ def add_config(
     ################################################################################################
     # electron settings
     ################################################################################################
+
+    # https://twiki.cern.ch/twiki/bin/viewauth/CMS/EgammSFandSSRun3
 
     # names of electron correction sets and working points
     from columnflow.production.cms.electron import ElectronSFConfig
@@ -1384,10 +1385,10 @@ def add_config(
         cfg,
         "minbias_xs",
         {
-            "pu_weight": "pu_weight_{name}",
-            "normalized_pu_weight": "normalized_pu_weight_{name}",
-            "PuppiMET.pt": "PuppiMET.pt_{name}",
-            "PuppiMET.phi": "PuppiMET.phi_{name}",
+            "pu_weight": r"pu_weight_{name}",
+            "normalized_pu_weight": r"normalized_pu_weight_{name}",
+            f"{cfg.x.met_name}.pt": f"{cfg.x.met_name}.pt_{{name}}",
+            f"{cfg.x.met_name}.phi": f"{cfg.x.met_name}.phi_{{name}}",
         },
     )
 
@@ -1611,7 +1612,16 @@ def add_config(
     def add_external(name, value):
         if isinstance(value, dict):
             value = DotDict.wrap(value)
-        cfg.x.external_files[name] = value
+        cfg.x.external_files[name] = wrap_ext(value)
+
+    def wrap_ext(obj):
+        if isinstance(obj, Ext):
+            return obj
+        if isinstance(obj, tuple):
+            if len(obj) != 2:
+                raise ValueError(f"cannot wrap tuple '{obj}' into ExternalFile, expected length 2")
+            return Ext(location=obj[0], version=obj[1])
+        return law.util.map_struct(wrap_ext, obj, map_tuple=False)
 
     # prepare run/era/nano meta data info to determine files in the CAT metadata structure
     # see https://cms-analysis-corrections.docs.cern.ch
@@ -1826,7 +1836,7 @@ def add_config(
 
     # columns to keep after certain steps
     cfg.x.keep_columns = DotDict.wrap({
-        # !! note that this set is used by the cf_default reducer
+        # ! note that this set is used by the cf_default reducer
         "cf.ReduceEvents": {
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,

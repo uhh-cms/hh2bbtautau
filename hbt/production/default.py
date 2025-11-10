@@ -117,5 +117,9 @@ def default_init(self: Producer, **kwargs) -> None:
         self.uses |= weight_producers
         self.produces |= weight_producers
 
+        # additional muon weight for low-pt
+        if self.config_inst.has_aux("muon_sf_lowpt"):
+            self.uses.add(muon_id_weights_lowpt)
+
 
 empty = default.derive("empty", cls_dict={"produce_weights": False})

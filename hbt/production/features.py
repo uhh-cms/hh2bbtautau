@@ -7,8 +7,6 @@ Column production methods related to higher-level features.
 import functools
 import operator
 
-import law
-
 from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.mc_weight import mc_weight
@@ -99,6 +97,7 @@ def cutflow_features(
         IF_MC("event_weight"),
         IF_DATASET_IS_DY("gen_ll_{pt,pdgid}"),
     },
+    require_producers=["default"],
 )
 def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})
@@ -196,24 +195,6 @@ def dy_dnn_features_init(self: Producer, **kwargs) -> None:
         if IF_DATASET_IS_TT(True)(self):
             self.weight_names.append("top_pt_weight")
         self.uses.update(self.weight_names)
-
-
-@dy_dnn_features.requires
-def dy_dnn_features_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    from columnflow.tasks.production import ProduceColumns
-    reqs["default_prod"] = ProduceColumns.req_other_producer(task, producer="default")
-
-
-@dy_dnn_features.setup
-def dy_dnn_features_setup(
-    self: Producer,
-    task: law.Task,
-    reqs: dict,
-    inputs: dict,
-    reader_targets: law.util.InsertableDict,
-    **kwargs,
-) -> None:
-    reader_targets["default_prod"] = inputs["default_prod"]["columns"]
 
 
 @producer(

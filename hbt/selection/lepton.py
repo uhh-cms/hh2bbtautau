@@ -138,8 +138,8 @@ def electron_selection(
             ~in_ecal_overlap
         )
 
-        # additional cut in 2022 post-EE
-        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=162#From_ECAL_and_EGM
+        # additional cut in 2022 postEE
+        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=185#From_ECAL_and_EGM
         if is_2022_post:
             default_mask = default_mask & ~(
                 (events.Electron.eta > 1.556) &
@@ -239,7 +239,7 @@ def muon_selection(
             (abs(events.Muon.eta) < eta_cut) &
             (abs(events.Muon.dxy) < 0.045) &
             (abs(events.Muon.dz) < 0.2) &
-            (events.Muon.pfRelIso04_all < 0.15)
+            (events.Muon.pfRelIso04_all < 0.15)  # tight iso working point
         )
         control_mask = default_mask & (events.Muon.pt > 20.0)
         analysis_mask = default_mask & (events.Muon.pt > min_pt)

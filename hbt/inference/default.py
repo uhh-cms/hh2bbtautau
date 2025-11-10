@@ -35,17 +35,19 @@ class default(HBTInferenceModelBase):
 
     add_qcd = True
     fake_data = True
-    variable = "run3_dnn_moe_hh_fine"
+    variable_name = "run3_dnn_moe_hh_fine"
+    channel_names = ["etau", "mutau", "tautau"]
+    category_names = ["res1b", "res2b", "boosted"]
 
     def init_proc_map(self) -> None:
         # mapping of process names in the datacard ("combine name") to configs and process names in a dict
-        name_map = dict([
-            *[
-                (f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt", f"hh_ggf_hbb_htt_kl{kl}_kt1")
+        name_map = {
+            **{
+                f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt": f"hh_ggf_hbb_htt_kl{kl}_kt1"
                 for kl in ["0", "1", "2p45", "5"]
-            ],
-            *[
-                (f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbhtt", f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}")
+            },
+            **{
+                f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbhtt": f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}"
                 for kv, k2v, kl in [
                     ("1", "1", "1"),
                     ("1", "0", "1"),
@@ -58,22 +60,22 @@ class default(HBTInferenceModelBase):
                     ("m1p6", "2p72", "m1p36"),
                     ("m1p83", "3p57", "m3p39"),
                 ]
-            ],
-            ("ttbar", "tt"),
-            ("ttbarV", "ttv"),
-            ("ttbarVV", "ttvv"),
-            ("singlet", "st"),
-            ("DY", "dy"),
-            # ("EWK", "z"),  # currently not used
-            ("W", "w"),
-            ("VV", "vv"),
-            ("VVV", "vvv"),
-            ("WH_htt", "wh"),
-            ("ZH_hbb", "zh"),
-            ("ggH_htt", "h_ggf"),
-            ("qqH_htt", "h_vbf"),
-            ("ttH_hbb", "tth"),
-        ])
+            },
+            "ttbar": "tt",
+            "ttbarV": "ttv",
+            "ttbarVV": "ttvv",
+            "singlet": "st",
+            "DY": "dy",
+            # "EWK": "z",  # currently not used
+            "W": "w",
+            "VV": "vv",
+            "VVV": "vvv",
+            "WH_htt": "wh",
+            "ZH_hbb": "zh",
+            "ggH_htt": "h_ggf",
+            "qqH_htt": "h_vbf",
+            "ttH_hbb": "tth",
+        }
         if self.add_qcd:
             name_map["QCD"] = "qcd"
 
@@ -86,8 +88,8 @@ class default(HBTInferenceModelBase):
                 self.proc_map.setdefault(_combine_name, {})[config_inst] = proc_name
 
     def init_categories(self) -> None:
-        for ch in ["etau", "mutau", "tautau"]:
-            for cat in ["res1b", "res2b", "boosted"]:
+        for ch in self.channel_names:
+            for cat in self.category_names:
                 # gather fake processes to model data when needed
                 fake_processes = []
                 if self.fake_data:
@@ -108,7 +110,7 @@ class default(HBTInferenceModelBase):
                     config_data={
                         config_inst.name: self.category_config_spec(
                             category=f"{ch}__{cat}__os__iso",
-                            variable=self.variable,
+                            variable=self.variable_name,
                             data_datasets=["data_*"],
                         )
                         for config_inst in self.config_insts
@@ -530,18 +532,18 @@ def default_no_shifts(self):
 
 default_no_shifts_simple = default_no_shifts.derive(
     "default_no_shifts_simple",
-    cls_dict={"variable": "run3_dnn_simple_hh_fine"},
+    cls_dict={"variable_name": "run3_dnn_simple_hh_fine"},
 )
 
 # for variables from networks trained with different kl variations
 for kl in ["kl1", "kl0", "allkl"]:
     default_no_shifts.derive(
         f"default_no_shifts_simple_{kl}",
-        cls_dict={"variable": f"run3_dnn_simple_{kl}_hh_fine"},
+        cls_dict={"variable_name": f"run3_dnn_simple_{kl}_hh_fine"},
     )
 
 # even 5k binning
 default_no_shifts_simple_5k = default_no_shifts.derive(
     "default_no_shifts_simple_5k",
-    cls_dict={"variable": "run3_dnn_moe_hh_fine_5k"},
+    cls_dict={"variable_name": "run3_dnn_moe_hh_fine_5k"},
 )
