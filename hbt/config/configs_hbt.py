@@ -1909,6 +1909,7 @@ def add_config(
                 "res_dnn_pnet_*",
                 "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
                 "run3_dnn{,_moe}_*",
+                "vbf_dnn*",
                 "nu_truth.*.*",
                 *skip_column("*_{up,down}"),
             },
@@ -1916,7 +1917,7 @@ def add_config(
             # columns for dnn-based dy weight tests
             "dy_studies": {
                 ColumnCollection.MANDATORY_COFFEA,
-                "channel_id", "dy_weight",
+                "channel_id", "dy_weight", "vbf_dnn*",
                 "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
                 "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}", "met_{pt,phi}",
             },
