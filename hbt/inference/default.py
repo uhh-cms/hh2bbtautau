@@ -13,7 +13,7 @@ import collections
 import law
 import order as od
 
-from columnflow.inference import ParameterType, FlowStrategy
+from columnflow.inference import ParameterType, FlowStrategy  # , ParameterTransformation
 from columnflow.config_util import get_datasets_from_process
 
 from hbt.inference.base import HBTInferenceModelBase
@@ -35,17 +35,19 @@ class default(HBTInferenceModelBase):
 
     add_qcd = True
     fake_data = True
-    variable = "run3_dnn_moe_hh_fine"
+    variable_name = "run3_dnn_moe_hh_fine"
+    channel_names = ["etau", "mutau", "tautau"]
+    category_names = ["res1b", "res2b", "boosted"]
 
     def init_proc_map(self) -> None:
         # mapping of process names in the datacard ("combine name") to configs and process names in a dict
-        name_map = dict([
-            *[
-                (f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt", f"hh_ggf_hbb_htt_kl{kl}_kt1")
+        name_map = {
+            **{
+                f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt": f"hh_ggf_hbb_htt_kl{kl}_kt1"
                 for kl in ["0", "1", "2p45", "5"]
-            ],
-            *[
-                (f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbhtt", f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}")
+            },
+            **{
+                f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbhtt": f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}"
                 for kv, k2v, kl in [
                     ("1", "1", "1"),
                     ("1", "0", "1"),
@@ -58,22 +60,22 @@ class default(HBTInferenceModelBase):
                     ("m1p6", "2p72", "m1p36"),
                     ("m1p83", "3p57", "m3p39"),
                 ]
-            ],
-            ("ttbar", "tt"),
-            ("ttbarV", "ttv"),
-            ("ttbarVV", "ttvv"),
-            ("singlet", "st"),
-            ("DY", "dy"),
-            # ("EWK", "z"),  # currently not used
-            ("W", "w"),
-            ("VV", "vv"),
-            ("VVV", "vvv"),
-            ("WH_htt", "wh"),
-            ("ZH_hbb", "zh"),
-            ("ggH_htt", "h_ggf"),
-            ("qqH_htt", "h_vbf"),
-            ("ttH_hbb", "tth"),
-        ])
+            },
+            "ttbar": "tt",
+            "ttbarV": "ttv",
+            "ttbarVV": "ttvv",
+            "singlet": "st",
+            "DY": "dy",
+            # "EWK": "z",  # currently not used
+            "W": "w",
+            "VV": "vv",
+            "VVV": "vvv",
+            "WH_htt": "wh",
+            "ZH_hbb": "zh",
+            "ggH_htt": "h_ggf",
+            "qqH_htt": "h_vbf",
+            "ttH_hbb": "tth",
+        }
         if self.add_qcd:
             name_map["QCD"] = "qcd"
 
@@ -86,8 +88,8 @@ class default(HBTInferenceModelBase):
                 self.proc_map.setdefault(_combine_name, {})[config_inst] = proc_name
 
     def init_categories(self) -> None:
-        for ch in ["etau", "mutau", "tautau"]:
-            for cat in ["res1b", "res2b", "boosted"]:
+        for ch in self.channel_names:
+            for cat in self.category_names:
                 # gather fake processes to model data when needed
                 fake_processes = []
                 if self.fake_data:
@@ -108,7 +110,7 @@ class default(HBTInferenceModelBase):
                     config_data={
                         config_inst.name: self.category_config_spec(
                             category=f"{ch}__{cat}__os__iso",
-                            variable=self.variable,
+                            variable=self.variable_name,
                             data_datasets=["data_*"],
                         )
                         for config_inst in self.config_insts
@@ -206,7 +208,7 @@ class default(HBTInferenceModelBase):
         # theory uncertainties
         self.add_parameter(
             "BR_hbb",
-            type=ParameterType.rate_gauss,
+            type=ParameterType.shape,
             process=["*_hbb", "*_hbbhtt"],
             effect=(0.9874, 1.0124),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
@@ -380,33 +382,37 @@ class default(HBTInferenceModelBase):
                     group=["experiment", "shape_nuisances"],
                 )
 
-        # electron weight
-        for config_inst in self.config_insts:
-            self.add_parameter(
-                f"CMS_eff_e_{self.campaign_keys[config_inst]}",
-                type=ParameterType.shape,
-                config_data={
-                    config_inst.name: self.parameter_config_spec(shift_source="e"),
-                },
-                category=["*_etau_*"],
-                process=process_matches(configs=config_inst, skip_qcd=True),
-                process_match_mode=all,
-                group=["experiment", "shape_nuisances"],
-            )
+        # electron weights
+        # TODO: possibly correlate?
+        for e_source in ["e_id", "e_reco"]:
+            for config_inst in self.config_insts:
+                self.add_parameter(
+                    f"CMS_eff_{e_source}_{self.campaign_keys[config_inst]}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=e_source),
+                    },
+                    category=["*_etau_*"],
+                    process=process_matches(configs=config_inst, skip_qcd=True),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
 
-        # muon weight
-        for config_inst in self.config_insts:
-            self.add_parameter(
-                f"CMS_eff_m_{self.campaign_keys[config_inst]}",
-                type=ParameterType.shape,
-                config_data={
-                    config_inst.name: self.parameter_config_spec(shift_source="mu"),
-                },
-                category=["*_mutau_*"],
-                process=process_matches(configs=config_inst, skip_qcd=True),
-                process_match_mode=all,
-                group=["experiment", "shape_nuisances"],
-            )
+        # muon weights
+        # TODO: possibly correlate?
+        for mu_source in ["mu_id", "mu_iso"]:
+            for config_inst in self.config_insts:
+                self.add_parameter(
+                    f"CMS_eff_{mu_source}_{self.campaign_keys[config_inst]}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=mu_source),
+                    },
+                    category=["*_mutau_*"],
+                    process=process_matches(configs=config_inst, skip_qcd=True),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
 
         # tau weights
         for config_inst in self.config_insts:
@@ -461,6 +467,12 @@ class default(HBTInferenceModelBase):
         # eer
         pass  # TODO
 
+        # mec
+        pass  # TODO
+
+        # mer
+        pass  # TODO
+
         #
         # shape parameters based on entire dataset variations
         #
@@ -511,7 +523,11 @@ def default_no_shifts(self):
 
     # remove all parameters that require a shift source other than nominal
     for category_name, process_name, parameter in self.iter_parameters():
-        if parameter.type.is_shape or parameter.transformations.any_from_shape:
+        remove = (
+            (parameter.type.is_shape and not parameter.transformations.any_from_rate) or
+            (parameter.type.is_rate and parameter.transformations.any_from_shape)
+        )
+        if remove:
             self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
     # repeat the cleanup
@@ -520,18 +536,18 @@ def default_no_shifts(self):
 
 default_no_shifts_simple = default_no_shifts.derive(
     "default_no_shifts_simple",
-    cls_dict={"variable": "run3_dnn_simple_hh_fine"},
+    cls_dict={"variable_name": "run3_dnn_simple_hh_fine"},
 )
 
 # for variables from networks trained with different kl variations
 for kl in ["kl1", "kl0", "allkl"]:
     default_no_shifts.derive(
         f"default_no_shifts_simple_{kl}",
-        cls_dict={"variable": f"run3_dnn_simple_{kl}_hh_fine"},
+        cls_dict={"variable_name": f"run3_dnn_simple_{kl}_hh_fine"},
     )
 
 # even 5k binning
 default_no_shifts_simple_5k = default_no_shifts.derive(
     "default_no_shifts_simple_5k",
-    cls_dict={"variable": "run3_dnn_moe_hh_fine_5k"},
+    cls_dict={"variable_name": "run3_dnn_moe_hh_fine_5k"},
 )

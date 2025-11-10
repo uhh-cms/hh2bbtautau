@@ -587,8 +587,7 @@ def emu_trigger_weight(
 @producer(
     uses={
         "channel_id",
-        ee_trigger_weight,
-        mumu_trigger_weight,
+        ee_trigger_weight, mumu_trigger_weight,
     },
     produces={
         "ee_trigger_weight",
@@ -633,10 +632,7 @@ def ee_mumu_trigger_weight(
 
 @producer(
     uses={
-        etau_mutau_trigger_weight,
-        tautau_trigger_weight,
-        ee_mumu_trigger_weight,
-        emu_trigger_weight,
+        etau_mutau_trigger_weight, tautau_trigger_weight, ee_mumu_trigger_weight, emu_trigger_weight,
     },
     produces={
         "trigger_weight",
@@ -722,4 +718,5 @@ def trigger_weight(
                 trigger_weight = ak.where(channel_mask, variation_array, trigger_weight)
 
             events = set_ak_column_f32(events, varied_weight_name, trigger_weight)
+
     return events
