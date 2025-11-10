@@ -1795,14 +1795,14 @@ def add_config(
             ),
             version="v3",
         ))
-        # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB
+        # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB, https://indico.cern.ch/event/1590750/contributions/6784135/attachments/3169657/5634394/Jet_taggers_0711.pdf # noqa
         add_external("vbf_jtag_repo", Ext(
-            f"{central_hbt_dir}/VBFjtag-CCLUB-3905dcc.tar.gz",
+            f"{central_hbt_dir}/VBFjtag-0f0bec9.tar.gz",
             subpaths=DotDict(
-                even="VBFjtag-3905dcce38cbd9e768596542f2e396651fb690f8/models/VBFjTag_par_0",
-                odd="VBFjtag-3905dcce38cbd9e768596542f2e396651fb690f8/models/VBFjTag_par_1",
+                even="VBFjtag-0f0bec91c848c026156227ccecdcabc4f9daef89/models/VBFjTag_par_0",
+                odd="VBFjtag-0f0bec91c848c026156227ccecdcabc4f9daef89/models/VBFjTag_par_1",
             ),
-            version="v1",
+            version="v2",
         ))
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
