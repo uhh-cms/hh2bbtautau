@@ -527,6 +527,11 @@ def add_config(
         if year == 2022 and dataset.is_data and dataset.x.era in {"F", "G"}:
             dataset.add_tag("needs_custom_ecalBadCalibFilter")
 
+        # electron veto due to noisy EB channel in a single fill, see
+        # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=185#From_ECAL_and_EGM
+        if year == 2022 and dataset.is_data and dataset.x.era == "G":
+            dataset.add_tag("needs_eb_noise_electron_veto")
+
         # apply an optional limit on the number of files
         if limit_dataset_files:
             for info in dataset.info.values():
