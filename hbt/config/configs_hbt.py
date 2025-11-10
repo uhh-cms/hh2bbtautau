@@ -1103,10 +1103,20 @@ def add_config(
             e_postfix = "FIXME"  # TODO: 2024: lookup!
         else:
             assert False
-        cfg.x.electron_sf_names = ElectronSFConfig(
+        # TODO: 2024: different files being used for id and reco sfs
+        cfg.x.electron_id_sf = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
+        )
+        cfg.x.electron_reco_sf = ElectronSFConfig(
+            correction="Electron-ID-SF",
+            campaign=f"{year}{e_postfix}",
+            working_point={
+                "RecoBelow20": (lambda variables: variables["pt"] < 20.0),
+                "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
+                "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
+            },
         )
         cfg.x.electron_trigger_sf_names = ElectronSFConfig(
             correction="Electron-HLT-SF",
@@ -1153,7 +1163,12 @@ def add_config(
     if run == 2:
         cfg.x.muon_sf_names = MuonSFConfig(correction="NUM_TightRelIso_DEN_TightIDandIPCut")
     elif run == 3:
-        cfg.x.muon_sf_names = MuonSFConfig(correction="NUM_TightPFIso_DEN_TightID")
+        # id and iso
+        cfg.x.muon_id_sf = MuonSFConfig(correction="NUM_TightID_DEN_TrackerMuons", min_pt=15.0)
+        cfg.x.muon_id_sf_lowpt = MuonSFConfig(correction="NUM_TightID_DEN_TrackerMuons")  # producer uses min_pt above
+        cfg.x.muon_iso_sf = MuonSFConfig(correction="NUM_TightPFIso_DEN_TightID", min_pt=15.0)
+
+        # trigger
         cfg.x.muon_trigger_sf_names = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
         )
@@ -1485,35 +1500,32 @@ def add_config(
         cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_{{direction}}"})
 
-    cfg.add_shift(name="e_up", id=90, type="shape")
-    cfg.add_shift(name="e_down", id=91, type="shape")
-    add_shift_aliases(cfg, "e", {"electron_weight": "electron_weight_{direction}"})
+    # electron weights
+    cfg.add_shift(name="e_id_up", id=90, type="shape")
+    cfg.add_shift(name="e_id_down", id=91, type="shape")
+    add_shift_aliases(cfg, "e_id", {"electron_id_weight": "electron_id_weight_{direction}"})
 
-    # electron shifts
-    logger.debug("adding ees and eer shifts")
-    cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
-    cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
-    add_shift_aliases(
-        cfg,
-        "ees",
-        {
-            "Electron.pt": "Electron.pt_scale_{direction}",
-        },
-    )
+    cfg.add_shift(name="e_reco_up", id=92, type="shape")
+    cfg.add_shift(name="e_reco_down", id=93, type="shape")
+    add_shift_aliases(cfg, "e_reco", {"electron_reco_weight": "electron_reco_weight_{direction}"})
 
-    cfg.add_shift(name="eer_up", id=94, type="shape", tags={"eer"})
-    cfg.add_shift(name="eer_down", id=95, type="shape", tags={"eer"})
-    add_shift_aliases(
-        cfg,
-        "eer",
-        {
-            "Electron.pt": "Electron.pt_smear_{direction}",
-        },
-    )
+    # electron scale and smearing
+    cfg.add_shift(name="ees_up", id=94, type="shape", tags={"eec"})
+    cfg.add_shift(name="ees_down", id=95, type="shape", tags={"eec"})
+    add_shift_aliases(cfg, "ees", {"Electron.pt": "Electron.pt_scale_{direction}"})
 
-    cfg.add_shift(name="mu_up", id=100, type="shape")
-    cfg.add_shift(name="mu_down", id=101, type="shape")
-    add_shift_aliases(cfg, "mu", {"muon_weight": "muon_weight_{direction}"})
+    cfg.add_shift(name="eer_up", id=96, type="shape", tags={"eer"})
+    cfg.add_shift(name="eer_down", id=97, type="shape", tags={"eer"})
+    add_shift_aliases(cfg, "eer", {"Electron.pt": "Electron.pt_smear_{direction}"})
+
+    # muon weights
+    cfg.add_shift(name="mu_id_up", id=100, type="shape")
+    cfg.add_shift(name="mu_id_down", id=101, type="shape")
+    add_shift_aliases(cfg, "mu_id", {"muon_id_weight": "muon_id_weight_{direction}"})
+
+    cfg.add_shift(name="mu_iso_up", id=102, type="shape")
+    cfg.add_shift(name="mu_iso_down", id=103, type="shape")
+    add_shift_aliases(cfg, "mu_iso", {"muon_iso_weight": "muon_iso_weight_{direction}"})
 
     # muon scale and resolution
     cfg.add_shift(name="mec_up", id=104, type="shape", tags={"mec"})
@@ -1613,7 +1625,7 @@ def add_config(
 
     cfg.x.external_files = DotDict()
 
-    # helper
+    # helpers
     def add_external(name, value):
         if isinstance(value, dict):
             value = DotDict.wrap(value)
@@ -1919,8 +1931,10 @@ def add_config(
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
         "normalized_njet_btag_weight_pnet": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
-        "electron_weight": get_shifts("e"),
-        "muon_weight": get_shifts("mu"),
+        "electron_id_weight": get_shifts("e_id"),
+        "electron_reco_weight": get_shifts("e_reco"),
+        "muon_id_weight": get_shifts("mu_id"),
+        "muon_iso_weight": get_shifts("mu_iso"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
         "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in cfg.x.trigger_legs)),
     })
@@ -1938,7 +1952,7 @@ def add_config(
             if shift_inst.has_tag(("jec", "jer"))
         ],
         "lepton_sf": [
-            shift_inst.name for shift_inst in (*get_shifts("e"), *get_shifts("mu"))
+            shift_inst.name for shift_inst in get_shifts("e_id", "e_reco", "mu_id", "mu_iso")
         ],
         "tec": [
             shift_inst.name for shift_inst in cfg.shifts

@@ -183,8 +183,10 @@ def dy_dnn_features_init(self: Producer, **kwargs) -> None:
             "normalized_isr_weight",
             "normalized_fsr_weight",
             "normalized_njet_btag_weight_pnet",
-            "electron_weight",
-            "muon_weight",
+            "electron_id_weight",
+            "electron_reco_weight",
+            "muon_id_weight",
+            "muon_iso_weight",
             "tau_weight",
             "trigger_weight",
         ]

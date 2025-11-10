@@ -382,33 +382,37 @@ class default(HBTInferenceModelBase):
                     group=["experiment", "shape_nuisances"],
                 )
 
-        # electron weight
-        for config_inst in self.config_insts:
-            self.add_parameter(
-                f"CMS_eff_e_{self.campaign_keys[config_inst]}",
-                type=ParameterType.shape,
-                config_data={
-                    config_inst.name: self.parameter_config_spec(shift_source="e"),
-                },
-                category=["*_etau_*"],
-                process=process_matches(configs=config_inst, skip_qcd=True),
-                process_match_mode=all,
-                group=["experiment", "shape_nuisances"],
-            )
+        # electron weights
+        # TODO: possibly correlate?
+        for e_source in ["e_id", "e_reco"]:
+            for config_inst in self.config_insts:
+                self.add_parameter(
+                    f"CMS_eff_{e_source}_{self.campaign_keys[config_inst]}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=e_source),
+                    },
+                    category=["*_etau_*"],
+                    process=process_matches(configs=config_inst, skip_qcd=True),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
 
-        # muon weight
-        for config_inst in self.config_insts:
-            self.add_parameter(
-                f"CMS_eff_m_{self.campaign_keys[config_inst]}",
-                type=ParameterType.shape,
-                config_data={
-                    config_inst.name: self.parameter_config_spec(shift_source="mu"),
-                },
-                category=["*_mutau_*"],
-                process=process_matches(configs=config_inst, skip_qcd=True),
-                process_match_mode=all,
-                group=["experiment", "shape_nuisances"],
-            )
+        # muon weights
+        # TODO: possibly correlate?
+        for mu_source in ["mu_id", "mu_iso"]:
+            for config_inst in self.config_insts:
+                self.add_parameter(
+                    f"CMS_eff_{mu_source}_{self.campaign_keys[config_inst]}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=mu_source),
+                    },
+                    category=["*_mutau_*"],
+                    process=process_matches(configs=config_inst, skip_qcd=True),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
 
         # tau weights
         for config_inst in self.config_insts:
