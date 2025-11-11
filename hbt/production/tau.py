@@ -262,11 +262,17 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
     ch_mutau = self.config_inst.channels.n.mutau
     ch_tautau = self.config_inst.channels.n.tautau
 
-    # find out which tautau triggers are passed
+    # find out which triggers are passed
+    cross_lt_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     tautau_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     tautaujet_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     tautauvbf_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     for trigger in self.config_inst.x.triggers:
+        if trigger.has_tag("cross_e_tau") or trigger.has_tag("cross_mu_tau"):
+            cross_lt_trigger_passed = (
+                cross_lt_trigger_passed |
+                np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+            )
         if trigger.has_tag("cross_tau_tau"):
             tautau_trigger_passed = (
                 tautau_trigger_passed |
@@ -293,7 +299,6 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
 
     # define channel / trigger dependent masks
     channel_id = events.channel_id
-    cross_triggered = events.cross_triggered
 
     default_tautau_mask = (
         (channel_id == ch_tautau.id) &
@@ -308,10 +313,10 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
 
     # not existing yet
     # tautauvbf_mask = flat_np_view(default_tautau_mask & tautauvbf_trigger_passed, axis=1)
-    etau_mask = (channel_id == ch_etau.id) & cross_triggered & (ak.local_index(events.Tau) == 0)
+    etau_mask = (channel_id == ch_etau.id) & cross_lt_trigger_passed & (ak.local_index(events.Tau) == 0)
     flat_etau_mask = flat_np_view(etau_mask, axis=1)
 
-    mutau_mask = (channel_id == ch_mutau.id) & cross_triggered & (ak.local_index(events.Tau) == 0)
+    mutau_mask = (channel_id == ch_mutau.id) & cross_lt_trigger_passed & (ak.local_index(events.Tau) == 0)
     flat_mutau_mask = flat_np_view(mutau_mask, axis=1)
 
     # start with flat ones
