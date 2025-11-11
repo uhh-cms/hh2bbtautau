@@ -125,7 +125,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         genuine_mask = dm_mask & (taus_flat.genPartFlav == 5)
         if mask is not None:
             genuine_mask = genuine_mask & mask
-        sfs_flat[genuine_mask] = self.id_vs_jet_corrector(
+        sfs_flat[genuine_mask] = self.id_vs_jet_corrector.evaluate(
             taus_flat.pt[genuine_mask], taus_flat.decayMode[genuine_mask], 5, vs_jet_wp, vs_e_wp, syst, "dm",
         )
 
@@ -134,7 +134,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         fake_mask = dm_mask & ((taus_flat.genPartFlav == 1) | (taus_flat.genPartFlav == 3))
         if mask is not None:
             fake_mask = fake_mask & mask
-        sfs_flat[fake_mask] = self.id_vs_e_corrector(
+        sfs_flat[fake_mask] = self.id_vs_e_corrector.evaluate(
             abseta_flat[fake_mask], taus_flat.decayMode[fake_mask], taus_flat.genPartFlav[fake_mask], vs_e_wp, syst,
         )
 
@@ -144,7 +144,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             fake_mask = (ch_flat == ch.id) & ((taus_flat.genPartFlav == 2) | (taus_flat.genPartFlav == 4))
             if mask is not None:
                 fake_mask = fake_mask & mask
-            sfs_flat[fake_mask] = self.id_vs_mu_corrector(
+            sfs_flat[fake_mask] = self.id_vs_mu_corrector.evaluate(
                 abseta_flat[fake_mask], taus_flat.genPartFlav[fake_mask], vs_mu_wp[ch.name], syst,
             )
 
@@ -262,11 +262,17 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
     ch_mutau = self.config_inst.channels.n.mutau
     ch_tautau = self.config_inst.channels.n.tautau
 
-    # find out which tautau triggers are passed
+    # find out which triggers are passed
+    cross_lt_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     tautau_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     tautaujet_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     tautauvbf_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
     for trigger in self.config_inst.x.triggers:
+        if trigger.has_tag("cross_e_tau") or trigger.has_tag("cross_mu_tau"):
+            cross_lt_trigger_passed = (
+                cross_lt_trigger_passed |
+                np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+            )
         if trigger.has_tag("cross_tau_tau"):
             tautau_trigger_passed = (
                 tautau_trigger_passed |
@@ -293,7 +299,6 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
 
     # define channel / trigger dependent masks
     channel_id = events.channel_id
-    cross_triggered = events.cross_triggered
 
     default_tautau_mask = (
         (channel_id == ch_tautau.id) &
@@ -308,10 +313,10 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
 
     # not existing yet
     # tautauvbf_mask = flat_np_view(default_tautau_mask & tautauvbf_trigger_passed, axis=1)
-    etau_mask = (channel_id == ch_etau.id) & cross_triggered & (ak.local_index(events.Tau) == 0)
+    etau_mask = (channel_id == ch_etau.id) & cross_lt_trigger_passed & (ak.local_index(events.Tau) == 0)
     flat_etau_mask = flat_np_view(etau_mask, axis=1)
 
-    mutau_mask = (channel_id == ch_mutau.id) & cross_triggered & (ak.local_index(events.Tau) == 0)
+    mutau_mask = (channel_id == ch_mutau.id) & cross_lt_trigger_passed & (ak.local_index(events.Tau) == 0)
     flat_mutau_mask = flat_np_view(mutau_mask, axis=1)
 
     # start with flat ones
@@ -334,7 +339,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
             else:
                 raise ValueError(f"Unknown channel {corr_channel}")
             sf_nom = np.ones_like(pt, dtype=np.float32)
-            sf_nom[mask] = self.tau_trig_corrector(*eval_args(mask, corr_channel_arg, "nom"))
+            sf_nom[mask] = self.tau_trig_corrector.evaluate(*eval_args(mask, corr_channel_arg, "nom"))
             # create and store weights
             events = set_ak_column_f32(
                 events,
@@ -360,7 +365,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
                     # only possible with object-level information
                     sf_unc = ak.copy(events[f"tau_trigger_eff_{kind}_{ch}"])
                     sf_unc_flat = flat_np_view(sf_unc, axis=1)
-                    sf_unc_flat[flat_decay_mode_mask] = self.tau_trig_corrector(
+                    sf_unc_flat[flat_decay_mode_mask] = self.tau_trig_corrector.evaluate(
                         *eval_args(flat_decay_mode_mask, ch_corr, direction),
                     )
                     events = set_ak_column_f32(

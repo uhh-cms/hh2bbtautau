@@ -39,4 +39,4 @@ data
 .vscode
 .python-version
 .__afs*
-delete.txt
+delete*.txt

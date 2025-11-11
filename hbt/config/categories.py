@@ -69,6 +69,9 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="res1b", id="+", selection="cat_res1b", label="res1b")
     _add_category(config, name="res2b", id="+", selection="cat_res2b", label="res2b")
     _add_category(config, name="boosted", id="+", selection="cat_boosted", label="boosted")
+    _add_category(config, name="res1b_novbf", id="+", selection="cat_res1b_novbf", label="res1b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(config, name="res2b_novbf", id="+", selection="cat_res2b_novbf", label="res2b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(config, name="boosted_novbf", id="+", selection="cat_boosted_novbf", label="boosted (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
 
     #
     # build groups
@@ -107,7 +110,7 @@ def add_categories(config: od.Config) -> None:
         # channels first
         "channel": CategoryGroup(["etau", "mutau", "tautau"], is_complete=False, has_overlap=False),
         # kinematic regions in the middle (to be extended)
-        "kin": CategoryGroup(["incl", "res1b", "res2b", "boosted"], is_complete=True, has_overlap=True),
+        "kin": CategoryGroup(["incl", "res1b", "res2b", "boosted", "res1b_novbf", "res2b_novbf", "boosted_novbf"], is_complete=True, has_overlap=True),  # noqa: E501
         # qcd regions last
         "sign": CategoryGroup(["os", "ss"], is_complete=True, has_overlap=False),
         "tau2": CategoryGroup(["iso", "noniso"], is_complete=True, has_overlap=False),

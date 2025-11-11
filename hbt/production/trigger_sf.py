@@ -255,24 +255,38 @@ def etau_mutau_trigger_weight(
     """
     # create e/mu object-level masks for events in the etau and mutau channel, selecting only the leading lepton for
     # which the trigger efficiencies were initially calculated (we used the same lepton for matching in the selection)
+
+    # find out which etau/mutau triggers are passed
+    single_l_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
+    cross_lt_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
+    # vbf triggers left out for now
+    # cross_lj_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)
+    # for etau channel
+    # cross_jj_trigger_passed = ak.zeros_like(events.channel_id, dtype=bool)  # vbf treatment left out from here on
+    for trigger in self.config_inst.x.triggers:
+        if trigger.has_tag("single_e") or trigger.has_tag("single_mu"):
+            single_l_trigger_passed = single_l_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+        if trigger.has_tag("cross_e_tau") or trigger.has_tag("cross_mu_tau"):
+            cross_lt_trigger_passed = cross_lt_trigger_passed | np.any(events.matched_trigger_ids == trigger.id, axis=-1)
+
     single_electron_triggered = (
         (events.channel_id == self.config_inst.channels.n.etau.id) &
-        events.single_triggered &
+        single_l_trigger_passed &
         (ak.local_index(events.Electron) == 0)
     )
     single_muon_triggered = (
         (events.channel_id == self.config_inst.channels.n.mutau.id) &
-        events.single_triggered &
+        single_l_trigger_passed &
         (ak.local_index(events.Muon) == 0)
     )
     cross_electron_triggered = (
         (events.channel_id == self.config_inst.channels.n.etau.id) &
-        events.cross_triggered &
+        cross_lt_trigger_passed &
         (ak.local_index(events.Electron) == 0)
     )
     cross_muon_triggered = (
         (events.channel_id == self.config_inst.channels.n.mutau.id) &
-        events.cross_triggered &
+        cross_lt_trigger_passed &
         (ak.local_index(events.Muon) == 0)
     )
 
@@ -290,7 +304,7 @@ def etau_mutau_trigger_weight(
     events = self[single_trigger_electron_mc_effs](events, single_electron_triggered, **kwargs)
     events = self[cross_trigger_electron_mc_effs](events, cross_electron_triggered, **kwargs)
 
-    # create all tau efficiencies at object-level
+    # create all tau efficiencies at object-level for the non vbf triggers
     events = self[tau_trigger_effs_cclub](events, **kwargs)
 
     # create the nominal case
@@ -322,8 +336,8 @@ def etau_mutau_trigger_weight(
             cross_trigger_tau_data_effs,
             cross_trigger_tau_mc_effs,
             channel,
-            ((events.channel_id == channel.id) & events.single_triggered),
-            ((events.channel_id == channel.id) & events.cross_triggered),
+            ((events.channel_id == channel.id) & single_l_trigger_passed),
+            ((events.channel_id == channel.id) & cross_lt_trigger_passed),
         )
         events = set_ak_column_f32(events, f"{channel_name}_trigger_weight", trigger_weight)
 
@@ -333,8 +347,8 @@ def etau_mutau_trigger_weight(
             # e and mu variations
 
             channel = self.config_inst.get_channel(channel_name)
-            single_triggered = (events.channel_id == channel.id) & events.single_triggered
-            cross_triggered = (events.channel_id == channel.id) & events.cross_triggered
+            single_triggered = (events.channel_id == channel.id) & single_l_trigger_passed
+            cross_triggered = (events.channel_id == channel.id) & cross_lt_trigger_passed
 
             single_trigger_lepton_data_effs = events[f"single_trigger_{lepton}_data_effs_{direction}"]
             cross_trigger_lepton_data_effs = events[f"cross_trigger_{lepton}_data_effs_{direction}"]
@@ -587,8 +601,7 @@ def emu_trigger_weight(
 @producer(
     uses={
         "channel_id",
-        ee_trigger_weight,
-        mumu_trigger_weight,
+        ee_trigger_weight, mumu_trigger_weight,
     },
     produces={
         "ee_trigger_weight",
@@ -633,10 +646,7 @@ def ee_mumu_trigger_weight(
 
 @producer(
     uses={
-        etau_mutau_trigger_weight,
-        tautau_trigger_weight,
-        ee_mumu_trigger_weight,
-        emu_trigger_weight,
+        etau_mutau_trigger_weight, tautau_trigger_weight, ee_mumu_trigger_weight, emu_trigger_weight,
     },
     produces={
         "trigger_weight",
@@ -722,4 +732,5 @@ def trigger_weight(
                 trigger_weight = ak.where(channel_mask, variation_array, trigger_weight)
 
             events = set_ak_column_f32(events, varied_weight_name, trigger_weight)
+
     return events

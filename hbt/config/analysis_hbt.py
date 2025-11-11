@@ -115,32 +115,32 @@ def add_lazy_config(
 
 # 2022, preEE
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
-    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
+    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14_trg_v15",
+    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14_trg_v15",
     config_name="22pre_v14",
     config_id=5014,
 )
 
 # 2022, postEE
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
-    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
+    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14_trg_v15",
+    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14_trg_v15",
     config_name="22post_v14",
     config_id=6014,
 )
 
 # 2023, preBPix
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_uhh_v14",
-    campaign_attr="campaign_run3_2023_preBPix_nano_uhh_v14",
+    campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_uhh_v14_trg_v15",
+    campaign_attr="campaign_run3_2023_preBPix_nano_uhh_v14_trg_v15",
     config_name="23pre_v14",
     config_id=7014,
 )
 
 # 2023, postBPix
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_uhh_v14",
-    campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14",
+    campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_uhh_v14_trg_v15",
+    campaign_attr="campaign_run3_2023_postBPix_nano_uhh_v14_trg_v15",
     config_name="23post_v14",
     config_id=8014,
 )
@@ -159,78 +159,20 @@ add_lazy_config(
 
 # 2022, preEE
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_v12",
-    campaign_attr="campaign_run3_2022_preEE_nano_v12",
-    config_name="22pre_v12_sync",
-    config_id=5112,
+    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14_trg_v15",
+    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14_trg_v15",
+    config_name="22pre_v14_sync",
+    config_id=5114,
     add_limited=False,
     sync_mode=True,
 )
 
 # 2022, postEE
 add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_v12",
-    campaign_attr="campaign_run3_2022_postEE_nano_v12",
-    config_name="22post_v12_sync",
-    config_id=6112,
-    add_limited=False,
-    sync_mode=True,
-)
-
-# 2023, preBPix
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2023_preBPix_nano_v13",
-    campaign_attr="campaign_run3_2023_preBPix_nano_v13",
-    config_name="23pre_v13_sync",
-    config_id=7113,
-    add_limited=False,
-    sync_mode=True,
-)
-
-# 2023, postBPix
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2023_postBPix_nano_v13",
-    campaign_attr="campaign_run3_2023_postBPix_nano_v13",
-    config_name="23post_v13_sync",
-    config_id=8113,
-    add_limited=False,
-    sync_mode=True,
-)
-
-# 2022, preEE, v14
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
-    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
+    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14_trg_v15",
+    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14_trg_v15",
     config_name="22post_v14_sync",
     config_id=6114,
-    add_limited=False,
-    sync_mode=True,
-)
-
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
-    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
-    config_name="22pre_v14_sync",
-    config_id=5114,
-    add_limited=False,
-    sync_mode=True,
-)
-
-# 2022, preEE, v14
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_postEE_nano_uhh_v14",
-    campaign_attr="campaign_run3_2022_postEE_nano_uhh_v14",
-    config_name="22post_v14_sync",
-    config_id=6114,
-    add_limited=False,
-    sync_mode=True,
-)
-
-add_lazy_config(
-    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v14",
-    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v14",
-    config_name="22pre_v14_sync",
-    config_id=5114,
     add_limited=False,
     sync_mode=True,
 )
