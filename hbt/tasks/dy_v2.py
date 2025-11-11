@@ -285,7 +285,7 @@ class LoadDYData(DYBaseTask):
         dy_events = ak.concatenate(dy_events, axis=0) if dy_events else None
         bkg_events = ak.concatenate(bkg_events, axis=0) if bkg_events else None
 
-        outputs["data"].dump((data_events, dy_events, bkg_events), formatter="pickle")
+        outputs.dump((data_events, dy_events, bkg_events), formatter="pickle")
 
 
 class DYWeights(DYBaseTask):
