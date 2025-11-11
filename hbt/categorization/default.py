@@ -285,6 +285,32 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, mask
 
 
+@categorizer(uses={"vbf_dnn_moe_hh_vbf"})
+def cat_vbf_0p5(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, (events.vbf_dnn_moe_hh_vbf > 0.5)
+
+
+@categorizer(uses={cat_res1b, cat_vbf_0p5})
+def cat_res1b_novbf(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    events, res1b_mask = self[cat_res1b](events, **kwargs)
+    events, vbf_mask = self[cat_vbf_0p5](events, **kwargs)
+    return events, (res1b_mask & ~vbf_mask)
+
+
+@categorizer(uses={cat_res2b, cat_vbf_0p5})
+def cat_res2b_novbf(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    events, res2b_mask = self[cat_res2b](events, **kwargs)
+    events, vbf_mask = self[cat_vbf_0p5](events, **kwargs)
+    return events, (res2b_mask & ~vbf_mask)
+
+
+@categorizer(uses={cat_boosted, cat_vbf_0p5})
+def cat_boosted_novbf(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    events, boosted_mask = self[cat_boosted](events, **kwargs)
+    events, vbf_mask = self[cat_vbf_0p5](events, **kwargs)
+    return events, (boosted_mask & ~vbf_mask)
+
+
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_mll40(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]

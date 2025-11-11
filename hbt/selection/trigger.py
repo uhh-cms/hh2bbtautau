@@ -69,6 +69,7 @@ def trigger_selection(
                 for bits in leg.trigger_bits:
                     leg_mask = leg_mask & ((events.TrigObj.filterBits & bits) > 0)
             leg_masks[key] = index[leg_mask]
+
             # at least one object must match this leg
             all_legs_match = all_legs_match & ak.any(leg_mask, axis=1)
 
