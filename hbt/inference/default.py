@@ -208,7 +208,7 @@ class default(HBTInferenceModelBase):
         # theory uncertainties
         self.add_parameter(
             "BR_hbb",
-            type=ParameterType.shape,
+            type=ParameterType.rate_gauss,
             process=["*_hbb", "*_hbbhtt"],
             effect=(0.9874, 1.0124),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
