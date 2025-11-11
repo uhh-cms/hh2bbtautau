@@ -63,11 +63,37 @@ class DYBaseTask(
     DatasetsProcessesMixin
 ):
     """
-    some description
+    Base class for DY tasks.
     """
 
     single_config = True
     allow_empty_processes = True
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        # some useful definitions for later use
+        cat_dyc = self.config_inst.get_category("dyc")
+        cat_os = self.config_inst.get_category("os")
+        self.category_ids = [
+            cat.id for cat in cat_dyc.get_leaf_categories()
+            if cat_os.has_category(cat, deep=True)
+        ]
+
+        self.dilep_pt_inst = self.config_inst.variables.n.dilep_pt
+        self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow
+        self.njets_inst = self.config_inst.variables.n.njets
+
+        self.variables = [
+            (self.dilep_pt_inst, 'dilep_pt'),
+            (self.nbjets_inst, 'nbjets'),
+            (self.njets_inst, 'njets')
+        ]
+        self.variables_names = [var_name for _, var_name in self.variables]
+
+        self.channels = ["mumu", "ee"]
+        self.cats = ["eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j"]
+        self.postfixes = ["", "_postfit", "_norm"]
 
     @classmethod
     def modify_param_values(cls, params):
@@ -88,8 +114,58 @@ class DYBaseTask(
 
 class LoadDYData(DYBaseTask):
     """
-    some description
+    Example command:
+        > law run hbt.LoadDYData --config 22pre_v14 --version prod20_vbf
     """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.read_columns = [
+            "Jet.btagPNetB",
+            "channel_id",
+            "category_ids",
+            "process_id",
+            "Electron.pt",
+            "Electron.eta",
+            "Electron.phi",
+            "Electron.mass",
+            "Muon.mass",
+            "Muon.phi",
+            "Muon.eta",
+            "Muon.pt",
+            "Tau.mass",
+            "Tau.phi",
+            "Tau.eta",
+            "Tau.pt",
+            "gen_dilepton_pt",
+        ]
+        self.event_weight_columns = [
+            "normalization_weight",
+            "normalized_pdf_weight",
+            "normalized_murmuf_weight",
+            "normalized_pu_weight",
+            "normalized_isr_weight",
+            "normalized_fsr_weight",
+            "normalized_njet_btag_weight_pnet",
+            "electron_weight",
+            "muon_weight",
+            "tau_weight",
+            "trigger_weight",
+        ]
+        self.dataset_event_weight_columns = {
+            "tt_*": ["top_pt_weight"],
+        }
+        self.write_columns = [
+            "channel_id",
+            "category_ids",
+            "process_id",
+            "dilep_pt",
+            "gen_dilepton_pt",
+            "weight",
+            "njets",
+            "nbjets",
+        ]
 
     def output(self):
         return self.target("data.pkl")
@@ -214,80 +290,9 @@ class LoadDYData(DYBaseTask):
 
 class DYWeights(DYBaseTask):
     """
-    some description
+    Example command:
+        > law run hbt.DYWeights --config 22pre_v14 --version prod20_vbf
     """
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        self.read_columns = [
-            "Jet.btagPNetB",
-            "channel_id",
-            "category_ids",
-            "process_id",
-            "Electron.pt",
-            "Electron.eta",
-            "Electron.phi",
-            "Electron.mass",
-            "Muon.mass",
-            "Muon.phi",
-            "Muon.eta",
-            "Muon.pt",
-            "Tau.mass",
-            "Tau.phi",
-            "Tau.eta",
-            "Tau.pt",
-            "gen_dilepton_pt",
-        ]
-        self.event_weight_columns = [
-            "normalization_weight",
-            "normalized_pdf_weight",
-            "normalized_murmuf_weight",
-            "normalized_pu_weight",
-            "normalized_isr_weight",
-            "normalized_fsr_weight",
-            "normalized_njet_btag_weight_pnet",
-            "electron_weight",
-            "muon_weight",
-            "tau_weight",
-            "trigger_weight",
-        ]
-        self.dataset_event_weight_columns = {
-            "tt_*": ["top_pt_weight"],
-        }
-        self.write_columns = [
-            "channel_id",
-            "category_ids",
-            "process_id",
-            "dilep_pt",
-            "gen_dilepton_pt",
-            "weight",
-            "njets",
-            "nbjets",
-        ]
-
-        cat_dyc = self.config_inst.get_category("dyc")
-        cat_os = self.config_inst.get_category("os")
-        self.category_ids = [
-            cat.id for cat in cat_dyc.get_leaf_categories()
-            if cat_os.has_category(cat, deep=True)
-        ]
-
-        # some useful setups
-        self.dilep_pt_inst = self.config_inst.variables.n.dilep_pt
-        self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow
-        self.njets_inst = self.config_inst.variables.n.njets
-
-        self.variables = [
-            (self.dilep_pt_inst, 'dilep_pt'),
-            (self.nbjets_inst, 'nbjets'),
-            (self.njets_inst, 'njets')
-        ]
-        self.variables_names = [var_name for _, var_name in self.variables]
-
-        self.channels = ["mumu", "ee"]
-        self.cats = ["eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j"]
-        self.postfixes = ["", "_postfit", "_norm"]
 
     def output(self):
         outputs = {
