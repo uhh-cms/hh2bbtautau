@@ -564,7 +564,7 @@ def add_config(
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("all",)
-    cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
+    cfg.x.default_variables = ("njet", "nbtag", "jet1_pt")
     cfg.x.default_hist_producer = "default"
 
     # process groups for conveniently looping over certain processes
@@ -1906,7 +1906,6 @@ def add_config(
                 "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
                 "FatJet.{eta,phi,pt,mass}",
                 f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
-                "res_dnn_pnet_*",
                 "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
                 "run3_dnn{,_moe}_*",
                 "vbf_dnn*",
