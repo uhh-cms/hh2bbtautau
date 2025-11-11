@@ -115,7 +115,10 @@ class DYBaseTask(
 class LoadDYData(DYBaseTask):
     """
     Example command:
-        > law run hbt.LoadDYData --config 22pre_v14 --version prod20_vbf
+
+        > law run hbt.LoadDYData \
+            --config 22pre_v14 \
+            --version prod20_vbf
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -291,7 +294,11 @@ class LoadDYData(DYBaseTask):
 class DYWeights(DYBaseTask):
     """
     Example command:
-        > law run hbt.DYWeights --config 22pre_v14 --version prod20_vbf
+
+        > law run hbt.DYWeights \
+            --config 22pre_v14 \
+            --datasets bkg_data \
+            --version prod20_vbf
     """
 
     def output(self):
@@ -367,14 +374,30 @@ class DYWeights(DYBaseTask):
 
             # get pre-fit hists and plots
             original_dy_weights = dy_events.weight
-            [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(
-                data_hists, dy_hists, bkg_hists,
-                data_events, dy_events, bkg_events,
-                njet_fit_min, njet_fit_max, fit_data, original_dy_weights,
-                cat_fit,
-                self.variables,
-                "",
-            )
+            for key, norm_data in fit_data.items():
+                if isinstance(key, str):
+                    continue
+                (njet_min, njet_max) = key
+                cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
+                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                    data_hists, dy_hists, bkg_hists,
+                    data_events, dy_events, bkg_events,
+                    njet_fit_min, njet_fit_max, fit_data, original_dy_weights,
+                    cat_bin,
+                    self.variables,
+                    "",
+                )
+
+            # get pre-fit hists and plots for ge4j category
+            if cat_fit == "ge4j":
+                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(
+                    data_hists, dy_hists, bkg_hists,
+                    data_events, dy_events, bkg_events,
+                    njet_fit_min, njet_fit_max, fit_data, original_dy_weights,
+                    cat_fit,
+                    self.variables,
+                    "",
+                )
 
             ##############################################################
             # calculate (data-bkg)/dy ratio in dilep_pt using mumu channel
@@ -448,7 +471,7 @@ class DYWeights(DYBaseTask):
                         data_events, dy_events, bkg_events,
                         njet_fit_min, njet_fit_max, fit_data, postfit_dy_weights,
                         cat_bin,
-                        [(self.nbjets_inst, 'nbjets')],
+                        self.variables,
                         "_postfit",
                     )
 
@@ -488,20 +511,19 @@ class DYWeights(DYBaseTask):
             norm_dy_weights = dy_events.weight * dy_events.dy_weight_postfit * dy_events.dy_weight_norm
 
             # get norm hists and plots
-            if cat_fit != "ge4j":
-                for key, norm_data in fit_data.items():
-                    if isinstance(key, str):
-                        continue
-                    (njet_min, njet_max) = key
-                    cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
-                    [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
-                        data_hists, dy_hists, bkg_hists,
-                        data_events, dy_events, bkg_events,
-                        njet_fit_min, njet_fit_max, fit_data, norm_dy_weights,
-                        cat_bin,
-                        self.variables,
-                        "_norm",
-                    )
+            for key, norm_data in fit_data.items():
+                if isinstance(key, str):
+                    continue
+                (njet_min, njet_max) = key
+                cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
+                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                    data_hists, dy_hists, bkg_hists,
+                    data_events, dy_events, bkg_events,
+                    njet_fit_min, njet_fit_max, fit_data, norm_dy_weights,
+                    cat_bin,
+                    self.variables,
+                    "_norm",
+                )
 
             # get norm hists and plots for ge4j category
             if cat_fit == "ge4j":
@@ -793,7 +815,8 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
         > law run hbt.ExportDYWeights \
             --configs 22pre_v14,22post_v14,... \
-            --version some_version
+            --hbt.DYWeights-datasets bkg_data \
+            --version prod20_vbf
     """
     single_config = False
 
@@ -827,6 +850,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         )
 
         outp = self.output()
+        outp.parent.touch()
         with gzip.open(outp.abspath, "wt") as f:
             f.write(cset.model_dump_json(exclude_unset=True))
 
