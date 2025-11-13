@@ -440,8 +440,11 @@ def add_config(
         *if_era(year=2023, tag="preBPix", values=[
             f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
         ]),
+        *if_era(year=2023, tag="preBPix", values=[
+            f"data_{stream}_c{v}" for stream in ["parking_vbf"] for v in "34"
+        ]),
         *if_era(year=2023, tag="postBPix", values=[
-            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau"] for v in "12"
+            f"data_{stream}_d{v}" for stream in ["e", "mu", "tau", "parking_vbf"] for v in "12"
         ]),
         *if_era(year=2024, values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cdefghi"
@@ -461,6 +464,8 @@ def add_config(
             dataset.add_tag({"mutau", "emu_from_mu", "mumu"})
         if dataset.name.startswith("data_tau_"):
             dataset.add_tag({"tautau"})
+        if dataset.name.startswith("data_parking_vbf_"):
+            dataset.add_tag({"parking_vbf"})
         if dataset.name.startswith("tt_"):
             dataset.add_tag({"has_top", "ttbar", "tt"})
         if dataset.name.startswith("st_"):
@@ -559,7 +564,7 @@ def add_config(
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("all",)
-    cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
+    cfg.x.default_variables = ("njet", "nbtag", "jet1_pt")
     cfg.x.default_hist_producer = "default"
 
     # process groups for conveniently looping over certain processes
@@ -1161,7 +1166,7 @@ def add_config(
     # (used in the muon producer)
     from columnflow.production.cms.muon import MuonSFConfig
     if run == 2:
-        cfg.x.muon_sf_names = MuonSFConfig(correction="NUM_TightRelIso_DEN_TightIDandIPCut")
+        cfg.x.muon_sf = MuonSFConfig(correction="NUM_TightRelIso_DEN_TightIDandIPCut")
     elif run == 3:
         # id and iso
         cfg.x.muon_id_sf = MuonSFConfig(correction="NUM_TightID_DEN_TrackerMuons", min_pt=15.0)
@@ -1751,6 +1756,9 @@ def add_config(
     add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
+    # vbf models trained by cclub
+    for fold in range(5):
+        add_external(f"vbf_dnn_fold{fold}", (f"{central_hbt_dir}/run3_models/run3_vbf_dnn/model_fold{fold}.tgz", "v1"))
 
     # run specific files
     if run == 2:
@@ -1778,6 +1786,7 @@ def add_config(
         add_external("jet_id", (cat_info.get_file("jme", "jetid.json.gz"), "v1"))
         # muon scale factors
         add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
+        add_external("muon_sf_lowpt", (cat_info.get_file("muo", "muon_JPsi.json.gz"), "v1"))
         # met phi correction
         if year != 2024:  # TODO: 2024: not yet available
             add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
@@ -1897,9 +1906,9 @@ def add_config(
                 "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
                 "FatJet.{eta,phi,pt,mass}",
                 f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
-                "res_dnn_pnet_*",
                 "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
                 "run3_dnn{,_moe}_*",
+                "vbf_dnn*",
                 "nu_truth.*.*",
                 *skip_column("*_{up,down}"),
             },
@@ -1907,7 +1916,7 @@ def add_config(
             # columns for dnn-based dy weight tests
             "dy_studies": {
                 ColumnCollection.MANDATORY_COFFEA,
-                "channel_id", "dy_weight",
+                "channel_id", "dy_weight", "vbf_dnn*",
                 "keep_in_union", "gen_ll_{pt,pdgid}", "event_weight", "n_jet", "n_btag_pnet", "n_btag_pnet_hhb",
                 "{ll,bb,llbb}_{pt,eta,phi,mass}", "{jet,lep}1_{pt,eta,phi}", "met_{pt,phi}",
             },

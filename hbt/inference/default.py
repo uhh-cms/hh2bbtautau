@@ -116,7 +116,7 @@ class default(HBTInferenceModelBase):
                         for config_inst in self.config_insts
                     },
                     data_from_processes=fake_processes,
-                    mc_stats=10.0,
+                    mc_stats=10,
                     empty_bin_value=1e-5,  # setting this to 0 disables empty bin filling
                     flow_strategy=FlowStrategy.move,
                 )
@@ -208,7 +208,7 @@ class default(HBTInferenceModelBase):
         # theory uncertainties
         self.add_parameter(
             "BR_hbb",
-            type=ParameterType.shape,
+            type=ParameterType.rate_gauss,
             process=["*_hbb", "*_hbbhtt"],
             effect=(0.9874, 1.0124),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
@@ -532,6 +532,12 @@ def default_no_shifts(self):
 
     # repeat the cleanup
     self.init_cleanup()
+
+
+default_no_shifts_no_vbf = default_no_shifts.derive(
+    "default_no_shifts_no_vbf",
+    cls_dict={"category_names": ["res1b_novbf", "res2b_novbf", "boosted_novbf"]},
+)
 
 
 default_no_shifts_simple = default_no_shifts.derive(

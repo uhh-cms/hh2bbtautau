@@ -69,6 +69,14 @@ muon_iso_weights = muon_weights.derive(
 
 top_pt_weight = cf_top_pt_weight.derive("top_pt_weight", cls_dict={"require_dataset_tag": None})
 
+muon_weights_lowpt = muon_weights.derive(
+    "muon_weights_lowpt",
+    cls_dict={
+        "get_muon_file": (lambda self, external_files: external_files.muon_sf_lowpt),
+        "get_muon_config": (lambda self: self.config_inst.x.muon_sf_lowpt),
+    },
+)
+
 
 @producer(
     uses={
