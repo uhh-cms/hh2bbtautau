@@ -40,3 +40,4 @@ data
 .python-version
 .__afs*
 delete*.txt
+datacard*.txt
