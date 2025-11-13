@@ -12,6 +12,7 @@ import order as od
 import awkward as ak
 import dataclasses
 import gzip
+import correctionlib
 
 from columnflow.tasks.framework.base import TaskShifts, ConfigTask
 from columnflow.tasks.framework.mixins import (
@@ -939,3 +940,102 @@ class ExportDYWeights(HBTTask, ConfigTask):
                 ),
             )
         return dy_weight_correction
+
+
+class EvaluateDYWeights(DYBaseTask):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.variables = [
+            (self.nbjets_inst, "nbjets")
+        ]
+
+        self.era = self.config_inst.x.dy_weight_config.era
+        self.channels = ["mumu"]  # , "ee"]
+        self.cat_def = [("ge2j", 2, 101)]  # , ("eq2j", 2, 3), ("eq3j", 3, 4), ("ge4j", 4, 101)]
+
+        # load DY weight corrections from json file
+        self.dy_file = "/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14__22post_v14__23pre_v14__23post_v14/prod20_vbf/hbt_corrections.json.gz"  # noqa: E501
+        self.dy_correction = correctionlib.CorrectionSet.from_file(self.dy_file)
+        self.correction_set = self.dy_correction["dy_weight"]
+
+    def requires(self):
+        return LoadDYData.req(self)
+
+    def output(self):
+        outputs = {}
+
+        identifier = [
+            f"{channel}__dyc__{cat}__ge0b__os__{var_name}"
+            for channel in self.channels
+            for cat, njet_min, njet_max in self.cat_def
+            for _, var_name in self.variables
+        ]
+
+        for id_str in identifier:
+            outputs[id_str] = self.target(f"{id_str}.pdf")
+
+        return outputs
+
+    def hist_function(self, var, data, weights):
+        h = create_hist_from_variables(var, weight=True)
+        fill_hist(h, {var.name: data, "weight": weights})
+        return h
+
+    def run(self):
+        outputs = self.output()
+
+        # read data, potentially from cache
+        data_events, dy_events, bkg_events = self.input().load(formatter="pickle")
+
+        data_hists = {}
+        dy_hists = {}
+        bkg_hists = {}
+        bkg_process = od.Process(name="Backgrounds", id="+", color1="#e76300")
+
+        # get DY updated weights
+        syst = "nom"
+        dy_n_jet = dy_events.njets
+        dy_n_tag = dy_events.nbjets
+        dy_ll_pt = dy_events.gen_dilepton_pt
+        dy_sf = self.correction_set.evaluate(self.era, dy_n_jet, dy_n_tag, dy_ll_pt, syst)
+        clib_weight = dy_events.weight * dy_sf
+
+        print("\n--> Done evaluating DY weights using following file:")
+        print(self.dy_file.replace("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/", ""))
+
+        channel = "mumu"
+        channel_id = self.config_inst.channels.n.mumu.id
+
+        for cat, njet_min, njet_max in self.cat_def:
+            cat_label = f"{channel}__dyc__{cat}__ge0b__os"
+
+            # get hists
+            for hist, events in [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)]:
+                for (var, var_name) in self.variables:
+                    identifier = f"{channel}__dyc__{cat}__ge0b__os__{var_name}"
+                    event_mask = (events.njets >= njet_min) & (events.njets < njet_max) & (events.channel_id == channel_id)  # noqa: E501
+                    if hist is dy_hists:
+                        hist[identifier] = self.hist_function(var, events[var_name][event_mask], clib_weight[event_mask])  # noqa: E501
+                    else:
+                        hist[identifier] = self.hist_function(var, events[var_name][event_mask], events.weight[event_mask])  # noqa: E501
+
+            # get plots
+            for (var, var_name) in self.variables:
+                identifier = f"{channel}__dyc__{cat}__ge0b__os__{var_name}"
+
+                hists_to_plot = {
+                    self.config_inst.get_process("dy"): dy_hists[identifier],
+                    self.config_inst.get_process("data"): data_hists[identifier],
+                    bkg_process: bkg_hists[identifier],
+                }
+
+                fig, _ = plot_variable_stack(
+                    hists=hists_to_plot,
+                    config_inst=self.config_inst,
+                    category_inst=self.config_inst.get_category(cat_label),
+                    variable_insts=[var,],
+                    shift_insts=[self.config_inst.get_shift("nominal")],
+                )
+                outputs[identifier].dump(fig, formatter="mpl")
