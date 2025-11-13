@@ -152,8 +152,10 @@ class LoadDYData(DYBaseTask):
             "normalized_isr_weight",
             "normalized_fsr_weight",
             "normalized_njet_btag_weight_pnet",
-            "electron_weight",
-            "muon_weight",
+            "electron_id_weight",
+            "electron_reco_weight",
+            "muon_id_weight",
+            "muon_iso_weight",
             "tau_weight",
             "trigger_weight",
         ]
@@ -956,7 +958,7 @@ class EvaluateDYWeights(DYBaseTask):
         self.cat_def = [("ge2j", 2, 101)]  # , ("eq2j", 2, 3), ("eq3j", 3, 4), ("ge4j", 4, 101)]
 
         # load DY weight corrections from json file
-        self.dy_file = "/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14__22post_v14__23pre_v14__23post_v14/prod20_vbf/hbt_corrections.json.gz"  # noqa: E501
+        self.dy_file = "/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod20_vbf_dy_fix_v2/hbt_corrections.json.gz"  # noqa: E501
         self.dy_correction = correctionlib.CorrectionSet.from_file(self.dy_file)
         self.correction_set = self.dy_correction["dy_weight"]
 
