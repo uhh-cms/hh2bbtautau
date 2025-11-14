@@ -12,7 +12,7 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, load_correction_set
-from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
+from columnflow.columnar_util import set_ak_column
 
 
 ak = maybe_import("awkward")
@@ -49,14 +49,9 @@ def jet_trigger_efficiencies(
     Resources:
     https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors/2023postBPix/ditaujet_jetleg_SFs_postBPix.json
     """
-
-    # flat absolute eta and pt views
-    abs_eta = flat_np_view(abs(events.HHBJet.eta[jet_mask]), axis=1)
-    pt = flat_np_view(events.HHBJet.pt[jet_mask], axis=1)
-
     variable_map = {
-        "pt": pt,
-        "abseta": abs_eta,
+        "pt": events.HHBJet.pt[jet_mask],
+        "abseta": abs(events.HHBJet.eta[jet_mask]),
     }
 
     # loop over efficiency type
@@ -74,10 +69,7 @@ def jet_trigger_efficiencies(
                 "data_or_mc": kind,
             }
             inputs = [variable_map_syst[inp.name] for inp in self.jet_trig_corrector.inputs]
-            sf_flat = self.jet_trig_corrector(*inputs)
-
-            # add the correct layout to it
-            sf = layout_ak_array(sf_flat, events.HHBJet.pt[jet_mask])
+            sf = self.jet_trig_corrector(*inputs)
 
             # store it
             events = set_ak_column(events, f"{self.efficiency_name}_{kind}{postfix}", sf, value_type=np.float32)

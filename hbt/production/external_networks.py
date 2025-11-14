@@ -13,7 +13,8 @@ import law
 from columnflow.production import Producer
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import (
-    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections,
+    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections, ak_concatenate_safe,
+    layout_ak_array,
 )
 from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.types import Any
@@ -171,7 +172,7 @@ class _external_dnn(Producer):
 
         # get visible tau decay products, consider them all as tau types
         vis_taus = attach_behavior(
-            ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
+            ak_concatenate_safe((events.Electron, events.Muon, events.Tau), axis=1),
             type_name="Tau",
         )
         vis_tau1, vis_tau2 = vis_taus[:, 0], vis_taus[:, 1]
@@ -264,10 +265,12 @@ class _external_dnn(Producer):
 
         # mask values as done during training of the network
         def mask_values(mask, value, *fields):
+            if not ak.any(mask):
+                return
             for field in fields:
-                arr = ak.fill_none(f[field], value, axis=0)
-                flat_np_view(arr)[mask] = value
-                f[field] = arr
+                arr = flat_np_view(ak.fill_none(f[field], value, axis=0), copy=True)
+                arr[flat_np_view(mask)] = value
+                f[field] = layout_ak_array(arr, f[field]) if f[field].ndim > 1 else arr
 
         mask_values(~has_jet_pair, 0.0, "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e")
         mask_values(~has_jet_pair, 0.0, "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e")

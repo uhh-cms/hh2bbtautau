@@ -15,6 +15,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.production.cms.jet import jet_id, fatjet_id
 from columnflow.columnar_util import (
     EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view, full_like,
+    ak_concatenate_safe, layout_ak_array,
 )
 from columnflow.util import maybe_import
 
@@ -66,14 +67,12 @@ def jet_trigger_matching(
         masked_jets = events.Jet
 
     # define the back mapping to the original jet collection
-
     def map_to_full_jet_array(matched_mask: ak.Array) -> ak.Array:
         if jet_object_mask is None:
             return matched_mask
-        full_mask = full_like(events.Jet.pt, False, dtype=bool)
-        flat_full_mask = flat_np_view(full_mask)
+        flat_full_mask = flat_np_view(ak.drop_none(ak.full_like(events.Jet.pt, False, dtype=bool)))
         flat_full_mask[flat_np_view(jet_object_mask)] = flat_np_view(matched_mask)
-        return full_mask
+        return layout_ak_array(flat_full_mask, events.Jet)
 
     # start per-jet mask with trigger object matching per leg
     if is_cross_tau_tau_jet:
@@ -327,16 +326,15 @@ def jet_selection(
                 )
 
                 # cast leading matched mask to event mask
-                leading_matched_all_events = full_like(events.event, False, dtype=bool)
-                flat_leading_matched_all_events = flat_np_view(leading_matched_all_events)
-                flat_leading_matched_all_events[flat_np_view(ttj_mask)] = flat_np_view(leading_matched)
+                leading_matched_all_events = np.zeros(len(events), dtype=bool)
+                leading_matched_all_events[flat_np_view(ttj_mask)] = flat_np_view(leading_matched)
 
                 # store the matched trigger ids
                 ids = ak.where(leading_matched_all_events, np.float32(trigger.id), np.float32(np.nan))
                 matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
 
         # store the matched trigger ids
-        matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
+        matched_trigger_ids = ak_concatenate_safe(matched_trigger_ids_list, axis=1)
         # replace the existing column matched_trigger_ids from the lepton selection with the updated one
         events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
 
@@ -389,13 +387,12 @@ def jet_selection(
         leading_matched = ak.fill_none(ak.firsts(matching_mask[sel_hhbjet_mask][pt_sorting_indices], axis=1), False)
 
         # cast full leading matched mask to event mask
-        full_leading_matched_all_events = full_like(events.event, False, dtype=bool)
-        flat_full_leading_matched_all_events = flat_np_view(full_leading_matched_all_events)
-        flat_full_leading_matched_all_events[flat_np_view(ttj_mask)] = flat_np_view(leading_matched)
+        full_leading_matched_all_events = np.zeros(len(events), dtype=bool)
+        full_leading_matched_all_events[flat_np_view(ttj_mask)] = flat_np_view(leading_matched)
 
         # remove all events where the matching did not work if they were only triggered by the tautaujet trigger
         match_at_least_one_trigger = ak.where(
-            only_ttj_mask & ~flat_full_leading_matched_all_events,
+            only_ttj_mask & ~full_leading_matched_all_events,
             False,
             match_at_least_one_trigger,
         )
@@ -521,7 +518,7 @@ def jet_selection(
                 matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
 
         # store the matched trigger ids
-        matched_trigger_ids = ak.concatenate(matched_trigger_ids_list, axis=1)
+        matched_trigger_ids = ak_concatenate_safe(matched_trigger_ids_list, axis=1)
         events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
 
         # remove events if from parking_vbf datasets and matched by another trigger
