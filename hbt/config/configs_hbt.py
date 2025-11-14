@@ -1949,8 +1949,8 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        # if dataset.has_tag("ttbar"):
-        # dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        if dataset.has_tag("ttbar"):
+            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
             dataset.x.event_weights = {"dy_weight": get_shifts(*(f"dy_stat_btag{nb}" for nb in [0, 1, 2]))}
 
