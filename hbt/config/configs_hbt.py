@@ -146,58 +146,12 @@ def add_config(
             label=r"$t\bar{t}$ + Multiboson",
             processes=[procs.n.ttv, procs.n.ttvv],
         )
-        """
-        cfg.add_process(
-            name="dy_nlo",
-            id=7995,
-            label="DY NLO",
-            processes=[
-                procs.n.dy_m4to10, procs.n.dy_m10to50, procs.n.dy_m50toinf,
-                procs.n.dy_m50toinf_0j, procs.n.dy_m50toinf_1j, procs.n.dy_m50toinf_2j,
-                procs.n.dy_m50toinf_3j, procs.n.dy_m50toinf_4j, procs.n.dy_0j, procs.n.dy_1j, procs.n.dy_2j,
-                procs.n.dy_m50toinf_1j_pt40to100, procs.n.dy_m50toinf_1j_pt100to200, procs.n.dy_m50toinf_1j_pt200to400,
-                procs.n.dy_m50toinf_1j_pt400to600, procs.n.dy_m50toinf_1j_pt600toinf,
-                procs.n.dy_m50toinf_2j_pt40to100, procs.n.dy_m50toinf_2j_pt100to200, procs.n.dy_m50toinf_2j_pt200to400,
-                procs.n.dy_m50toinf_2j_pt400to600, procs.n.dy_m50toinf_2j_pt600toinf,
-            ],
-        )
-
-        cfg.add_process(
-            name="dy_lo",
-            id=7994,
-            label="DY LO",
-            processes=[
-                procs.n.dy_m4to50_ht40to70, procs.n.dy_m4to50_ht70to100, procs.n.dy_m4to50_ht100to400,
-                procs.n.dy_m4to50_ht400to800, procs.n.dy_m4to50_ht800to1500, procs.n.dy_m4to50_ht1500to2500,
-                procs.n.dy_m4to50_ht2500toinf, procs.n.dy_m50toinf_pt40to100, procs.n.dy_m50toinf_pt100to200,
-                procs.n.dy_m50toinf_pt200to400, procs.n.dy_m50toinf_pt400to600, procs.n.dy_m50toinf_pt600toinf,
-            ],
-        )
-        cfg.add_process(
-            name="dy_nnlo",
-            id=7993,
-            label="DY NNLO",
-            processes=[
-                procs.n.dy_ee_m10to50, procs.n.dy_ee_m50to120, procs.n.dy_ee_m120to200,
-                procs.n.dy_ee_m200to400, procs.n.dy_ee_m400to800, procs.n.dy_ee_m800to1500,
-                procs.n.dy_ee_m1500to2500, procs.n.dy_ee_m2500to4000, procs.n.dy_ee_m4000to6000,
-                procs.n.dy_ee_m6000toinf, procs.n.dy_mumu_m10to50, procs.n.dy_mumu_m50to120,
-                procs.n.dy_mumu_m120to200, procs.n.dy_mumu_m200to400, procs.n.dy_mumu_m400to800,
-                procs.n.dy_mumu_m800to1500, procs.n.dy_mumu_m1500to2500, procs.n.dy_mumu_m2500to4000,
-                procs.n.dy_mumu_m4000to6000, procs.n.dy_mumu_m6000toinf, procs.n.dy_tautau_m10to50,
-                procs.n.dy_tautau_m50to120, procs.n.dy_tautau_m120to200, procs.n.dy_tautau_m200to400,
-                procs.n.dy_tautau_m400to800, procs.n.dy_tautau_m800to1500, procs.n.dy_tautau_m1500to2500,
-                procs.n.dy_tautau_m2500to4000, procs.n.dy_tautau_m4000to6000, procs.n.dy_tautau_m6000toinf,
-            ],
-        )
-        """
 
     # processes we are interested in
     process_names = [
         "data",
         "tt",
         "st",
-        # "dy_lo",
         "dy",
         "tt_multiboson",
         "all_v",
@@ -248,14 +202,6 @@ def add_config(
         if re.match(r"^dy(|_.+)$", process_name):
             for _proc, _, _ in proc.walk_processes(include_self=True):
                 _proc.add_tag("dy")
-        """
-        if process_name.startswith("dy_") and process_name.endswith("_madgraph"):
-            proc.add_tag("dy_lo")
-        if process_name.startswith("dy_") and process_name.endswith("_amcatnlo"):
-            proc.add_tag("dy_nlo")
-        if process_name.startswith("dy_") and process_name.endswith("_powheg"):
-            proc.add_tag("dy_nnlo")
-        """
         if re.match(r"^w_lnu(|_.+)$", process_name):
             for _proc, _, _ in proc.walk_processes(include_self=True):
                 _proc.add_tag("w_lnu")
@@ -790,29 +736,18 @@ def add_config(
     # (used during plotting)
     cfg.x.variable_groups = {
         "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
-        # definition in analysis master
-        """
-        "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
-        "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
-        "default": [
-            *dijet, *dilep, *hh,
-            "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
-            "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
-            "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
-        ],
-        """
         # definition for DY plots
         "dilep": (dilep := [f"dilep_{var}" for var in ["mass", "pt"]]),
         "dibjet": (dibjet := [f"dibjet_{var}" for var in ["mass", "pt"]]),
         "nbjets": (nbjets := [f"nbjets_{var}" for var in ["deepjet", "pnet"]]),
-        "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1", "tau1"] for var in ["pt", "eta"]]),
+        "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1"] for var in ["pt", "eta"]]),
         "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
         "default": [
             "ht", *nbjets, *jet, *lep, *dilep, *dibjet, *hh, "njets",
         ],
         "dy_variables": [
-            "ht", *nbjets, *dilep, *dibjet, "njets",
-            # "njets-dilep_pt",
+            "nbjets_pnet", "nbjets_pnet_overflow", "njets", "met_pt",
+            *dilep, *dibjet, *lep, *jet,
         ],
     }
 
@@ -1442,7 +1377,7 @@ def add_config(
             systs=[
                 "stat_btag0_up", "stat_btag0_down",
                 "stat_btag1_up", "stat_btag1_down",
-                "stat_btag2_up", "stat_btag2_down"
+                "stat_btag2_up", "stat_btag2_down",
             ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
             get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
@@ -2019,8 +1954,8 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        # if dataset.has_tag("ttbar"):
-        # dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        if dataset.has_tag("ttbar"):
+            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
             dataset.x.event_weights = {"dy_weight": get_shifts(*(f"dy_stat_btag{nb}" for nb in [0, 1, 2]))}
 
