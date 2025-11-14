@@ -10,7 +10,9 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, DotDict
-from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column, full_like, flat_np_view
+from columnflow.columnar_util import (
+    EMPTY_FLOAT, layout_ak_array, set_ak_column, full_like, flat_np_view, ak_concatenate_safe,
+)
 from columnflow.types import Any
 
 from hbt.util import MET_COLUMN
@@ -90,7 +92,7 @@ def hhbtag(
     # helper to split events, cast to float32, concatenate across new axis,
     # then pad with zeros for up to n_jets_max jets
     def split(where):
-        features = ak.concatenate(
+        features = ak_concatenate_safe(
             [
                 ak.values_astype(f[where][..., None], np.float32)
                 for f in input_features
@@ -133,14 +135,15 @@ def hhbtag(
         scores_ext = layout_ext
     else:
         scores_ext = layout_ak_array(np.zeros(len(ak.flatten(layout_ext)), dtype=np.int32), layout_ext)
-    scores = ak.concatenate([scores, scores_ext], axis=1)
+    scores = ak_concatenate_safe([scores, scores_ext], axis=1)
 
     # prevent Memory Corruption Error
     jet_mask = ak.fill_none(jet_mask, False, axis=-1)
 
     # insert scores into an array with same shape as input jets (without jet_mask and event_mask)
-    all_scores = ak.fill_none(full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
-    flat_np_view(all_scores, axis=1)[ak.flatten(jet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)  # noqa: E501
+    all_scores_flat = flat_np_view(ak.fill_none(full_like(events.Jet.pt, EMPTY_FLOAT), EMPTY_FLOAT, axis=-1))
+    all_scores_flat[ak.flatten(jet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)
+    all_scores = layout_ak_array(all_scores_flat, events.Jet)
 
     # bring the scores back to the original ordering
     all_scores = all_scores[jet_unsorting_indices]
@@ -165,7 +168,7 @@ def hhbtag(
             value_placeholder = ak.fill_none(
                 ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1,
             )
-            values = ak.concatenate([values, scores_ext], axis=1)[jet_unsorting_indices]
+            values = ak_concatenate_safe([values, scores_ext], axis=1)[jet_unsorting_indices]
 
             # fill placeholder
             np.asarray(ak.flatten(value_placeholder))[ak.flatten(jet_mask & event_mask, axis=1)] = (

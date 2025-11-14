@@ -5,7 +5,7 @@ Exemplary selection methods.
 """
 
 from columnflow.categorization import Categorizer, categorizer
-from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections, full_like
+from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections, full_like, ak_concatenate_safe
 from columnflow.util import maybe_import
 from hbt.util import MET_COLUMN
 
@@ -216,7 +216,7 @@ def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[
 @categorizer(uses={"Tau.{mass,pt,eta,phi}"})
 def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     leptons = [events.Electron * 1, events.Muon * 1, events.Tau * 1]
-    di_tau_mass = ak.concatenate(leptons, axis=1)[:, :2].sum(axis=1).mass
+    di_tau_mass = ak_concatenate_safe(leptons, axis=1)[:, :2].sum(axis=1).mass
     mask = (
         (di_tau_mass >= 15) &
         (di_tau_mass <= 130)
@@ -313,14 +313,14 @@ def cat_boosted_novbf(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_mll40(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+    leps = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
     return events, leps.sum(axis=1).mass > 40.0
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # e/mu driven DY region: mll > 40 and met < 30 (to supress tau decays into e/mu)
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+    leps = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
     mask = (
         (leps.sum(axis=1).mass > 40) &
         (events[self.config_inst.x.met_name].pt < 30)
@@ -340,7 +340,7 @@ def cat_dy_init(self: Categorizer) -> None:
     },
 )
 def cat_dyc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+    leps = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
 
     mask_cclub = (
         (leps.sum(axis=1).mass >= 70) &

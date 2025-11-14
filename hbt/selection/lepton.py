@@ -12,7 +12,10 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.columnar_util import set_ak_column, sorted_indices_from_mask, flat_np_view, full_like, mask_from_indices, layout_ak_array  # noqa: E501
+from columnflow.columnar_util import (
+    set_ak_column, sorted_indices_from_mask, flat_np_view, full_like, mask_from_indices, layout_ak_array,
+    ak_concatenate_safe,
+)
 from columnflow.util import maybe_import
 
 from hbt.util import IF_NANO_V9, IF_NANO_GE_V10
@@ -56,9 +59,6 @@ def trigger_object_matching(
         full_any_match = full_like(vectors1.pt, False, dtype=bool)
         flat_full_any_match = flat_np_view(full_any_match)
         flat_full_any_match[flat_np_view(full_any_match | event_mask)] = flat_np_view(any_match)
-        # for some awkward reason, a masked array does not get a proper np view here,
-        # so we need to layout the flattened array in case the original array was masked
-
         any_match = layout_ak_array(flat_full_any_match, full_any_match)
 
     return any_match
@@ -475,14 +475,12 @@ def tau_trigger_matching(
         masked_taus = events.Tau
 
     # define the back mapping to the original tau collection
-
     def map_to_full_tau_array(matched_mask: ak.Array) -> ak.Array:
         if tau_object_mask is None:
             return matched_mask
-        full_mask = full_like(events.Tau.pt, False, dtype=bool)
-        flat_full_mask = flat_np_view(full_mask)
+        flat_full_mask = flat_np_view(full_like(events.Tau.pt, False, dtype=bool))
         flat_full_mask[flat_np_view(tau_object_mask)] = flat_np_view(matched_mask)
-        return full_mask
+        return layout_ak_array(flat_full_mask, events.Tau)
 
     # start per-tau mask with trigger object matching per leg
     if is_cross_e or is_cross_mu or is_cross_vbf:
@@ -1058,7 +1056,7 @@ def lepton_selection(
                     ids = ak.where(matched_events, np.float32(_trigger.id), np.float32(np.nan))
                     e_match_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
 
-                e_match_trigger_ids = ak.concatenate(e_match_trigger_ids, axis=1)
+                e_match_trigger_ids = ak_concatenate_safe(e_match_trigger_ids, axis=1)
 
                 # the correct electron mask for the selection is the control electron mask
                 emu_electron_mask = emu_electron_control_mask
@@ -1109,7 +1107,7 @@ def lepton_selection(
 
     # concatenate matched trigger ids
     empty_ids = ak.singletons(full_like(events.event, 0, dtype=np.int32), axis=0)[:, :0]
-    merge_ids = lambda ids: ak.values_astype(ak.concatenate(ids, axis=1), np.int32) if ids else empty_ids
+    merge_ids = lambda ids: ak.values_astype(ak_concatenate_safe(ids, axis=1), np.int32) if ids else empty_ids
     matched_trigger_ids = merge_ids(matched_trigger_ids)
     lepton_part_trigger_ids = merge_ids(lepton_part_trigger_ids)
 
@@ -1149,7 +1147,7 @@ def lepton_selection(
         aux={
             # save the selected lepton pair for the duration of the selection
             # multiplication of a coffea particle with 1 yields the lorentz vector
-            "lepton_pair": ak.concatenate(
+            "lepton_pair": ak_concatenate_safe(
                 [
                     events.Electron[sel_electron_indices] * 1,
                     events.Muon[sel_muon_indices] * 1,
@@ -1167,7 +1165,7 @@ def lepton_selection(
             "leading_taus": leading_taus,
 
             # save the leading e/mu's for the duration of the selection
-            "leading_e_mu": ak.concatenate(
+            "leading_e_mu": ak_concatenate_safe(
                 [
                     events.Electron[sel_electron_indices] * 1,
                     events.Muon[sel_muon_indices] * 1,
