@@ -1817,7 +1817,7 @@ def add_config(
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
         add_external("muon_sr_tools", (f"{central_hbt_dir}/central_muo_files/muonscarekit/scripts/MuonScaRe.py", "v1"))
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v2"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024yet
         if year in {2022, 2023}:
