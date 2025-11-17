@@ -6,7 +6,7 @@ Trigger selection methods.
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.util import maybe_import
-from columnflow.columnar_util import set_ak_column, optional_column as opt
+from columnflow.columnar_util import set_ak_column, optional_column as opt, ak_concatenate_safe
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -91,7 +91,7 @@ def trigger_selection(
         trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
 
     # store the fired trigger ids
-    trigger_ids = ak.concatenate(trigger_ids, axis=1)
+    trigger_ids = ak_concatenate_safe(trigger_ids, axis=1)
     events = set_ak_column(events, "fired_trigger_ids", trigger_ids, value_type=np.int32)
 
     return events, SelectionResult(

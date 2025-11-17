@@ -13,7 +13,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.gen_particles import transform_gen_part
 from columnflow.production.util import lv_mass
 from columnflow.columnar_util import (
-    EMPTY_FLOAT, Route, set_ak_column, attach_coffea_behavior, default_coffea_collections,
+    EMPTY_FLOAT, Route, set_ak_column, attach_coffea_behavior, default_coffea_collections, ak_concatenate_safe,
 )
 from columnflow.util import maybe_import
 
@@ -142,7 +142,7 @@ def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_i32(events, "n_btag_pnet_hhb", nb_hbb)
 
     # dilepton system variables
-    dilep = ak.concatenate([events.Electron * 1, events.Muon * 1], axis=1)[:, :2].sum(axis=1)
+    dilep = ak_concatenate_safe([events.Electron * 1, events.Muon * 1], axis=1)[:, :2].sum(axis=1)
     events = set_ak_column_f32(events, "ll_pt", dilep.pt)
     events = set_ak_column_f32(events, "ll_eta", dilep.eta)
     events = set_ak_column_f32(events, "ll_phi", dilep.phi)
@@ -156,14 +156,14 @@ def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "bb_mass", dibjet.mass)
 
     # ll+bb system
-    llbb = ak.concatenate([dilep[:, None] * 1, dibjet[:, None] * 1], axis=1).sum(axis=1)
+    llbb = ak_concatenate_safe([dilep[:, None] * 1, dibjet[:, None] * 1], axis=1).sum(axis=1)
     events = set_ak_column_f32(events, "llbb_pt", llbb.pt)
     events = set_ak_column_f32(events, "llbb_eta", llbb.eta)
     events = set_ak_column_f32(events, "llbb_phi", llbb.phi)
     events = set_ak_column_f32(events, "llbb_mass", llbb.mass)
 
     # leading lepton
-    lep = ak.concatenate([events.Electron * 1, events.Muon * 1], axis=1)[:, :1].sum(axis=1)
+    lep = ak_concatenate_safe([events.Electron * 1, events.Muon * 1], axis=1)[:, :1].sum(axis=1)
     events = set_ak_column_f32(events, "lep1_pt", lep.pt)
     events = set_ak_column_f32(events, "lep1_eta", lep.eta)
     events = set_ak_column_f32(events, "lep1_phi", lep.phi)
@@ -221,7 +221,7 @@ def nu_truth_htt(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # get the neutrino on these cases
     nu_lep = events.gen_higgs.tau_w_children[:, HTT, :][ak.mask(tau_lep_mask, tau_lep_mask)][:, :, 1]
     # concatenate them to get one _or_ two neutrinos per tau decay
-    nu = ak.drop_none(ak.concatenate([nu_tau[:, :, None], nu_lep[:, :, None]], axis=2))
+    nu = ak.drop_none(ak_concatenate_safe([nu_tau[:, :, None], nu_lep[:, :, None]], axis=2))
 
     # also define the visible tau component from all non-neutrino w children
     w_children = events.gen_higgs.tau_w_children[:, HTT]

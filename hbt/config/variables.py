@@ -10,7 +10,9 @@ from functools import partial
 
 import order as od
 
-from columnflow.columnar_util import EMPTY_FLOAT, attach_coffea_behavior, default_coffea_collections
+from columnflow.columnar_util import (
+    EMPTY_FLOAT, attach_coffea_behavior, default_coffea_collections, ak_concatenate_safe,
+)
 from columnflow.util import maybe_import
 
 from hbt.util import create_lvector_xyz
@@ -56,9 +58,9 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
     def build_ht(events):
-        objects = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1, events.Jet * 1], axis=1)[:, :]
-        objects_sum = objects.sum(axis=1)
-        return objects_sum.pt
+        objs = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1, events.Jet * 1], axis=1)[:, :]
+        objs_sum = objs.sum(axis=1)
+        return objs_sum.pt
     build_ht.inputs = ["{Electron,Muon,Tau,Jet}.{pt,eta,phi,mass}"]
     add_variable(
         config,
@@ -176,7 +178,7 @@ def add_variables(config: od.Config) -> None:
 
     def build_reg_h(events, which=None):
         import numpy as np
-        vis_leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+        vis_leps = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
         ref_phi = vis_leps.sum(axis=1).phi
         def rotate_px_py(px, py):
             new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
@@ -187,7 +189,7 @@ def add_variables(config: od.Config) -> None:
         if which == "nus":
             return nu1, nu2
         # build the higgs
-        h = ak.concatenate([nu1[:, None] * 1, nu2[:, None] * 1, vis_leps], axis=1).sum(axis=1)
+        h = ak_concatenate_safe([nu1[:, None] * 1, nu2[:, None] * 1, vis_leps], axis=1).sum(axis=1)
         if which is None:
             return h
         if which == "mass":
@@ -204,7 +206,7 @@ def add_variables(config: od.Config) -> None:
     )
 
     def build_vis_h(events, which=None):
-        vis_h = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2].sum(axis=1)
+        vis_h = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2].sum(axis=1)
         if which is None:
             return vis_h
         if which == "mass":
@@ -345,7 +347,7 @@ def add_variables(config: od.Config) -> None:
         return ak.fill_none(dr, EMPTY_FLOAT)
 
     def build_dilep(events, which=None):
-        leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
+        leps = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
         if which == "dr":
             return delta_r12(leps)
         dilep = leps.sum(axis=1)
@@ -394,7 +396,7 @@ def add_variables(config: od.Config) -> None:
     def build_hh(events, which=None):
         dijet = build_dibjet(events)
         dilep = build_dilep(events)
-        hs = ak.concatenate([dijet[..., None], dilep[..., None]], axis=1)
+        hs = ak_concatenate_safe([dijet[..., None], dilep[..., None]], axis=1)
         if which == "dr":
             return delta_r12(hs)
         hh = hs.sum(axis=1)

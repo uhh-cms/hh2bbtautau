@@ -1374,9 +1374,9 @@ def add_config(
             era=dy_era,
             correction="dy_weight",
             systs=[
-                # "stat_btag0_up", "stat_btag0_down",
-                # "stat_btag1_up", "stat_btag1_down",
-                # "stat_btag2_up", "stat_btag2_down",
+                "stat_btag0_up", "stat_btag0_down",
+                "stat_btag1_up", "stat_btag1_down",
+                "stat_btag2_up", "stat_btag2_down",
             ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
             get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
@@ -1819,10 +1819,13 @@ def add_config(
         ))
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
-        add_external("muon_sr_tools", (f"{central_hbt_dir}/central_muo_files/muonscarekit/scripts/MuonScaRe.py", "v1"))
+        add_external("muon_sr_tools", Ext(
+            f"{central_hbt_dir}/muonscarekit-feat-non_root_random.tar.gz",
+            subpaths="muonscarekit-feat-non_root_random/scripts/MuonScaRe.py",
+            version="v1",
+        ))
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v1"))
-        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_ntags.json.gz", "v1"))
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v2"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024yet
         if year in {2022, 2023}:
