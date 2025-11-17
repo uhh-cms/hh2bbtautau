@@ -68,7 +68,7 @@ law run cf.ReduceEventsWrapper \
   - [GrASP](https://cms-pdmv-prod.web.cern.ch/grasp/)
   - [XSDB](https://xsecdb-xsdb-official.app.cern.ch/xsdb)
   - [DAS](https://cmsweb.cern.ch/das)
-- NanoAOD:
+- NanoAOD
   - [Nano documentation](https://gitlab.cern.ch/cms-nanoAOD/nanoaod-doc)
   - [CAT Metadata](https://cms-analysis-corrections.docs.cern.ch)
   - [Correctionlib files (old!)](https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration)
