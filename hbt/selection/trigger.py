@@ -81,6 +81,13 @@ def trigger_selection(
 
         # store the trigger id
         ids = ak.where(fired_and_all_legs_match, np.float32(trigger.id), np.float32(np.nan))
+        # debug: print how many events in this chunk pass this trigger
+        try:
+            n_pass = int(ak.sum(fired_and_all_legs_match))
+        except Exception:
+            # ak.sum might return an array-like depending on version; fall back to list()
+            n_pass = int(ak.sum(fired_and_all_legs_match).tolist())
+        print(f"[trigger debug] id={trigger.id} name={trigger.name} passed_events={n_pass}")
         trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
 
     # store the fired trigger ids
