@@ -178,7 +178,6 @@ def default(
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
-        
         # btag weights
         btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
         events = self[btag_weights_deepjet](
@@ -194,7 +193,6 @@ def default(
                 negative_b_score_log_mode="none",
                 **kwargs,
             )
-        
     # create process ids
     for tag in self.stitch_tags:
         if (prod_cls := getattr(self, f"process_ids_{tag}", None)) is not None:

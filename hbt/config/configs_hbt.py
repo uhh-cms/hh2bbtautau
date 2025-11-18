@@ -1833,14 +1833,12 @@ def add_config(
             tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"
             if year == 2022:
                 tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
-            elif year == 2023:  # 2023
-                tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"                
+            else:  # 2023
+                tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
             # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
             # custom corrections from Lucas Russel, blessed by TAU
-            if year in {2022, 2023}:
-                add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
-            #if year == 2024:
-            #    add_external("tau_sf", ("/afs/cern.ch/user/r/raguitto/public/tau_DeepTau2018v2p5_2024.json.gz", "v1"))
+            add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+ 
             # trigger scale factors
             trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"  # noqa: E501
             add_external("trigger_sf", Ext(
