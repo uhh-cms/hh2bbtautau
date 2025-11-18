@@ -1816,8 +1816,8 @@ def add_config(
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
         add_external("muon_sr_tools", Ext(
-            f"{central_hbt_dir}/muonscarekit-feat-non_root_random.tar.gz",
-            subpaths="muonscarekit-feat-non_root_random/scripts/MuonScaRe.py",
+            f"{central_hbt_dir}/muonscarekit-master.tar.gz",
+            subpaths="muonscarekit-master/scripts/MuonScaRe.py",
             version="v1",
         ))
         # dy weight and recoil corrections
