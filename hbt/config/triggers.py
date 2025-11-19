@@ -236,6 +236,7 @@ trigger_bits = DotDict.wrap({
     },
 })
 
+
 def get_bit_sum(nano_version: int, obj_name: str, names: list[str | None]) -> int:
     return sum(
         trigger_bits[obj_name][name].get(nano_version)
@@ -1850,20 +1851,20 @@ def add_triggers_2024(config: od.Config) -> None:
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
     https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
     Tau Trigger: https://twiki.cern.ch/twiki/bin/viewauth/CMS/TauTrigger#Trigger_Table_for_2024
-    Electron Trigger: https://cmshltinfo.app.cern.ch/summary?search=WPTight&year=2024&paths=true&prescaled=false&stream-types=Physics,Scouting,Parking
+    Electron Trigger: https://cmshltinfo.app.cern.ch/summary?search=WPTight&year=2024&paths=true&prescaled=false&stream-types=Physics,Scouting,Parking  # noqa: E501
     Muon Trigger: https://twiki.cern.ch/twiki/bin/view/CMS/MuonHLT2024
-    # No changes were made to the NanoAOD Tau Trigger objects, so the same filterbits as V14 are used in V15 as well. 
+    # No changes were made to the NanoAOD Tau Trigger objects, so the same filterbits as V14 are used in V15 as well.
     """
     nano_trigger_bit_version = config.x("nano_trigger_bit_version", config.campaign.x.version)
     get_bit_sum_v = functools.partial(get_bit_sum, nano_trigger_bit_version)
 
     config.x.triggers = od.UniqueObjectIndex(Trigger)
-    
-    #     
+
+    #
     # single electron
     #
     config.x.triggers.add(
-        name="HLT_Ele30_WPTight_Gsf",  # https://cms-talk.web.cern.ch/t/single-e-trigger-recommendation-for-run-3-2024/128908/2
+        name="HLT_Ele30_WPTight_Gsf",  # https://cms-talk.web.cern.ch/t/single-e-trigger-recommendation-for-run-3-2024/128908/2  # noqa: E501
         id=205,
         legs=dict(
             e=TriggerLeg(
@@ -1912,7 +1913,7 @@ def add_triggers_2024(config: od.Config) -> None:
         )),
         tags={"single_trigger", "single_mu"},
     )
-    
+
     #
     # e tauh deeptau
     #
@@ -1988,7 +1989,7 @@ def add_triggers_2024(config: od.Config) -> None:
         id=507,
         legs=dict(
             tau1=TriggerLeg(
-                pdg_id=15,  
+                pdg_id=15,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
                 # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
@@ -2105,7 +2106,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 "pt_jet1": 115.0,
                 "pt_jet2": 40.0,
                 "mjj": 850.0,  # value changed from 2022/2023
-                "delta_eta_jj": None,            
+                "delta_eta_jj": None,
             },
         },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
@@ -2362,7 +2363,7 @@ def add_triggers_2024(config: od.Config) -> None:
         id=510,
         legs=dict(
             tau1=TriggerLeg(
-                pdg_id=15,  
+                pdg_id=15,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
                 # hltDoublePFJets30PNetTauhTagMediumWPL2DoubleTau
@@ -2438,7 +2439,7 @@ def add_triggers_2024(config: od.Config) -> None:
             tau1=TriggerLeg(
                 pdg_id=15,
                 # min_pt=None,  # cut on reco objects, not TrigObj
-                # filter name: 
+                # filter name:
                 # hltDoublePFJets20PNetTauhTagL2DoubleTau
                 trigger_bits=get_bit_sum_v("tau", [
                     "VBFDiTau" if nano_trigger_bit_version == 15 else None,
@@ -2448,7 +2449,7 @@ def add_triggers_2024(config: od.Config) -> None:
             tau2=TriggerLeg(
                 pdg_id=15,
                 # min_pt=None,  # cut on reco objects, not TrigObj
-                # filter name: 
+                # filter name:
                 # hltDoublePFJets20PNetTauhTagL2DoubleTau
                 trigger_bits=get_bit_sum_v("tau", [
                     "VBFDiTau" if nano_trigger_bit_version == 15 else None,
@@ -2480,7 +2481,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 "pt_jet1": 115.0,
                 "pt_jet2": 40.0,
                 "mjj": 850.0,  # value changed from 2022/2023
-                "delta_eta_jj": None,            
+                "delta_eta_jj": None,
             },
         },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),

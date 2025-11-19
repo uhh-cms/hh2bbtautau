@@ -900,7 +900,7 @@ def add_config(
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         if year == 2024:
-            jer_campaign = "Summer23BPixPrompt23" #https://cms-jerc.web.cern.ch/Recommendations/#2024_1
+            jer_campaign = "Summer23BPixPrompt23"  # https://cms-jerc.web.cern.ch/Recommendations/#2024_1
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
