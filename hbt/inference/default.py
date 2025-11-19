@@ -556,3 +556,32 @@ default_no_shifts_simple_5k = default_no_shifts.derive(
     "default_no_shifts_simple_5k",
     cls_dict={"variable_name": "run3_dnn_moe_hh_fine_5k"},
 )
+
+
+@default.inference_model(variable_name="run3_dnn_moe_hh_fine_5k", add_qcd=False)
+def default_bin_opt(self):
+    # set everything up as in the default model
+    super(default_bin_opt, self).init_func()
+
+    # only keep certain parameters
+    keep_parameters = {
+        "BR_*",
+        "QCDscale_*",
+        "bbH_norm_*",
+        "lumi_*",
+        "CMS_bbtt_eff_trig_*",
+        "CMS_btag_*",
+        "CMS_eff_e_*",
+        "CMS_eff_mu_*",
+        "CMS_eff_t_*",
+        "CMS_top_pT_reweighting",
+        "pdf_*",
+        "ps_*",
+        "scale_*",
+    }
+    for category_name, process_name, parameter in self.iter_parameters():
+        if not law.util.multi_match(parameter.name, keep_parameters):
+            self.remove_parameter(parameter.name, process=process_name, category=category_name)
+
+    # repeat the cleanup
+    self.init_cleanup()
