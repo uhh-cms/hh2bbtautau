@@ -1854,8 +1854,7 @@ def add_config(
                 version="v1",
             ))
         elif year == 2024:
-            #add_external("tau_sf", ("/afs/cern.ch/user/r/raguitto/public/tau_DeepTau2018v2p5_2024.json.gz", "v1"))
-            pass
+            # TODO: 2024: add once available
     else:
         assert False
 
