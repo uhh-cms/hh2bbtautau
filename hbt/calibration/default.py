@@ -117,7 +117,7 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
             events = self[self.muon_sr_nominal_cls](events, **kwargs)
     # TODO: remove if statement wenn met phi corrections are made available
     if self.config_inst.campaign.x.year != 2024:
-    # apply met phi correction
+        # apply met phi correction
         if self.has_dep(self.met_phi_cls):
             events = self[self.met_phi_cls](events, **kwargs)
 

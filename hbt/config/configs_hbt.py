@@ -1838,7 +1838,6 @@ def add_config(
             # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
             # custom corrections from Lucas Russel, blessed by TAU
             add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
- 
             # trigger scale factors
             trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"  # noqa: E501
             add_external("trigger_sf", Ext(
@@ -1855,6 +1854,7 @@ def add_config(
             ))
         elif year == 2024:
             # TODO: 2024: add once available
+            pass
     else:
         assert False
 
