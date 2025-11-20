@@ -558,7 +558,7 @@ default_no_shifts_simple_5k = default_no_shifts.derive(
 )
 
 
-@default.inference_model(variable_name="run3_dnn_moe_hh_fine_5k", add_qcd=False)
+@default.inference_model(variable_name="run3_dnn_moe_hh_fine_5k")
 def default_bin_opt(self):
     # set everything up as in the default model
     super(default_bin_opt, self).init_func()
