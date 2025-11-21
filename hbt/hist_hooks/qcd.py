@@ -221,8 +221,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             # retro-actively set values to zero for shifts that had negative integrals
             neg_int_mask = int_ss_iso_neg | int_ss_noniso_neg
             if fill_empty_negative_norms:
-                os_iso_qcd_values[neg_int_mask] = empty_bin_value
-                os_iso_qcd_variances[neg_int_mask] = 0.0
+                os_iso_qcd_values[neg_int_mask, :] = empty_bin_value
+                os_iso_qcd_variances[neg_int_mask, :] = 0.0
 
             # residual zero filling
             if fill_empty_residual:
