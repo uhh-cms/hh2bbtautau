@@ -6,7 +6,6 @@ Tasks to create correction_lib file for scale factor calculation for DY events.
 
 from __future__ import annotations
 
-import luigi
 import law
 import order as od
 import awkward as ak
@@ -312,7 +311,7 @@ class DYWeights(DYBaseTask):
 
         # define plot outputs for fit functions
         for cat in ["eq2j", "eq3j", "ge4j"]:
-            identifier = f"fit_mumu_dilep_pt_{cat}"
+            identifier = f"fit_{cat}"
             outputs["plots"][identifier] = self.target(f"{identifier}.pdf")
 
         # define plot outputs for kinematic variables
@@ -346,14 +345,26 @@ class DYWeights(DYBaseTask):
         dict_setup = {
             (2, 3): {
                 "fit_str": str,
+                "fit_str_guass_up": {"fit": str, "norm_content": {}},
+                "fit_str_guass_down": {"fit": str, "norm_content": {}},
+                "fit_str_lin_up": {"fit": str, "norm_content": {}},
+                "fit_str_lin_down": {"fit": str, "norm_content": {}},
                 (2, 3): {},
             },
             (3, 4): {
                 "fit_str": str,
+                "fit_str_guass_up": {"fit": str, "norm_content": {}},
+                "fit_str_guass_down": {"fit": str, "norm_content": {}},
+                "fit_str_lin_up": {"fit": str, "norm_content": {}},
+                "fit_str_lin_down": {"fit": str, "norm_content": {}},
                 (3, 4): {},
             },
             (4, 101): {
                 "fit_str": str,
+                "fit_str_guass_up": {"fit": str, "norm_content": {}},
+                "fit_str_guass_down": {"fit": str, "norm_content": {}},
+                "fit_str_lin_up": {"fit": str, "norm_content": {}},
+                "fit_str_lin_down": {"fit": str, "norm_content": {}},
                 (4, 5): {},
                 (5, 6): {},
                 (6, 101): {},
@@ -432,8 +443,53 @@ class DYWeights(DYBaseTask):
             fit_str = self.get_fit_str(*popt)
             fit_data["fit_str"] = fit_str
 
+            fit_params = {
+                "nom": popt,
+            }
+
+            # -------------------------------------------------------------------------------------------------
+            # TODO: calculate fit up/down shifts for Guassian and linear regimes
+            # get bin mask: True for guassian like bins, False for linear like bins
+            bin_mask = bin_centers <= r
+
+            # define shifted ratios by 95% CL
+            ratio_values_guass_up = np.where(bin_mask, ratio_values + 2 * ratio_err, ratio_values)
+            ratio_values_guass_down = np.where(bin_mask, ratio_values - 2 * ratio_err, ratio_values)
+            ratio_values_linear_up = np.where(~bin_mask, ratio_values + 2 * ratio_err, ratio_values)
+            ratio_values_linear_down = np.where(~bin_mask, ratio_values - 2 * ratio_err, ratio_values)
+            shifted_ratios = [
+                (ratio_values_guass_up, "gauss_up"),
+                (ratio_values_guass_down, "gauss_down"),
+                (ratio_values_linear_up, "lin_up"),
+                (ratio_values_linear_down, "lin_down")
+            ]
+
+            # redo the fit for each shifted scenario and save to dict
+            for ratio_values_shifted, fit_name in shifted_ratios:
+                popt, pcov = optimize.curve_fit(
+                    self.get_fit_function,
+                    bin_centers,
+                    ratio_values_shifted,
+                    p0=starting_values, method="trf",
+                    sigma=np.maximum(ratio_err, 1e-5),
+                    absolute_sigma=True,
+                    bounds=(lower_bounds, upper_bounds),
+                )
+
+                # save fits to dict
+                fit_str_shifted = self.get_fit_str(*popt)
+                fit_params[f"fit_str_{fit_name}"] = fit_str_shifted
+
+                # save parameters for later use
+                fit_params[f"{fit_name}"] = popt
+
+            # after doing the fit again with shifted ratio_values calculate the btag nominal normalizations again
+
+            # no need to calculate btag uncertaities
+            # -------------------------------------------------------------------------------------------------
+
             # plot the fit result
-            self.get_fit_plot(cat_fit, self.get_fit_function, popt, ratio_values, ratio_err, bin_centers)
+            self.get_fit_plot(cat_fit, self.get_fit_function, fit_params, ratio_values, ratio_err, bin_centers)
 
             # update dy_weight_postfit column using fitted function
             dy_njet_mask = self.get_njet_mask(dy_events, njet_fit_min, njet_fit_max)
@@ -543,8 +599,6 @@ class DYWeights(DYBaseTask):
         # restructure dict_setup for correction lib json, including btag up/down shifts
         dy_weight_data = self.get_dy_weight_data(dict_setup)
 
-        # TODO: include fit up/down shifts
-
         # save final dy weights
         outputs["weights"].dump(dy_weight_data, formatter="pickle")
 
@@ -652,16 +706,25 @@ class DYWeights(DYBaseTask):
 
         return fit_string
 
-    def get_fit_plot(self, cat, fit_function, popt, ratio_values, ratio_err, bin_centers):
+    def get_fit_plot(self, cat, fit_function, fit_params, ratio_values, ratio_err, bin_centers):
         outputs = self.output()
 
-        # prepare fit curve
-        s = np.linspace(0, 200, 1000)
-        y = [fit_function(v, *popt) for v in s]
-
         # create plot
-        fig, ax = plt.subplots(figsize=(10, 8))
-        ax.plot(s, y, color="black", label="Fit", lw=1, linestyle="--")
+        fig, ax = plt.subplots(figsize=(12, 8))
+
+        # Nominal fit
+        s = np.linspace(0, 200, 1000)
+        y_nom = [fit_function(v, *fit_params["nom"]) for v in s]
+        ax.plot(s, y_nom, color="black", label="Nominal", lw=2)
+
+        # shifted fits
+        for regime, colour, label in [("gauss", "red", "Gaussian (up/down)"), ("lin", "blue", "Linear (up/down)")]:
+            y = [self.get_fit_function(v, *fit_params[f"{regime}_up"]) for v in s]
+            ax.fill_between(s, y, y_nom, color=colour, alpha=0.2, label=label)
+            # ax.plot(s, y, color=colour, label=label, lw=1, linestyle="--")
+            y = [self.get_fit_function(v, *fit_params[f"{regime}_down"]) for v in s]
+            ax.fill_between(s, y, y_nom, color=colour, alpha=0.2)
+
         ax.errorbar(
             bin_centers,
             ratio_values,
@@ -672,16 +735,29 @@ class DYWeights(DYBaseTask):
             ecolor="black",
             elinewidth=0.5,
         )
-        ax.legend(loc="upper right")
-        ax.set_xlabel(r"$p_{T,ll}\;[\mathrm{GeV}]$")
-        ax.set_ylabel("Ratio (data-non DY MC)/DY")
+        # get era, luminosity /pb -> /fb and com
+        lumi = "8.0"
+        com = "13.6 TeV"
+
+        # build title
+        fig.subplots_adjust(top=0.93)
+        if cat != "ge4j":
+            njets = int(cat.replace("eq", "").replace("j", ""))
+            jet_label = rf"$\mu\mu$ channel, DY region, AK4 jets $={njets}$"
+        else:
+            jet_label = r"$\mu\mu$ channel, DY region, AK4 jets  $\geq 4$"
+        label = rf"Private work (CMS data/simulation)      {jet_label}"
+        # styling
+        ax.legend(loc="lower right")
+        ax.set_xlabel(r"$\mathrm{p}_{\mathrm{T,ll}} \ [\mathrm{GeV}]$", fontsize=15, loc="right")
+        ax.set_ylabel("Data - MC / DY", fontsize=15, loc="top")
         ax.grid(True)
-        era = self.config_inst.x.dy_weight_config.era
-        title = f"{era}, njets = {cat}" if cat != "ge4j" else f"{era}, njets >= 4"
-        ax.set_title(title)
+        fig.text(0.12, 0.97, label, verticalalignment='top', horizontalalignment='left', fontsize=13)
+        fig.text(0.90, 0.97, f"{lumi} fb$^{{-1}}$ ({com})", verticalalignment='top', horizontalalignment='right', fontsize=13)
+        ax.tick_params(axis='both', labelsize=15)
 
         # save plot
-        identifier = f"fit_mumu_dilep_pt_{cat}"
+        identifier = f"fit_{cat}"
         outputs["plots"][identifier].dump(fig, formatter="mpl")
 
     def get_dy_weight_data(self, dict_setup: dict):
