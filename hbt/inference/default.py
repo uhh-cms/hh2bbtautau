@@ -287,7 +287,7 @@ class default(HBTInferenceModelBase):
         #
         # shape parameters from shifts acting on ProduceColumns or CreateHistograms (mostly weight variations)
         #
-
+        """
         # pileup
         for config_inst in self.config_insts:
             self.add_parameter(
@@ -447,6 +447,19 @@ class default(HBTInferenceModelBase):
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
+        """
+        # dy shifts
+        for i, nb in enumerate([0, 1, 2][1:2]):
+            self.add_parameter(
+                f"CMS_bbtt_dy_stat_btag{nb}",
+                type=ParameterType.shape,
+                config_data={
+                    config_inst.name: self.parameter_config_spec(shift_source=f"dy_stat_btag{nb}")
+                    for config_inst in self.config_insts
+                },
+                process="DY*",
+                group=["shape_nuisances"],
+            )
 
         #
         # shape parameters that alter the selection
@@ -516,16 +529,6 @@ class default(HBTInferenceModelBase):
         #     group=["experiment", "shape_nuisances"],
         # )
 
-        self.add_parameter(
-            "CMS_bbtt_dy_weight",
-            type=ParameterType.shape,
-            config_data={
-                config_inst.name: self.parameter_config_spec(shift_source="dy_weight")
-            },
-            process=inject_all_eras("DY"),
-            group="experiment",
-        )
-
 
 @default.inference_model
 def default_no_shifts(self):
@@ -537,6 +540,7 @@ def default_no_shifts(self):
             (parameter.type.is_shape and not parameter.transformations.any_from_rate) or
             (parameter.type.is_rate and parameter.transformations.any_from_shape)
         )
+        # remove = remove or not parameter.name.startswith("CMS_bbtt_dy_stat_btag")
         if remove:
             self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
