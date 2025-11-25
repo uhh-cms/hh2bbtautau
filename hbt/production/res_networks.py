@@ -38,7 +38,7 @@ def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Arr
     Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
     angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
     """
-    new_phi = np.arctan2(py, px) - ref_phi
+    new_phi = np.arctan2(py, px, dtype=np.float64) - ref_phi
     pt = (px**2 + py**2)**0.5
     return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
@@ -291,7 +291,11 @@ class _res_dnn_evaluation(Producer):
 
         # compute angle from visible mother particle of vis_tau1 and vis_tau2
         # used to rotate the kinematics of dau{1,2}, met, bjet{1,2} and fatjets relative to it
-        dilep_phi = np.arctan2(vis_tau[:, 0].py + vis_tau[:, 1].py, vis_tau[:, 0].px + vis_tau[:, 1].px)
+        dilep_phi = np.arctan2(
+            vis_tau[:, 0].py + vis_tau[:, 1].py,
+            vis_tau[:, 0].px + vis_tau[:, 1].px,
+            dtype=np.float64,
+        )
         events = set_ak_column(events, "feat_dilep_phi", dilep_phi)
 
         return events

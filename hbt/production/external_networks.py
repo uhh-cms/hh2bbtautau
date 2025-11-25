@@ -36,7 +36,7 @@ def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Arr
     Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
     angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
     """
-    new_phi = np.arctan2(py, px) - ref_phi
+    new_phi = np.arctan2(py, px, dtype=np.float64) - ref_phi
     pt = (px**2 + py**2)**0.5
     return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
@@ -232,7 +232,7 @@ class _external_dnn(Producer):
 
         # compute angle from visible mother particle of vis_tau1 and vis_tau2
         # used to rotate the kinematics of dau{1,2}, met, bjet{1,2} and fatjets relative to it
-        phi_lep = np.arctan2(vis_tau1.py + vis_tau2.py, vis_tau1.px + vis_tau2.px)
+        phi_lep = np.arctan2(vis_tau1.py + vis_tau2.py, vis_tau1.px + vis_tau2.px, dtype=np.float64)
 
         # lepton 1
         f.vis_tau1_px, f.vis_tau1_py = rotate_to_phi(phi_lep, vis_tau1.px, vis_tau1.py)
@@ -326,9 +326,9 @@ class _external_dnn(Producer):
         f.has_jet_pair = has_jet_pair
         f.has_fatjet = has_fatjet
 
-        # build continous inputs
+        # build continuous inputs
         # (order exactly as documented in link above)
-        continous_inputs = [
+        continuous_inputs = [
             np.asarray(t[..., None], dtype=np.float32) for t in [
                 f.met_px, f.met_py, f.met_cov00, f.met_cov01, f.met_cov11,
                 f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
@@ -360,10 +360,8 @@ class _external_dnn(Producer):
         # evaluate the model
         scores = self.evaluator(
             self.cls_name,
-            (
-                np.concatenate(categorical_inputs, axis=1),
-                np.concatenate(continous_inputs, axis=1),
-            ),
+            np.concatenate(categorical_inputs, axis=1),
+            np.concatenate(continuous_inputs, axis=1),
         )
 
         # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
@@ -413,4 +411,8 @@ class _external_dnn(Producer):
 
 
 class torch_test_dnn(_external_dnn):
+    exposed = True
+
+
+class torch_simple_kl01(_external_dnn):
     exposed = True

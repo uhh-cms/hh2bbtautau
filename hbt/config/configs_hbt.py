@@ -914,6 +914,7 @@ def add_config(
     # full list of jec sources in a fixed order that is used to assign consistent ids across configs
     # (please add new sources at the bottom to preserve the order of existing ones)
     # the boolean flag decides whether to use them in the JEC config and if shifts should be created for them
+    # https://cms-jerc.web.cern.ch/Recommendations/#uncertainites-and-correlations
     jec_source_era = f"{year}{campaign.x.postfix}"
     all_jec_sources = {
         "AbsoluteFlavMap": False,
@@ -1753,13 +1754,14 @@ def add_config(
     for fold in range(5):
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
     # simple version of same model for quick comparisons
-    add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple/model_fold0_seed1.tgz", "v1"))
-    # and again with different kl setups
-    add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
-    add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
-    add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_fixedweights_kl01/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    # and again with different kl setups (disabled since they were still run with the broken dy frequencies)
+    # add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    # add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    # add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
+    add_external("torch_simple_kl01", (f"{central_hbt_dir}/run3_models/run3_torch_simple_kl01/comparison_dnn.pt2", "v3"))  # noqa: E501
     # vbf models trained by cclub
     for fold in range(5):
         add_external(f"vbf_dnn_fold{fold}", (f"{central_hbt_dir}/run3_models/run3_vbf_dnn/model_fold{fold}.tgz", "v1"))
