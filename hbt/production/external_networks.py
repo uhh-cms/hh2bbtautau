@@ -137,7 +137,7 @@ class _external_dnn(Producer):
         # categorical values handled by the network
         # (names and values from training code that was aligned to KLUB notation)
         self.embedding_expected_inputs = {
-            "channel_id": [1, 2, 3],  # see mapping below
+            "pair_type": [0, 1, 2],  # old KLUB naming, 0: mutau, 1: etau, 2: tautau
             "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
             "decay_mode2": [0, 1, 10, 11],
             "charge1": [-1, 1],
@@ -166,9 +166,6 @@ class _external_dnn(Producer):
             collections={"HHBJet": default_coffea_collections["Jet"]},
             **kwargs,
         )
-
-        # get the channel id
-        channel_id = events.channel_id
 
         # get visible tau decay products, consider them all as tau types
         vis_taus = attach_behavior(
@@ -202,10 +199,16 @@ class _external_dnn(Producer):
         has_jet_pair = ak.num(events.HHBJet) >= 2
         has_fatjet = ak.num(events.FatJet) >= 1
 
+        # convert channel_id to pair_type
+        pair_type = np.full(len(events), -1, dtype=np.int32)
+        pair_type[events.channel_id == self.config_inst.channels.n.mutau.id] = 0
+        pair_type[events.channel_id == self.config_inst.channels.n.etau.id] = 1
+        pair_type[events.channel_id == self.config_inst.channels.n.tautau.id] = 2
+
         # before preparing the network inputs, define a mask of events which have caregorical features
         # that are actually covered by the networks embedding layers; other events cannot be evaluated!
         event_mask = (
-            np.isin(channel_id, self.embedding_expected_inputs["channel_id"]) &
+            np.isin(pair_type, self.embedding_expected_inputs["pair_type"]) &
             np.isin(dm1, self.embedding_expected_inputs["decay_mode1"]) &
             np.isin(dm2, self.embedding_expected_inputs["decay_mode2"]) &
             np.isin(vis_tau1.charge, self.embedding_expected_inputs["charge1"]) &
@@ -218,7 +221,7 @@ class _external_dnn(Producer):
 
         # apply to all arrays needed until now
         _events = events[event_mask]
-        channel_id = channel_id[event_mask]
+        pair_type = pair_type[event_mask]
         vis_tau1, vis_tau2 = vis_tau1[event_mask], vis_tau2[event_mask]
         tautau_mask = tautau_mask[event_mask]
         dm1, dm2 = dm1[event_mask], dm2[event_mask]
@@ -315,7 +318,7 @@ class _external_dnn(Producer):
         f.met_cov00, f.met_cov01, f.met_cov11 = _met.covXX, _met.covXY, _met.covYY
 
         # assign categorical inputs via names too
-        f.channel_id = channel_id
+        f.pair_type = pair_type
         f.dm1 = dm1
         f.dm2 = dm2
         f.vis_tau1_charge = vis_tau1.charge
@@ -347,7 +350,7 @@ class _external_dnn(Producer):
         # (order exactly as documented in link above)
         categorical_inputs = [
             np.asarray(t[..., None], dtype=np.int32) for t in [
-                f.channel_id,
+                f.pair_type,
                 f.dm1, f.dm2,
                 f.vis_tau1_charge, f.vis_tau2_charge,
                 f.has_jet_pair, f.has_fatjet,
@@ -396,7 +399,7 @@ class _external_dnn(Producer):
                 "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz",
             ]
             cat_inputs_cols = [
-                "channel_id", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
+                "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
             ]
             for c in cont_inputs_cols + cat_inputs_cols:
                 values = self.empty_value * np.ones(len(events), dtype=np.float32)
