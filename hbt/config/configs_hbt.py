@@ -899,9 +899,13 @@ def add_config(
             (2024, ""): "V1",
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
+        if year == 2024:
+            jer_campaign = "Summer23BPixPrompt23"  # https://cms-jerc.web.cern.ch/Recommendations/#2024_1
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
+        if year == 2024:
+            jer_campaign += "_RunD"
         jer_version = "JR" + {2022: "V1", 2023: "V1", 2024: "V1"}[year]
         jet_type = "AK4PFPuppi"
     else:
@@ -1834,7 +1838,6 @@ def add_config(
             # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
             # custom corrections from Lucas Russel, blessed by TAU
             add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
-
             # trigger scale factors
             trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"  # noqa: E501
             add_external("trigger_sf", Ext(
@@ -1852,7 +1855,6 @@ def add_config(
         elif year == 2024:
             # TODO: 2024: add once available
             pass
-
     else:
         assert False
 
