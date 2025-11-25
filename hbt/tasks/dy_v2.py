@@ -345,26 +345,46 @@ class DYWeights(DYBaseTask):
         dict_setup = {
             (2, 3): {
                 "fit_str": str,
-                "fit_str_guass_up": {"fit": str, "norm_content": {}},
-                "fit_str_guass_down": {"fit": str, "norm_content": {}},
-                "fit_str_lin_up": {"fit": str, "norm_content": {}},
-                "fit_str_lin_down": {"fit": str, "norm_content": {}},
+                "gauss_up": {"fit": str, (2, 3): {}},
+                "gauss_down": {"fit": str, (2, 3): {}},
+                "lin_up": {"fit": str, (2, 3): {}},
+                "lin_down": {"fit": str, (2, 3): {}},
                 (2, 3): {},
             },
             (3, 4): {
                 "fit_str": str,
-                "fit_str_guass_up": {"fit": str, "norm_content": {}},
-                "fit_str_guass_down": {"fit": str, "norm_content": {}},
-                "fit_str_lin_up": {"fit": str, "norm_content": {}},
-                "fit_str_lin_down": {"fit": str, "norm_content": {}},
+                "gauss_up": {"fit": str, (3, 4): {}},
+                "gauss_down": {"fit": str, (3, 4): {}},
+                "lin_up": {"fit": str, (3, 4): {}},
+                "lin_down": {"fit": str, (3, 4): {}},
                 (3, 4): {},
             },
             (4, 101): {
                 "fit_str": str,
-                "fit_str_guass_up": {"fit": str, "norm_content": {}},
-                "fit_str_guass_down": {"fit": str, "norm_content": {}},
-                "fit_str_lin_up": {"fit": str, "norm_content": {}},
-                "fit_str_lin_down": {"fit": str, "norm_content": {}},
+                "gauss_up": {
+                    "fit": str,
+                    (4, 5): {},
+                    (5, 6): {},
+                    (6, 101): {}
+                },
+                "gauss_down": {
+                    "fit": str,
+                    (4, 5): {},
+                    (5, 6): {},
+                    (6, 101): {}
+                },
+                "lin_up": {
+                    "fit": str,
+                    (4, 5): {},
+                    (5, 6): {},
+                    (6, 101): {}
+                },
+                "lin_down": {
+                    "fit": str,
+                    (4, 5): {},
+                    (5, 6): {},
+                    (6, 101): {}
+                },
                 (4, 5): {},
                 (5, 6): {},
                 (6, 101): {},
@@ -449,17 +469,17 @@ class DYWeights(DYBaseTask):
 
             # -------------------------------------------------------------------------------------------------
             # TODO: calculate fit up/down shifts for Guassian and linear regimes
-            # get bin mask: True for guassian like bins, False for linear like bins
+            # get bin mask: True for gaussian like bins, False for linear like bins
             bin_mask = bin_centers <= r
 
             # define shifted ratios by 95% CL
-            ratio_values_guass_up = np.where(bin_mask, ratio_values + 2 * ratio_err, ratio_values)
-            ratio_values_guass_down = np.where(bin_mask, ratio_values - 2 * ratio_err, ratio_values)
+            ratio_values_gauss_up = np.where(bin_mask, ratio_values + 2 * ratio_err, ratio_values)
+            ratio_values_gauss_down = np.where(bin_mask, ratio_values - 2 * ratio_err, ratio_values)
             ratio_values_linear_up = np.where(~bin_mask, ratio_values + 2 * ratio_err, ratio_values)
             ratio_values_linear_down = np.where(~bin_mask, ratio_values - 2 * ratio_err, ratio_values)
             shifted_ratios = [
-                (ratio_values_guass_up, "gauss_up"),
-                (ratio_values_guass_down, "gauss_down"),
+                (ratio_values_gauss_up, "gauss_up"),
+                (ratio_values_gauss_down, "gauss_down"),
                 (ratio_values_linear_up, "lin_up"),
                 (ratio_values_linear_down, "lin_down")
             ]
@@ -476,11 +496,11 @@ class DYWeights(DYBaseTask):
                     bounds=(lower_bounds, upper_bounds),
                 )
 
-                # save fits to dict
+                # save shifted fit string to dict
                 fit_str_shifted = self.get_fit_str(*popt)
-                fit_params[f"fit_str_{fit_name}"] = fit_str_shifted
+                fit_data[f"{fit_name}"]["fit"] = fit_str_shifted
 
-                # save parameters for later use
+                # save new fit parameters for later use
                 fit_params[f"{fit_name}"] = popt
 
             # after doing the fit again with shifted ratio_values calculate the btag nominal normalizations again
@@ -488,38 +508,129 @@ class DYWeights(DYBaseTask):
             # no need to calculate btag uncertaities
             # -------------------------------------------------------------------------------------------------
 
-            # plot the fit result
+            # plot the fit result including shifted scenarios
             self.get_fit_plot(cat_fit, self.get_fit_function, fit_params, ratio_values, ratio_err, bin_centers)
 
-            # update dy_weight_postfit column using fitted function
+            # get postfit weights using fit function with nominal and shifted parameters
             dy_njet_mask = self.get_njet_mask(dy_events, njet_fit_min, njet_fit_max)
             dy_weight_postfit = ak.where(
                 dy_njet_mask,
-                self.get_fit_function(dy_events.gen_dilepton_pt, *popt),
-                dy_events.dy_weight_postfit)
-            dy_events = set_ak_column(
-                dy_events,
-                "dy_weight_postfit",
-                dy_weight_postfit,
+                self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["nom"]),
+                dy_events.dy_weight_postfit,
+            )
+            dy_weight_gauss_up = ak.where(
+                dy_njet_mask,
+                self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["gauss_up"]),
+                dy_events.dy_weight_gauss_up,
+            )
+            dy_weight_gauss_down = ak.where(
+                dy_njet_mask,
+                self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["gauss_down"]),
+                dy_events.dy_weight_gauss_down,
+            )
+            dy_weight_lin_up = ak.where(
+                dy_njet_mask,
+                self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["lin_up"]),
+                dy_events.dy_weight_lin_up,
+            )
+            dy_weight_lin_down = ak.where(
+                dy_njet_mask,
+                self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["lin_down"]),
+                dy_events.dy_weight_lin_down,
             )
 
-            # get postfit hists and plots
-            postfit_dy_weights = dy_events.weight * dy_events.dy_weight_postfit
-            [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(
-                data_hists, dy_hists, bkg_hists,
-                data_events, dy_events, bkg_events,
-                njet_fit_min, njet_fit_max, fit_data, postfit_dy_weights,
-                cat_fit,
-                self.variables,
-                "_postfit",
-            )
+            new_columns = {
+                ("postfit", dy_weight_postfit),
+                ("gauss_up", dy_weight_gauss_up),
+                ("gauss_down", dy_weight_gauss_down),
+                ("lin_up", dy_weight_lin_up),
+                ("lin_down", dy_weight_lin_down),
+            }
+
+            updated_weights = {}
+
+            # update event info with new columns, get hists and plots
+            for shift_name, column_name, _ in new_columns:
+                dy_events = set_ak_column(
+                    dy_events,
+                    f"{column_name}",
+                    column_name,
+                )
+
+                tmp_dy_weights = dy_events.weight * dy_events.get_column(f"{column_name}")
+                updated_weights[f"{shift_name}"] = tmp_dy_weights
+
+                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(
+                    data_hists, dy_hists, bkg_hists,
+                    data_events, dy_events, bkg_events,
+                    njet_fit_min, njet_fit_max, fit_data, updated_weights[f"{shift_name}"],
+                    cat_fit,
+                    self.variables,
+                    f"_{shift_name}",
+                )
 
             ##############################################################
             # calculate btag normalizations
-            for key, norm_data in fit_data.items():
-                if isinstance(key, str):
-                    continue
 
+            for key, norm_data in fit_data.items():
+
+                # calculate btag normalizations for shifted fit scenarios
+                if isinstance(key, str):
+                    if key == "fit_str":
+                        continue
+                    else:
+                        for tmp_key, tmp_norm_data in norm_data.items():
+                            if isinstance(tmp_key, str):
+                                continue
+                            (njet_min, njet_max) = tmp_key
+                            cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
+                            if cat_bin in ["eq4j", "eq5j", "ge6j"]:
+                                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                                    data_hists, dy_hists, bkg_hists,
+                                    data_events, dy_events, bkg_events,
+                                    njet_fit_min, njet_fit_max, tmp_norm_data, updated_weights[f"{key}"],
+                                    cat_bin,
+                                    self.variables,
+                                    f"_{key}",
+                                )
+                            identifier = f"mumu_nbjets_{key}_{cat_bin}"
+                            ratio_values, _, _ = self.get_ratio_values(
+                                data_hists[identifier],
+                                dy_hists[identifier],
+                                bkg_hists[identifier],
+                                self.nbjets_inst,
+                            )
+                            tmp_norm_data = norm_content.copy()
+                            for btag, btag_data in tmp_norm_data.items():
+                                n_btag = btag[0]
+
+                                # save normalizations with statistical uncertainty
+                                tmp_norm_data[btag] = Norm(ratio_values[n_btag], 0.0)  # no stat uncert for shifted fits
+                                btag_mask = (
+                                    (self.get_njet_mask(dy_events, njet_min, njet_max)) &
+                                    (dy_events.nbjets == n_btag if n_btag < 2 else dy_events.nbjets >= n_btag)
+                                )
+
+                                dy_weight_norm_shifted = ak.where(
+                                    btag_mask,
+                                    tmp_norm_data[btag].nom,  # use nominal shift for now
+                                    dy_events.dy_weight_norm)  # initial weight of 1.0
+
+                                # set new column with btag normalization for shifted fit
+                                dy_events = set_ak_column(
+                                    dy_events,
+                                    f"dy_weight_norm_{key}",
+                                    dy_weight_norm_shifted,
+                                )
+
+                                # save DY event weights for shifted fit scenario
+                                norm_dy_weights = dy_events.weight * dy_events.get_column(f"dy_weight_{key}") * dy_events.get_column(f"dy_weight_norm_{key}")  # noqa: E501
+                                updated_weights[f"norm_{key}"] = norm_dy_weights
+
+                                fit_data[key][tmp_key] = tmp_norm_data
+
+                # -----------------------------------------------------------------------------
+                # calculate btag normalizations for nominal fit scenario
                 (njet_min, njet_max) = key
                 cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
 
@@ -528,7 +639,7 @@ class DYWeights(DYBaseTask):
                     [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
                         data_hists, dy_hists, bkg_hists,
                         data_events, dy_events, bkg_events,
-                        njet_fit_min, njet_fit_max, fit_data, postfit_dy_weights,
+                        njet_fit_min, njet_fit_max, fit_data, updated_weights["postfit"],
                         cat_bin,
                         self.variables,
                         "_postfit",
@@ -565,35 +676,53 @@ class DYWeights(DYBaseTask):
 
                 # save normalizations in corresponding njet bin
                 fit_data[key] = norm_data
+                # -----------------------------------------------------------------------------
 
-            # update DY event weights
-            norm_dy_weights = dy_events.weight * dy_events.dy_weight_postfit * dy_events.dy_weight_norm
+            # save DY event weights for nominal fit scenario
+            updated_weights["norm_postfit"] = dy_events.weight * dy_events.dy_weight_postfit * dy_events.dy_weight_norm
 
-            # get norm hists and plots
+            # get norm hists and plots for nominal and shifted fit scenarios
             for key, norm_data in fit_data.items():
                 if isinstance(key, str):
-                    continue
+                    if key == "fit_str":
+                        continue
+                    else:
+                        for tmp_key, tmp_norm_data in norm_data.items():
+                            if isinstance(tmp_key, str):
+                                continue
+                            (njet_min, njet_max) = tmp_key
+                            cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
+                            [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                                data_hists, dy_hists, bkg_hists,
+                                data_events, dy_events, bkg_events,
+                                njet_fit_min, njet_fit_max, fit_data, updated_weights[f"norm_{key}"],
+                                cat_bin,
+                                self.variables,
+                                f"_norm_{key}",
+                            )
                 (njet_min, njet_max) = key
                 cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
                 [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
                     data_hists, dy_hists, bkg_hists,
                     data_events, dy_events, bkg_events,
-                    njet_fit_min, njet_fit_max, fit_data, norm_dy_weights,
+                    njet_fit_min, njet_fit_max, fit_data, updated_weights["norm_postfit"],
                     cat_bin,
                     self.variables,
-                    "_norm",
+                    "_norm_postfit",
                 )
 
-            # get norm hists and plots for ge4j category
+            # get norm hists and plots for ge4j category for nominal and shifted fit scenarios
             if cat_fit == "ge4j":
-                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
-                    data_hists, dy_hists, bkg_hists,
-                    data_events, dy_events, bkg_events,
-                    njet_fit_min, njet_fit_max, fit_data, norm_dy_weights,
-                    cat_fit,
-                    self.variables,
-                    "_norm",
-                )
+                for shift_name, _ in updated_weights.items():
+                    if shift_name.startswith("norm"):
+                        [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                            data_hists, dy_hists, bkg_hists,
+                            data_events, dy_events, bkg_events,
+                            njet_fit_min, njet_fit_max, fit_data, updated_weights[f"{shift_name}"],
+                            cat_fit,
+                            self.variables,
+                            f"_{shift_name}",
+                        )
 
         ###############################################################################
         # restructure dict_setup for correction lib json, including btag up/down shifts
@@ -684,7 +813,7 @@ class DYWeights(DYBaseTask):
         r: regime boundary between Guassian and linear fits
         """
 
-        # choose guassian and linear functions to do the fit
+        # choose gaussian and linear functions to do the fit
         # we cap x at 200 GeV to avoid falling off the function range
         gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((np.minimum(x, 200) - mu) / sigma) ** 2))
         pol = a + b * np.minimum(x, 200)
@@ -817,6 +946,29 @@ class DYWeights(DYBaseTask):
                         # save shifted dict
                         dict_data[shift_str][nbjet_bin] = shifted_dict
 
+        # fill up/down fit shifts considering gaussian and linear functions as separate sources of uncertainty
+        for regime in ["gauss", "lin"]:
+            for direction in ["up", "down"]:
+                shift_str = f"{regime}_{direction}"
+                dict_data[shift_str] = {}
+
+                # get corresponding shifted fit string per njet_bin
+                for njet_bin in dict_setup.keys():
+                    fit_string = dict_setup[njet_bin][f"{shift_str}"]["fit"]
+
+                    # get corresponding nominal btag normalizations per nbjet_bin
+                    for nbjet_bin in nbjet_bins:
+                        if nbjet_bin not in dict_setup[njet_bin][f"{shift_str}"]:
+                            continue
+                        dict_data[shift_str][nbjet_bin] = {}
+
+                        # loop over 0,1 and 2 btag bins
+                        for btag_bin in btag_bins:
+                            norm_var = dict_setup[njet_bin][f"{shift_str}"][nbjet_bin][btag_bin]
+                            norm_value = getattr(norm_var, "nom")
+                            expr = [(0.0, float("inf"), f"{norm_value}*({fit_string})")]
+                            dict_data[shift_str][nbjet_bin][btag_bin] = expr
+
         return dict_data
 
     def get_hists_and_plots(
@@ -833,7 +985,10 @@ class DYWeights(DYBaseTask):
         dy_weights,
         cat,
         variables: list[tuple[od.Variable, str]],
-        postfix: Literal["", "_postfit", "_norm"],
+        postfix: Literal[
+            "", "_postfit", "_gauss_up", "_gauss_down", "_lin_up", "_lin_down",
+            "_norm_postfit", "_norm_gauss_up", "_norm_gauss_down", "_norm_lin_up", "_norm_lin_down"
+        ],
     ):
         outputs = self.output()
         bkg_process = od.Process(name="Backgrounds", id="+", color1="#e76300")
