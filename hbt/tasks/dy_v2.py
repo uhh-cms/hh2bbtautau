@@ -521,22 +521,22 @@ class DYWeights(DYBaseTask):
             dy_weight_gauss_up = ak.where(
                 dy_njet_mask,
                 self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["gauss_up"]),
-                dy_events.dy_weight_gauss_up,
+                dy_events.dy_weight_postfit,
             )
             dy_weight_gauss_down = ak.where(
                 dy_njet_mask,
                 self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["gauss_down"]),
-                dy_events.dy_weight_gauss_down,
+                dy_events.dy_weight_postfit,
             )
             dy_weight_lin_up = ak.where(
                 dy_njet_mask,
                 self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["lin_up"]),
-                dy_events.dy_weight_lin_up,
+                dy_events.dy_weight_postfit,
             )
             dy_weight_lin_down = ak.where(
                 dy_njet_mask,
                 self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["lin_down"]),
-                dy_events.dy_weight_lin_down,
+                dy_events.dy_weight_postfit,
             )
 
             new_columns = {
