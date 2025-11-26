@@ -13,8 +13,6 @@ import dataclasses
 import gzip
 import correctionlib
 
-import functools
-
 from columnflow.tasks.framework.base import TaskShifts, ConfigTask
 from columnflow.tasks.framework.mixins import (
     DatasetsProcessesMixin, ProducerClassesMixin, CalibratorClassesMixin,
@@ -37,7 +35,7 @@ from hbt.tasks.base import HBTTask
 import numpy as np
 from scipy import optimize
 from matplotlib import pyplot as plt
-from typing import Literal, Callable
+from typing import Literal
 
 hist = maybe_import("hist")
 
@@ -317,7 +315,7 @@ class DYWeights(DYBaseTask):
         # define plot outputs for fit functions
         for cat in ["eq2j", "eq3j", "ge4j"]:
             identifier = f"fit_{cat}"
-            outputs["plots"][identifier] = self.target(f"{identifier}.pdf", optional = True)
+            outputs["plots"][identifier] = self.target(f"{identifier}.pdf")
 
         # define plot outputs for kinematic variables
         for channel in self.channels:
@@ -325,7 +323,7 @@ class DYWeights(DYBaseTask):
                 for cat in self.cats:
                     for postfix in self.postfixes:
                         identifier = f"{channel}_{var_name}{postfix}_{cat}"
-                        outputs["plots"][identifier] = self.target(f"{identifier}.pdf", optional = True)
+                        outputs["plots"][identifier] = self.target(f"{identifier}.pdf")
 
         return outputs
 
@@ -338,102 +336,113 @@ class DYWeights(DYBaseTask):
         # read data, potentially from cache
         data_events, dy_events, bkg_events = self.input().load(formatter="pickle")
 
-        @dataclasses.dataclass
-        class Deps:
-            fit_njet_bin: tuple[int, int]
-            fit_syst: str
+        # initialize dictionary to store results
+        dy_weight_data = {}
 
-        @dataclasses.dataclass
-        class FitResult:
-            norm_value: float | str
-            fit_string: str
-
-            def to_window(self):
-                return [(0.0, float("inf"), f"{self.norm_value}*({self.fit_string})")]
-
-        dict_setup = {
-            "nominal": (create_setup := lambda fit_syst: ({
-                (2, 3): {
-                    (0, 1): Deps(fit_njet_bin=(2, 3), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(2, 3), fit_syst=fit_syst),
-                    (2, 101): Deps(fit_njet_bin=(2, 3), fit_syst=fit_syst),
-                },
-                (3, 4): {
-                    (0, 1): Deps(fit_njet_bin=(3, 4), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(3, 4), fit_syst=fit_syst),
-                    (2, 101): Deps(fit_njet_bin=(3, 4), fit_syst=fit_syst),
-                },
-                (4, 5): {
-                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (2, 101): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                },
-                (5, 6): {
-                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (2, 101): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                },
-                (6, 101): {
-                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (2, 101): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                },
-            }))("nominal"),
-            "syst_gauss_up": create_setup("syst_gauss_up"),
-            "syst_gauss_down": create_setup("syst_gauss_down"),
-            "syst_linear_up": create_setup("syst_linear_up"),
-            "syst_linear_down": create_setup("syst_linear_down"),
-            "syst_up": create_setup("syst_up"),
-            "syst_down": create_setup("syst_down"),
-            "stat_btag0_up": create_setup("nominal"),
-            "stat_btag0_down": create_setup("nominal"),
-            "stat_btag1_up": create_setup("nominal"),
-            "stat_btag1_down": create_setup("nominal"),
-            "stat_btag2_up": create_setup("nominal"),
-            "stat_btag2_down": create_setup("nominal"),
-            "stat_up": create_setup("nominal"),
-            "stat_down": create_setup("nominal"),
+        norm_content: dict[int, Norm | None] = {
+            (0, 1): None,
+            (1, 2): None,
+            (2, 101): None,
         }
 
-        dict_out = {}
+        dict_setup = {
+            (2, 3): {
+                "postfit": str,
+                "gauss_up": {"fit": str, (2, 3): {}},
+                "gauss_down": {"fit": str, (2, 3): {}},
+                "lin_up": {"fit": str, (2, 3): {}},
+                "lin_down": {"fit": str, (2, 3): {}},
+                (2, 3): {},
+            },
+            (3, 4): {
+                "postfit": str,
+                "gauss_up": {"fit": str, (3, 4): {}},
+                "gauss_down": {"fit": str, (3, 4): {}},
+                "lin_up": {"fit": str, (3, 4): {}},
+                "lin_down": {"fit": str, (3, 4): {}},
+                (3, 4): {},
+            },
+            (4, 101): {
+                "postfit": str,
+                "gauss_up": {
+                    "fit": str,
+                    (4, 5): {},
+                    (5, 6): {},
+                    (6, 101): {}
+                },
+                "gauss_down": {
+                    "fit": str,
+                    (4, 5): {},
+                    (5, 6): {},
+                    (6, 101): {}
+                },
+                "lin_up": {
+                    "fit": str,
+                    (4, 5): {},
+                    (5, 6): {},
+                    (6, 101): {}
+                },
+                "lin_down": {
+                    "fit": str,
+                    (4, 5): {},
+                    (5, 6): {},
+                    (6, 101): {}
+                },
+                (4, 5): {},
+                (5, 6): {},
+                (6, 101): {},
+            },
+        }
 
         # add dummy weight column to be used later
         dy_events = set_ak_column(dy_events, "dy_weight_ones", np.ones(len(dy_events), dtype=np.float32))
 
-        @functools.cache
-        def get_fit(fit_njet_bin, fit_syst) -> tuple[Callable, str, tuple[float, ...]]:
-            var = self.dilep_pt_inst
+        ###############################################################################
+        # fill dict_setup with fit functions and btag Norm content
+        for (njet_fit_min, njet_fit_max), fit_data in dict_setup.items():
 
-            data_mask = self.get_mask(data_events, njet_bin=fit_njet_bin, channel="mumu")
-            data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
+            # categories for dilep_pt fit
+            cat_fit = f"eq{njet_fit_min}j" if njet_fit_min < 4 else "ge4j"
 
-            dy_mask = self.get_mask(dy_events, njet_bin=fit_njet_bin, channel="mumu")
-            dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])
+            data_hists = {}
+            dy_hists = {}
+            bkg_hists = {}
 
-            bkg_mask = self.get_mask(bkg_events, njet_bin=fit_njet_bin, channel="mumu")
-            bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
+            # get pre-fit hists and plots
+            original_dy_weights = dy_events.weight
+            for key, norm_data in fit_data.items():
+                if isinstance(key, str):
+                    continue
+                (njet_min, njet_max) = key
+                cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
+                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                    data_hists, dy_hists, bkg_hists,
+                    data_events, dy_events, bkg_events,
+                    njet_fit_min, njet_fit_max, fit_data, original_dy_weights,
+                    cat_bin,
+                    self.variables,
+                    "",
+                )
 
+            # get pre-fit hists and plots for ge4j category
+            if cat_fit == "ge4j":
+                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(
+                    data_hists, dy_hists, bkg_hists,
+                    data_events, dy_events, bkg_events,
+                    njet_fit_min, njet_fit_max, fit_data, original_dy_weights,
+                    cat_fit,
+                    self.variables,
+                    "",
+                )
+
+            ##############################################################
+            # calculate (data-bkg)/dy ratio in dilep_pt using mumu channel
             ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                data_hist,
-                dy_hist,
-                bkg_hist,
-                var,
+                data_hists[f'mumu_dilep_pt_{cat_fit}'],
+                dy_hists[f'mumu_dilep_pt_{cat_fit}'],
+                bkg_hists[f'mumu_dilep_pt_{cat_fit}'],
+                self.dilep_pt_inst,
             )
-
-            # change depending on fit_syst
-            if fit_syst.startswith("syst_"):
-
-                nominal_r = get_fit(fit_njet_bin, "nominal")[2][6]  # get nominal r value
-
-                if fit_syst in ["syst_up", "syst_down"]:
-                    bin_mask = np.ones_like(bin_centers, dtype=bool)
-                else:
-                    bin_mask = bin_centers <= nominal_r
-                    bin_mask = bin_mask if "gauss" in fit_syst else ~bin_mask
-
-                sign = 1.0 if "up" in fit_syst else -1.0
-
-                ratio_values = np.where(bin_mask, ratio_values + sign * 1.5 * ratio_err, ratio_values)
 
             # define starting values with respective bounds
             starting_values = [1, 1, 10, 3, 1, 0, 50]
@@ -451,80 +460,197 @@ class DYWeights(DYBaseTask):
                 bounds=(lower_bounds, upper_bounds),
             )
 
+            # get post-fit parameters and build string of the fit function
             c, n, mu, sigma, a, b, r = popt
             fit_str = self.get_fit_str(*popt)
+            fit_data["postfit"] = fit_str
 
-            # placeholder for fit calculation
-            return functools.partial(self.get_fit_function, c=c, n=n, mu=mu, sigma=sigma, a=a, b=b, r=r), fit_str, popt
+            fit_params = {
+                "postfit": popt,
+            }
 
-        @functools.cache
-        def get_norm(njet_bin, nbjet_bin, syst, fit_njet_bin, fit_syst) -> float:
+            # -------------------------------------------------------------------------------------------------
+            # get bin mask: True for gaussian like bins, False for linear like bins
+            bin_mask = bin_centers <= r
 
-            var = self.nbjets_inst
-            var.name = "nbjets"
+            # define shifted ratios by 95% CL
+            ratio_values_gauss_up = np.where(bin_mask, ratio_values + 1.5 * ratio_err, ratio_values)
+            ratio_values_gauss_down = np.where(bin_mask, ratio_values - 1.5 * ratio_err, ratio_values)
+            ratio_values_lin_up = np.where(~bin_mask, ratio_values + 1.5 * ratio_err, ratio_values)
+            ratio_values_lin_down = np.where(~bin_mask, ratio_values - 1.5 * ratio_err, ratio_values)
+            shifted_ratios = [
+                (ratio_values_gauss_up, "gauss_up"),
+                (ratio_values_gauss_down, "gauss_down"),
+                (ratio_values_lin_up, "lin_up"),
+                (ratio_values_lin_down, "lin_down")
+            ]
 
-            data_mask = self.get_mask(data_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-            data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
+            # redo the fit for each shifted scenario and save to dict
+            for ratio_values_shifted, fit_name in shifted_ratios:
+                popt, pcov = optimize.curve_fit(
+                    self.get_fit_function,
+                    bin_centers,
+                    ratio_values_shifted,
+                    p0=starting_values, method="trf",
+                    sigma=np.maximum(ratio_err, 1e-5),
+                    absolute_sigma=True,
+                    bounds=(lower_bounds, upper_bounds),
+                )
 
-            dy_mask = self.get_mask(dy_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-            fit_funct = get_fit(fit_njet_bin, fit_syst)[0]
-            dy_weight = dy_events.weight[dy_mask] * fit_funct(dy_events.gen_dilepton_pt[dy_mask])
-            dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_weight)
+                # save shifted fit string to dict
+                fit_str_shifted = self.get_fit_str(*popt)
+                fit_data[f"{fit_name}"]["fit"] = fit_str_shifted
 
-            bkg_mask = self.get_mask(bkg_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-            bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
+                # save new fit parameters for later use
+                fit_params[f"{fit_name}"] = popt
 
-            ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                data_hist,
-                dy_hist,
-                bkg_hist,
-                var,
-            )
+            # -------------------------------------------------------------------------------------------------
+            # plot the fit results
+            self.get_fit_plot(cat_fit, self.get_fit_function, fit_params, ratio_values, ratio_err, bin_centers)
 
-            norm = Norm(ratio_values[nbjet_bin[0]], ratio_err[nbjet_bin[0]])
-            norm_value = norm.nom
+            # get postfit weights using fit function
+            dy_njet_mask = self.get_njet_mask(dy_events, njet_fit_min, njet_fit_max)
+            updated_weights = {}
+            for key, norm_data in fit_data.items():
+                if isinstance(key, str):
+                    dy_weight_tmp = ak.where(
+                        dy_njet_mask,
+                        self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params[f"{key}"]),
+                        dy_events.dy_weight_ones,
+                    )
+                    dy_events = set_ak_column(
+                        dy_events,
+                        f"dy_weight_{key}",
+                        dy_weight_tmp,
+                    )
 
-            # general syst case
-            if syst in ["stat_up", "stat_down"]:
-                norm_value = norm.up if syst.endswith("up") else norm.down
-            # nbjet syst cases
-            if nbjet_bin[0] == 0 and syst.startswith("stat_btag0_"):
-                norm_value = norm.up if syst.endswith("up") else norm.down
-            elif nbjet_bin[0] == 1 and syst.startswith("stat_btag1_"):
-                norm_value = norm.up if syst.endswith("up") else norm.down
-            elif nbjet_bin[0] == 2 and syst.startswith("stat_btag2_"):
-                norm_value = norm.up if syst.endswith("up") else norm.down
+                    updated_weights[f"{key}"] = dy_events["weight"] * dy_weight_tmp
 
-            return norm_value
+                    [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(
+                        data_hists, dy_hists, bkg_hists,
+                        data_events, dy_events, bkg_events,
+                        njet_fit_min, njet_fit_max, fit_data, updated_weights[f"{key}"],
+                        cat_fit,
+                        self.variables,
+                        f"_{key}",
+                    )
 
-        for syst in dict_setup.keys():
-            dict_out[syst] = {}
-            for njet_bin in dict_setup[syst]:
-                dict_out[syst][njet_bin] = {}
-                for nbjet_bin, deps in dict_setup[syst][njet_bin].items():
+            # calculate btag normalizations
+            for key, norm_data in fit_data.items():
+                if isinstance(key, str):
+                    # continue
+                    if key == "postfit":
+                        continue
+                    else:
+                        for tmp_key, tmp_norm_data in norm_data.items():
+                            if isinstance(tmp_key, str):
+                                continue
+                            (njet_min, njet_max) = tmp_key
+                            fit_data_tmp = norm_data
+                            norm_data = tmp_norm_data
 
-                    fit_string = get_fit(deps.fit_njet_bin, deps.fit_syst)[1]
-                    norm_value = get_norm(njet_bin, nbjet_bin, syst, deps.fit_njet_bin, deps.fit_syst)
+                if not (njet_min, njet_max):
+                    (njet_min, njet_max) = key
+                if not fit_data_tmp:
+                    fit_data_tmp = fit_data.copy()
 
-                    # do some plots
+                cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
 
-                    # ending up in fit result
-                    fit_result = FitResult(norm_value, fit_string)
+                # get postfit hists and plots for missing categories (eq4j, eq5j, ge6j)
+                if cat_bin in ["eq4j", "eq5j", "ge6j"]:
+                    [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                        data_hists, dy_hists, bkg_hists,
+                        data_events, dy_events, bkg_events,
+                        njet_fit_min, njet_fit_max, fit_data_tmp, updated_weights[f"{key}"],
+                        cat_bin,
+                        self.variables,
+                        f"_{key}",
+                    )
 
-                    # store it
-                    dict_out[syst][njet_bin][nbjet_bin] = fit_result.to_window()
+                identifier = f"mumu_nbjets_postfit_{cat_bin}"
+                ratio_values, ratio_err, bin_centers = self.get_ratio_values(
+                    data_hists[identifier],
+                    dy_hists[identifier],
+                    bkg_hists[identifier],
+                    self.nbjets_inst,
+                )
+
+                # fill norm_data per btag bin
+                norm_data = norm_content.copy()
+                for btag, btag_data in norm_data.items():
+                    n_btag = btag[0]
+
+                    # save normalizations with statistical uncertainty
+                    norm_data[btag] = Norm(ratio_values[n_btag], ratio_err[n_btag])
+                    btag_mask = (
+                        (self.get_njet_mask(dy_events, njet_min, njet_max)) &
+                        (dy_events.nbjets == n_btag if n_btag < 2 else dy_events.nbjets >= n_btag)
+                    )
+
+                    dy_weight_norm_tmp = ak.where(
+                        btag_mask,
+                        norm_data[btag].nom,
+                        dy_events.dy_weight_ones)
+
+                    dy_events = set_ak_column(
+                        dy_events,
+                        f"dy_weight_norm_{key}",
+                        dy_weight_norm_tmp,
+                    )
+                    from IPython import embed; embed(header="debugger")
+                    updated_weights[f"norm_{key}"] = updated_weights[f"{key}"] * dy_weight_norm_tmp
+
+                # save normalizations in corresponding njet bin
+                fit_data[key] = norm_data
+                # -----------------------------------------------------------------------------
+
+            # get norm hists and plots
+            for key, norm_data in fit_data.items():
+                if isinstance(key, str):
+                    if key == "postfit":
+                        continue
+                    else:
+                        for tmp_key, tmp_norm_data in norm_data.items():
+                            if isinstance(tmp_key, str):
+                                continue
+                            (njet_min, njet_max) = tmp_key
+                            fit_data_tmp = norm_data
+
+                if not (njet_min, njet_max):
+                    (njet_min, njet_max) = key
+                if not fit_data_tmp:
+                    fit_data_tmp = fit_data.copy()
+
+                cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
+                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                    data_hists, dy_hists, bkg_hists,
+                    data_events, dy_events, bkg_events,
+                    njet_fit_min, njet_fit_max, fit_data_tmp, updated_weights[f"norm_{key}"],
+                    cat_bin,
+                    self.variables,
+                    f"_norm_{key}",
+                )
+
+            # handle missing ge4j category
+            if cat_fit == "ge4j":
+                [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
+                    data_hists, dy_hists, bkg_hists,
+                    data_events, dy_events, bkg_events,
+                    njet_fit_min, njet_fit_max, fit_data_tmp, updated_weights[f"norm_{key}"],
+                    cat_fit,
+                    self.variables,
+                    f"_norm_{key}",
+                )
+
+        # -------------------------------------------------------------------------------------------------
+        # restructure dict_setup for correction lib json, including btag up/down shifts
+        dy_weight_data = self.get_dy_weight_data(dict_setup)
 
         # save final dy weights
-        outputs["weights"].dump(dict_out, formatter="pickle")
+        outputs["weights"].dump(dy_weight_data, formatter="pickle")
 
-    def get_mask(self, events, njet_bin=None, nbjet_bin=None, channel=None):
-        mask = np.ones(len(events), dtype=bool)
-        if njet_bin is not None:
-            njet_min, njet_max = njet_bin
-            mask = mask & ((events.njets >= njet_min) & (events.njets < njet_max))
-        if nbjet_bin is not None:
-            nbjet_min, nbjet_max = nbjet_bin
-            mask = mask & ((events.nbjets >= nbjet_min) & (events.nbjets < nbjet_max))
+    def get_njet_mask(self, events, njet_min, njet_max, channel=None):
+        mask = ((events.njets >= njet_min) & (events.njets < njet_max))
         if channel == "ee":
             mask = mask & (events.channel_id == self.config_inst.channels.n.ee.id)
         elif channel == "mumu":
