@@ -86,14 +86,17 @@ class DYBaseTask(
 
         self.variables = [
             (self.dilep_pt_inst, 'dilep_pt'),
-            (self.nbjets_inst, 'nbjets'),
-            (self.njets_inst, 'njets')
+            (self.nbjets_inst, 'nbjets')
+            # (self.njets_inst, 'njets')
         ]
         self.variables_names = [var_name for _, var_name in self.variables]
 
-        self.channels = ["mumu", "ee"]
+        self.channels = ["mumu"]  # ["mumu", "ee"]
         self.cats = ["eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j"]
-        self.postfixes = ["", "_postfit", "_norm"]
+        self.postfixes = [
+            "", "_postfit", "_gauss_up", "_gauss_down", "_lin_up", "_lin_down",
+            "_norm_postfit", "_norm_gauss_up", "_norm_gauss_down", "_norm_lin_up", "_norm_lin_down"
+        ]
 
     @classmethod
     def modify_param_values(cls, params):
@@ -391,9 +394,13 @@ class DYWeights(DYBaseTask):
             },
         }
 
-        # add dummy values for both weights
+        # add dummy values for weight columns to be updated later
         dy_events = set_ak_column(dy_events, "dy_weight_postfit", np.ones(len(dy_events), dtype=np.float32))
         dy_events = set_ak_column(dy_events, "dy_weight_norm", np.ones(len(dy_events), dtype=np.float32))
+        dy_events = set_ak_column(dy_events, "dy_weight_gauss_up", np.ones(len(dy_events), dtype=np.float32))
+        dy_events = set_ak_column(dy_events, "dy_weight_gauss_down", np.ones(len(dy_events), dtype=np.float32))
+        dy_events = set_ak_column(dy_events, "dy_weight_lin_up", np.ones(len(dy_events), dtype=np.float32))
+        dy_events = set_ak_column(dy_events, "dy_weight_lin_down", np.ones(len(dy_events), dtype=np.float32))
 
         ###############################################################################
         # fill dict_setup with fit functions and btag Norm content
@@ -464,24 +471,23 @@ class DYWeights(DYBaseTask):
             fit_data["fit_str"] = fit_str
 
             fit_params = {
-                "nom": popt,
+                "postfit": popt,
             }
 
             # -------------------------------------------------------------------------------------------------
-            # TODO: calculate fit up/down shifts for Guassian and linear regimes
             # get bin mask: True for gaussian like bins, False for linear like bins
             bin_mask = bin_centers <= r
 
             # define shifted ratios by 95% CL
             ratio_values_gauss_up = np.where(bin_mask, ratio_values + 2 * ratio_err, ratio_values)
             ratio_values_gauss_down = np.where(bin_mask, ratio_values - 2 * ratio_err, ratio_values)
-            ratio_values_linear_up = np.where(~bin_mask, ratio_values + 2 * ratio_err, ratio_values)
-            ratio_values_linear_down = np.where(~bin_mask, ratio_values - 2 * ratio_err, ratio_values)
+            ratio_values_lin_up = np.where(~bin_mask, ratio_values + 2 * ratio_err, ratio_values)
+            ratio_values_lin_down = np.where(~bin_mask, ratio_values - 2 * ratio_err, ratio_values)
             shifted_ratios = [
                 (ratio_values_gauss_up, "gauss_up"),
                 (ratio_values_gauss_down, "gauss_down"),
-                (ratio_values_linear_up, "lin_up"),
-                (ratio_values_linear_down, "lin_down")
+                (ratio_values_lin_up, "lin_up"),
+                (ratio_values_lin_down, "lin_down")
             ]
 
             # redo the fit for each shifted scenario and save to dict
@@ -502,10 +508,6 @@ class DYWeights(DYBaseTask):
 
                 # save new fit parameters for later use
                 fit_params[f"{fit_name}"] = popt
-
-            # after doing the fit again with shifted ratio_values calculate the btag nominal normalizations again
-
-            # no need to calculate btag uncertaities
             # -------------------------------------------------------------------------------------------------
 
             # plot the fit result including shifted scenarios
@@ -515,49 +517,49 @@ class DYWeights(DYBaseTask):
             dy_njet_mask = self.get_njet_mask(dy_events, njet_fit_min, njet_fit_max)
             dy_weight_postfit = ak.where(
                 dy_njet_mask,
-                self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["nom"]),
+                self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["postfit"]),
                 dy_events.dy_weight_postfit,
             )
             dy_weight_gauss_up = ak.where(
                 dy_njet_mask,
                 self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["gauss_up"]),
-                dy_events.dy_weight_postfit,
+                dy_events.dy_weight_gauss_up,
             )
             dy_weight_gauss_down = ak.where(
                 dy_njet_mask,
                 self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["gauss_down"]),
-                dy_events.dy_weight_postfit,
+                dy_events.dy_weight_gauss_down,
             )
             dy_weight_lin_up = ak.where(
                 dy_njet_mask,
                 self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["lin_up"]),
-                dy_events.dy_weight_postfit,
+                dy_events.dy_weight_lin_up,
             )
             dy_weight_lin_down = ak.where(
                 dy_njet_mask,
                 self.get_fit_function(dy_events.gen_dilepton_pt, *fit_params["lin_down"]),
-                dy_events.dy_weight_postfit,
+                dy_events.dy_weight_lin_down,
             )
 
             new_columns = {
-                ("postfit", dy_weight_postfit),
-                ("gauss_up", dy_weight_gauss_up),
-                ("gauss_down", dy_weight_gauss_down),
-                ("lin_up", dy_weight_lin_up),
-                ("lin_down", dy_weight_lin_down),
+                "postfit": dy_weight_postfit,
+                "gauss_up": dy_weight_gauss_up,
+                "gauss_down": dy_weight_gauss_down,
+                "lin_up": dy_weight_lin_up,
+                "lin_down": dy_weight_lin_down,
             }
 
             updated_weights = {}
 
             # update event info with new columns, get hists and plots
-            for shift_name, column_name, _ in new_columns:
+            for shift_name, column_obj in new_columns.items():
                 dy_events = set_ak_column(
                     dy_events,
-                    f"{column_name}",
-                    column_name,
+                    f"dy_weight_{shift_name}",
+                    column_obj,
                 )
 
-                tmp_dy_weights = dy_events.weight * dy_events.get_column(f"{column_name}")
+                tmp_dy_weights = dy_events["weight"] * dy_events[f"dy_weight_{shift_name}"]
                 updated_weights[f"{shift_name}"] = tmp_dy_weights
 
                 [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(
@@ -624,11 +626,11 @@ class DYWeights(DYBaseTask):
                                 )
 
                                 # save DY event weights for shifted fit scenario
-                                norm_dy_weights = dy_events.weight * dy_events.get_column(f"dy_weight_{key}") * dy_events.get_column(f"dy_weight_norm_{key}")  # noqa: E501
+                                norm_dy_weights = dy_events["weight"] * dy_events[f"dy_weight_{key}"] * dy_events[f"dy_weight_norm_{key}"]  # noqa: E501
                                 updated_weights[f"norm_{key}"] = norm_dy_weights
 
                                 fit_data[key][tmp_key] = tmp_norm_data
-
+                        continue
                 # -----------------------------------------------------------------------------
                 # calculate btag normalizations for nominal fit scenario
                 (njet_min, njet_max) = key
@@ -700,6 +702,7 @@ class DYWeights(DYBaseTask):
                                 self.variables,
                                 f"_norm_{key}",
                             )
+                        continue
                 (njet_min, njet_max) = key
                 cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
                 [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)] = self.get_hists_and_plots(  # noqa: E501
@@ -843,7 +846,7 @@ class DYWeights(DYBaseTask):
 
         # Nominal fit
         s = np.linspace(0, 200, 1000)
-        y_nom = [fit_function(v, *fit_params["nom"]) for v in s]
+        y_nom = [fit_function(v, *fit_params["postfit"]) for v in s]
         ax.plot(s, y_nom, color="black", label="Nominal", lw=2)
 
         # shifted fits
@@ -993,7 +996,7 @@ class DYWeights(DYBaseTask):
         outputs = self.output()
         bkg_process = od.Process(name="Backgrounds", id="+", color1="#e76300")
 
-        for channel in ["mumu", "ee"]:
+        for channel in self.channels:
             # update hists
             for hist, events in [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)]:
                 # get hists for categories (eq2j, eq3j, eq4j, eq5j, ge6j)
