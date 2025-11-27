@@ -1823,8 +1823,7 @@ def add_config(
         if year == 2024:
             # momentarily, the sf and reco corrections are split into two files for 2024
             add_external("electron_reco", (cat_info.get_file("egm", "electronID.json.gz"), "v2"))
-        else:
-            add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
+        add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
             # electron energy correction and smearing
         add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
