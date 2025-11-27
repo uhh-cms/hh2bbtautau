@@ -1114,24 +1114,38 @@ def add_config(
         elif year == 2023:
             e_postfix = {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix]
         elif year == 2024:
-            e_postfix = "FIXME"  # TODO: 2024: lookup!
+            e_postfix = ""  # NO postfix for 2024 (also year not split into eras yet) 
         else:
             assert False
         # TODO: 2024: different files being used for id and reco sfs
+        # will be merged in future releases according to twiki
+        # https://twiki.cern.ch/twiki/bin/viewauth/CMS/EgammSFandSSRun3#Electron_and_Electron_ID_JSON_fo 
+        # EDIT: looks like the files are already merged in the latest release
         cfg.x.electron_id_sf = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
-        cfg.x.electron_reco_sf = ElectronSFConfig(
-            correction="Electron-ID-SF",
-            campaign=f"{year}{e_postfix}",
-            working_point={
-                "RecoBelow20": (lambda variables: variables["pt"] < 20.0),
-                "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
-                "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
-            },
-        )
+        if year == 2024:
+            cfg.x.electron_reco_sf = ElectronSFConfig(
+                correction="Electron-ID-SF",
+                campaign=f"{year}{e_postfix}",
+                working_point={
+                    # "RecoBelow20": (lambda variables: variables["pt"] < 20.0), Note: still missing in 2024 sf file (see twiki above)
+                    "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
+                    "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
+                },
+            )
+        else:
+            cfg.x.electron_reco_sf = ElectronSFConfig(
+                correction="Electron-ID-SF",
+                campaign=f"{year}{e_postfix}",
+                working_point={
+                    "RecoBelow20": (lambda variables: variables["pt"] < 20.0),
+                    "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
+                    "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
+                },
+            )
         cfg.x.electron_trigger_sf_names = ElectronSFConfig(
             correction="Electron-HLT-SF",
             campaign=f"{year}{e_postfix}",
@@ -1805,9 +1819,14 @@ def add_config(
         if year != 2024:  # TODO: 2024: not yet available
             add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
         # electron scale factors
-        add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
-        # electron energy correction and smearing
-        add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
+        if year == 2024:
+            # momentarily, the sf and reco corrections are split into two files for 2024
+            add_external("electron_reco", (cat_info.get_file("egm", "electron_v1.json.gz"), "v1"))
+            add_external("electron_sf", (cat_info.get_file("egm", "electronID_v1.json.gz"), "v1"))
+        else:
+            add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
+            # electron energy correction and smearing
+            add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         hhb_postfix = "_2024" if year == 2024 else ""
         add_external("hh_btag_repo", Ext(
