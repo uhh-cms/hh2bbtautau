@@ -1082,7 +1082,7 @@ def add_config(
     # https://twiki.cern.ch/twiki/bin/viewauth/CMS/EgammSFandSSRun3
 
     # names of electron correction sets and working points
-    from columnflow.production.cms.electron import ElectronSFConfig
+    from columnflow.production.cms.electron import ElectronSFConfig, ElectronRecoSFConfig
     from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
     if run == 2:
         # SFs
@@ -1127,7 +1127,8 @@ def add_config(
             working_point="wp80iso",
         )
         if year == 2024:
-            cfg.x.electron_reco_sf = ElectronSFConfig(
+            # specific reco sf config for 2024 as reco sf and id sf jsons are split
+            cfg.x.electron_reco_sf = ElectronRecoSFConfig(
                 correction="Electron-ID-SF",
                 campaign=f"{year}{e_postfix}",
                 working_point={
@@ -1821,12 +1822,11 @@ def add_config(
         # electron scale factors
         if year == 2024:
             # momentarily, the sf and reco corrections are split into two files for 2024
-            add_external("electron_reco", (cat_info.get_file("egm", "electron_v1.json.gz"), "v1"))
-            add_external("electron_sf", (cat_info.get_file("egm", "electronID_v1.json.gz"), "v1"))
+            add_external("electron_reco", (cat_info.get_file("egm", "electronID.json.gz"), "v2"))
         else:
             add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
             # electron energy correction and smearing
-            add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
+        add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         hhb_postfix = "_2024" if year == 2024 else ""
         add_external("hh_btag_repo", Ext(
