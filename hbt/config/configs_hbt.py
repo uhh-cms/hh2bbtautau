@@ -1378,6 +1378,10 @@ def add_config(
                 "stat_btag0_up", "stat_btag0_down",
                 "stat_btag1_up", "stat_btag1_down",
                 "stat_btag2_up", "stat_btag2_down",
+                "stat_up", "stat_down",
+                "syst_up", "syst_down",
+                "syst_gauss_up", "syst_gauss_down",
+                "syst_linear_up", "syst_linear_down",
             ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
             get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
@@ -1624,10 +1628,10 @@ def add_config(
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
     # dy scale factors
-    for i, nb in enumerate([0, 1, 2]):
-        cfg.add_shift(name=f"dy_stat_btag{nb}_up", id=210 + 2 * i, type="shape")
-        cfg.add_shift(name=f"dy_stat_btag{nb}_down", id=211 + 2 * i, type="shape")
-        add_shift_aliases(cfg, f"dy_stat_btag{nb}", {"dy_weight": f"dy_weight_stat_btag{nb}_{{direction}}"})
+    for i, dy_name in enumerate(["syst", "syst_gauss", "syst_linear", "stat", "stat_btag0", "stat_btag1", "stat_btag2"]):
+        cfg.add_shift(name=f"dy_{dy_name}_up", id=210 + 2 * i, type="shape")
+        cfg.add_shift(name=f"dy_{dy_name}_down", id=211 + 2 * i, type="shape")
+        add_shift_aliases(cfg, f"dy_{dy_name}", {"dy_weight": f"dy_weight_{dy_name}_{{direction}}"})
 
     ################################################################################################
     # external files
@@ -1822,7 +1826,10 @@ def add_config(
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
         add_external("muon_sr_tools", (f"{central_hbt_dir}/central_muo_files/muonscarekit/scripts/MuonScaRe.py", "v1"))
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_1.0.json.gz", "v1"))  # noqa: E501
+        # add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_1.5.json.gz", "v1"))  # noqa: E501
+        # add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_2.0.json.gz", "v1"))  # noqa: E501
+
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024yet
         if year in {2022, 2023}:
