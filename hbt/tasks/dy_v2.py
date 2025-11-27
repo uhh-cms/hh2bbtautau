@@ -93,13 +93,6 @@ class DYBaseTask(
         ]
         self.variables_names = [var_name for _, var_name in self.variables]
 
-        self.channels = ["mumu"]  # ["mumu", "ee"]
-        self.cats = ["eq2j", "eq3j", "eq4j", "eq5j", "ge4j", "ge6j"]
-        self.postfixes = [
-            "", "_postfit", "_gauss_up", "_gauss_down", "_lin_up", "_lin_down",
-            "_norm_postfit", "_norm_gauss_up", "_norm_gauss_down", "_norm_lin_up", "_norm_lin_down"
-        ]
-
     @classmethod
     def modify_param_values(cls, params):
         params = super().modify_param_values(params)
@@ -307,25 +300,30 @@ class DYWeights(DYBaseTask):
             --datasets bkg_data \
             --version prod20_vbf
     """
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        # define possible uncertainty factors for fit shifts
+        self.unc_factors = [1.0, 1.5, 2.0]
+
+        self.fit_identifiers = ["fit_njets2", "fit_njets3", "fit_njets4"]
+
+        # define luminosity /pb -> /fb and com
+        self.lumi = "8.0"
+        self.com = "13.6 TeV"
 
     def output(self):
         outputs = {
-            "weights": self.target("weights.pkl"),
             "plots": {},
         }
 
-        # define plot outputs for fit functions
-        for cat in ["eq2j", "eq3j", "ge4j"]:
-            identifier = f"fit_{cat}"
-            outputs["plots"][identifier] = self.target(f"{identifier}.pdf", optional = True)
+        for factor in self.unc_factors:
+            outputs[f"weights_{factor}"] = self.target(f"weights_{factor}.pkl")
 
-        # define plot outputs for kinematic variables
-        for channel in self.channels:
-            for var_name in self.variables_names:
-                for cat in self.cats:
-                    for postfix in self.postfixes:
-                        identifier = f"{channel}_{var_name}{postfix}_{cat}"
-                        outputs["plots"][identifier] = self.target(f"{identifier}.pdf", optional = True)
+        for tmp_id in self.fit_identifiers:
+            for factor in self.unc_factors:
+                tmp_id_full = f"{tmp_id}_unc{factor}"
+                outputs["plots"][tmp_id] = self.target(f"{tmp_id_full}.pdf", optional=True)
 
         return outputs
 
@@ -395,127 +393,140 @@ class DYWeights(DYBaseTask):
             "stat_down": create_setup("nominal"),
         }
 
-        dict_out = {}
+        # get dict_out for each possible uncertainty factor
+        for factor in self.unc_factors:
+            # initialize dicts to be updated
+            dict_out = {}
+            ratios = {}
+            fit_params = {}
 
-        # add dummy weight column to be used later
-        dy_events = set_ak_column(dy_events, "dy_weight_ones", np.ones(len(dy_events), dtype=np.float32))
+            @functools.cache
+            def get_fit(fit_njet_bin, fit_syst, factor) -> tuple[Callable, str, tuple[float, ...]]:
+                var = self.dilep_pt_inst
 
-        @functools.cache
-        def get_fit(fit_njet_bin, fit_syst) -> tuple[Callable, str, tuple[float, ...]]:
-            var = self.dilep_pt_inst
+                data_mask = self.get_mask(data_events, njet_bin=fit_njet_bin, channel="mumu")
+                data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
 
-            data_mask = self.get_mask(data_events, njet_bin=fit_njet_bin, channel="mumu")
-            data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
+                dy_mask = self.get_mask(dy_events, njet_bin=fit_njet_bin, channel="mumu")
+                dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])
 
-            dy_mask = self.get_mask(dy_events, njet_bin=fit_njet_bin, channel="mumu")
-            dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])
+                bkg_mask = self.get_mask(bkg_events, njet_bin=fit_njet_bin, channel="mumu")
+                bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
 
-            bkg_mask = self.get_mask(bkg_events, njet_bin=fit_njet_bin, channel="mumu")
-            bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
+                ratio_values, ratio_err, bin_centers = self.get_ratio_values(
+                    data_hist,
+                    dy_hist,
+                    bkg_hist,
+                    var,
+                )
 
-            ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                data_hist,
-                dy_hist,
-                bkg_hist,
-                var,
-            )
+                # cache ratio values for later plotting
+                if fit_syst == "nominal":
+                    ratios[fit_njet_bin] = (ratio_values, ratio_err, bin_centers)
 
-            # change depending on fit_syst
-            if fit_syst.startswith("syst_"):
+                # change depending on fit_syst
+                if fit_syst.startswith("syst_"):
 
-                nominal_r = get_fit(fit_njet_bin, "nominal")[2][6]  # get nominal r value
+                    nominal_r = get_fit(fit_njet_bin, "nominal", factor)[2][6]  # get nominal r value
 
-                if fit_syst in ["syst_up", "syst_down"]:
-                    bin_mask = np.ones_like(bin_centers, dtype=bool)
-                else:
-                    bin_mask = bin_centers <= nominal_r
-                    bin_mask = bin_mask if "gauss" in fit_syst else ~bin_mask
+                    if fit_syst in ["syst_up", "syst_down"]:
+                        bin_mask = np.ones_like(bin_centers, dtype=bool)
+                    else:
+                        bin_mask = bin_centers <= nominal_r
+                        bin_mask = bin_mask if "gauss" in fit_syst else ~bin_mask
 
-                sign = 1.0 if "up" in fit_syst else -1.0
+                    sign = 1.0 if "up" in fit_syst else -1.0
+                    ratio_values = np.where(bin_mask, ratio_values + sign * factor * ratio_err, ratio_values)
 
-                ratio_values = np.where(bin_mask, ratio_values + sign * 1.5 * ratio_err, ratio_values)
+                # define starting values with respective bounds
+                starting_values = [1, 1, 10, 3, 1, 0, 50]
+                lower_bounds = [0.6, 0, 0, 0, 0, -2, 20]
+                upper_bounds = [1.2, 10, 50, 20, 2, 3, 100]
 
-            # define starting values with respective bounds
-            starting_values = [1, 1, 10, 3, 1, 0, 50]
-            lower_bounds = [0.6, 0, 0, 0, 0, -2, 20]
-            upper_bounds = [1.2, 10, 50, 20, 2, 3, 100]
+                # perform the fit
+                popt, pcov = optimize.curve_fit(
+                    self.get_fit_function,
+                    bin_centers,
+                    ratio_values,
+                    p0=starting_values, method="trf",
+                    sigma=np.maximum(ratio_err, 1e-5),
+                    absolute_sigma=True,
+                    bounds=(lower_bounds, upper_bounds),
+                )
 
-            # perform the fit
-            popt, pcov = optimize.curve_fit(
-                self.get_fit_function,
-                bin_centers,
-                ratio_values,
-                p0=starting_values, method="trf",
-                sigma=np.maximum(ratio_err, 1e-5),
-                absolute_sigma=True,
-                bounds=(lower_bounds, upper_bounds),
-            )
+                c, n, mu, sigma, a, b, r = popt
+                fit_str = self.get_fit_str(*popt)
 
-            c, n, mu, sigma, a, b, r = popt
-            fit_str = self.get_fit_str(*popt)
+                # placeholder for fit calculation
+                return functools.partial(self.get_fit_function, c=c, n=n, mu=mu, sigma=sigma, a=a, b=b, r=r), fit_str, popt
 
-            # placeholder for fit calculation
-            return functools.partial(self.get_fit_function, c=c, n=n, mu=mu, sigma=sigma, a=a, b=b, r=r), fit_str, popt
+            @functools.cache
+            def get_norm(njet_bin, nbjet_bin, syst, fit_njet_bin, fit_syst) -> float:
 
-        @functools.cache
-        def get_norm(njet_bin, nbjet_bin, syst, fit_njet_bin, fit_syst) -> float:
+                var = self.nbjets_inst
+                var.name = "nbjets"
 
-            var = self.nbjets_inst
-            var.name = "nbjets"
+                data_mask = self.get_mask(data_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
+                data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
 
-            data_mask = self.get_mask(data_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-            data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
+                dy_mask = self.get_mask(dy_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
+                fit_funct = get_fit(fit_njet_bin, fit_syst, factor)[0]
+                dy_weight = dy_events.weight[dy_mask] * fit_funct(dy_events.gen_dilepton_pt[dy_mask])
+                dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_weight)
 
-            dy_mask = self.get_mask(dy_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-            fit_funct = get_fit(fit_njet_bin, fit_syst)[0]
-            dy_weight = dy_events.weight[dy_mask] * fit_funct(dy_events.gen_dilepton_pt[dy_mask])
-            dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_weight)
+                bkg_mask = self.get_mask(bkg_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
+                bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
 
-            bkg_mask = self.get_mask(bkg_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-            bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
+                ratio_values, ratio_err, bin_centers = self.get_ratio_values(
+                    data_hist,
+                    dy_hist,
+                    bkg_hist,
+                    var,
+                )
 
-            ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                data_hist,
-                dy_hist,
-                bkg_hist,
-                var,
-            )
+                norm = Norm(ratio_values[nbjet_bin[0]], ratio_err[nbjet_bin[0]])
+                norm_value = norm.nom
 
-            norm = Norm(ratio_values[nbjet_bin[0]], ratio_err[nbjet_bin[0]])
-            norm_value = norm.nom
+                # general syst case
+                if syst in ["stat_up", "stat_down"]:
+                    norm_value = norm.up if syst.endswith("up") else norm.down
+                # nbjet syst cases
+                if nbjet_bin[0] == 0 and syst.startswith("stat_btag0_"):
+                    norm_value = norm.up if syst.endswith("up") else norm.down
+                elif nbjet_bin[0] == 1 and syst.startswith("stat_btag1_"):
+                    norm_value = norm.up if syst.endswith("up") else norm.down
+                elif nbjet_bin[0] == 2 and syst.startswith("stat_btag2_"):
+                    norm_value = norm.up if syst.endswith("up") else norm.down
 
-            # general syst case
-            if syst in ["stat_up", "stat_down"]:
-                norm_value = norm.up if syst.endswith("up") else norm.down
-            # nbjet syst cases
-            if nbjet_bin[0] == 0 and syst.startswith("stat_btag0_"):
-                norm_value = norm.up if syst.endswith("up") else norm.down
-            elif nbjet_bin[0] == 1 and syst.startswith("stat_btag1_"):
-                norm_value = norm.up if syst.endswith("up") else norm.down
-            elif nbjet_bin[0] == 2 and syst.startswith("stat_btag2_"):
-                norm_value = norm.up if syst.endswith("up") else norm.down
+                return norm_value
 
-            return norm_value
+            for syst in dict_setup.keys():
+                dict_out[syst] = {}
+                for njet_bin in dict_setup[syst]:
+                    dict_out[syst][njet_bin] = {}
+                    for nbjet_bin, deps in dict_setup[syst][njet_bin].items():
 
-        for syst in dict_setup.keys():
-            dict_out[syst] = {}
-            for njet_bin in dict_setup[syst]:
-                dict_out[syst][njet_bin] = {}
-                for nbjet_bin, deps in dict_setup[syst][njet_bin].items():
+                        fit_function, fit_string, fit_popt = get_fit(deps.fit_njet_bin, deps.fit_syst, factor)
+                        norm_value = get_norm(njet_bin, nbjet_bin, syst, deps.fit_njet_bin, deps.fit_syst)
 
-                    fit_string = get_fit(deps.fit_njet_bin, deps.fit_syst)[1]
-                    norm_value = get_norm(njet_bin, nbjet_bin, syst, deps.fit_njet_bin, deps.fit_syst)
+                        # ending up in fit result
+                        fit_result = FitResult(norm_value, fit_string)
 
-                    # do some plots
+                        # save fit parameters for later plotting
+                        if deps.fit_syst not in fit_params.keys():
+                            fit_params[deps.fit_syst] = {}
+                        fit_params[deps.fit_syst][deps.fit_njet_bin] = fit_popt
 
-                    # ending up in fit result
-                    fit_result = FitResult(norm_value, fit_string)
+                        # store it
+                        dict_out[syst][njet_bin][nbjet_bin] = fit_result.to_window()
 
-                    # store it
-                    dict_out[syst][njet_bin][nbjet_bin] = fit_result.to_window()
+            # create and save fit plot with systematic uncertainty bands
+            for fit_njet_bins, values in ratios.items():
+                ratio_values, ratio_err, bin_centers = values
+                self.get_fit_plot(fit_njet_bins, fit_params, factor, ratio_values, ratio_err, bin_centers)
 
-        # save final dy weights
-        outputs["weights"].dump(dict_out, formatter="pickle")
+            # save final dy weights
+            outputs[f"weights_{factor}"].dump(dict_out, formatter="pickle")
 
     def get_mask(self, events, njet_bin=None, nbjet_bin=None, channel=None):
         mask = np.ones(len(events), dtype=bool)
@@ -627,25 +638,26 @@ class DYWeights(DYBaseTask):
 
         return fit_string
 
-    def get_fit_plot(self, cat, fit_function, fit_params, ratio_values, ratio_err, bin_centers):
+    def get_fit_plot(self, fit_njet_bin, fit_params, factor, ratio_values, ratio_err, bin_centers):
         outputs = self.output()
 
-        # create plot
+        # initialize figure
         fig, ax = plt.subplots(figsize=(12, 8))
+        fig.subplots_adjust(top=0.93)
 
-        # Nominal fit
+        # get nominal fit
         s = np.linspace(0, 200, 1000)
-        y_nom = [fit_function(v, *fit_params["postfit"]) for v in s]
+        y_nom = [self.get_fit_function(v, *fit_params["nominal"][fit_njet_bin]) for v in s]
         ax.plot(s, y_nom, color="black", label="Nominal", lw=2)
 
-        # shifted fits
-        for regime, colour, label in [("gauss", "red", "Gaussian (up/down)"), ("lin", "blue", "Linear (up/down)")]:
-            y = [self.get_fit_function(v, *fit_params[f"{regime}_up"]) for v in s]
-            ax.fill_between(s, y, y_nom, color=colour, alpha=0.2, label=label)
-            # ax.plot(s, y, color=colour, label=label, lw=1, linestyle="--")
-            y = [self.get_fit_function(v, *fit_params[f"{regime}_down"]) for v in s]
-            ax.fill_between(s, y, y_nom, color=colour, alpha=0.2)
+        # get shifted fits
+        for regime, colour, label in [("syst_gauss", "red", "Gaussian (up/down)"), ("syst_linear", "blue", "Linear (up/down)")]:  # noqa: E501
+            y_up = [self.get_fit_function(v, *fit_params[f"{regime}_up"][fit_njet_bin]) for v in s]
+            y_down = [self.get_fit_function(v, *fit_params[f"{regime}_down"][fit_njet_bin]) for v in s]
+            ax.fill_between(s, y_up, y_nom, color=colour, alpha=0.2, label=label)
+            ax.fill_between(s, y_down, y_nom, color=colour, alpha=0.2)
 
+        # plot ratio error bars
         ax.errorbar(
             bin_centers,
             ratio_values,
@@ -656,184 +668,29 @@ class DYWeights(DYBaseTask):
             ecolor="black",
             elinewidth=0.5,
         )
-        # get era, luminosity /pb -> /fb and com
-        lumi = "8.0"
-        com = "13.6 TeV"
 
-        # build title
-        fig.subplots_adjust(top=0.93)
-        if cat != "ge4j":
-            njets = int(cat.replace("eq", "").replace("j", ""))
-            jet_label = rf"$\mu\mu$ channel, DY region, AK4 jets $={njets}$"
-        else:
-            jet_label = r"$\mu\mu$ channel, DY region, AK4 jets  $\geq 4$"
+        # build labels
+        njets = fit_njet_bin[0]
+        tmp_label = rf"$={njets}$" if njets < 4 else rf"$\geq {njets}$"
+        jet_label = rf"$\mu\mu$ channel, DY region, AK4 jets {tmp_label}"
         label = rf"Private work (CMS data/simulation)      {jet_label}"
-        # styling
+
+        # styling and legends
         ax.legend(loc="lower right")
         ax.set_xlabel(r"$\mathrm{p}_{\mathrm{T,ll}} \ [\mathrm{GeV}]$", fontsize=15, loc="right")
         ax.set_ylabel("Data - MC / DY", fontsize=15, loc="top")
         ax.grid(True)
         fig.text(0.12, 0.97, label, verticalalignment='top', horizontalalignment='left', fontsize=13)
-        fig.text(0.90, 0.97, f"{lumi} fb$^{{-1}}$ ({com})", verticalalignment='top', horizontalalignment='right', fontsize=13)
+        fig.text(0.90, 0.97, f"{self.lumi} fb$^{{-1}}$ ({self.com})", verticalalignment='top', horizontalalignment='right', fontsize=13)  # noqa: E501
         ax.tick_params(axis='both', labelsize=15)
 
         # save plot
-        identifier = f"fit_{cat}"
-        outputs["plots"][identifier].dump(fig, formatter="mpl")
-
-    def get_dy_weight_data(self, dict_setup: dict):
-        """
-        Function to build the nested dictionary structure to export DY weight info to a correction lib json.
-        """
-        dict_data = {}
-
-        # fill nominal dict first with nominal btag normalizations and fit functions
-        dict_data["nom"] = {}
-        # loop over njet bins
-        for njet_bin in dict_setup.keys():
-            fit_string = dict_setup[njet_bin]["postfit"]
-            nbjet_bins = list(dict_setup[njet_bin])[1:]
-            # loop over btag bins
-            for nbjet_bin in nbjet_bins:
-                dict_data["nom"][nbjet_bin] = {}
-                for btag in dict_setup[njet_bin][nbjet_bin].keys():
-                    norm_var = dict_setup[njet_bin][nbjet_bin][btag]
-                    norm_value = getattr(norm_var, "nom")
-                    expr = [(0.0, float("inf"), f"{norm_value}*({fit_string})")]
-                    # save expression in nested dict
-                    dict_data["nom"][nbjet_bin][btag] = expr
-
-        # fill statistical up/down btag shifts considering # btag as separate sources of uncertainty
-        nbjet_bins = dict_data["nom"].keys()
-        btag_bins = dict_data["nom"][nbjet_bin].keys()
-        for btag_bin in btag_bins:
-            btag = btag_bin[0]  # get btag value: 0, 1, 2
-            for direction in ["up", "down"]:
-                # create new uncertainty entry in dict_data
-                shift_str = f"stat_btag{btag}_{direction}"
-                dict_data[shift_str] = {}
-                # shift 0/1/2 btag entry for all njet entries at once
-                for njet_bin in dict_setup.keys():
-                    fit_string = dict_setup[njet_bin]["postfit"]
-                    updated_content = {}
-                    for nbjet_bin in nbjet_bins:
-                        # only update if corresponding nbjet_bin exists
-                        if nbjet_bin not in dict_setup[njet_bin]:
-                            continue
-                        dict_data[shift_str][nbjet_bin] = {}
-
-                        # get shifted btag normalization with corresponfing fit function string
-                        norm_var = dict_setup[njet_bin][nbjet_bin][btag_bin]
-                        norm_value = getattr(norm_var, direction)
-                        fit_string = dict_setup[njet_bin]["postfit"]
-                        expr = [(0.0, float("inf"), f"{norm_value}*({fit_string})")]
-
-                        # copy nominal content, updating only the corresponding btag entry
-                        updated_content[btag_bin] = expr
-                        shifted_dict = law.util.merge_dicts(
-                            dict_data["nom"][nbjet_bin],
-                            updated_content, deep=True
-                        )
-
-                        # save shifted dict
-                        dict_data[shift_str][nbjet_bin] = shifted_dict
-
-        # fill up/down fit shifts considering gaussian and linear functions as separate sources of uncertainty
-        for regime in ["gauss", "lin"]:
-            for direction in ["up", "down"]:
-                shift_str = f"{regime}_{direction}"
-                dict_data[shift_str] = {}
-
-                # get corresponding shifted fit string per njet_bin
-                for njet_bin in dict_setup.keys():
-                    fit_string = dict_setup[njet_bin][f"{shift_str}"]["fit"]
-
-                    # get corresponding nominal btag normalizations per nbjet_bin
-                    for nbjet_bin in nbjet_bins:
-                        if nbjet_bin not in dict_setup[njet_bin][f"{shift_str}"]:
-                            continue
-                        dict_data[shift_str][nbjet_bin] = {}
-
-                        # loop over 0,1 and 2 btag bins
-                        for btag_bin in btag_bins:
-                            norm_var = dict_setup[njet_bin][f"{shift_str}"][nbjet_bin][btag_bin]
-                            norm_value = getattr(norm_var, "nom")
-                            expr = [(0.0, float("inf"), f"{norm_value}*({fit_string})")]
-                            dict_data[shift_str][nbjet_bin][btag_bin] = expr
-
-        return dict_data
-
-    def get_hists_and_plots(
-        self,
-        data_hists,
-        dy_hists,
-        bkg_hists,
-        data_events,
-        dy_events,
-        bkg_events,
-        njet_fit_min,
-        njet_fit_max,
-        fit_data,
-        dy_weights,
-        cat,
-        variables: list[tuple[od.Variable, str]],
-        postfix: Literal[
-            "", "_postfit", "_gauss_up", "_gauss_down", "_lin_up", "_lin_down",
-            "_norm_postfit", "_norm_gauss_up", "_norm_gauss_down", "_norm_lin_up", "_norm_lin_down"
-        ],
-    ):
-        outputs = self.output()
-        bkg_process = od.Process(name="Backgrounds", id="+", color1="#e76300")
-
-        for channel in self.channels:
-            # update hists
-            for hist, events in [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)]:
-                # get hists for categories (eq2j, eq3j, eq4j, eq5j, ge6j)
-                if cat != "ge4j":
-                    for key, norm_data in fit_data.items():
-                        if isinstance(key, str):
-                            continue
-                        (njet_min, njet_max) = key
-                        cat_bin = f"eq{njet_min}j" if njet_min < 6 else "ge6j"
-                        event_mask = self.get_njet_mask(events, njet_min, njet_max, channel)
-                        cat_label = f"{channel}__dyc__{cat_bin}__ge0b__os"
-                        for (var, var_name) in variables:
-                            identifier = f"{channel}_{var_name}{postfix}_{cat_bin}"
-                            if hist is dy_hists:
-                                hist[identifier] = self.hist_function(var, events[var_name][event_mask], dy_weights[event_mask])  # noqa: E501
-                            else:
-                                hist[identifier] = self.hist_function(var, events[var_name][event_mask], events.weight[event_mask])  # noqa: E501
-
-                elif cat == "ge4j":
-                    event_mask = self.get_njet_mask(events, njet_fit_min, njet_fit_max, channel)
-                    cat_label = f"{channel}__dyc__{cat}__ge0b__os"
-                    for (var, var_name) in variables:
-                        identifier = f"{channel}_{var_name}{postfix}_{cat}"
-                        if hist is dy_hists:
-                            hist[identifier] = self.hist_function(var, events[var_name][event_mask], dy_weights[event_mask])  # noqa: E501
-                        else:
-                            hist[identifier] = self.hist_function(var, events[var_name][event_mask], events.weight[event_mask])  # noqa: E501
-
-            # plotting each variable
-            for (var, var_name) in variables:
-                identifier = f"{channel}_{var_name}{postfix}_{cat}"
-                hists_to_plot = {
-                    self.config_inst.get_process("dy"): dy_hists[identifier],
-                    self.config_inst.get_process("data"): data_hists[identifier],
-                    bkg_process: bkg_hists[identifier],
-                }
-                fig, _ = plot_variable_stack(
-                    hists=hists_to_plot,
-                    config_inst=self.config_inst,
-                    category_inst=self.config_inst.get_category(cat_label),
-                    variable_insts=[var,],
-                    shift_insts=[self.config_inst.get_shift("nominal")],
-                )
-                outputs["plots"][identifier].dump(fig, formatter="mpl")
-
-        updated_data = [(data_hists, data_events), (dy_hists, dy_events), (bkg_hists, bkg_events)]
-
-        return updated_data
+        for tmp_id in self.fit_identifiers:
+            if njets in tmp_id:
+                tmp_id_full = f"{tmp_id}_unc{factor}"
+                # avoid overwriting existing plots
+                if tmp_id_full not in outputs["plots"].keys():
+                    outputs["plots"][tmp_id_full].dump(fig, formatter="mpl")
 
 
 class ExportDYWeights(HBTTask, ConfigTask):
@@ -858,13 +715,13 @@ class ExportDYWeights(HBTTask, ConfigTask):
         }
 
     def output(self):
-        return self.target("hbt_corrections.json.gz")
+        return self.target("hbt_corrections_2.0.json.gz")
 
     def run(self):
         dy_weight_data = {}
 
         for config_inst, inps in self.input().items():
-            weight_data = inps["weights"].load(formatter="pickle")
+            weight_data = inps["weights_2.0"].load(formatter="pickle")
             era = config_inst.x.dy_weight_config.era
             dy_weight_data[era] = weight_data
 
