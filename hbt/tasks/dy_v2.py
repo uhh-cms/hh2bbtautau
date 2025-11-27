@@ -686,13 +686,9 @@ class DYWeights(DYBaseTask):
         ax.tick_params(axis='both', labelsize=15)
 
         # save plot
-        try:
-            for key in outputs["plots"].keys():
-                if (f"{int(njets)}" in key) and (f"{factor}" in key):
-                    outputs["plots"][key].dump(fig, formatter="mpl")
-        except:
-            from IPython import embed; embed(header="debugger")
-
+        for key in outputs["plots"].keys():
+            if (f"{int(njets)}" in key) and (f"{factor}" in key):
+                outputs["plots"][key].dump(fig, formatter="mpl")
 
 
 class ExportDYWeights(HBTTask, ConfigTask):
