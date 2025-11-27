@@ -449,7 +449,8 @@ class default(HBTInferenceModelBase):
                 )
         """
         # dy shifts
-        for i, dy_name in enumerate(["syst", "syst_gauss", "syst_linear", "stat", "stat_btag0", "stat_btag1", "stat_btag2"]):  # noqa: E501
+        # for i, dy_name in enumerate(["syst", "syst_gauss", "syst_linear", "stat", "stat_btag0", "stat_btag1", "stat_btag2"]):  # noqa: E501
+        for i, dy_name in enumerate(["syst", "stat"]):  # noqa: E501
             self.add_parameter(
                 f"CMS_bbtt_dy_{dy_name}",
                 type=ParameterType.shape,
@@ -540,7 +541,8 @@ def default_no_shifts(self):
             (parameter.type.is_shape and not parameter.transformations.any_from_rate) or
             (parameter.type.is_rate and parameter.transformations.any_from_shape)
         )
-        # remove = remove or not parameter.name.startswith("CMS_bbtt_dy_stat_btag")
+        if parameter.name.startswith("CMS_bbtt_dy_"):
+            remove = False
         if remove:
             self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
