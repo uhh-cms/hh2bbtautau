@@ -449,12 +449,12 @@ class default(HBTInferenceModelBase):
                 )
         """
         # dy shifts
-        for i, nb in enumerate([0, 1, 2][1:2]):
+        for i, dy_name in enumerate(["syst", "syst_gauss", "syst_linear", "stat", "stat_btag0", "stat_btag1", "stat_btag2"]):  # noqa: E501
             self.add_parameter(
-                f"CMS_bbtt_dy_stat_btag{nb}",
+                f"CMS_bbtt_dy_{dy_name}",
                 type=ParameterType.shape,
                 config_data={
-                    config_inst.name: self.parameter_config_spec(shift_source=f"dy_stat_btag{nb}")
+                    config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}")
                     for config_inst in self.config_insts
                 },
                 process="DY*",
