@@ -1826,9 +1826,7 @@ def add_config(
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
         add_external("muon_sr_tools", (f"{central_hbt_dir}/central_muo_files/muonscarekit/scripts/MuonScaRe.py", "v1"))
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_1.0.json.gz", "v1"))  # noqa: E501
-        # add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_1.5.json.gz", "v1"))  # noqa: E501
-        # add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_2.0.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_2.0.json.gz", "v1"))  # noqa: E501
 
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024yet
@@ -1964,7 +1962,7 @@ def add_config(
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": get_shifts(*(f"dy_stat_btag{nb}" for nb in [0, 1, 2]))}
+            dataset.x.event_weights = {"dy_weight": get_shifts("dy_*")}
 
     cfg.x.shift_groups = {
         "jec": [
