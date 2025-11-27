@@ -323,7 +323,7 @@ class DYWeights(DYBaseTask):
         for tmp_id in self.fit_identifiers:
             for factor in self.unc_factors:
                 tmp_id_full = f"{tmp_id}_unc{factor}"
-                outputs["plots"][tmp_id] = self.target(f"{tmp_id_full}.pdf", optional=True)
+                outputs["plots"][tmp_id_full] = self.target(f"{tmp_id_full}.pdf")
 
         return outputs
 
@@ -395,6 +395,7 @@ class DYWeights(DYBaseTask):
 
         # get dict_out for each possible uncertainty factor
         for factor in self.unc_factors:
+            print("-> using unc factor:", factor)
             # initialize dicts to be updated
             dict_out = {}
             ratios = {}
@@ -685,12 +686,13 @@ class DYWeights(DYBaseTask):
         ax.tick_params(axis='both', labelsize=15)
 
         # save plot
-        for tmp_id in self.fit_identifiers:
-            if njets in tmp_id:
-                tmp_id_full = f"{tmp_id}_unc{factor}"
-                # avoid overwriting existing plots
-                if tmp_id_full not in outputs["plots"].keys():
-                    outputs["plots"][tmp_id_full].dump(fig, formatter="mpl")
+        try:
+            for key in outputs["plots"].keys():
+                if (f"{int(njets)}" in key) and (f"{factor}" in key):
+                    outputs["plots"][key].dump(fig, formatter="mpl")
+        except:
+            from IPython import embed; embed(header="debugger")
+
 
 
 class ExportDYWeights(HBTTask, ConfigTask):
