@@ -726,6 +726,7 @@ def add_config(
         ],
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
+        "bkg_no_dy": [p for p in backgrounds if not p.startswith("dy_")],
     }
 
     # category groups for conveniently looping over certain categories
@@ -737,16 +738,17 @@ def add_config(
     cfg.x.variable_groups = {
         "hh": (hh := [f"hh_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         # definition for DY plots
-        "dilep": (dilep := [f"dilep_{var}" for var in ["mass", "pt"]]),
-        "dibjet": (dibjet := [f"dibjet_{var}" for var in ["mass", "pt"]]),
+        "dilep": (dilep := [f"dilep_{var}" for var in ["mass", "pt", "eta", "phi"]]),
+        "dibjet": (dibjet := [f"dibjet_{var}" for var in ["mass", "pt", "eta", "phi"]]),
         "nbjets": (nbjets := [f"nbjets_{var}" for var in ["deepjet", "pnet"]]),
-        "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1"] for var in ["pt", "eta"]]),
-        "jet": (jet := [f"jet1_{var}" for var in ["pt", "eta"]]),
+        "lep": (lep := [f"{lepton}_{var}" for lepton in ["e1", "mu1"] for var in ["mass", "pt", "eta", "phi"]]),
+        "jet": (jet := [f"jet1_{var}" for var in ["mass", "pt", "eta", "phi"]]),
         "default": [
             "ht", *nbjets, *jet, *lep, *dilep, *dibjet, *hh, "njets",
         ],
         "dy_variables": [
-            "nbjets_pnet", "nbjets_pnet_overflow", "njets", "met_pt",
+            # "nbjets_pnet_overflow",
+            "nbjets_pnet", "njets", "met_pt",
             *dilep, *dibjet, *lep, *jet,
         ],
     }
@@ -1826,7 +1828,7 @@ def add_config(
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
         add_external("muon_sr_tools", (f"{central_hbt_dir}/central_muo_files/muonscarekit/scripts/MuonScaRe.py", "v1"))
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", ("/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_2.0.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", ("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod20_vbf_debug/hbt_corrections_1p5_debug.json.gz", "v1"))  # noqa: E501
 
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024yet
