@@ -5,7 +5,7 @@ Tasks to create correction_lib file for scale factor calculation for DY events.
 """
 
 from __future__ import annotations
-
+import os
 import law
 import order as od
 import awkward as ak
@@ -37,7 +37,7 @@ from hbt.tasks.base import HBTTask
 import numpy as np
 from scipy import optimize
 from matplotlib import pyplot as plt
-from typing import Literal, Callable
+from typing import Callable
 
 hist = maybe_import("hist")
 
@@ -304,7 +304,7 @@ class DYWeights(DYBaseTask):
         super().__init__(*args, **kwargs)
 
         # define possible uncertainty factors for fit shifts
-        self.unc_factors = [1.0, 1.5, 2.0]
+        self.unc_factors = [1.5]
 
         self.fit_identifiers = ["fit_njets2", "fit_njets3", "fit_njets4"]
 
@@ -318,7 +318,7 @@ class DYWeights(DYBaseTask):
         }
 
         for factor in self.unc_factors:
-            outputs[f"weights_{factor}"] = self.target(f"weights_{factor}.pkl")
+            outputs[f"weights_{factor}_final"] = self.target(f"weights_{factor}_final.pkl")
 
         for tmp_id in self.fit_identifiers:
             for factor in self.unc_factors:
@@ -459,7 +459,7 @@ class DYWeights(DYBaseTask):
                 fit_str = self.get_fit_str(*popt)
 
                 # placeholder for fit calculation
-                return functools.partial(self.get_fit_function, c=c, n=n, mu=mu, sigma=sigma, a=a, b=b, r=r), fit_str, popt
+                return functools.partial(self.get_fit_function, c=c, n=n, mu=mu, sigma=sigma, a=a, b=b, r=r), fit_str, popt  # noqa: E501
 
             @functools.cache
             def get_norm(njet_bin, nbjet_bin, syst, fit_njet_bin, fit_syst) -> float:
@@ -527,7 +527,7 @@ class DYWeights(DYBaseTask):
                 self.get_fit_plot(fit_njet_bins, fit_params, factor, ratio_values, ratio_err, bin_centers)
 
             # save final dy weights
-            outputs[f"weights_{factor}"].dump(dict_out, formatter="pickle")
+            outputs[f"weights_{factor}_final"].dump(dict_out, formatter="pickle")
 
     def get_mask(self, events, njet_bin=None, nbjet_bin=None, channel=None):
         mask = np.ones(len(events), dtype=bool)
@@ -713,13 +713,13 @@ class ExportDYWeights(HBTTask, ConfigTask):
         }
 
     def output(self):
-        return self.target("hbt_corrections_2.0.json.gz")
+        return self.target("hbt_corrections.json.gz")
 
     def run(self):
         dy_weight_data = {}
 
         for config_inst, inps in self.input().items():
-            weight_data = inps["weights_2.0"].load(formatter="pickle")
+            weight_data = inps["weights_1.5_final"].load(formatter="pickle")
             era = config_inst.x.dy_weight_config.era
             dy_weight_data[era] = weight_data
 
@@ -829,7 +829,9 @@ class EvaluateDYWeights(DYBaseTask):
         super().__init__(*args, **kwargs)
 
         self.variables = [
-            (self.nbjets_inst, "nbjets")
+            (self.dilep_pt_inst, 'dilep_pt'),
+            (self.nbjets_inst, 'nbjets'),
+            (self.njets_inst, 'njets'),
         ]
 
         self.era = self.config_inst.x.dy_weight_config.era
@@ -837,7 +839,7 @@ class EvaluateDYWeights(DYBaseTask):
         self.cat_def = [("ge2j", 2, 101)]  # , ("eq2j", 2, 3), ("eq3j", 3, 4), ("ge4j", 4, 101)]
 
         # load DY weight corrections from json file
-        self.dy_file = "/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14/prod20_vbf_dy_fix_v2/hbt_corrections.json.gz"  # noqa: E501
+        self.file_loc = "/afs/desy.de/user/a/alvesand/public/hbt/external_files/hbt_corrections_1p5.json.gz"
         self.dy_correction = correctionlib.CorrectionSet.from_file(self.dy_file)
         self.correction_set = self.dy_correction["dy_weight"]
 
@@ -876,15 +878,12 @@ class EvaluateDYWeights(DYBaseTask):
         bkg_process = od.Process(name="Backgrounds", id="+", color1="#e76300")
 
         # get DY updated weights
-        syst = "nom"
+        syst = "nominal"
         dy_n_jet = dy_events.njets
         dy_n_tag = dy_events.nbjets
         dy_ll_pt = dy_events.gen_dilepton_pt
         dy_sf = self.correction_set.evaluate(self.era, dy_n_jet, dy_n_tag, dy_ll_pt, syst)
         clib_weight = dy_events.weight * dy_sf
-
-        print("\n--> Done evaluating DY weights using following file:")
-        print(self.dy_file.replace("/data/dust/user/alvesand/analysis/hh2bbtautau_data/hbt_store/analysis_hbt/", ""))
 
         channel = "mumu"
         channel_id = self.config_inst.channels.n.mumu.id
