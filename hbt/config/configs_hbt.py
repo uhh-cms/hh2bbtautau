@@ -1382,6 +1382,10 @@ def add_config(
                 "stat_btag0_up", "stat_btag0_down",
                 "stat_btag1_up", "stat_btag1_down",
                 "stat_btag2_up", "stat_btag2_down",
+                "stat_up", "stat_down",
+                "syst_up", "syst_down",
+                "syst_gauss_up", "syst_gauss_down",
+                "syst_linear_up", "syst_linear_down",
             ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
             get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
@@ -1628,10 +1632,10 @@ def add_config(
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
     # dy scale factors
-    for i, nb in enumerate([0, 1, 2]):
-        cfg.add_shift(name=f"dy_stat_btag{nb}_up", id=210 + 2 * i, type="shape")
-        cfg.add_shift(name=f"dy_stat_btag{nb}_down", id=211 + 2 * i, type="shape")
-        add_shift_aliases(cfg, f"dy_stat_btag{nb}", {"dy_weight": f"dy_weight_stat_btag{nb}_{{direction}}"})
+    for i, dy_name in enumerate(["syst", "syst_gauss", "syst_linear", "stat", "stat_btag0", "stat_btag1", "stat_btag2"]):
+        cfg.add_shift(name=f"dy_{dy_name}_up", id=210 + 2 * i, type="shape")
+        cfg.add_shift(name=f"dy_{dy_name}_down", id=211 + 2 * i, type="shape")
+        add_shift_aliases(cfg, f"dy_{dy_name}", {"dy_weight": f"dy_weight_{dy_name}_{{direction}}"})
 
     ################################################################################################
     # external files
@@ -1964,7 +1968,7 @@ def add_config(
         if dataset.has_tag("ttbar"):
             dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
         if dataset.has_tag("dy"):
-            dataset.x.event_weights = {"dy_weight": get_shifts(*(f"dy_stat_btag{nb}" for nb in [0, 1, 2]))}
+            dataset.x.event_weights = {"dy_weight": get_shifts("dy_*")}
 
     cfg.x.shift_groups = {
         "jec": [
