@@ -57,7 +57,7 @@ class DYBaseTask(
     SelectorClassMixin,
     ReducerClassMixin,
     ProducerClassesMixin,
-    DatasetsProcessesMixin
+    DatasetsProcessesMixin,
 ):
     """
     Base class for DY tasks.
@@ -82,9 +82,8 @@ class DYBaseTask(
         self.njets_inst = self.config_inst.variables.n.njets
 
         self.variables = [
-            (self.dilep_pt_inst, 'dilep_pt'),
-            (self.nbjets_inst, 'nbjets')
-            # (self.njets_inst, 'njets')
+            (self.dilep_pt_inst, "dilep_pt"),
+            (self.nbjets_inst, "nbjets"),
         ]
         self.variables_names = [var_name for _, var_name in self.variables]
 
@@ -544,7 +543,7 @@ class DYWeights(DYBaseTask):
             data_h: hist.Hist,
             dy_h: hist.Hist,
             bkg_h: hist.Hist,
-            variable_inst: od.Variable
+            variable_inst: od.Variable,
     ) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
 
         # under/overflow treatment
@@ -672,8 +671,8 @@ class DYWeights(DYBaseTask):
         ax.set_xlabel(r"$\mathrm{p}_{\mathrm{T,ll}} \ [\mathrm{GeV}]$", fontsize=15, loc="right")
         ax.set_ylabel("Data - MC / DY", fontsize=15, loc="top")
         ax.grid(True)
-        fig.text(0.12, 0.97, label, verticalalignment='top', horizontalalignment='left', fontsize=13)
-        ax.tick_params(axis='both', labelsize=15)
+        fig.text(0.12, 0.97, label, verticalalignment="top", horizontalalignment="left", fontsize=13)
+        ax.tick_params(axis="both", labelsize=15)
 
         # save plot
         for key in outputs["plots"].keys():
@@ -738,7 +737,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         # create the correction object
         dy_weight_correction = cs.Correction(
             name="dy_weight",
-            description="DY weights derived in the phase space of the hh2bbtautau analysis, supposed to correct njet and "
+            description="DY weights derived in the phase space of the hh2bbtautau analysis, supposed to correct njet and "  # noqa: E501
             "ptll distributions, as well as correlated quantities.",
             version=1,
             inputs=[
