@@ -116,11 +116,12 @@ def electron_selection(
         self.config_inst.campaign.x.year == 2023 and
         self.config_inst.campaign.has_tag("postBPix")
     )
+    is_2024 = self.config_inst.campaign.x.year == 2024
     is_single = trigger.has_tag("single_e")
     is_cross = trigger.has_tag("cross_e_tau")
     is_cross_vbf = trigger.has_tag("cross_e_vbf")
     is_vbf = trigger.has_tag("cross_vbf")
-    if (is_vbf or is_cross_vbf) and not (is_2023_pre or is_2023_post):
+    if (is_vbf or is_cross_vbf) and not (is_2023_pre or is_2023_post or is_2024):
         raise ValueError("Invalid trigger configuration, no vbf trigger should be available before 2023")
 
     # obtain mva flags, which might be located at different routes, depending on the nano version
@@ -150,7 +151,14 @@ def electron_selection(
         elif is_vbf:
             min_pt = 12.0
         elif is_cross_vbf:
-            min_pt = 13.0 if is_2023_pre else 18.0
+            if is_2023_pre:
+                min_pt = 13.0
+            elif is_2023_post:
+                min_pt = 18.0
+            elif is_2024:
+                min_pt = 23.0
+            else:
+                raise ValueError("Invalid configuration for cross_e_vbf trigger, should only exist in 2023 and 2024")
         max_eta = 2.5 if is_single else 2.1
         default_mask = (
             (mva_iso_wp80 == 1) &
@@ -259,10 +267,11 @@ def muon_selection(
     """
     is_2016 = self.config_inst.campaign.x.year == 2016
     is_2023 = self.config_inst.campaign.x.year == 2023
+    is_2024 = self.config_inst.campaign.x.year == 2024
     is_single = trigger.has_tag("single_mu")
     is_cross = trigger.has_tag("cross_mu_tau")
     is_cross_vbf = trigger.has_tag("cross_mu_vbf")
-    if is_cross_vbf and not is_2023:
+    if is_cross_vbf and not (is_2023 or is_2024):
         raise ValueError("Invalid trigger configuration, no mu-vbf trigger should be available before 2023")
 
     # default muon mask
@@ -371,8 +380,9 @@ def tau_selection(
     is_2016 = self.config_inst.campaign.x.year == 2016
     is_run3 = self.config_inst.campaign.x.run == 3
     is_2023 = self.config_inst.campaign.x.year == 2023
+    is_2024 = self.config_inst.campaign.x.year == 2024
     get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
-    if (is_vbf or is_cross_vbf) and not is_2023:
+    if (is_vbf or is_cross_vbf) and not (is_2023 or is_2024):
         raise ValueError("Invalid trigger configuration, no vbf trigger should be available before 2023")
     if is_cross_tau_jet and not is_run3:
         raise ValueError("Invalid trigger configuration, no tau-jet trigger should be available before run 3")
@@ -388,14 +398,14 @@ def tau_selection(
     elif is_cross_mu:
         min_pt = 25.0 if is_2016 else 32.0
     elif is_cross_tau:
-        min_pt = 40.0
+        min_pt = 35.0 if is_2024 else 40.0
     elif is_cross_tau_vbf:
         # only existing after 2016
         min_pt = 0.0 if is_2016 else 25.0
     elif is_cross_vbf:
         min_pt = 50.0
     elif is_cross_tau_jet:
-        min_pt = 35.0
+        min_pt = 31.0 if is_2024 else 35.0
 
     # base tau mask for default and qcd sideband tau
     base_mask = (
