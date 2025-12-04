@@ -5,39 +5,35 @@ Tasks to create correction_lib file for scale factor calculation for DY events.
 """
 
 from __future__ import annotations
-import os
+
 import law
 import order as od
 import awkward as ak
 import dataclasses
 import gzip
-import correctionlib
-
 import functools
+import numpy as np
+import correctionlib
+import correctionlib.schemav2 as cs
 
+from scipy import optimize
+from matplotlib import pyplot as plt
+from typing import Callable
+
+from columnflow.hist_util import create_hist_from_variables, fill_hist
+from hbt.tasks.base import HBTTask
 from columnflow.tasks.framework.base import TaskShifts, ConfigTask
-from columnflow.tasks.framework.mixins import (
-    DatasetsProcessesMixin, ProducerClassesMixin, CalibratorClassesMixin,
-    SelectorClassMixin, ReducerClassMixin,
-)
 from columnflow.tasks.production import ProduceColumns
-from columnflow.plotting.plot_functions_1d import plot_variable_stack
 from columnflow.tasks.reduction import ProvideReducedEvents
 from columnflow.util import maybe_import
 from columnflow.columnar_util import (
     ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, layout_ak_array,
     set_ak_column,
 )
-from columnflow.hist_util import create_hist_from_variables, fill_hist
-
-import correctionlib.schemav2 as cs
-
-from hbt.tasks.base import HBTTask
-
-import numpy as np
-from scipy import optimize
-from matplotlib import pyplot as plt
-from typing import Callable
+from columnflow.tasks.framework.mixins import (
+    DatasetsProcessesMixin, ProducerClassesMixin, CalibratorClassesMixin,
+    SelectorClassMixin, ReducerClassMixin,
+)
 
 hist = maybe_import("hist")
 
