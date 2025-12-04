@@ -155,8 +155,10 @@ def electron_selection(
                 min_pt = 13.0
             elif is_2023_post:
                 min_pt = 18.0
-            else:  # is_2024
+            elif is_2024:
                 min_pt = 23.0
+            else:
+                raise ValueError("Invalid configuration for cross_e_vbf trigger, should only exist in 2023 and 2024")
         max_eta = 2.5 if is_single else 2.1
         default_mask = (
             (mva_iso_wp80 == 1) &
