@@ -1881,8 +1881,10 @@ def add_config(
                 version="v1",
             ))
         elif year == 2024:
-            # TODO: 2024: add once available
-            pass
+            #https://gitlab.cern.ch/cms-tau-pog/jsonpog-integration/-/merge_requests/20
+            #For deeptau
+            add_external("tau_trigger_sf", "/afs/cern.ch/user/r/raguitto/public/tau_trigger_DeepTau2018v2p5_2024.json.gz", "v1")
+            
     else:
         assert False
 
