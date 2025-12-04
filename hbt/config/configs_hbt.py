@@ -726,6 +726,10 @@ def add_config(
         ],
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
+        "ggf_dnn": [
+            dataset.name for dataset in cfg.datasets
+            if re.match(r"^(hh_ggf_hbb_htt_.+|tt_(sl|dl|fh)_powheg|dy(_tautau)?_m50toinf_.*amcatnlo)$", dataset.name)
+        ],
     }
 
     # category groups for conveniently looping over certain categories
