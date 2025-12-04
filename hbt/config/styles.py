@@ -109,6 +109,13 @@ def stylize_processes(config: od.Config) -> None:
         dark_green="#269c00",
     )
 
+    cfg.x.color_names = [
+        "dark_orange", "bright_blue", "dark_green", "red", "purple", "bright_orange", "dark_blue", "teal", "grey",
+        "brown", "green",
+    ]
+
+    cfg.x.get_color_from_sequence = lambda i: cfg.x.colors[cfg.x.color_names[i % len(cfg.x.color_names)]]
+
     for kl, *opts in [
         ("0", cfg.x.colors.bright_orange),
         ("1", cfg.x.colors.dark_blue),
