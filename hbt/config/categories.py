@@ -24,54 +24,54 @@ def add_categories(config: od.Config) -> None:
     """
     # root category (-1 has special meaning in cutflow)
     root_cat = add_category(config, name="all", id=-1, selection="cat_all", label="")
-    _add_category = functools.partial(add_category, parent=root_cat)
+    _add_category = functools.partial(add_category, config, parent=root_cat)
 
     # reset the maximum category id counter
     od.Category._max_id = 0
 
     # lepton channels
-    _add_category(config, name="etau", id=1, selection="cat_etau", label=config.channels.n.etau.label)
-    _add_category(config, name="mutau", id=2, selection="cat_mutau", label=config.channels.n.mutau.label)
-    _add_category(config, name="tautau", id=3, selection="cat_tautau", label=config.channels.n.tautau.label)
-    _add_category(config, name="ee", id=4, selection="cat_ee", label=config.channels.n.ee.label)
-    _add_category(config, name="mumu", id=5, selection="cat_mumu", label=config.channels.n.mumu.label)
-    _add_category(config, name="emu", id=6, selection="cat_emu", label=config.channels.n.emu.label)
+    _add_category(name="etau", id=1, selection="cat_etau", label=config.channels.n.etau.label)
+    _add_category(name="mutau", id=2, selection="cat_mutau", label=config.channels.n.mutau.label)
+    _add_category(name="tautau", id=3, selection="cat_tautau", label=config.channels.n.tautau.label)
+    _add_category(name="ee", id=4, selection="cat_ee", label=config.channels.n.ee.label)
+    _add_category(name="mumu", id=5, selection="cat_mumu", label=config.channels.n.mumu.label)
+    _add_category(name="emu", id=6, selection="cat_emu", label=config.channels.n.emu.label)
 
     # qcd regions
-    _add_category(config, name="os", id="+", selection="cat_os", label="OS", tags={"os"})
-    _add_category(config, name="ss", id="+", selection="cat_ss", label="SS", tags={"ss"})
-    _add_category(config, name="iso", id="+", selection="cat_iso", label=r"iso", tags={"iso"})
-    _add_category(config, name="noniso", id="+", selection="cat_noniso", label=r"non-iso", tags={"noniso"})  # noqa: E501
+    _add_category(name="os", id="+", selection="cat_os", label="OS", tags={"os"})
+    _add_category(name="ss", id="+", selection="cat_ss", label="SS", tags={"ss"})
+    _add_category(name="iso", id="+", selection="cat_iso", label=r"iso", tags={"iso"})
+    _add_category(name="noniso", id="+", selection="cat_noniso", label=r"non-iso", tags={"noniso"})  # noqa: E501
 
     # kinematic categories
-    _add_category(config, name="incl", id="+", selection="cat_incl", label="inclusive")
-    _add_category(config, name="eq0j", id="+", selection="cat_eq0j", label="0 jets")
-    _add_category(config, name="eq1j", id="+", selection="cat_eq1j", label="1 jet")
-    _add_category(config, name="eq2j", id="+", selection="cat_eq2j", label="2 jets")
-    _add_category(config, name="ge2j", id="+", selection="cat_ge2j", label=r"$\geq$2 jets")
-    _add_category(config, name="eq3j", id="+", selection="cat_eq3j", label="3 jets")
-    _add_category(config, name="eq4j", id="+", selection="cat_eq4j", label="4 jets")
-    _add_category(config, name="ge4j", id="+", selection="cat_ge4j", label=r"$\geq$4 jets")
-    _add_category(config, name="eq5j", id="+", selection="cat_eq5j", label="5 jets")
-    _add_category(config, name="ge5j", id="+", selection="cat_ge5j", label=r"$\geq$5 jets")
-    _add_category(config, name="ge6j", id="+", selection="cat_ge6j", label=r"$\geq$6 jets")
-    _add_category(config, name="eq0b", id="+", selection="cat_eq0b", label="0 b-tags")
-    _add_category(config, name="ge0b", id="+", selection="cat_ge0b", label="")
-    _add_category(config, name="eq1b", id="+", selection="cat_eq1b", label="1 b-tag")
-    _add_category(config, name="eq2b", id="+", selection="cat_eq2b", label="2 b-tags")
-    _add_category(config, name="ge2b", id="+", selection="cat_ge2b", label=r"$\geq$2 b-tags")
-    _add_category(config, name="dy", id="+", selection="cat_dy", label="DY enriched")
-    _add_category(config, name="dyc", id="+", selection="cat_dyc", label="DY region")
-    _add_category(config, name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
-    _add_category(config, name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
-    _add_category(config, name="mll40", id="+", selection="cat_mll40", label=r"$m_{ll} > 40$")
+    _add_category(name="incl", id="+", selection="cat_incl", label="inclusive")
+    _add_category(name="eq0j", id="+", selection="cat_eq0j", label="0 jets")
+    _add_category(name="eq1j", id="+", selection="cat_eq1j", label="1 jet")
+    _add_category(name="eq2j", id="+", selection="cat_eq2j", label="2 jets")
+    _add_category(name="ge2j", id="+", selection="cat_ge2j", label=r"$\geq$2 jets")
+    _add_category(name="eq3j", id="+", selection="cat_eq3j", label="3 jets")
+    _add_category(name="eq4j", id="+", selection="cat_eq4j", label="4 jets")
+    _add_category(name="ge4j", id="+", selection="cat_ge4j", label=r"$\geq$4 jets")
+    _add_category(name="eq5j", id="+", selection="cat_eq5j", label="5 jets")
+    _add_category(name="ge5j", id="+", selection="cat_ge5j", label=r"$\geq$5 jets")
+    _add_category(name="ge6j", id="+", selection="cat_ge6j", label=r"$\geq$6 jets")
+    _add_category(name="eq0b", id="+", selection="cat_eq0b", label="0 b-tags")
+    _add_category(name="ge0b", id="+", selection="cat_ge0b", label="")
+    _add_category(name="eq1b", id="+", selection="cat_eq1b", label="1 b-tag")
+    _add_category(name="eq2b", id="+", selection="cat_eq2b", label="2 b-tags")
+    _add_category(name="ge2b", id="+", selection="cat_ge2b", label=r"$\geq$2 b-tags")
+    _add_category(name="dy", id="+", selection="cat_dy", label="DY enriched")
+    _add_category(name="dyc", id="+", selection="cat_dyc", label="DY region")
+    _add_category(name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
+    _add_category(name="tt", id="+", selection="cat_tt", label=r"$t\bar{t}$ enriched")
+    _add_category(name="mll40", id="+", selection="cat_mll40", label=r"$m_{ll} > 40$")
 
-    _add_category(config, name="res1b", id="+", selection="cat_res1b", label="res1b")
-    _add_category(config, name="res2b", id="+", selection="cat_res2b", label="res2b")
-    _add_category(config, name="boosted", id="+", selection="cat_boosted", label="boosted")
-    _add_category(config, name="res1b_novbf", id="+", selection="cat_res1b_novbf", label="res1b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
-    _add_category(config, name="res2b_novbf", id="+", selection="cat_res2b_novbf", label="res2b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
-    _add_category(config, name="boosted_novbf", id="+", selection="cat_boosted_novbf", label="boosted (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="res1b", id="+", selection="cat_res1b", label="res1b")
+    _add_category(name="res2b", id="+", selection="cat_res2b", label="res2b")
+    _add_category(name="boosted", id="+", selection="cat_boosted", label="boosted")
+    _add_category(name="res1b_novbf", id="+", selection="cat_res1b_novbf", label="res1b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="res2b_novbf", id="+", selection="cat_res2b_novbf", label="res2b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="boosted_novbf", id="+", selection="cat_boosted_novbf", label="boosted (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
 
     #
     # build groups
@@ -158,6 +158,18 @@ def add_categories(config: od.Config) -> None:
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=False),
         skip_existing=False,
         skip_fn=skip_fn_ctrl,
+    )
+
+    # additional combined categories
+    _add_category(
+        name="incl__os__iso",
+        id="+",
+        label=r"$e\tau/\mu\tau/\tau\tau$, inclusive",
+        categories=[
+            config.get_category("etau__incl__os__iso"),
+            config.get_category("mutau__incl__os__iso"),
+            config.get_category("tautau__incl__os__iso"),
+        ],
     )
 
     track_category_changes(config)

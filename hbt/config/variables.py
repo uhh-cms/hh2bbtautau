@@ -6,7 +6,7 @@ Definition of variables.
 
 from __future__ import annotations
 
-from functools import partial
+import functools
 
 import order as od
 
@@ -25,8 +25,20 @@ def add_variables(config: od.Config) -> None:
     """
     Adds all variables to a *config*.
     """
+    # helper that automatically adds null_value and under/overflow flags if not specified
+    def add_variable(*args, **kwargs) -> od.Variable:
+        kwargs.setdefault("null_value", EMPTY_FLOAT)
+        # create the variable
+        variable = config.add_variable(*args, **kwargs)
+        # defaults
+        if not variable.has_aux("underflow"):
+            variable.x.underflow = True
+        if not variable.has_aux("overflow"):
+            variable.x.overflow = True
+        # return result
+        return variable
+
     add_variable(
-        config,
         name="event",
         expression="event",
         binning=(1, 0.0, 1.0e9),
@@ -34,7 +46,6 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
     add_variable(
-        config,
         name="run",
         expression="run",
         binning=(1, 100000.0, 500000.0),
@@ -42,7 +53,6 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
     add_variable(
-        config,
         name="lumi",
         expression="luminosityBlock",
         binning=(1, 0.0, 5000.0),
@@ -50,7 +60,6 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
     add_variable(
-        config,
         name="n_hhbtag",
         expression="n_hhbtag",
         binning=(4, -0.5, 3.5),
@@ -63,16 +72,14 @@ def add_variables(config: od.Config) -> None:
         return objs_sum.pt
     build_ht.inputs = ["{Electron,Muon,Tau,Jet}.{pt,eta,phi,mass}"]
     add_variable(
-        config,
         name="ht",
-        expression=partial(build_ht),
+        expression=functools.partial(build_ht),
         aux={"inputs": build_ht.inputs},
         binning=[0, 80, 120, 160, 200, 240, 280, 320, 400, 500, 600, 800],
         unit="GeV",
         x_title="HT",
     )
     add_variable(
-        config,
         name="jet_pt",
         expression="Jet.pt",
         binning=(40, 0.0, 400.0),
@@ -80,7 +87,6 @@ def add_variables(config: od.Config) -> None:
         x_title=r"all Jet $p_{T}$",
     )
     add_variable(
-        config,
         name="jet1_pt",
         expression="Jet.pt[:,0]",
         binning=(40, 0.0, 400.0),
@@ -88,35 +94,30 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Leading jet $p_{T}$",
     )
     add_variable(
-        config,
         name="jet1_eta",
         expression="Jet.eta[:,0]",
         binning=(30, -3.0, 3.0),
         x_title=r"Leading jet $\eta$",
     )
     add_variable(
-        config,
         name="jet1_phi",
         expression="Jet.phi[:,0]",
         binning=(66, -3.3, 3.3),
         x_title=r"Leading jet $\phi$",
     )
     add_variable(
-        config,
         name="jet1_chEmEF",
         expression="Jet.chEmEF[:,0]",
         binning=(40, 0.0, 0.2),
         x_title="Leading jet chEmEF",
     )
     add_variable(
-        config,
         name="jet1_muEF",
         expression="Jet.muEF[:,0]",
         binning=(40, 0.6, 1.0),
         x_title="Leading jet muEF",
     )
     add_variable(
-        config,
         name="jet2_pt",
         expression="Jet.pt[:,1]",
         binning=(40, 0.0, 400.0),
@@ -124,35 +125,30 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Subleading jet $p_{T}$",
     )
     add_variable(
-        config,
         name="jet2_eta",
         expression="Jet.eta[:,1]",
         binning=(30, -3.0, 3.0),
         x_title=r"Subleading jet $\eta$",
     )
     add_variable(
-        config,
         name="jet2_phi",
         expression="Jet.phi[:,1]",
         binning=(66, -3.3, 3.3),
         x_title=r"Subleading jet $\phi$",
     )
     add_variable(
-        config,
         name="met_pt",
         expression="PuppiMET.pt",
         binning=(40, 0, 200),
         x_title=r"MET $p_T$",
     )
     add_variable(
-        config,
         name="met_phi",
         expression="PuppiMET.phi",
         binning=(66, -3.3, 3.3),
         x_title=r"MET $\phi$",
     )
     add_variable(
-        config,
         name="met_px",
         expression=lambda events: events.PuppiMET.px,
         aux={"inputs": ["PuppiMET.{pt,phi}"]},
@@ -160,7 +156,6 @@ def add_variables(config: od.Config) -> None:
         x_title=r"MET $p_x$",
     )
     add_variable(
-        config,
         name="met_py",
         expression=lambda events: events.PuppiMET.py,
         aux={"inputs": ["PuppiMET.{pt,phi}"]},
@@ -170,7 +165,6 @@ def add_variables(config: od.Config) -> None:
     for n in range(1, 2 + 1):
         for v in ["px", "py", "pz"]:
             add_variable(
-                config,
                 name=f"reg_dnn_nu{n}_{v}",
                 binning=(40, -150, 150),
                 x_title=rf"Regressed $\nu_{n} {v}$",
@@ -197,9 +191,8 @@ def add_variables(config: od.Config) -> None:
         raise ValueError(f"Unknown which: {which}")
     build_reg_h.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}", "reg_dnn_nu{1,2}_p{x,y,z}"]
     add_variable(
-        config,
         name="reg_h_mass",
-        expression=partial(build_reg_h, which="mass"),
+        expression=functools.partial(build_reg_h, which="mass"),
         aux={"inputs": build_reg_h.inputs},
         binning=(50, 0.0, 250.0),
         x_title=r"Regressed $m_{H}$",
@@ -214,9 +207,8 @@ def add_variables(config: od.Config) -> None:
         raise ValueError(f"Unknown which: {which}")
     build_vis_h.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
     add_variable(
-        config,
         name="vis_h_mass",
-        expression=partial(build_vis_h, which="mass"),
+        expression=functools.partial(build_vis_h, which="mass"),
         aux={"inputs": build_vis_h.inputs},
         binning=(50, 0.0, 250.0),
         x_title=r"Visible $m_{H}$",
@@ -232,17 +224,15 @@ def add_variables(config: od.Config) -> None:
     build_reg_met.inputs = build_reg_h.inputs
 
     add_variable(
-        config,
         name="reg_met_px",
-        expression=partial(build_reg_met, which="px"),
+        expression=functools.partial(build_reg_met, which="px"),
         aux={"inputs": build_reg_met.inputs},
         binning=(50, -250.0, 250.0),
         x_title=r"Regressed $\nu_1 p_x + \nu_2 p_x$",
     )
     add_variable(
-        config,
         name="reg_met_py",
-        expression=partial(build_reg_met, which="py"),
+        expression=functools.partial(build_reg_met, which="py"),
         aux={"inputs": build_reg_met.inputs},
         binning=(50, -250.0, 250.0),
         x_title=r"Regressed $\nu_1 p_y + \nu_2 p_y$",
@@ -250,42 +240,36 @@ def add_variables(config: od.Config) -> None:
 
     # weights
     add_variable(
-        config,
         name="mc_weight",
         expression="mc_weight",
         binning=(200, -10, 10),
         x_title="MC weight",
     )
     add_variable(
-        config,
         name="pu_weight",
         expression="pu_weight",
         binning=(40, 0, 2),
         x_title="Pileup weight",
     )
     add_variable(
-        config,
         name="normalized_pu_weight",
         expression="normalized_pu_weight",
         binning=(40, 0, 2),
         x_title="Normalized pileup weight",
     )
     add_variable(
-        config,
         name="btag_weight",
         expression="btag_weight",
         binning=(60, 0, 3),
         x_title="b-tag weight",
     )
     add_variable(
-        config,
         name="normalized_btag_weight",
         expression="normalized_btag_weight",
         binning=(60, 0, 3),
         x_title="Normalized b-tag weight",
     )
     add_variable(
-        config,
         name="normalized_njet_btag_weight",
         expression="normalized_njet_btag_weight",
         binning=(60, 0, 3),
@@ -294,7 +278,6 @@ def add_variables(config: od.Config) -> None:
 
     # cutflow variables
     add_variable(
-        config,
         name="cf_njet",
         expression="cutflow.n_jet",
         binning=(17, -0.5, 16.5),
@@ -302,7 +285,6 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
     add_variable(
-        config,
         name="cf_ht",
         expression="cutflow.ht",
         binning=(40, 0.0, 400.0),
@@ -310,7 +292,6 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$H_{T}$",
     )
     add_variable(
-        config,
         name="cf_jet1_pt",
         expression="cutflow.jet1_pt",
         binning=(40, 0.0, 400.0),
@@ -318,21 +299,18 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Leading jet $p_{T}$",
     )
     add_variable(
-        config,
         name="cf_jet1_eta",
         expression="cutflow.jet1_eta",
         binning=(40, -5.0, 5.0),
         x_title=r"Leading jet $\eta$",
     )
     add_variable(
-        config,
         name="cf_jet1_phi",
         expression="cutflow.jet1_phi",
         binning=(66, -3.3, 3.3),
         x_title=r"Leading jet $\phi$",
     )
     add_variable(
-        config,
         name="cf_jet2_pt",
         expression="cutflow.jet2_pt",
         binning=(40, 0.0, 400.0),
@@ -420,52 +398,46 @@ def add_variables(config: od.Config) -> None:
 
     # dibjet variables
     add_variable(
-        config,
         name="dibjet_energy",
-        expression=partial(build_dibjet, which="energy"),
+        expression=functools.partial(build_dibjet, which="energy"),
         aux={"inputs": build_dibjet.inputs},
         binning=(40, 40, 300),
         unit="GeV",
         x_title=r"$E_{bb}$",
     )
     add_variable(
-        config,
         name="dibjet_mass",
-        expression=partial(build_dibjet, which="mass"),
+        expression=functools.partial(build_dibjet, which="mass"),
         aux={"inputs": build_dibjet.inputs},
         binning=(30, 0, 300),
         unit="GeV",
         x_title=r"$m_{bb}$",
     )
     add_variable(
-        config,
         name="dibjet_pt",
-        expression=partial(build_dibjet, which="pt"),
+        expression=functools.partial(build_dibjet, which="pt"),
         aux={"inputs": build_dibjet.inputs},
         binning=(40, 0, 200),
         unit="GeV",
         x_title=r"$p_{T,bb}$",
     )
     add_variable(
-        config,
         name="dibjet_eta",
-        expression=partial(build_dibjet, which="eta"),
+        expression=functools.partial(build_dibjet, which="eta"),
         aux={"inputs": build_dibjet.inputs},
         binning=(50, -5, 5),
         x_title=r"$\eta_{bb}$",
     )
     add_variable(
-        config,
         name="dibjet_phi",
-        expression=partial(build_dibjet, which="phi"),
+        expression=functools.partial(build_dibjet, which="phi"),
         aux={"inputs": build_dibjet.inputs},
         binning=(66, -3.3, 3.3),
         x_title=r"$\phi_{bb}$",
     )
     add_variable(
-        config,
         name="dibjet_dr",
-        expression=partial(build_dibjet, which="dr"),
+        expression=functools.partial(build_dibjet, which="dr"),
         aux={"inputs": build_dibjet.inputs},
         binning=(30, 0, 6),
         x_title=r"$\Delta R_{bb}$",
@@ -487,18 +459,16 @@ def add_variables(config: od.Config) -> None:
     build_nbjets.inputs = ["Jet.{btagPNetB,btagDeepFlavB}"]
 
     add_variable(
-        config,
         name="nbjets_deepjet",
-        expression=partial(build_nbjets, which="btagDeepFlavB"),
+        expression=functools.partial(build_nbjets, which="btagDeepFlavB"),
         aux={"inputs": build_nbjets.inputs},
         binning=(11, -0.5, 10.5),
         x_title=r"Number of b-jets (DeepJet medium)",
         discrete_x=True,
     )
     add_variable(
-        config,
         name="nbjets_pnet",
-        expression=partial(build_nbjets, which="btagPNetB"),
+        expression=functools.partial(build_nbjets, which="btagPNetB"),
         aux={"inputs": build_nbjets.inputs},
         binning=(11, -0.5, 10.5),
         x_title=r"Number of b-jets (PNet medium)",
@@ -506,7 +476,6 @@ def add_variables(config: od.Config) -> None:
     )
 
     add_variable(
-        config,
         name="nbjets_pnet_overflow",
         expression=config.variables.n.nbjets_pnet.expression,
         aux={**config.variables.n.nbjets_pnet.aux, "overflow": True},
@@ -516,7 +485,6 @@ def add_variables(config: od.Config) -> None:
     )
 
     add_variable(
-        config,
         name="nbjets_pnet_no_overflow",
         expression=config.variables.n.nbjets_pnet.expression,
         aux={**config.variables.n.nbjets_pnet.aux, "overflow": False},
@@ -527,63 +495,56 @@ def add_variables(config: od.Config) -> None:
 
     # dilepton variables
     add_variable(
-        config,
         name="dilep_energy",
-        expression=partial(build_dilep, which="energy"),
+        expression=functools.partial(build_dilep, which="energy"),
         aux={"inputs": build_dilep.inputs},
         binning=(40, 40, 300),
         unit="GeV",
         x_title=r"$E_{ll}$",
     )
     add_variable(
-        config,
         name="dilep_mass",
-        expression=partial(build_dilep, which="mass"),
+        expression=functools.partial(build_dilep, which="mass"),
         aux={"inputs": build_dilep.inputs},
         binning=(40, 40, 120),
         unit="GeV",
         x_title=r"$m_{ll}$",
     )
     add_variable(
-        config,
         name="dilep_pt",
-        expression=partial(build_dilep, which="pt"),
+        expression=functools.partial(build_dilep, which="pt"),
         aux={"inputs": build_dilep.inputs},
         binning=(40, 0, 200),
         unit="GeV",
         x_title=r"$p_{T,ll}$",
     )
     add_variable(
-        config,
         name="dilep_pt_low",
-        expression=partial(build_dilep, which="pt"),
+        expression=functools.partial(build_dilep, which="pt"),
         aux={"inputs": build_dilep.inputs, "overflow": False, "underflow": False},
         binning=(50, 0, 50),
         unit="GeV",
         x_title=r"$p_{T,ll}$",
     )
     add_variable(
-        config,
         name="dilep_eta",
-        expression=partial(build_dilep, which="eta"),
+        expression=functools.partial(build_dilep, which="eta"),
         aux={"inputs": build_dilep.inputs},
         binning=(50, -5, 5),
         unit="GeV",
         x_title=r"$\eta_{ll}$",
     )
     add_variable(
-        config,
         name="dilep_phi",
-        expression=partial(build_dilep, which="phi"),
+        expression=functools.partial(build_dilep, which="phi"),
         aux={"inputs": build_dilep.inputs},
         binning=(66, -3.3, 3.3),
         unit="GeV",
         x_title=r"$\phi_{ll}$",
     )
     add_variable(
-        config,
         name="dilep_dr",
-        expression=partial(build_dilep, which="dr"),
+        expression=functools.partial(build_dilep, which="dr"),
         aux={"inputs": build_dilep.inputs},
         binning=(30, 0, 6),
         x_title=r"$\Delta R_{ll}$",
@@ -591,54 +552,48 @@ def add_variables(config: od.Config) -> None:
 
     # hh variables
     add_variable(
-        config,
         name="hh_energy",
-        expression=partial(build_hh, which="energy"),
+        expression=functools.partial(build_hh, which="energy"),
         aux={"inputs": build_hh.inputs},
         binning=(35, 100, 800),
         unit="GeV",
         x_title=r"$E_{ll+bb}$",
     )
     add_variable(
-        config,
         name="hh_mass",
-        expression=partial(build_hh, which="mass"),
+        expression=functools.partial(build_hh, which="mass"),
         aux={"inputs": build_hh.inputs},
         binning=(50, 0, 1000),
         unit="GeV",
         x_title=r"$m_{ll+bb}$",
     )
     add_variable(
-        config,
         name="hh_pt",
-        expression=partial(build_hh, which="pt"),
+        expression=functools.partial(build_hh, which="pt"),
         aux={"inputs": build_hh.inputs},
         binning=(40, 0, 400),
         unit="GeV",
         x_title=r"$p_{T,ll+bb}$",
     )
     add_variable(
-        config,
         name="hh_eta",
-        expression=partial(build_hh, which="eta"),
+        expression=functools.partial(build_hh, which="eta"),
         aux={"inputs": build_hh.inputs},
         binning=(50, -5, 5),
         unit="GeV",
         x_title=r"$\eta_{ll+bb}$",
     )
     add_variable(
-        config,
         name="hh_phi",
-        expression=partial(build_hh, which="phi"),
+        expression=functools.partial(build_hh, which="phi"),
         aux={"inputs": build_hh.inputs},
         binning=(66, -3.3, 3.3),
         unit="GeV",
         x_title=r"$\phi_{ll+bb}$",
     )
     add_variable(
-        config,
         name="hh_dr",
-        expression=partial(build_hh, which="dr"),
+        expression=functools.partial(build_hh, which="dr"),
         aux={"inputs": build_hh.inputs},
         binning=(30, 0, 6),
         x_title=r"$\Delta R_{ll,bb}$",
@@ -647,42 +602,36 @@ def add_variables(config: od.Config) -> None:
     # single lepton variables
     # single electron
     add_variable(
-        config,
         name="e1_pt",
         expression="Electron.pt[:, 0]",
         binning=(30, 0, 150),
         x_title=r"Leading electron $p_{T}$",
     )
     add_variable(
-        config,
         name="e2_pt",
         expression="Electron.pt[:,1]",
         binning=(30, 0, 150),
         x_title=r"Subleading electron $p_{T}$",
     )
     add_variable(
-        config,
         name="e1_eta",
         expression="Electron.eta[:,0]",
         binning=(50, -2.5, 2.5),
         x_title=r"Leading electron $\eta$",
     )
     add_variable(
-        config,
         name="e2_eta",
         expression="Electron.eta[:,1]",
         binning=(50, -2.5, 2.5),
         x_title=r"Subleading electron $\eta$",
     )
     add_variable(
-        config,
         name="e1_phi",
         expression="Electron.phi[:,0]",
         binning=(66, -3.3, 3.3),
         x_title=r"Leading electron $\phi$",
     )
     add_variable(
-        config,
         name="e2_phi",
         expression="Electron.phi[:,1]",
         binning=(66, -3.3, 3.3),
@@ -691,42 +640,36 @@ def add_variables(config: od.Config) -> None:
 
     # single tau
     add_variable(
-        config,
         name="tau1_pt",
         expression="Tau.pt[:, 0]",
         binning=(30, 0, 150),
         x_title=r"Leading tau p$_{T}$",
     )
     add_variable(
-        config,
         name="tau2_pt",
         expression="Tau.pt[:,1]",
         binning=(30, 0, 150),
         x_title=r"Subleading tau $p_{T}$",
     )
     add_variable(
-        config,
         name="tau1_eta",
         expression="Tau.eta[:,0]",
         binning=(50, -2.5, 2.5),
         x_title=r"Leading tau $\eta$",
     )
     add_variable(
-        config,
         name="tau2_eta",
         expression="Tau.eta[:,1]",
         binning=(50, -2.5, 2.5),
         x_title=r"Subleading tau $\eta$",
     )
     add_variable(
-        config,
         name="tau1_phi",
         expression="Tau.phi[:,0]",
         binning=(66, -3.3, 3.3),
         x_title=r"Leading tau $\phi$",
     )
     add_variable(
-        config,
         name="tau2_phi",
         expression="Tau.phi[:,1]",
         binning=(66, -3.3, 3.3),
@@ -735,42 +678,36 @@ def add_variables(config: od.Config) -> None:
 
     # single mu
     add_variable(
-        config,
         name="mu1_pt",
         expression="Muon.pt[:,0]",
         binning=(30, 0, 150),
         x_title=r"Leading muon $p_{T}$",
     )
     add_variable(
-        config,
         name="mu2_pt",
         expression="Muon.pt[:,1]",
         binning=(30, 0, 150),
         x_title=r"Subleading muon $p_{T}$",
     )
     add_variable(
-        config,
         name="mu1_eta",
         expression="Muon.eta[:,0]",
         binning=(50, -2.5, 2.5),
         x_title=r"Leading muon $\eta$",
     )
     add_variable(
-        config,
         name="mu2_eta",
         expression="Muon.eta[:,1]",
         binning=(50, -2.5, 2.5),
         x_title=r"Subleading muon $\eta$",
     )
     add_variable(
-        config,
         name="mu1_phi",
         expression="Muon.phi[:,0]",
         binning=(66, -3.3, 3.3),
         x_title=r"Leading muon $\phi$",
     )
     add_variable(
-        config,
         name="mu2_phi",
         expression="Muon.phi[:,1]",
         binning=(66, -3.3, 3.3),
@@ -778,7 +715,6 @@ def add_variables(config: od.Config) -> None:
     )
 
     add_variable(
-        config,
         name="njets",
         expression=lambda events: ak.num(events.Jet["pt"], axis=1),
         aux={"inputs": {"Jet.pt"}},
@@ -789,7 +725,6 @@ def add_variables(config: od.Config) -> None:
     for proc in ["hh", "tt", "dy"]:
         # outputs of the resonant pDNN at SM-like mass and spin values
         add_variable(
-            config,
             name=f"res_pdnn_{proc}",
             expression=f"res_pdnn_s0_m500_{proc}",
             binning=(25, 0.0, 1.0),
@@ -798,7 +733,6 @@ def add_variables(config: od.Config) -> None:
 
         # outputs of the resonant DNN trained over flat masses
         add_variable(
-            config,
             name=f"res_dnn_{proc}",
             expression=f"res_dnn_{proc}",
             binning=(25, 0.0, 1.0),
@@ -806,7 +740,6 @@ def add_variables(config: od.Config) -> None:
         )
 
         add_variable(
-            config,
             name=f"res_dnn_{proc}_fine",
             expression=f"res_dnn_{proc}",
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
@@ -815,87 +748,71 @@ def add_variables(config: od.Config) -> None:
         )
 
         add_variable(
-            config,
             name=f"run3_dnn_moe_{proc}",
             expression=f"run3_dnn_moe_{proc}",
             binning=(25, 0.0, 1.0),
-            x_title=rf"DNN {proc.upper()} output node",
+            x_title=rf"DNN {proc.upper()} output",
         )
 
         add_variable(
-            config,
             name=f"run3_dnn_moe_{proc}_10",
             expression=f"run3_dnn_moe_{proc}",
             binning=(10, 0.0, 1.0),
-            x_title=rf"DNN {proc.upper()} output node",
+            x_title=rf"DNN {proc.upper()} output",
         )
 
         add_variable(
-            config,
+            name=f"run3_dnn_simple_{proc}",
+            expression=f"run3_dnn_simple_{proc}",
+            binning=(25, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
             name=f"run3_dnn_moe_{proc}_fine",
             expression=f"run3_dnn_moe_{proc}",
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
-            x_title=rf"DNN {proc.upper()} output node",
+            x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(
-            config,
             name=f"run3_dnn_moe_{proc}_fine_5k",
             expression=f"run3_dnn_moe_{proc}",
             binning=(5000, 0.0, 1.0),
-            x_title=rf"DNN {proc.upper()} output node",
+            x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(
-            config,
             name=f"run3_dnn_simple_{proc}_fine",
             expression=f"run3_dnn_simple_{proc}",
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
-            x_title=rf"DNN {proc.upper()} output node",
+            x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(
-            config,
             name=f"run3_dnn_simple_kl1_{proc}_fine",
             expression=f"run3_dnn_simple_kl1_{proc}",
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
-            x_title=rf"DNN {proc.upper()} output node",
+            x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(
-            config,
             name=f"run3_dnn_simple_kl0_{proc}_fine",
             expression=f"run3_dnn_simple_kl0_{proc}",
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
-            x_title=rf"DNN {proc.upper()} output node",
+            x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(
-            config,
             name=f"run3_dnn_simple_allkl_{proc}_fine",
             expression=f"run3_dnn_simple_allkl_{proc}",
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
-            x_title=rf"DNN {proc.upper()} output node",
+            x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
         )
-
-
-# helper to add a variable to the config with some defaults
-def add_variable(config: od.Config, *args, **kwargs) -> od.Variable:
-    kwargs.setdefault("null_value", EMPTY_FLOAT)
-
-    # create the variable
-    variable = config.add_variable(*args, **kwargs)
-
-    # defaults
-    if not variable.has_aux("underflow"):
-        variable.x.underflow = True
-    if not variable.has_aux("overflow"):
-        variable.x.overflow = True
-
-    return variable
