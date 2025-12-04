@@ -404,6 +404,19 @@ class default(HBTInferenceModel):
         # mer
         pass  # TODO
 
+        # dy shifts
+        for i, dy_name in enumerate(["syst", "stat"]):
+            self.add_parameter(
+                f"CMS_bbtt_dy_{dy_name}",
+                type=ParameterType.shape,
+                config_data={
+                    config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}")
+                    for config_inst in self.config_insts
+                },
+                process="DY*",
+                group=["shape_nuisances"],
+            )
+
         #
         # shape parameters based on entire dataset variations
         #
