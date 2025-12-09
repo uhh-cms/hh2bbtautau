@@ -1742,10 +1742,10 @@ def add_config(
         }[year],
     })
     # pileup weight corrections
-    if year != 2024: 
+    if year != 2024:
         add_external("pu_sf", (cat_info.get_file("lum", "puWeights.json.gz"), "v1"))
     else:
-        add_external("pu_sf", (cat_info.get_file("lum", "puWeights_BCDEFGHI.json.gz"), "v1")) 
+        add_external("pu_sf", (cat_info.get_file("lum", "puWeights_BCDEFGHI.json.gz"), "v1"))
     add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jet veto map
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
@@ -1864,7 +1864,7 @@ def add_config(
             ))
         elif year == 2024:  # For deeptau : https://gitlab.cern.ch/cms-tau-pog/jsonpog-integration/-/merge_requests/20
             add_external("tau_trigger_sf", ("/afs/cern.ch/user/r/raguitto/public/tau_trigger_DeepTau2018v2p5_2024.json.gz", "v1"))  # noqa: E501
-            
+
     else:
         assert False
 
@@ -2084,7 +2084,7 @@ def add_config(
             # lookup file systems to use
             fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
             local_fs = f"local_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
-            
+
             # determine the fs of the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
             if law.config.has_section(local_fs):

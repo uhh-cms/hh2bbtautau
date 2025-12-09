@@ -81,15 +81,15 @@ muon_weights_lowpt = muon_weights.derive(
 
 @producer(
     uses={
-        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, 
-        normalized_ps_weights, IF_RUN_3_22_23(normalized_btag_weights_deepjet), 
+        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight,
+        normalized_ps_weights, IF_RUN_3_22_23(normalized_btag_weights_deepjet),
         IF_RUN_3_22_23(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
     produces={
-        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, 
-        normalized_ps_weights, IF_RUN_3_22_23(normalized_btag_weights_deepjet), 
+        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight,
+        normalized_ps_weights, IF_RUN_3_22_23(normalized_btag_weights_deepjet),
         IF_RUN_3_22_23(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
@@ -131,7 +131,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             events = self[normalized_btag_weights_deepjet](events, **kwargs)
             if self.has_dep(normalized_btag_weights_pnet):
                 events = self[normalized_btag_weights_pnet](events, **kwargs)
-        
+
             # tau weights
             if self.has_dep(tau_weights):
                 events = self[tau_weights](events, **kwargs)
@@ -157,9 +157,9 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
                     del events2
         if self.has_dep(muon_iso_weights):
             events = self[muon_iso_weights](events, **kwargs)
-        
+
         if self.config_inst.campaign.x.year == 2024:
-            # tau trigger efficiencies 
+            # tau trigger efficiencies
             if self.has_dep(tau_trigger_efficiencies):
                 events = self[tau_trigger_efficiencies](events, **kwargs)
         else:

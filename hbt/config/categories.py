@@ -45,7 +45,7 @@ def add_categories_2024(config: od.Config) -> None:
 
     # kinematic categories
     _add_category(name="incl", id="+", selection="cat_incl", label="inclusive")
-    
+
     _add_category(name="dy", id="+", selection="cat_dy", label="DY enriched")
     _add_category(name="dyc", id="+", selection="cat_dyc", label="DY region")
     _add_category(name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
