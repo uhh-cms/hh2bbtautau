@@ -81,14 +81,15 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
 
 @selector(
     uses={
-        jet_id, fatjet_id,json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
-        mc_weight, pu_weight, ps_weights, IF_RUN_3_22_23(btag_weights_deepjet), IF_RUN_3_22_23(btag_weights_pnet), process_ids,
-        cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
+        jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
+        jet_selection, mc_weight, pu_weight, ps_weights, IF_RUN_3_22_23(btag_weights_deepjet),
+        IF_RUN_3_22_23(btag_weights_pnet), process_ids, cutflow_features, attach_coffea_behavior,
+        IF_DATA(patch_ecalBadCalibFilter), IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, IF_RUN_3_22_23(btag_weights_deepjet),
-        process_ids, cutflow_features, IF_RUN_3_22_23(btag_weights_pnet),
+        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
+        IF_RUN_3_22_23(btag_weights_deepjet), process_ids, cutflow_features, IF_RUN_3_22_23(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,

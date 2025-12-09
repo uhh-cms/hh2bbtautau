@@ -1072,7 +1072,7 @@ def add_config(
     })
 
     # tau trigger correctors
-    if year==2024:
+    if year == 2024:
         cfg.x.tau_trigger_corrector = "tauTriggerSF"
     else:
         cfg.x.tau_trigger_corrector = "tau_trigger"
@@ -1744,7 +1744,7 @@ def add_config(
     # pileup weight corrections
     if year != 2024: 
         add_external("pu_sf", (cat_info.get_file("lum", "puWeights.json.gz"), "v1"))
-    else :
+    else:
         add_external("pu_sf", (cat_info.get_file("lum", "puWeights_BCDEFGHI.json.gz"), "v1")) 
     add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jet veto map
@@ -1862,10 +1862,8 @@ def add_config(
                 ),
                 version="v1",
             ))
-        elif year == 2024:
-            #https://gitlab.cern.ch/cms-tau-pog/jsonpog-integration/-/merge_requests/20
-            #For deeptau
-            add_external("tau_trigger_sf", ("/afs/cern.ch/user/r/raguitto/public/tau_trigger_DeepTau2018v2p5_2024.json.gz", "v1"))
+        elif year == 2024:  # For deeptau : https://gitlab.cern.ch/cms-tau-pog/jsonpog-integration/-/merge_requests/20
+            add_external("tau_trigger_sf", ("/afs/cern.ch/user/r/raguitto/public/tau_trigger_DeepTau2018v2p5_2024.json.gz", "v1"))  # noqa: E501
             
     else:
         assert False
@@ -2010,7 +2008,7 @@ def add_config(
 
     # add categories
     from hbt.config.categories import add_categories, add_categories_2024
-    if year !=2024:
+    if year != 2024:
         add_categories(cfg)
     else:
         add_categories_2024(cfg)
@@ -2084,9 +2082,9 @@ def add_config(
             store_path = CMSDatasetInfo.from_key(dataset_key).store_path.lstrip("/")
 
             # lookup file systems to use
-            #fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
+            fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
             local_fs = f"local_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
-            fs="wlcg_fs_run3_2024_nano_local_v15_cern"
+            
             # determine the fs of the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
             if law.config.has_section(local_fs):

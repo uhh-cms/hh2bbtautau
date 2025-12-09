@@ -146,6 +146,7 @@ def add_categories_2024(config: od.Config) -> None:
     )
     track_category_changes(config)
 
+
 def add_categories(config: od.Config) -> None:
     """
     Adds all categories to a *config*.

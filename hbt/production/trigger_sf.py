@@ -32,13 +32,13 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 electron_trigger_weight = cf_electron_trigger_weight.derive(
     "electron_trigger_weight",
     cls_dict={
-        "get_electron_file": (lambda self, external_files: (external_files.trigger_sf.electron if self.config_inst.campaign.x.year != 2024 else external_files.electron_sf)),
+        "get_electron_file": (lambda self, external_files: (external_files.trigger_sf.electron if self.config_inst.campaign.x.year != 2024 else external_files.electron_sf)), # noqa E501
     },
 )
 muon_trigger_weight = cf_muon_trigger_weight.derive(
     "muon_trigger_weight",
     cls_dict={
-        "get_muon_file": (lambda self, external_files: (external_files.trigger_sf.muon if self.config_inst.campaign.x.year != 2024 else external_files.muon_sf)),
+        "get_muon_file": (lambda self, external_files: (external_files.trigger_sf.muon if self.config_inst.campaign.x.year != 2024 else external_files.muon_sf)),  # noqa E501
     },
 )
 

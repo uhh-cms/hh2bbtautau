@@ -20,7 +20,7 @@ from hbt.production.weights import (
 )
 from hbt.production.tau import tau_weights
 from hbt.production.trigger_sf import trigger_weight
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_22_23
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3_22_23
 
 ak = maybe_import("awkward")
 
@@ -81,14 +81,16 @@ muon_weights_lowpt = muon_weights.derive(
 
 @producer(
     uses={
-        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,IF_RUN_3_22_23(
-        normalized_btag_weights_deepjet), IF_RUN_3_22_23(normalized_btag_weights_pnet),
+        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, 
+        normalized_ps_weights, IF_RUN_3_22_23(normalized_btag_weights_deepjet), 
+        IF_RUN_3_22_23(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
     produces={
-        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,IF_RUN_3_22_23(
-        normalized_btag_weights_deepjet), IF_RUN_3_22_23(normalized_btag_weights_pnet),
+        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, 
+        normalized_ps_weights, IF_RUN_3_22_23(normalized_btag_weights_deepjet), 
+        IF_RUN_3_22_23(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
