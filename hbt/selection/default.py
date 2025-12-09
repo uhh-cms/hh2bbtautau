@@ -29,6 +29,7 @@ from columnflow.columnar_util import Route, set_ak_column, full_like
 from columnflow.hist_util import create_hist_from_variables, fill_hist
 from columnflow.util import maybe_import, DotDict
 from columnflow.types import TYPE_CHECKING
+from columnflow.production.cms.jet import jet_id, fatjet_id
 
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
@@ -37,7 +38,7 @@ import hbt.production.processes as process_producers
 from hbt.production.weights import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATA, IF_DATASET_HAS_TAG
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATA, IF_DATASET_HAS_TAG, IF_RUN_3_22_23
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -80,14 +81,14 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
 
 @selector(
     uses={
-        json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
-        mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
+        jet_id, fatjet_id,json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
+        mc_weight, pu_weight, ps_weights, IF_RUN_3_22_23(btag_weights_deepjet), IF_RUN_3_22_23(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
-        process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
+        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, IF_RUN_3_22_23(btag_weights_deepjet),
+        process_ids, cutflow_features, IF_RUN_3_22_23(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
@@ -138,7 +139,9 @@ def default(
             events.patchedEcalBadCalibFilter
         )
     results += met_filter_results
-
+    # recompute jet ids because they are not present in NanoAODv15
+    events = self[jet_id](events, **kwargs)
+    events = self[fatjet_id](events, **kwargs)
     # jet veto map
     if self.has_dep(jet_veto_map):
         events, veto_result = self[jet_veto_map](events, **kwargs)
@@ -178,21 +181,22 @@ def default(
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
-        # btag weights
-        btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
-        events = self[btag_weights_deepjet](
-            events,
-            jet_mask=btag_weight_jet_mask,
-            negative_b_score_log_mode="none",
-            **kwargs,
-        )
-        if self.has_dep(btag_weights_pnet):
-            events = self[btag_weights_pnet](
+        if self.config_inst.campaign.x.year != 2024:
+            # btag weights
+            btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
+            events = self[btag_weights_deepjet](
                 events,
                 jet_mask=btag_weight_jet_mask,
                 negative_b_score_log_mode="none",
                 **kwargs,
             )
+            if self.has_dep(btag_weights_pnet):
+                events = self[btag_weights_pnet](
+                    events,
+                    jet_mask=btag_weight_jet_mask,
+                    negative_b_score_log_mode="none",
+                    **kwargs,
+                )
     # create process ids
     for tag in self.stitch_tags:
         if (prod_cls := getattr(self, f"process_ids_{tag}", None)) is not None:
@@ -207,9 +211,9 @@ def default(
 
     # store number of jets for stats and histograms
     events = set_ak_column(events, "n_jets_stats", results.x.n_central_jets, value_type=np.int32)
-
-    # some cutflow features
-    events = self[cutflow_features](events, results.objects, **kwargs)
+    if self.config_inst.campaign.x.year != 2024:
+        # some cutflow features
+        events = self[cutflow_features](events, results.objects, **kwargs)
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
@@ -223,22 +227,35 @@ def default(
             if step_name != f"bjet_{tagger_name}"
         ])
         return var_sel
-
-    # increment stats
-    events, results = increment_stats(
-        self,
-        events=events,
-        task=kwargs["task"],
-        results=results,
-        stats=stats,
-        hists=hists,
-        no_sel=no_sel,
-        event_sel=event_sel,
-        event_sel_variations={
-            "nob_deepjet": event_sel_nob(btag_weights_deepjet),
-            "nob_pnet": event_sel_nob(btag_weights_pnet) if self.has_dep(btag_weights_pnet) else None,
-        },
-    )
+    
+    if self.config_inst.campaign.x.year != 2024:
+        # increment stats
+        events, results = increment_stats(
+            self,
+            events=events,
+            task=kwargs["task"],
+            results=results,
+            stats=stats,
+            hists=hists,
+            no_sel=no_sel,
+            event_sel=event_sel,
+            event_sel_variations={
+                "nob_deepjet": event_sel_nob(btag_weights_deepjet),
+                "nob_pnet": event_sel_nob(btag_weights_pnet) if self.has_dep(btag_weights_pnet) else None,
+            },
+        )
+    else:
+        # increment stats
+        events, results = increment_stats(
+            self,
+            events=events,
+            task=kwargs["task"],
+            results=results,
+            stats=stats,
+            hists=hists,
+            no_sel=no_sel,
+            event_sel=event_sel,
+        )
 
     return events, results
 
@@ -385,22 +402,22 @@ def empty_call(
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
-
-        # btag weights
-        btag_weight_jet_mask = abs(events.Jet["eta"]) < 2.5
-        events = self[btag_weights_deepjet](
-            events,
-            jet_mask=btag_weight_jet_mask,
-            negative_b_score_log_mode="none",
-            **kwargs,
-        )
-        if self.has_dep(btag_weights_pnet):
-            events = self[btag_weights_pnet](
+        if self.config_inst.campaign.x.year != 2024:
+            # btag weights
+            btag_weight_jet_mask = abs(events.Jet["eta"]) < 2.5
+            events = self[btag_weights_deepjet](
                 events,
                 jet_mask=btag_weight_jet_mask,
                 negative_b_score_log_mode="none",
                 **kwargs,
             )
+            if self.has_dep(btag_weights_pnet):
+                events = self[btag_weights_pnet](
+                    events,
+                    jet_mask=btag_weight_jet_mask,
+                    negative_b_score_log_mode="none",
+                    **kwargs,
+                )
 
     # create process ids
     for tag in self.stitch_tags:
@@ -422,22 +439,34 @@ def empty_call(
 
     # trivial selection mask capturing all events
     results.event = np.ones(len(events), dtype=bool)
-
-    # increment stats
-    events, results = increment_stats(
-        self,
-        events=events,
-        task=kwargs["task"],
-        results=results,
-        stats=stats,
-        hists=hists,
-        no_sel=no_sel,
-        event_sel=results.event,
-        event_sel_variations={
-            "nob_deepjet": results.event,
-            "nob_pnet": results.event if self.has_dep(btag_weights_pnet) else None,
-        },
-    )
+    if self.config_inst.campaign.x.year != 2024:
+        # increment stats
+        events, results = increment_stats(
+            self,
+            events=events,
+            task=kwargs["task"],
+            results=results,
+            stats=stats,
+            hists=hists,
+            no_sel=no_sel,
+            event_sel=results.event,
+            event_sel_variations={
+                "nob_deepjet": results.event,
+                "nob_pnet": results.event if self.has_dep(btag_weights_pnet) else None,
+            },
+        )
+    else:
+        # increment stats
+        events, results = increment_stats(
+            self,
+            events=events,
+            task=kwargs["task"],
+            results=results,
+            stats=stats,
+            hists=hists,
+            no_sel=no_sel,
+            event_sel=results.event,
+        )
 
     return events, results
 
@@ -528,22 +557,22 @@ def increment_stats(
                 add(f"sum_isr_weight{v}_selected", event_sel, events[f"isr_weight{v}"])
                 add(f"sum_fsr_weight{v}", no_sel, events[f"fsr_weight{v}"])
                 add(f"sum_fsr_weight{v}_selected", event_sel, events[f"fsr_weight{v}"])
-
-        # btag weights
-        for prod in [btag_weights_deepjet, btag_weights_pnet]:
-            if not self.has_dep(prod):
-                continue
-            for route in sorted(self[prod].produced_columns):
-                weight_name = str(route)
-                if not weight_name.startswith(prod.weight_name):
+        if self.config_inst.campaign.x.year != 2024:
+            # btag weights
+            for prod in [btag_weights_deepjet, btag_weights_pnet]:
+                if not self.has_dep(prod):
                     continue
-                if skip_shifts and weight_name.endswith(("_up", "_down")):
-                    continue
-                add(f"sum_{weight_name}", no_sel, events[weight_name])
-                add(f"sum_{weight_name}_selected", event_sel, events[weight_name])
-                for var_name, var_sel in event_sel_variations.items():
-                    add(f"sum_{weight_name}_selected_{var_name}", var_sel, events[weight_name])
-                    add(f"sum_mc_weight_{weight_name}_selected_{var_name}", var_sel, events.mc_weight * events[weight_name])  # noqa: E501
+                for route in sorted(self[prod].produced_columns):
+                    weight_name = str(route)
+                    if not weight_name.startswith(prod.weight_name):
+                        continue
+                    if skip_shifts and weight_name.endswith(("_up", "_down")):
+                        continue
+                    add(f"sum_{weight_name}", no_sel, events[weight_name])
+                    add(f"sum_{weight_name}_selected", event_sel, events[weight_name])
+                    for var_name, var_sel in event_sel_variations.items():
+                        add(f"sum_{weight_name}_selected_{var_name}", var_sel, events[weight_name])
+                        add(f"sum_mc_weight_{weight_name}_selected_{var_name}", var_sel, events.mc_weight * events[weight_name])  # noqa: E501
 
         # add num_events_per_process and sum_mc_weight_per_process directly to stats, needed for normalization weight
         if "num_events_per_process" not in stats:

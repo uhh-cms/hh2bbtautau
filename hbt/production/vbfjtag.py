@@ -290,6 +290,7 @@ def vbfjtag_setup(
         (2022, "EE"): 1,
         (2023, ""): 2,
         (2023, "BPix"): 3,
+        (2024, ""): 4,
     }[campaign_key]
 
     # validate the met name

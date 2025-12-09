@@ -8,6 +8,7 @@ from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
+from hbt.production.tau import tau_trigger_efficiencies
 from columnflow.production.cms.top_pt_weight import top_pt_weight as cf_top_pt_weight
 from columnflow.production.cms.dy import dy_weights
 from columnflow.util import maybe_import
@@ -19,7 +20,7 @@ from hbt.production.weights import (
 )
 from hbt.production.tau import tau_weights
 from hbt.production.trigger_sf import trigger_weight
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_22_23
 
 ak = maybe_import("awkward")
 
@@ -80,14 +81,14 @@ muon_weights_lowpt = muon_weights.derive(
 
 @producer(
     uses={
-        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,
-        normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
+        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,IF_RUN_3_22_23(
+        normalized_btag_weights_deepjet), IF_RUN_3_22_23(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
     produces={
-        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,
-        normalized_btag_weights_deepjet, IF_RUN_3(normalized_btag_weights_pnet),
+        hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,IF_RUN_3_22_23(
+        normalized_btag_weights_deepjet), IF_RUN_3_22_23(normalized_btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
@@ -123,15 +124,15 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
         # normalized parton shower weights
         events = self[normalized_ps_weights](events, **kwargs)
-
-        # btag weights
-        events = self[normalized_btag_weights_deepjet](events, **kwargs)
-        if self.has_dep(normalized_btag_weights_pnet):
-            events = self[normalized_btag_weights_pnet](events, **kwargs)
-
-        # tau weights
-        if self.has_dep(tau_weights):
-            events = self[tau_weights](events, **kwargs)
+        if self.config_inst.campaign.x.year != 2024:
+            # btag weights
+            events = self[normalized_btag_weights_deepjet](events, **kwargs)
+            if self.has_dep(normalized_btag_weights_pnet):
+                events = self[normalized_btag_weights_pnet](events, **kwargs)
+        
+            # tau weights
+            if self.has_dep(tau_weights):
+                events = self[tau_weights](events, **kwargs)
 
         # electron weights
         if self.has_dep(electron_id_weights):
@@ -154,10 +155,15 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
                     del events2
         if self.has_dep(muon_iso_weights):
             events = self[muon_iso_weights](events, **kwargs)
-
-        # trigger weight
-        if self.has_dep(trigger_weight):
-            events = self[trigger_weight](events, **kwargs)
+        
+        if self.config_inst.campaign.x.year == 2024:
+            # tau trigger efficiencies 
+            if self.has_dep(tau_trigger_efficiencies):
+                events = self[tau_trigger_efficiencies](events, **kwargs)
+        else:
+            # trigger weight
+            if self.has_dep(trigger_weight):
+                events = self[trigger_weight](events, **kwargs)
 
         # top pt weight
         if self.has_dep(top_pt_weight):
@@ -174,12 +180,12 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 def default_init(self: Producer, **kwargs) -> None:
     if self.produce_weights:
         weight_producers = {
-            tau_weights,
+            IF_RUN_3_22_23(tau_weights),
             electron_id_weights,
             electron_reco_weights,
             muon_id_weights,
             muon_iso_weights,
-            trigger_weight,
+            IF_RUN_3_22_23(trigger_weight),
         }
 
         if self.dataset_inst.has_tag("ttbar"):

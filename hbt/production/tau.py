@@ -236,7 +236,7 @@ def tau_weights_setup(
     # only run on mc
     mc_only=True,
     # function to determine the correction file
-    get_tau_file=(lambda self, external_files: external_files.tau_sf),
+    get_tau_file=(lambda self, external_files: (external_files.tau_trigger_sf if self.config_inst.campaign.x.year == 2024 else external_files.tau_sf)),
     get_tau_corrector=(lambda self: self.config_inst.x.tau_trigger_corrector),
 )
 def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.Array:

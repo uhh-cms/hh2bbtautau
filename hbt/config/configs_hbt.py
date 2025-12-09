@@ -1072,7 +1072,10 @@ def add_config(
     })
 
     # tau trigger correctors
-    cfg.x.tau_trigger_corrector = "tau_trigger"
+    if year==2024:
+        cfg.x.tau_trigger_corrector = "tauTriggerSF"
+    else:
+        cfg.x.tau_trigger_corrector = "tau_trigger"
     cfg.x.tau_trigger_corrector_cclub = "tauTriggerSF"
 
     ################################################################################################
@@ -1082,7 +1085,7 @@ def add_config(
     # https://twiki.cern.ch/twiki/bin/viewauth/CMS/EgammSFandSSRun3
 
     # names of electron correction sets and working points
-    from columnflow.production.cms.electron import ElectronSFConfig, ElectronRecoSFConfig
+    from columnflow.production.cms.electron import ElectronSFConfig
     from columnflow.calibration.cms.egamma import EGammaCorrectionConfig
     if run == 2:
         # SFs
@@ -1114,39 +1117,20 @@ def add_config(
         elif year == 2023:
             e_postfix = {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix]
         elif year == 2024:
-            e_postfix = ""  # NO postfix for 2024 (also year not split into eras yet) 
+            e_postfix = "Prompt"
         else:
             assert False
-        # TODO: 2024: different files being used for id and reco sfs
-        # will be merged in future releases according to twiki
-        # https://twiki.cern.ch/twiki/bin/viewauth/CMS/EgammSFandSSRun3#Electron_and_Electron_ID_JSON_fo 
-        # EDIT: looks like the files are already merged in the latest release
+  
         cfg.x.electron_id_sf = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
-        if year == 2024:
-            # specific reco sf config for 2024 as reco sf and id sf jsons are split
-            cfg.x.electron_reco_sf = ElectronRecoSFConfig(
-                correction="Electron-ID-SF",
-                campaign=f"{year}{e_postfix}",
-                working_point={
-                    # "RecoBelow20": (lambda variables: variables["pt"] < 20.0), Note: still missing in 2024 sf file (see twiki above)
-                    "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
-                    "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
-                },
-            )
-        else:
-            cfg.x.electron_reco_sf = ElectronSFConfig(
-                correction="Electron-ID-SF",
-                campaign=f"{year}{e_postfix}",
-                working_point={
-                    "RecoBelow20": (lambda variables: variables["pt"] < 20.0),
-                    "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
-                    "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
-                },
-            )
+        cfg.x.electron_reco_sf = ElectronSFConfig(
+            correction="Electron-ID-SF",
+            campaign=f"{year}{e_postfix}",
+            working_point="wp80iso",
+        )
         cfg.x.electron_trigger_sf_names = ElectronSFConfig(
             correction="Electron-HLT-SF",
             campaign=f"{year}{e_postfix}",
@@ -1718,8 +1702,8 @@ def add_config(
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                # TODO: tau and lum not yet available
-                snapshot=CATSnapshot(btv="2025-08-19", dc="2025-07-25", egm="2025-10-22", jme="2025-07-17", muo="2025-10-17"),  # noqa: E501
+                # TODO: tau not yet available
+                snapshot=CATSnapshot(btv="2025-08-19", dc="2025-07-25", egm="2025-12-03", jme="2025-07-17", lum="2025-12-02", muo="2025-10-17"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1758,9 +1742,10 @@ def add_config(
         }[year],
     })
     # pileup weight corrections
-    if year != 2024:  # TODO: not yet available, see https://cms-analysis-corrections.docs.cern.ch
+    if year != 2024: 
         add_external("pu_sf", (cat_info.get_file("lum", "puWeights.json.gz"), "v1"))
-    # jet energy correction
+    else :
+        add_external("pu_sf", (cat_info.get_file("lum", "puWeights_BCDEFGHI.json.gz"), "v1")) 
     add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jet veto map
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
@@ -1820,11 +1805,8 @@ def add_config(
         if year != 2024:  # TODO: 2024: not yet available
             add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
         # electron scale factors
-        if year == 2024:
-            # momentarily, the sf and reco corrections are split into two files for 2024
-            add_external("electron_reco", (cat_info.get_file("egm", "electronID.json.gz"), "v1"))
         add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
-            # electron energy correction and smearing
+        # electron energy correction and smearing
         add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         hhb_postfix = "_2024" if year == 2024 else ""
@@ -1883,7 +1865,7 @@ def add_config(
         elif year == 2024:
             #https://gitlab.cern.ch/cms-tau-pog/jsonpog-integration/-/merge_requests/20
             #For deeptau
-            add_external("tau_trigger_sf", "/afs/cern.ch/user/r/raguitto/public/tau_trigger_DeepTau2018v2p5_2024.json.gz", "v1")
+            add_external("tau_trigger_sf", ("/afs/cern.ch/user/r/raguitto/public/tau_trigger_DeepTau2018v2p5_2024.json.gz", "v1"))
             
     else:
         assert False
@@ -2027,8 +2009,11 @@ def add_config(
     ################################################################################################
 
     # add categories
-    from hbt.config.categories import add_categories
-    add_categories(cfg)
+    from hbt.config.categories import add_categories, add_categories_2024
+    if year !=2024:
+        add_categories(cfg)
+    else:
+        add_categories_2024(cfg)
 
     # add variables
     from hbt.config.variables import add_variables
@@ -2083,7 +2068,7 @@ def add_config(
                 fs_postfix = "_eos"
         elif nano_creator == "rucio":
             # rucio nano's, stored on cern eos, so postfix _eos required
-            fs_postfix = "_desy"
+            fs_postfix = "_cern"
             if not force_desy_resources and env_is_cern:
                 fs_postfix = "_cern"
         else:
@@ -2099,9 +2084,9 @@ def add_config(
             store_path = CMSDatasetInfo.from_key(dataset_key).store_path.lstrip("/")
 
             # lookup file systems to use
-            fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
+            #fs = f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
             local_fs = f"local_fs_{cfg.campaign.x.custom['name']}{fs_postfix}"
-
+            fs="wlcg_fs_run3_2024_nano_local_v15_cern"
             # determine the fs of the lfn base directory, local or remote
             dir_cls = law.wlcg.WLCGDirectoryTarget
             if law.config.has_section(local_fs):
