@@ -1,6 +1,6 @@
 [submodule "modules/columnflow"]
     path = modules/columnflow
-    url = git@github.com:rguitton/columnflow.git
+    url = ../../columnflow/columnflow.git
 
 [submodule "modules/cmsdb"]
     path = modules/cmsdb
