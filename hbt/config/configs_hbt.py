@@ -1120,7 +1120,7 @@ def add_config(
             e_postfix = "Prompt"
         else:
             assert False
-  
+
         cfg.x.electron_id_sf = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",

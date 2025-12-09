@@ -228,7 +228,7 @@ def default(
             if step_name != f"bjet_{tagger_name}"
         ])
         return var_sel
-    
+
     if self.config_inst.campaign.x.year != 2024:
         # increment stats
         events, results = increment_stats(
