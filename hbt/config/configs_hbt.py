@@ -1922,6 +1922,7 @@ def add_config(
                 "FatJet.{eta,phi,pt,mass}",
                 f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
                 "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
+                "reg_dnn_moe_*",
                 "run3_dnn{,_moe}_*",
                 "vbf_dnn*",
                 "nu_truth.*.*",

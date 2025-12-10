@@ -535,6 +535,7 @@ class reg_dnn_moe(_reg_dnn):
 
     dir_name = "model_fold0_moe"
     output_prefix = "reg_dnn_moe"
+    produce_features = True
     exposed = True
 
 
