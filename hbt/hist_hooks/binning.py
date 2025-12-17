@@ -90,7 +90,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
             # prepare signal
             # flip arrays to start from the right
-            signal_values = np.flip(signal_hist.axes[-1].centers, axis=-1)
+            signal_edges = signal_hist.axes[-1].edges[::-1]
             y = np.flip(signal_hist.counts(), axis=-1)
 
             # set negative yields to zero and warn about it
@@ -175,11 +175,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
                 # stop_idx found, update values
                 # get next edge or set to low edge if end is reached
-                if stop_idx == num_bins_orig:
-                    edge_value = low_edge
-                else:
-                    # calculate bin center as new edge
-                    edge_value = float(signal_values[stop_idx - 1:stop_idx + 1].mean())
+                edge_value = signal_edges[stop_idx] if stop_idx != num_bins_orig else low_edge
+
                 # prevent out of bounds values and push them to the boundaries
                 bin_edges.append(max(min(edge_value, max_edge), low_edge))
 
