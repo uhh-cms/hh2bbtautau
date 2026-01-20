@@ -14,7 +14,8 @@ import law
 from columnflow.production import Producer
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import (
-    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections,
+    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections, ak_concatenate_safe,
+    layout_ak_array,
 )
 from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.types import Any
@@ -37,7 +38,7 @@ def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Arr
     Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
     angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
     """
-    new_phi = np.arctan2(py, px) - ref_phi
+    new_phi = np.arctan2(py, px, dtype=np.float64) - ref_phi
     pt = (px**2 + py**2)**0.5
     return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
@@ -283,14 +284,18 @@ class _res_dnn_evaluation(Producer):
 
         # store visible tau decay products, consider them all as tau types
         vis_tau = attach_behavior(
-            ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
+            ak_concatenate_safe((events.Electron, events.Muon, events.Tau), axis=1),
             type_name="Tau",
         )
         events = set_ak_column(events, "feat_vis_tau", vis_tau)
 
         # compute angle from visible mother particle of vis_tau1 and vis_tau2
         # used to rotate the kinematics of dau{1,2}, met, bjet{1,2} and fatjets relative to it
-        dilep_phi = np.arctan2(vis_tau[:, 0].py + vis_tau[:, 1].py, vis_tau[:, 0].px + vis_tau[:, 1].px)
+        dilep_phi = np.arctan2(
+            vis_tau[:, 0].py + vis_tau[:, 1].py,
+            vis_tau[:, 0].px + vis_tau[:, 1].px,
+            dtype=np.float64,
+        )
         events = set_ak_column(events, "feat_dilep_phi", dilep_phi)
 
         return events
@@ -371,10 +376,12 @@ class _res_dnn_evaluation(Producer):
 
         # mask values of various fields as done during training of the network
         def mask_fields(mask, value, *fields):
+            if not ak.any(mask):
+                return
             for field in fields:
-                arr = ak.fill_none(cont[field], value, axis=0)
-                flat_np_view(arr)[mask] = value
-                cont[field] = arr
+                arr = flat_np_view(ak.fill_none(cont[field], value, axis=0), copy=True)
+                arr[flat_np_view(mask)] = value
+                cont[field] = layout_ak_array(arr, cont[field]) if cont[field].ndim > 1 else arr
 
         mask_fields(~cat.has_jet_pair, 0.0, "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e")
         mask_fields(~cat.has_jet_pair, 0.0, "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e")
@@ -528,6 +535,7 @@ class reg_dnn_moe(_reg_dnn):
 
     dir_name = "model_fold0_moe"
     output_prefix = "reg_dnn_moe"
+    produce_features = True
     exposed = True
 
 
@@ -817,7 +825,7 @@ class _vbf_dnn(_res_dnn_evaluation):
         # TODO: once fatjets are fully defined, these jets should be cleaned from them with deltaR < 0.8
         central_jets = events.Jet[mask_hhbjets_vbfjets]
         # all central jets + hhbjets + vbfjets
-        vbfcjets = ak.concatenate((events.HHBJet, events.VBFJet, central_jets), axis=1)
+        vbfcjets = ak_concatenate_safe((events.HHBJet, events.VBFJet, central_jets), axis=1)
         vbfc_m2 = (
             ak.sum(vbfcjets.energy, axis=1)**2 -
             ak.sum(vbfcjets.px, axis=1)**2 -
@@ -845,10 +853,12 @@ class _vbf_dnn(_res_dnn_evaluation):
 
         # mask missing features with defaults
         def mask_values(mask, value, *fields):
+            if not ak.any(mask):
+                return
             for field in fields:
-                arr = ak.fill_none(cont[field], value, axis=0)
-                flat_np_view(arr)[mask] = value
-                cont[field] = arr
+                arr = flat_np_view(ak.fill_none(cont[field], value, axis=0), copy=True)
+                arr[flat_np_view(mask)] = value
+                cont[field] = layout_ak_array(arr, cont[field]) if cont[field].ndim > 1 else arr
 
         mask_values(~cat.has_jet_pair, 0.0, "hbb_e", "hbb_px", "hbb_py", "hbb_pz")
         mask_values(~cat.has_jet_pair, 0.0, "htthbb_regr_e", "htthbb_regr_px", "htthbb_regr_py", "htthbb_regr_pz")

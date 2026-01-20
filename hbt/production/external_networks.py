@@ -13,7 +13,8 @@ import law
 from columnflow.production import Producer
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import (
-    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections,
+    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections, ak_concatenate_safe,
+    layout_ak_array,
 )
 from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.types import Any
@@ -35,7 +36,7 @@ def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Arr
     Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
     angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
     """
-    new_phi = np.arctan2(py, px) - ref_phi
+    new_phi = np.arctan2(py, px, dtype=np.float64) - ref_phi
     pt = (px**2 + py**2)**0.5
     return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
@@ -136,7 +137,7 @@ class _external_dnn(Producer):
         # categorical values handled by the network
         # (names and values from training code that was aligned to KLUB notation)
         self.embedding_expected_inputs = {
-            "channel_id": [1, 2, 3],  # see mapping below
+            "pair_type": [0, 1, 2],  # old KLUB naming, 0: mutau, 1: etau, 2: tautau
             "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
             "decay_mode2": [0, 1, 10, 11],
             "charge1": [-1, 1],
@@ -166,12 +167,9 @@ class _external_dnn(Producer):
             **kwargs,
         )
 
-        # get the channel id
-        channel_id = events.channel_id
-
         # get visible tau decay products, consider them all as tau types
         vis_taus = attach_behavior(
-            ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
+            ak_concatenate_safe((events.Electron, events.Muon, events.Tau), axis=1),
             type_name="Tau",
         )
         vis_tau1, vis_tau2 = vis_taus[:, 0], vis_taus[:, 1]
@@ -201,10 +199,16 @@ class _external_dnn(Producer):
         has_jet_pair = ak.num(events.HHBJet) >= 2
         has_fatjet = ak.num(events.FatJet) >= 1
 
+        # convert channel_id to pair_type
+        pair_type = np.full(len(events), -1, dtype=np.int32)
+        pair_type[events.channel_id == self.config_inst.channels.n.mutau.id] = 0
+        pair_type[events.channel_id == self.config_inst.channels.n.etau.id] = 1
+        pair_type[events.channel_id == self.config_inst.channels.n.tautau.id] = 2
+
         # before preparing the network inputs, define a mask of events which have caregorical features
         # that are actually covered by the networks embedding layers; other events cannot be evaluated!
         event_mask = (
-            np.isin(channel_id, self.embedding_expected_inputs["channel_id"]) &
+            np.isin(pair_type, self.embedding_expected_inputs["pair_type"]) &
             np.isin(dm1, self.embedding_expected_inputs["decay_mode1"]) &
             np.isin(dm2, self.embedding_expected_inputs["decay_mode2"]) &
             np.isin(vis_tau1.charge, self.embedding_expected_inputs["charge1"]) &
@@ -217,7 +221,7 @@ class _external_dnn(Producer):
 
         # apply to all arrays needed until now
         _events = events[event_mask]
-        channel_id = channel_id[event_mask]
+        pair_type = pair_type[event_mask]
         vis_tau1, vis_tau2 = vis_tau1[event_mask], vis_tau2[event_mask]
         tautau_mask = tautau_mask[event_mask]
         dm1, dm2 = dm1[event_mask], dm2[event_mask]
@@ -228,7 +232,7 @@ class _external_dnn(Producer):
 
         # compute angle from visible mother particle of vis_tau1 and vis_tau2
         # used to rotate the kinematics of dau{1,2}, met, bjet{1,2} and fatjets relative to it
-        phi_lep = np.arctan2(vis_tau1.py + vis_tau2.py, vis_tau1.px + vis_tau2.px)
+        phi_lep = np.arctan2(vis_tau1.py + vis_tau2.py, vis_tau1.px + vis_tau2.px, dtype=np.float64)
 
         # lepton 1
         f.vis_tau1_px, f.vis_tau1_py = rotate_to_phi(phi_lep, vis_tau1.px, vis_tau1.py)
@@ -264,10 +268,12 @@ class _external_dnn(Producer):
 
         # mask values as done during training of the network
         def mask_values(mask, value, *fields):
+            if not ak.any(mask):
+                return
             for field in fields:
-                arr = ak.fill_none(f[field], value, axis=0)
-                flat_np_view(arr)[mask] = value
-                f[field] = arr
+                arr = flat_np_view(ak.fill_none(f[field], value, axis=0), copy=True)
+                arr[flat_np_view(mask)] = value
+                f[field] = layout_ak_array(arr, f[field]) if f[field].ndim > 1 else arr
 
         mask_values(~has_jet_pair, 0.0, "bjet1_px", "bjet1_py", "bjet1_pz", "bjet1_e")
         mask_values(~has_jet_pair, 0.0, "bjet2_px", "bjet2_py", "bjet2_pz", "bjet2_e")
@@ -312,7 +318,7 @@ class _external_dnn(Producer):
         f.met_cov00, f.met_cov01, f.met_cov11 = _met.covXX, _met.covXY, _met.covYY
 
         # assign categorical inputs via names too
-        f.channel_id = channel_id
+        f.pair_type = pair_type
         f.dm1 = dm1
         f.dm2 = dm2
         f.vis_tau1_charge = vis_tau1.charge
@@ -320,9 +326,9 @@ class _external_dnn(Producer):
         f.has_jet_pair = has_jet_pair
         f.has_fatjet = has_fatjet
 
-        # build continous inputs
+        # build continuous inputs
         # (order exactly as documented in link above)
-        continous_inputs = [
+        continuous_inputs = [
             np.asarray(t[..., None], dtype=np.float32) for t in [
                 f.met_px, f.met_py, f.met_cov00, f.met_cov01, f.met_cov11,
                 f.vis_tau1_px, f.vis_tau1_py, f.vis_tau1_pz, f.vis_tau1_e,
@@ -344,7 +350,7 @@ class _external_dnn(Producer):
         # (order exactly as documented in link above)
         categorical_inputs = [
             np.asarray(t[..., None], dtype=np.int32) for t in [
-                f.channel_id,
+                f.pair_type,
                 f.dm1, f.dm2,
                 f.vis_tau1_charge, f.vis_tau2_charge,
                 f.has_jet_pair, f.has_fatjet,
@@ -354,10 +360,8 @@ class _external_dnn(Producer):
         # evaluate the model
         scores = self.evaluator(
             self.cls_name,
-            (
-                np.concatenate(categorical_inputs, axis=1),
-                np.concatenate(continous_inputs, axis=1),
-            ),
+            np.concatenate(categorical_inputs, axis=1),
+            np.concatenate(continuous_inputs, axis=1),
         )
 
         # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
@@ -393,7 +397,7 @@ class _external_dnn(Producer):
                 "httfatjet_e", "httfatjet_px", "httfatjet_py", "httfatjet_pz",
             ]
             cat_inputs_cols = [
-                "channel_id", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
+                "pair_type", "dm1", "dm2", "vis_tau1_charge", "vis_tau2_charge", "has_jet_pair", "has_fatjet",
             ]
             for c in cont_inputs_cols + cat_inputs_cols:
                 values = self.empty_value * np.ones(len(events), dtype=np.float32)
@@ -407,4 +411,8 @@ class _external_dnn(Producer):
 
 
 class torch_test_dnn(_external_dnn):
+    exposed = True
+
+
+class torch_simple_kl01(_external_dnn):
     exposed = True

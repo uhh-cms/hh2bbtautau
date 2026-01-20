@@ -7,7 +7,10 @@ Collection of patches of underlying columnflow tasks.
 import os
 import getpass
 
+import luigi
 import law
+import order as od
+
 from columnflow.util import memoize
 
 
@@ -115,6 +118,113 @@ def patch_unite_columns_events_filter():
 
 
 @memoize
+def patch_merge_shifted_histograms():
+    """
+    Patches the MergeShiftedHistograms task to add several analysis-specific performance improvements:
+
+        - Add a parameter "--trigger-only" that causes its run method to complete without writing an output in order to
+        only trigger the tasks requirement resolution.
+        - Add a parameter "--filter-categories" that causes the early removal of unwanted categories to save memory. The
+        store path of output targets is updated accordingly.
+    """
+    from columnflow.tasks.framework.mixins import CategoriesMixin
+    from columnflow.tasks.histograms import MergeShiftedHistograms
+
+    # add parameters
+    MergeShiftedHistograms.trigger_only = luigi.BoolParameter(
+        default=False,
+        description="if set, the task will not write an output but only trigger its requirements; default: False",
+    )
+    MergeShiftedHistograms.filter_categories = law.CSVParameter(
+        default=(),
+        description="comma-separated category names or patterns of categories to keep; empty default",
+        brace_expand=True,
+        parse_empty=True,
+    )
+
+    # store original methods
+    store_parts_orig = MergeShiftedHistograms.store_parts
+    init_orig = MergeShiftedHistograms.__init__
+    run_orig = MergeShiftedHistograms.run
+    modify_input_hist_orig = MergeShiftedHistograms.modify_input_hist
+
+    # define patched methods
+    def init(self, *args, **kwargs):
+        init_orig(self, *args, **kwargs)
+
+        # resolve and sort filter categories
+        if self.filter_categories:
+            self.filter_categories = tuple(sorted(self.find_config_objects(
+                names=self.filter_categories,
+                container=self.config_inst,
+                object_cls=od.Category,
+                groups_str="category_groups",
+                deep=True,
+            )))
+
+    def store_parts(self):
+        parts = store_parts_orig(self)
+        if self.filter_categories:
+            categories_repr = CategoriesMixin._categories_repr(self.filter_categories)
+            parts.insert_after("version", "filter_categories", f"categories_{categories_repr}")
+        return parts
+
+    def run(self):
+        if self.trigger_only:
+            self.logger.warning(f"{self.task_family} invoked with '--trigger-only', skipping actual run method")
+            return
+
+        return run_orig(self)
+
+    def modify_input_hist(self, shift, variable, h):
+        if not self.filter_categories:
+            return modify_input_hist_orig(self, shift, variable, h)
+
+        import hist
+        h = h[{"category": [
+            hist.loc(category) for category in self.filter_categories
+            if category in h.axes["category"]
+        ]}]
+
+        return h
+
+    # store patched methods
+    MergeShiftedHistograms.__init__ = init
+    MergeShiftedHistograms.run = run
+    MergeShiftedHistograms.store_parts = store_parts
+    MergeShiftedHistograms.modify_input_hist = modify_input_hist
+
+    logger.debug(f"patched {MergeShiftedHistograms.task_family}")
+
+
+@memoize
+def patch_serialize_inference_model_base():
+    """
+    Patches the SerializeInferenceModelBase task to request MergeShiftedHistograms with category filtering applied.
+    """
+    from columnflow.tasks.framework.inference import SerializeInferenceModelBase
+
+    hist_requirement_orig = SerializeInferenceModelBase._hist_requirement
+
+    def _hist_requirement(self, **kwargs):
+        # if there is at least one shift source required, only filter necessary leaf categories
+        if kwargs.get("shift_sources") and set(kwargs["shift_sources"]) != {"nominal"}:
+            config_inst = self.analysis_inst.get_config(kwargs["config"])
+            categories = self.combined_config_data[config_inst]["categories"]
+            leaf_categories = set.union(*(
+                set(category_inst.get_leaf_categories() or [category_inst])
+                for category_inst in (config_inst.get_category(c, deep=True) for c in categories)
+            ))
+            kwargs["filter_categories"] = tuple(sorted(cat_inst.name for cat_inst in leaf_categories))
+
+        return hist_requirement_orig(self, **kwargs)
+
+    SerializeInferenceModelBase._hist_requirement = _hist_requirement
+
+    logger.debug(f"patched {SerializeInferenceModelBase.task_family}")
+
+
+@memoize
 def patch_all():
     patch_bundle_repo_exclude_files()
     patch_remote_workflow_poll_interval()
@@ -122,3 +232,5 @@ def patch_all():
     patch_merge_reduction_stats_inputs()
     patch_unite_columns_keep_columns_key_default()
     patch_unite_columns_events_filter()
+    patch_merge_shifted_histograms()
+    patch_serialize_inference_model_base()

@@ -18,8 +18,8 @@ import correctionlib.schemav2 as cs
 
 from scipy import optimize
 from matplotlib import pyplot as plt
-from typing import Callable
 
+from columnflow.types import TYPE_CHECKING, Callable
 from columnflow.hist_util import create_hist_from_variables, fill_hist
 from hbt.tasks.base import HBTTask
 from columnflow.tasks.framework.base import TaskShifts, ConfigTask
@@ -35,7 +35,8 @@ from columnflow.tasks.framework.mixins import (
     SelectorClassMixin, ReducerClassMixin,
 )
 
-hist = maybe_import("hist")
+if TYPE_CHECKING:
+    hist = maybe_import("hist")
 
 
 @dataclasses.dataclass
@@ -58,7 +59,7 @@ class DYBaseTask(
     SelectorClassMixin,
     ReducerClassMixin,
     ProducerClassesMixin,
-    DatasetsProcessesMixin
+    DatasetsProcessesMixin,
 ):
     """
     Base class for DY tasks.
@@ -83,9 +84,8 @@ class DYBaseTask(
         self.njets_inst = self.config_inst.variables.n.njets
 
         self.variables = [
-            (self.dilep_pt_inst, 'dilep_pt'),
-            (self.nbjets_inst, 'nbjets')
-            # (self.njets_inst, 'njets')
+            (self.dilep_pt_inst, "dilep_pt"),
+            (self.nbjets_inst, "nbjets"),
         ]
         self.variables_names = [var_name for _, var_name in self.variables]
 
@@ -545,11 +545,11 @@ class DYWeights(DYBaseTask):
         return h
 
     def get_ratio_values(
-            self,
-            data_h: hist.Hist,
-            dy_h: hist.Hist,
-            bkg_h: hist.Hist,
-            variable_inst: od.Variable
+        self,
+        data_h: hist.Hist,
+        dy_h: hist.Hist,
+        bkg_h: hist.Hist,
+        variable_inst: od.Variable,
     ) -> tuple[hist.Hist, hist.Hist, hist.Hist]:
 
         # under/overflow treatment
@@ -715,7 +715,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         dy_weight_data = {}
 
         for config_inst, inps in self.input().items():
-            weight_data = inps["weights_1.5_final"].load(formatter="pickle")
+            weight_data = inps["weights"].load(formatter="pickle")
             era = config_inst.x.dy_weight_config.era
             dy_weight_data[era] = weight_data
 
@@ -744,7 +744,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
         # create the correction object
         dy_weight_correction = cs.Correction(
             name="dy_weight",
-            description="DY weights derived in the phase space of the hh2bbtautau analysis, supposed to correct njet and "
+            description="DY weights derived in the phase space of the hh2bbtautau analysis, supposed to correct njet and "  # noqa: E501
             "ptll distributions, as well as correlated quantities.",
             version=1,
             inputs=[

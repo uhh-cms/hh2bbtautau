@@ -726,7 +726,10 @@ def add_config(
         ],
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
-        "bkg_no_dy": [p for p in backgrounds if not p.startswith("dy_")],
+        "ggf_dnn": [
+            dataset.name for dataset in cfg.datasets
+            if re.match(r"^(hh_ggf_hbb_htt_.+|tt_(sl|dl|fh)_powheg|dy(_tautau)?_m50toinf_.*amcatnlo)$", dataset.name)
+        ],
     }
 
     # category groups for conveniently looping over certain categories
@@ -906,9 +909,13 @@ def add_config(
             (2024, ""): "V1",
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
+        if year == 2024:
+            jer_campaign = "Summer23BPixPrompt23"  # https://cms-jerc.web.cern.ch/Recommendations/#2024_1
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
+        if year == 2024:
+            jer_campaign += "_RunD"
         jer_version = "JR" + {2022: "V1", 2023: "V1", 2024: "V1"}[year]
         jet_type = "AK4PFPuppi"
     else:
@@ -917,6 +924,7 @@ def add_config(
     # full list of jec sources in a fixed order that is used to assign consistent ids across configs
     # (please add new sources at the bottom to preserve the order of existing ones)
     # the boolean flag decides whether to use them in the JEC config and if shifts should be created for them
+    # https://cms-jerc.web.cern.ch/Recommendations/#uncertainites-and-correlations
     jec_source_era = f"{year}{campaign.x.postfix}"
     all_jec_sources = {
         "AbsoluteFlavMap": False,
@@ -1760,13 +1768,14 @@ def add_config(
     for fold in range(5):
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
     # simple version of same model for quick comparisons
-    add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple/model_fold0_seed1.tgz", "v1"))
-    # and again with different kl setups
-    add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
-    add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
-    add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_fixedweights_kl01/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    # and again with different kl setups (disabled since they were still run with the broken dy frequencies)
+    # add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    # add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
+    # add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
+    add_external("torch_simple_kl01", (f"{central_hbt_dir}/run3_models/run3_torch_simple_kl01/comparison_dnn.pt2", "v3"))  # noqa: E501
     # vbf models trained by cclub
     for fold in range(5):
         add_external(f"vbf_dnn_fold{fold}", (f"{central_hbt_dir}/run3_models/run3_vbf_dnn/model_fold{fold}.tgz", "v1"))
@@ -1826,9 +1835,13 @@ def add_config(
         ))
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
-        add_external("muon_sr_tools", (f"{central_hbt_dir}/central_muo_files/muonscarekit/scripts/MuonScaRe.py", "v1"))
+        add_external("muon_sr_tools", Ext(
+            f"{central_hbt_dir}/muonscarekit-master.tar.gz",
+            subpaths="muonscarekit-master/scripts/MuonScaRe.py",
+            version="v1",
+        ))
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v3"))
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v3"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024yet
         if year in {2022, 2023}:
@@ -1841,7 +1854,6 @@ def add_config(
             # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
             # custom corrections from Lucas Russel, blessed by TAU
             add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
-
             # trigger scale factors
             trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"  # noqa: E501
             add_external("trigger_sf", Ext(
@@ -1859,7 +1871,6 @@ def add_config(
         elif year == 2024:
             # TODO: 2024: add once available
             pass
-
     else:
         assert False
 
@@ -1917,6 +1928,7 @@ def add_config(
                 "FatJet.{eta,phi,pt,mass}",
                 f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
                 "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
+                "reg_dnn_moe_*",
                 "run3_dnn{,_moe}_*",
                 "vbf_dnn*",
                 "nu_truth.*.*",

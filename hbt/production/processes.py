@@ -65,7 +65,7 @@ class stitched_process_ids(Producer):
         ...
 
     @abc.abstractproperty
-    def id_lut(self) -> scipy.sparse._lil.lil_matrix:
+    def id_lut(self) -> scipy.sparse._lil.dok_matrix:
         # must be overwritten by inheriting classes
         ...
 
@@ -252,7 +252,7 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
         self.stitching_ranges = sorted(set(self.stitching_ranges))
 
         # define the lookup table
-        self.id_lut = scipy.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.dok_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:
@@ -343,7 +343,7 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         self.stitching_ranges = sorted(set(self.stitching_ranges))
 
         # define the lookup table
-        self.id_lut = scipy.sparse.lil_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.dok_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:
@@ -438,7 +438,7 @@ class stitched_process_ids_m(stitched_process_ids):
 
         # define the lookup table
         max_var_bin = len(self.sorted_stitching_ranges)
-        self.id_lut = scipy.sparse.lil_matrix((max_var_bin + 1, 1), dtype=np.int64)
+        self.id_lut = scipy.sparse.dok_matrix((max_var_bin + 1, 1), dtype=np.int64)
 
         # fill it
         for proc in self.leaf_processes:

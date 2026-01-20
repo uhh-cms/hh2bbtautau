@@ -12,7 +12,10 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.columnar_util import set_ak_column, sorted_indices_from_mask, flat_np_view, full_like, mask_from_indices, layout_ak_array  # noqa: E501
+from columnflow.columnar_util import (
+    set_ak_column, sorted_indices_from_mask, flat_np_view, full_like, mask_from_indices, layout_ak_array,
+    ak_concatenate_safe,
+)
 from columnflow.util import maybe_import
 
 from hbt.util import IF_NANO_V9, IF_NANO_GE_V10
@@ -56,9 +59,6 @@ def trigger_object_matching(
         full_any_match = full_like(vectors1.pt, False, dtype=bool)
         flat_full_any_match = flat_np_view(full_any_match)
         flat_full_any_match[flat_np_view(full_any_match | event_mask)] = flat_np_view(any_match)
-        # for some awkward reason, a masked array does not get a proper np view here,
-        # so we need to layout the flattened array in case the original array was masked
-
         any_match = layout_ak_array(flat_full_any_match, full_any_match)
 
     return any_match
@@ -116,11 +116,12 @@ def electron_selection(
         self.config_inst.campaign.x.year == 2023 and
         self.config_inst.campaign.has_tag("postBPix")
     )
+    is_2024 = self.config_inst.campaign.x.year == 2024
     is_single = trigger.has_tag("single_e")
     is_cross = trigger.has_tag("cross_e_tau")
     is_cross_vbf = trigger.has_tag("cross_e_vbf")
     is_vbf = trigger.has_tag("cross_vbf")
-    if (is_vbf or is_cross_vbf) and not (is_2023_pre or is_2023_post):
+    if (is_vbf or is_cross_vbf) and not (is_2023_pre or is_2023_post or is_2024):
         raise ValueError("Invalid trigger configuration, no vbf trigger should be available before 2023")
 
     # obtain mva flags, which might be located at different routes, depending on the nano version
@@ -150,7 +151,14 @@ def electron_selection(
         elif is_vbf:
             min_pt = 12.0
         elif is_cross_vbf:
-            min_pt = 13.0 if is_2023_pre else 18.0
+            if is_2023_pre:
+                min_pt = 13.0
+            elif is_2023_post:
+                min_pt = 18.0
+            elif is_2024:
+                min_pt = 23.0
+            else:
+                raise ValueError("Invalid configuration for cross_e_vbf trigger, should only exist in 2023 and 2024")
         max_eta = 2.5 if is_single else 2.1
         default_mask = (
             (mva_iso_wp80 == 1) &
@@ -184,6 +192,7 @@ def electron_selection(
         # control mask for the electron selection
         # updated to 12 GeV for VBF strategy in 2023, but applied for all channels and eras
         control_mask = default_mask & (events.Electron.pt > 12.0)
+        # control_mask = default_mask & (events.Electron.pt > 24.0)  # this would disable the VBF phase space
         analysis_mask = default_mask & (events.Electron.pt > min_pt)
 
     # veto electron mask (must be trigger independent!)
@@ -259,10 +268,11 @@ def muon_selection(
     """
     is_2016 = self.config_inst.campaign.x.year == 2016
     is_2023 = self.config_inst.campaign.x.year == 2023
+    is_2024 = self.config_inst.campaign.x.year == 2024
     is_single = trigger.has_tag("single_mu")
     is_cross = trigger.has_tag("cross_mu_tau")
     is_cross_vbf = trigger.has_tag("cross_mu_vbf")
-    if is_cross_vbf and not is_2023:
+    if is_cross_vbf and not (is_2023 or is_2024):
         raise ValueError("Invalid trigger configuration, no mu-vbf trigger should be available before 2023")
 
     # default muon mask
@@ -286,6 +296,7 @@ def muon_selection(
         # pt control mask cut updated to 6 GeV for VBF strategy in 2023,
         # but applied for all channels and eras
         control_mask = default_mask & (events.Muon.pt > 6.0)
+        # control_mask = default_mask & (events.Muon.pt > 20.0)  # this would disable the VBF phase space
         analysis_mask = default_mask & (events.Muon.pt > min_pt)
 
     # veto muon mask (must be trigger independent!)
@@ -296,6 +307,7 @@ def muon_selection(
         (abs(events.Muon.dz) < 0.2) &
         (events.Muon.pfRelIso04_all < 0.3) &
         (events.Muon.pt > 6.0)
+        #  (events.Muon.pt > 10.0)  # this would disable the VBF phase space
     )
 
     return analysis_mask, control_mask, veto_mask
@@ -371,8 +383,9 @@ def tau_selection(
     is_2016 = self.config_inst.campaign.x.year == 2016
     is_run3 = self.config_inst.campaign.x.run == 3
     is_2023 = self.config_inst.campaign.x.year == 2023
+    is_2024 = self.config_inst.campaign.x.year == 2024
     get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
-    if (is_vbf or is_cross_vbf) and not is_2023:
+    if (is_vbf or is_cross_vbf) and not (is_2023 or is_2024):
         raise ValueError("Invalid trigger configuration, no vbf trigger should be available before 2023")
     if is_cross_tau_jet and not is_run3:
         raise ValueError("Invalid trigger configuration, no tau-jet trigger should be available before run 3")
@@ -388,14 +401,14 @@ def tau_selection(
     elif is_cross_mu:
         min_pt = 25.0 if is_2016 else 32.0
     elif is_cross_tau:
-        min_pt = 40.0
+        min_pt = 35.0 if is_2024 else 40.0
     elif is_cross_tau_vbf:
         # only existing after 2016
         min_pt = 0.0 if is_2016 else 25.0
     elif is_cross_vbf:
         min_pt = 50.0
     elif is_cross_tau_jet:
-        min_pt = 35.0
+        min_pt = 31.0 if is_2024 else 35.0
 
     # base tau mask for default and qcd sideband tau
     base_mask = (
@@ -475,14 +488,12 @@ def tau_trigger_matching(
         masked_taus = events.Tau
 
     # define the back mapping to the original tau collection
-
     def map_to_full_tau_array(matched_mask: ak.Array) -> ak.Array:
         if tau_object_mask is None:
             return matched_mask
-        full_mask = full_like(events.Tau.pt, False, dtype=bool)
-        flat_full_mask = flat_np_view(full_mask)
+        flat_full_mask = flat_np_view(full_like(events.Tau.pt, False, dtype=bool))
         flat_full_mask[flat_np_view(tau_object_mask)] = flat_np_view(matched_mask)
-        return full_mask
+        return layout_ak_array(flat_full_mask, events.Tau)
 
     # start per-tau mask with trigger object matching per leg
     if is_cross_e or is_cross_mu or is_cross_vbf:
@@ -1058,7 +1069,7 @@ def lepton_selection(
                     ids = ak.where(matched_events, np.float32(_trigger.id), np.float32(np.nan))
                     e_match_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
 
-                e_match_trigger_ids = ak.concatenate(e_match_trigger_ids, axis=1)
+                e_match_trigger_ids = ak_concatenate_safe(e_match_trigger_ids, axis=1)
 
                 # the correct electron mask for the selection is the control electron mask
                 emu_electron_mask = emu_electron_control_mask
@@ -1109,7 +1120,7 @@ def lepton_selection(
 
     # concatenate matched trigger ids
     empty_ids = ak.singletons(full_like(events.event, 0, dtype=np.int32), axis=0)[:, :0]
-    merge_ids = lambda ids: ak.values_astype(ak.concatenate(ids, axis=1), np.int32) if ids else empty_ids
+    merge_ids = lambda ids: ak.values_astype(ak_concatenate_safe(ids, axis=1), np.int32) if ids else empty_ids
     matched_trigger_ids = merge_ids(matched_trigger_ids)
     lepton_part_trigger_ids = merge_ids(lepton_part_trigger_ids)
 
@@ -1149,7 +1160,7 @@ def lepton_selection(
         aux={
             # save the selected lepton pair for the duration of the selection
             # multiplication of a coffea particle with 1 yields the lorentz vector
-            "lepton_pair": ak.concatenate(
+            "lepton_pair": ak_concatenate_safe(
                 [
                     events.Electron[sel_electron_indices] * 1,
                     events.Muon[sel_muon_indices] * 1,
@@ -1167,7 +1178,7 @@ def lepton_selection(
             "leading_taus": leading_taus,
 
             # save the leading e/mu's for the duration of the selection
-            "leading_e_mu": ak.concatenate(
+            "leading_e_mu": ak_concatenate_safe(
                 [
                     events.Electron[sel_electron_indices] * 1,
                     events.Muon[sel_muon_indices] * 1,
