@@ -296,31 +296,38 @@ def add_config(
         # dy, amcatnlo
         # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
         # "dy_m10to50_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
-        *if_not_era(year=2024, values=[  # TODO: check status
-            "dy_m50toinf_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=DYto2L-2Jets_Bin-MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8&campaign=*2024Summer24* # noqa
+        *if_not_era(year=2024, values=[  # lepton inclusive samples were not produced for 2024
+            "dy_m50toinf_amcatnlo",
             "dy_m50toinf_0j_amcatnlo",
             "dy_m50toinf_1j_amcatnlo",
             "dy_m50toinf_2j_amcatnlo",
+            "dy_m50toinf_1j_pt40to100_amcatnlo",
+            "dy_m50toinf_1j_pt100to200_amcatnlo",
+            "dy_m50toinf_1j_pt200to400_amcatnlo",
+            "dy_m50toinf_1j_pt400to600_amcatnlo",
+            "dy_m50toinf_1j_pt600toinf_amcatnlo",
+            "dy_m50toinf_2j_pt40to100_amcatnlo",
+            "dy_m50toinf_2j_pt100to200_amcatnlo",
+            "dy_m50toinf_2j_pt200to400_amcatnlo",
+            "dy_m50toinf_2j_pt400to600_amcatnlo",
+            "dy_m50toinf_2j_pt600toinf_amcatnlo",
         ]),
-        "dy_m50toinf_1j_pt40to100_amcatnlo",
-        "dy_m50toinf_1j_pt100to200_amcatnlo",
-        "dy_m50toinf_1j_pt200to400_amcatnlo",
-        "dy_m50toinf_1j_pt400to600_amcatnlo",
-        "dy_m50toinf_1j_pt600toinf_amcatnlo",
-        "dy_m50toinf_2j_pt40to100_amcatnlo",
-        "dy_m50toinf_2j_pt100to200_amcatnlo",
-        "dy_m50toinf_2j_pt200to400_amcatnlo",
-        "dy_m50toinf_2j_pt400to600_amcatnlo",
-        "dy_m50toinf_2j_pt600toinf_amcatnlo",
-        # specific tautau datasets, with pythia bug fix for 2022/23
-        *if_era(year=2024, values=[
-            "dy_tautau_m50toinf_amcatnlo",  # was not produced for 2022/23
+        # specific lepton enriched datasets, with pythia bug fix
+        *if_era(year=2024, values=[  # were not produced for 2022/23
+            "dy_tautau_m50toinf_amcatnlo",
+            "dy_ee_m50toinf_amcatnlo",
+            "dy_ee_m50toinf_0j_amcatnlo",
+            "dy_ee_m50toinf_1j_amcatnlo",
+            "dy_ee_m50toinf_2j_amcatnlo",
+            "dy_mumu_m50toinf_amcatnlo",
+            "dy_mumu_m50toinf_0j_amcatnlo",
+            "dy_mumu_m50toinf_1j_amcatnlo",
+            "dy_mumu_m50toinf_2j_amcatnlo",
         ]),
         "dy_tautau_m50toinf_0j_amcatnlo",
-        *if_not_era(year=2024, values=[
-            "dy_tautau_m50toinf_1j_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=DYto2Tau-2Jets*amc*&campaign=*2024Summer24* # noqa
-            "dy_tautau_m50toinf_2j_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=DYto2Tau-2Jets*amc*&campaign=*2024Summer24* # noqa
-        ]),
+        "dy_tautau_m50toinf_1j_amcatnlo",
+        "dy_tautau_m50toinf_2j_amcatnlo",
+
         # additionally filtered datasets for 2022/2023 disabled for now
         # *if_not_era(year=2024, values=[
         #     "dy_tautau_m50toinf_0j_filtered_amcatnlo",
@@ -2110,6 +2117,9 @@ def add_config(
                 ]
                 for lfn_num_base in lfn_num_bases
             ), [])
+
+            if (skip_lfns := dataset_inst.get_info(shift_inst.name).x("skip_lfns", [])):
+                lfns = set(lfns) - set(skip_lfns)
 
             return sorted(lfns)
 
