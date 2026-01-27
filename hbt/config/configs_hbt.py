@@ -1079,7 +1079,10 @@ def add_config(
     })
 
     # tau trigger correctors
-    cfg.x.tau_trigger_corrector = "tau_trigger"
+    if year == 2024:
+        cfg.x.tau_trigger_corrector = "tauTriggerSF"
+    else:
+        cfg.x.tau_trigger_corrector = "tau_trigger"
     cfg.x.tau_trigger_corrector_cclub = "tauTriggerSF"
 
     ################################################################################################
@@ -1121,10 +1124,10 @@ def add_config(
         elif year == 2023:
             e_postfix = {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix]
         elif year == 2024:
-            e_postfix = "FIXME"  # TODO: 2024: lookup!
+            e_postfix = "Prompt"
         else:
             assert False
-        # TODO: 2024: different files being used for id and reco sfs
+
         cfg.x.electron_id_sf = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
@@ -1710,8 +1713,8 @@ def add_config(
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                # TODO: tau and lum not yet available
-                snapshot=CATSnapshot(btv="2025-08-19", dc="2025-07-25", egm="2025-10-22", jme="2025-07-17", muo="2025-10-17"),  # noqa: E501
+                # TODO: tau not yet available
+                snapshot=CATSnapshot(btv="2025-08-19", dc="2025-07-25", egm="2025-12-03", jme="2025-07-17", lum="2025-12-02", muo="2025-10-17"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1750,9 +1753,10 @@ def add_config(
         }[year],
     })
     # pileup weight corrections
-    if year != 2024:  # TODO: not yet available, see https://cms-analysis-corrections.docs.cern.ch
+    if year != 2024:
         add_external("pu_sf", (cat_info.get_file("lum", "puWeights.json.gz"), "v1"))
-    # jet energy correction
+    else:
+        add_external("pu_sf", (cat_info.get_file("lum", "puWeights_BCDEFGHI.json.gz"), "v1"))
     add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jet veto map
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
@@ -1869,9 +1873,9 @@ def add_config(
                 ),
                 version="v1",
             ))
-        elif year == 2024:
-            # TODO: 2024: add once available
-            pass
+        elif year == 2024:  # For deeptau : https://gitlab.cern.ch/cms-tau-pog/jsonpog-integration/-/merge_requests/20
+            add_external("tau_trigger_sf", ("/afs/cern.ch/user/r/raguitto/public/tau_trigger_DeepTau2018v2p5_2024.json.gz", "v1"))  # noqa: E501
+
     else:
         assert False
 
@@ -2015,8 +2019,11 @@ def add_config(
     ################################################################################################
 
     # add categories
-    from hbt.config.categories import add_categories
-    add_categories(cfg)
+    from hbt.config.categories import add_categories, add_categories_2024
+    if year != 2024:
+        add_categories(cfg)
+    else:
+        add_categories_2024(cfg)
 
     # add variables
     from hbt.config.variables import add_variables
