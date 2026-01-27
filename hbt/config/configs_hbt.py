@@ -916,7 +916,7 @@ def add_config(
             (2022, "EE"): "V3",
             (2023, ""): "V2",
             (2023, "BPix"): "V3",
-            (2024, ""): "V1",
+            (2024, ""): "V2",
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         if year == 2024:
