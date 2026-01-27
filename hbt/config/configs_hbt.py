@@ -1877,6 +1877,7 @@ def add_config(
                 version="v1",
             ))
         elif year == 2024:
+            add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
             # TODO: 2024: add once available
             pass
     else:
