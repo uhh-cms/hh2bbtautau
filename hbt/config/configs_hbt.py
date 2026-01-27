@@ -280,7 +280,7 @@ def add_config(
 
         # tt + v
         "ttw_wlnu_amcatnlo",
-        *if_not_era(year=2024, values=[  # TODO: check status
+        *if_not_era(year=2024, values=[
             "ttz_zqq_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=TTZ-ZtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8&campaign=*2024Summer24* # noqa
         ]),
         "ttz_zll_m4to50_amcatnlo",
@@ -373,7 +373,7 @@ def add_config(
 
         # w + jets
         # inclusive samples not produced for 2024
-        *if_not_era(year=2024, values=[
+        *if_not_era(year=2024, values=[  # TODO: 2024: check status
             "w_lnu_amcatnlo",
             "w_lnu_0j_amcatnlo",
             "w_lnu_1j_amcatnlo",
@@ -780,7 +780,7 @@ def add_config(
     ################################################################################################
 
     # lumi values in 1/pb (= 1000/fb)
-    # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun3?rev=27
+    # https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun3?rev=36
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     # difference pre-post VFP: https://cds.cern.ch/record/2854610/files/DP2023_006.pdf
     # Lumis for Run3 within the Twiki are outdated as stated here:
@@ -812,22 +812,31 @@ def add_config(
     elif year == 2022 and campaign.has_tag("preEE"):
         cfg.x.luminosity = Number(7_980.4541, {
             "lumi_13p6TeV_2022": 0.014j,
+            "lumi_13p6TeV_1": 0.0138j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
         cfg.x.luminosity = Number(26_671.6097, {
             "lumi_13p6TeV_2022": 0.014j,
+            "lumi_13p6TeV_1": 0.0138j,
         })
     elif year == 2023 and campaign.has_tag("preBPix"):
         cfg.x.luminosity = Number(18_062.6591, {
             "lumi_13p6TeV_2023": 0.013j,
+            "lumi_13p6TeV_1": 0.0017j,
+            "lumi_13p6TeV_2": 0.0127j,
         })
     elif year == 2023 and campaign.has_tag("postBPix"):
         cfg.x.luminosity = Number(9_693.1301, {
             "lumi_13p6TeV_2023": 0.013j,
+            "lumi_13p6TeV_1": 0.0017j,
+            "lumi_13p6TeV_2": 0.0127j,
         })
     elif year == 2024:
-        cfg.x.luminosity = Number(108_952.7546, {
-            "lumi_13p6TeV_2024": 0.013j,  # TODO: 2024: update uncertainty once available
+        cfg.x.luminosity = Number(104_675.143180, {
+            "lumi_13p6TeV_2024": 0.016j,
+            "lumi_13p6TeV_1": 0.0020j,
+            "lumi_13p6TeV_2": 0.0068j,
+            "lumi_13p6TeV_3": 0.0144j,
         })
     else:
         assert False
@@ -1121,10 +1130,9 @@ def add_config(
         elif year == 2023:
             e_postfix = {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix]
         elif year == 2024:
-            e_postfix = "FIXME"  # TODO: 2024: lookup!
+            e_postfix = "Prompt"
         else:
             assert False
-        # TODO: 2024: different files being used for id and reco sfs
         cfg.x.electron_id_sf = ElectronSFConfig(
             correction="Electron-ID-SF",
             campaign=f"{year}{e_postfix}",
@@ -1682,36 +1690,35 @@ def add_config(
                 vnano=12,
                 era="22CDSep23-Summer22",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-10-22", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2022, "EE", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="22EFGSep23-Summer22EE",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-10-22", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23CSep23-Summer23",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-10-22", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23DSep23-Summer23BPix",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-07-25", egm="2025-10-22", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-10-01"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
                 run=3,
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                # TODO: tau and lum not yet available
-                snapshot=CATSnapshot(btv="2025-08-19", dc="2025-07-25", egm="2025-10-22", jme="2025-07-17", muo="2025-10-17"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-12-03", dc="2026-01-12", egm="2025-12-15", jme="2025-12-02", lum="2025-12-02", muo="2025-11-27", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1733,9 +1740,7 @@ def add_config(
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
             2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
-            # not yet available at CAT space
-            # 2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
-            2024: ("https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions24/Cert_Collisions2024_378981_386951_Golden.json", "v1"),  # noqa: E501
+            2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
@@ -1746,12 +1751,14 @@ def add_config(
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
             2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
-            2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),  # TODO: correct?
+            2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
         }[year],
     })
     # pileup weight corrections
-    if year != 2024:  # TODO: not yet available, see https://cms-analysis-corrections.docs.cern.ch
+    if year != 2024:
         add_external("pu_sf", (cat_info.get_file("lum", "puWeights.json.gz"), "v1"))
+    else:
+        add_external("pu_sf", (cat_info.get_file("lum", "puWeights_BCDEFGHI.json.gz"), "v1"))
     # jet energy correction
     add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jet veto map
