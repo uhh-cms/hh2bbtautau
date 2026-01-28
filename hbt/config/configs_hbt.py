@@ -1271,6 +1271,7 @@ def add_config(
                 "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544, "2024": None}[btag_key],
                 "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688, "2024": None}[btag_key],
             },
+            # 2024 wps can be taken from "UParTAK4_wp_values" correction set in BTV correctionlib file
             "upart": {
                 "loose": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.0246}[btag_key],
                 "medium": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.1272}[btag_key],
@@ -1278,10 +1279,10 @@ def add_config(
                 "xtight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.6298}[btag_key],
                 "xxtight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.9739}[btag_key],
             },
-            # TODO: fallback to run2, due to missing wp values
             # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005 chapter 4.5 in v12
             # performance studies for run 3 available and show improvements:
             # https://cds.cern.ch/record/2904691/files/DP2024_055.pdf
+            # TODO: fallback to run2, due to missing wp values
             "particleNetMD": {
                 "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880, "2024": None}[btag_key],
                 "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734, "2024": None}[btag_key],
