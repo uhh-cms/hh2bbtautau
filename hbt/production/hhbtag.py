@@ -258,6 +258,7 @@ def hhbtag_setup(
         (2022, "EE"): 1,
         (2023, ""): 2,
         (2023, "BPix"): 3,
+        (2024, ""): 3,  # TODO: 2024: remove this HOTFIX at some point
     }[campaign_key]
 
     # validate the met name
