@@ -17,6 +17,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
 from columnflow.selection.cms.jets import jet_veto_map
+from columnflow.production.cms.jet import jet_id, fatjet_id
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
@@ -80,13 +81,13 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
 
 @selector(
     uses={
-        json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
+        jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
         mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
+        jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
         process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
@@ -138,6 +139,10 @@ def default(
             events.patchedEcalBadCalibFilter
         )
     results += met_filter_results
+
+    # recompute jet ids
+    events = self[jet_id](events, **kwargs)
+    events = self[fatjet_id](events, **kwargs)
 
     # jet veto map
     if self.has_dep(jet_veto_map):

@@ -12,7 +12,6 @@ from functools import reduce
 import law
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.production.cms.jet import jet_id, fatjet_id
 from columnflow.columnar_util import (
     EMPTY_FLOAT, set_ak_column, sorted_indices_from_mask, mask_from_indices, flat_np_view, full_like,
     ak_concatenate_safe, layout_ak_array,
@@ -142,7 +141,7 @@ def jet_trigger_matching(
 
 @selector(
     uses={
-        jet_id, fatjet_id, hhbtag, vbfjtag, jet_trigger_matching,
+        hhbtag, vbfjtag, jet_trigger_matching,
         "fired_trigger_ids", "TrigObj.{pt,eta,phi}",
         "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
         "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,particleNet_XbbVsQCD}",
@@ -183,10 +182,6 @@ def jet_selection(
 
     if self.dataset_inst.has_tag("parking_vbf") and not (is_2023_pre or is_2023_post or is_2024):
         raise ValueError("VBF parking datasets should only be used from 2023 onwards")
-
-    # recompute jet ids
-    events = self[jet_id](events, **kwargs)
-    events = self[fatjet_id](events, **kwargs)
 
     #
     # default jet selection
