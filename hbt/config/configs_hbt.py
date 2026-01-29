@@ -1503,7 +1503,7 @@ def add_config(
         },
     )
 
-    for i, (match, dm) in enumerate(itertools.product(["jet", "e"], [0, 1, 10, 11])):
+    for i, (match, dm) in enumerate(itertools.product(["tau", "e", "mu"], [0, 1, 10, 11])):
         cfg.add_shift(name=f"tec_{match}_dm{dm}_up", id=20 + 2 * i, type="shape", tags={"tec"})
         cfg.add_shift(name=f"tec_{match}_dm{dm}_down", id=21 + 2 * i, type="shape", tags={"tec"})
         add_shift_aliases(
@@ -1512,8 +1512,9 @@ def add_config(
             {
                 "Tau.pt": "Tau.pt_{name}",
                 "Tau.mass": "Tau.mass_{name}",
-                f"{cfg.x.met_name}.pt": f"{cfg.x.met_name}.pt_{{name}}",
-                f"{cfg.x.met_name}.phi": f"{cfg.x.met_name}.phi_{{name}}",
+                # no MET propagation needed for tec shifts
+                # f"{cfg.x.met_name}.pt": f"{cfg.x.met_name}.pt_{{name}}",
+                # f"{cfg.x.met_name}.phi": f"{cfg.x.met_name}.phi_{{name}}",
             },
         )
 
@@ -1553,6 +1554,10 @@ def add_config(
     add_shift_aliases(cfg, "eer", {"Electron.pt": "Electron.pt_smear_{direction}"})
 
     # muon weights
+    # TODO: 2024: MUO recommendations on de/correlating id/iso systematics across years should be implemented
+    # see https://muon-wiki.docs.cern.ch/guidelines/corrections/#note-on-correlations
+    # this requires splitting methods into syst and stat parts, which needs refactoring in the muon weight producer,
+    # and that maybe not just for 2024
     cfg.add_shift(name="mu_id_up", id=100, type="shape")
     cfg.add_shift(name="mu_id_down", id=101, type="shape")
     add_shift_aliases(cfg, "mu_id", {"muon_id_weight": "muon_id_weight_{direction}"})
