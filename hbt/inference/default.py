@@ -203,6 +203,7 @@ class default(HBTInferenceModel):
         # TODO: additional theory uncertainties, especially on background processes!
 
         # lumi
+        # TODO: 2024: choose which uncertainty scheme to use here, lumi uncertainties contain values of multiple schemes
         for config_inst in self.config_insts:
             lumi = config_inst.x.luminosity
             for unc_name in lumi.uncertainties:
