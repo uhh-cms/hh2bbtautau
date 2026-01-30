@@ -81,14 +81,14 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
 
 @selector(
     uses={
-        jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
-        mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
+        jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
+        jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
     },
     produces={
-        jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
-        process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
+        jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
+        btag_weights_deepjet, process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
@@ -251,7 +251,16 @@ def default(
 @default.init
 def default_init(self: Selector, **kwargs) -> None:
     # build and store derived process id producers
-    self.stitch_tags = ["dy_amcatnlo", "dy_lep_amcatnlo", "dy_powheg", "w_lnu"]
+    self.stitch_tags = [
+        "dy_amcatnlo_2223",
+        "dy_lep_amcatnlo_2223",
+        "dy_powheg_2223",
+        "dy_ee_amcatnlo_24",
+        "dy_mumu_amcatnlo_24",
+        "dy_tautau_amcatnlo_24",
+        "w_lnu_amcatnlo_2223",
+    ]
+
     for tag in self.stitch_tags:
         prod_name = f"process_ids_{tag}"
         setattr(self, prod_name, None)
@@ -264,7 +273,7 @@ def default_init(self: Selector, **kwargs) -> None:
             # check if this dataset is covered by any dy id producer
             for stitch_name, cfg in stitching_cfg.items():
                 incl_dataset_inst = cfg["inclusive_dataset"]
-                # the dataset is "covered" if its process is a subprocess of that of the dy dataset
+                # the dataset is "covered" if its process is a subprocess of that of the inclusive dataset
                 if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
                     base_prod = getattr(process_producers, prod_name)
                     prod = base_prod.derive(f"{prod_name}_{stitch_name}", cls_dict={

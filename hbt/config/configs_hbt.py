@@ -334,9 +334,6 @@ def add_config(
         #     "dy_tautau_m50toinf_1j_filtered_amcatnlo",
         #     "dy_tautau_m50toinf_2j_filtered_amcatnlo",
         # ]),
-        # TODO: 2024: stitching strategy changes:
-        #   - no lepton-inclusive datasets available (yet), need to add xsecs manually to cmsdb and disable stitching
-        #   - njet-inclusive, tautau filtered dataset available in 2024, need stitching there
 
         # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
@@ -372,8 +369,8 @@ def add_config(
         # "dy_tautau_m6000toinf_powheg",
 
         # w + jets
-        # inclusive samples not produced for 2024
-        *if_not_era(year=2024, values=[  # TODO: 2024: check status
+        # inclusive samples might not be produced for 2024
+        *if_not_era(year=2024, values=[
             "w_lnu_amcatnlo",
             "w_lnu_0j_amcatnlo",
             "w_lnu_1j_amcatnlo",
@@ -465,6 +462,7 @@ def add_config(
         # add the dataset
         dataset = cfg.add_dataset(campaign.get_dataset(dataset_name))
         # add tags to datasets
+        # real data
         if dataset.name.startswith("data_e_"):
             dataset.add_tag({"etau", "emu_from_e", "ee"})
         if dataset.name.startswith("data_mu_"):
@@ -473,10 +471,13 @@ def add_config(
             dataset.add_tag({"tautau"})
         if dataset.name.startswith("data_parking_vbf_"):
             dataset.add_tag({"parking_vbf"})
+        # tt
         if dataset.name.startswith("tt_"):
             dataset.add_tag({"has_top", "ttbar", "tt"})
+        # st
         if dataset.name.startswith("st_"):
             dataset.add_tag({"has_top", "single_top", "st"})
+        # dy
         if dataset.name.startswith("dy_"):
             dataset.add_tag("dy")
             if dataset.name.endswith("_madgraph"):
@@ -485,26 +486,45 @@ def add_config(
                 dataset.add_tag("dy_amcatnlo")
             elif dataset.name.endswith("_powheg"):
                 dataset.add_tag("dy_powheg")
-            # tags for advanced, lepton based stitching in amcatnlo
-            # (not adding the tags will result in the default selection and stitching behavior)
-            if dataset.name.endswith("_amcatnlo"):
-                dataset.add_tag("dy_lep_amcatnlo")  # trigges the lepton channel stitching in the default selector
-                if run == 3 and re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
-                    dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
-        if (
-            re.match(r"^dy_m50toinf_\dj_(|pt.+_)amcatnlo$", dataset.name) or
-            re.match(r"^dy_tautau_m50toinf_\dj_(|filtered_)amcatnlo$", dataset.name) or
-            (
-                "dy_ee_m50toinf_powheg" in cfg.datasets and
-                re.match(r"^dy_ee_m.*_powheg$", dataset.name) and
-                dataset.name not in {"dy_ee_m50toinf_powheg", "dy_ee_m10to50_powheg"}
-            )
-        ):
-            dataset.add_tag("dy_stitched")
+            # the following block assigns tags necessary for year-dependent stitiching
+            is_inclusive = False
+            if year in {2022, 2023}:
+                # tags for advanced, lepton based stitching in amcatnlo
+                # (not adding the tags will result in the default selection and stitching behavior)
+                if dataset.name.endswith("_amcatnlo"):
+                    # dataset.add_tag("dy_amcatnlo_2223")  TODO: check what this does
+                    dataset.add_tag("dy_lep_amcatnlo_2223")  # trigges the lepton channel stitching in the default selector  # noqa
+                    if run == 3 and re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
+                        dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
+                    # check if inclusive (there is just one)
+                    if dataset.name == "dy_m50toinf_amcatnlo":
+                        is_inclusive = True
+            elif year == 2024:
+                # check if inclusive
+                if re.match(r"^dy_(tautau|ee|mumu)_m50toinf_amcatnlo$", dataset.name):
+                    is_inclusive = True
+                # tags for njet based stitching in amcatnlo
+                if re.match(r"^dy_tautau_m50toinf_(|\dj_)amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_tautau_amcatnlo_24")  # triggers the njet based stitching in the default selector  # noqa
+                if re.match(r"^dy_ee_m50toinf_(|\dj_)amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_ee_amcatnlo_24")  # triggers the njet based stitching in the default selector  # noqa
+                if re.match(r"^dy_mumu_m50toinf_(|\dj_)amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_mumu_amcatnlo_24")  # triggers the njet based stitching in the default selector  # noqa
+            # mark all datasets that could be dropped if not stitching
+            if not is_inclusive:
+                dataset.add_tag("dy_stitched")
+        # w_lnu
         if dataset.name.startswith("w_lnu_"):
             dataset.add_tag("w_lnu")
-        if re.match(r"^w_lnu_\dj_(|pt.+_)amcatnlo$", dataset.name):
-            dataset.add_tag("w_lnu_stitched")
+            # the following block assigns tags necessary for year-dependent stitiching
+            if year in {2022, 2023}:
+                dataset.add_tag("w_lnu_amcatnlo_2223")
+                if re.match(r"^w_lnu_\dj_(|pt.+_)amcatnlo$", dataset.name):
+                    dataset.add_tag("w_lnu_stitched")
+            elif year == 2024:
+                # no stitching needed, cmsdb has cross sections defined for nj - pt binning processes
+                # with BR information extracted from 2022pre
+                pass
         # datasets that are allowed to contain some events with missing lhe infos
         # (known to happen for amcatnlo)
         if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
@@ -516,16 +536,20 @@ def add_config(
         ]):
             dataset.add_tag("no_lhe_weights")
             dataset.remove_tag("partial_lhe_weights")
+        # single higgs
         if dataset.name.startswith(("h_", "wph_", "wmh_", "zh_")):
             dataset.add_tag("has_higgs")
+        # ttH
         if dataset.name.startswith(("tth_",)):
             dataset.add_tag({"has_top", "has_higgs"})
+        # HH, non-res
         if dataset.name.startswith("hh_"):
             dataset.add_tag({"signal", "nonresonant_signal", "has_higgs"})
             if dataset.name.startswith("hh_ggf_"):
                 dataset.add_tag("ggf")
             elif dataset.name.startswith("hh_vbf_"):
                 dataset.add_tag("vbf")
+        # HH, res
         if dataset.name.startswith(("graviton_hh_", "radion_hh_")):
             dataset.add_tag({"signal", "resonant_signal", "has_higgs"})
             if dataset.name.startswith(("graviton_hh_ggf_", "radion_hh_ggf")):
@@ -624,7 +648,7 @@ def add_config(
                     for ll in ["ee", "mumu", "tautau"]
                     for name in law.util.make_list(names)
                 ]
-                cfg.x.dy_lep_amcatnlo_stitching = {
+                cfg.x.dy_lep_amcatnlo_2223_stitching = {
                     "m50toinf": {
                         "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                         "leaf_processes": [
@@ -656,13 +680,25 @@ def add_config(
                         ],
                     },
                 }
-        # drell-yan, amcatnlo, using tautau inclusive dataset for 2024
-        if year == 2024 and "dy_tautau_m50toinf_amcatnlo" in cfg.datasets:
-            # TODO: 2024: add stitching config, but somehow merge with the one above
-            pass
+        # drell-yan, amcatnlo, for lepton-based inclusive datasets in 2024
+        if year == 2024:
+            for channel in ["tautau", "ee", "mumu"]:
+                if f"dy_{channel}_m50toinf_amcatnlo" in cfg.datasets:
+                    cfg.set_aux(f"dy_{channel}_amcatnlo_24_stitching", {
+                        "m50toinf": {
+                            "inclusive_dataset": cfg.get_dataset(f"dy_{channel}_m50toinf_amcatnlo"),
+                            "leaf_processes": [
+                                # the following processes cover the full njet phasespace
+                                cfg.get_process(f"dy_{channel}_m50toinf_0j"),
+                                cfg.get_process(f"dy_{channel}_m50toinf_1j"),
+                                cfg.get_process(f"dy_{channel}_m50toinf_2j"),
+                                cfg.get_process(f"dy_{channel}_m50toinf_ge3j"),
+                            ],
+                        },
+                    })
         # drell-yan, powheg
         if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
-            cfg.x.dy_powheg_stitching = {
+            cfg.x.dy_powheg_2223_stitching = {
                 "ee_m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
                     "leaf_processes": [
@@ -678,22 +714,23 @@ def add_config(
                 },
             }
         # w + jets
-        if year in {2022, 2023} and "w_lnu_amcatnlo" in cfg.datasets:
-            cfg.x.w_lnu_stitching = {
-                "incl": {
-                    "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
-                    "leaf_processes": [
-                        # the following processes cover the full njet and pt phasespace
-                        cfg.get_process("w_lnu_0j"),
-                        *(
-                            cfg.get_process(f"w_lnu_{nj}j_pt{pt}")
-                            for nj in [1, 2]
-                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                        ),
-                        cfg.get_process("w_lnu_ge3j"),
-                    ],
-                },
-            }
+        if year in {2022, 2023}:
+            if "w_lnu_amcatnlo" in cfg.datasets:
+                cfg.x.w_lnu_amcatnlo_2223_stitching = {
+                    "incl": {
+                        "inclusive_dataset": cfg.datasets.n.w_lnu_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace
+                            cfg.get_process("w_lnu_0j"),
+                            *(
+                                cfg.get_process(f"w_lnu_{nj}j_pt{pt}")
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ),
+                            cfg.get_process("w_lnu_ge3j"),
+                        ],
+                    },
+                }
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
