@@ -185,6 +185,8 @@ class _res_dnn_evaluation(Producer):
             (2022, "EE"): 3,
             (2023, ""): 3,
             (2023, "BPix"): 3,
+            # TODO: 2024: add correcton flag once training with 2024 is available, using 23post in the meantime
+            (2024, ""): 3,
         }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:

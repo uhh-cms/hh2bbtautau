@@ -140,7 +140,7 @@ def default(
         )
     results += met_filter_results
 
-    # recompute jet ids
+    # recompute jet ids for selections
     events = self[jet_id](events, **kwargs)
     events = self[fatjet_id](events, **kwargs)
 
@@ -205,10 +205,6 @@ def default(
             break
     else:
         events = self[process_ids](events, **kwargs)
-
-    # create jet collections for categorization
-    events["HHBJet"] = events.Jet[results.objects.Jet.HHBJet]
-    events["FatJet"] = events.FatJet[results.objects.FatJet.FatJet]
 
     # store number of jets for stats and histograms
     events = set_ak_column(events, "n_jets_stats", results.x.n_central_jets, value_type=np.int32)

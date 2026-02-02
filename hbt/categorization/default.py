@@ -5,7 +5,7 @@ Exemplary selection methods.
 """
 
 from columnflow.categorization import Categorizer, categorizer
-from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections, full_like, ak_concatenate_safe
+from columnflow.columnar_util import attach_coffea_behavior, full_like, ak_concatenate_safe
 from columnflow.util import maybe_import
 from hbt.util import MET_COLUMN
 
@@ -204,7 +204,7 @@ def cat_ge2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
 def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})
+    events = attach_coffea_behavior(events, {"HHBJet": "Jet"})
     di_bjet_mass = events.HHBJet.sum(axis=1).mass
     mask = (
         (di_bjet_mass >= 40) &

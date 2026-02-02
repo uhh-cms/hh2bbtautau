@@ -1558,15 +1558,17 @@ def add_config(
         )
 
     # start at id=50
+    # TODO: 2024: the tau_stat* uncertainties are currently not present in TAU correction weight files, and if they
+    # won't be added by design, we should add different tau systematics here for 2024
     cfg.x.tau_unc_names = [
-        "jet_stat1_dm0", "jet_stat1_dm1", "jet_stat1_dm10", "jet_stat1_dm11",
-        "jet_stat2_dm0", "jet_stat2_dm1", "jet_stat2_dm10", "jet_stat2_dm11",
+        "tau_stat1_dm0", "tau_stat1_dm1", "tau_stat1_dm10", "tau_stat1_dm11",
+        "tau_stat2_dm0", "tau_stat2_dm1", "tau_stat2_dm10", "tau_stat2_dm11",
         "e_barrel", "e_endcap",
         "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
     ]
     for i, unc in enumerate(cfg.x.tau_unc_names):
         chs = {
-            "jet": ["etau", "mutau", "tautau"],
+            "tau": ["etau", "mutau", "tautau"],
             "e": ["etau"],
             "mu": ["mutau"],
         }[unc.split("_", 1)[0]]
@@ -1593,10 +1595,6 @@ def add_config(
     add_shift_aliases(cfg, "eer", {"Electron.pt": "Electron.pt_smear_{direction}"})
 
     # muon weights
-    # TODO: 2024: MUO recommendations on de/correlating id/iso systematics across years should be implemented
-    # see https://muon-wiki.docs.cern.ch/guidelines/corrections/#note-on-correlations
-    # this requires splitting methods into syst and stat parts, which needs refactoring in the muon weight producer,
-    # and that maybe not just for 2024
     cfg.add_shift(name="mu_id_up", id=100, type="shape")
     cfg.add_shift(name="mu_id_down", id=101, type="shape")
     add_shift_aliases(cfg, "mu_id", {"muon_id_weight": "muon_id_weight_{direction}"})
@@ -1895,9 +1893,10 @@ def add_config(
             version="v1",
         ))
         # dy weight and recoil corrections
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v3"))  # noqa: E501
-        add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v3.json.gz", "v1"))
-        # tau and trigger specific files are not consistent across 2022/2023 and 2024yet
+        # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v3"))
+        add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
+        # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         if year in {2022, 2023}:
             # tau energy correction and scale factors
             tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"

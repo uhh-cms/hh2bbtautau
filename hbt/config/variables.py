@@ -10,9 +10,7 @@ import functools
 
 import order as od
 
-from columnflow.columnar_util import (
-    EMPTY_FLOAT, attach_coffea_behavior, default_coffea_collections, ak_concatenate_safe,
-)
+from columnflow.columnar_util import EMPTY_FLOAT, attach_coffea_behavior, ak_concatenate_safe
 from columnflow.util import maybe_import
 
 from hbt.util import create_lvector_xyz
@@ -348,7 +346,7 @@ def add_variables(config: od.Config) -> None:
     build_dilep.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
 
     def build_dibjet(events, which=None):
-        events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})
+        events = attach_coffea_behavior(events, {"HHBJet": "Jet"})
         hhbjets = events.HHBJet[:, :2]
         if which == "dr":
             return delta_r12(hhbjets)
