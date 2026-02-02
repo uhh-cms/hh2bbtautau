@@ -332,6 +332,8 @@ class default(HBTInferenceModel):
 
         # muon weights
         # TODO: possibly correlate?
+        # TODO: 2024: MUO recommendations on de/correlating id/iso systematics across years should be implemented
+        # see https://muon-wiki.docs.cern.ch/guidelines/corrections/#note-on-correlations
         for mu_source in ["mu_id", "mu_iso"]:
             for config_inst in self.config_insts:
                 self.add_parameter(

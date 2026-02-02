@@ -35,7 +35,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     } | {
         f"tau_weight_{unc}_{{up,down}}"
         for unc in [
-            "jet_stat{1,2}_dm{0,1,10,11}",
+            "tau_stat{1,2}_dm{0,1,10,11}",
             "e_barrel", "e_endcap",
             "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
         ]
@@ -46,6 +46,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     get_tau_file=(lambda self, external_files: external_files.tau_sf),
     # function to determine the tau tagger name
     get_tau_tagger=(lambda self: self.config_inst.x.tau_tagger),
+    # TODO: 2024: (and maybe also other years) it appears that tec shifts can now be propagated to tau weights!
 )
 def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
@@ -125,8 +126,22 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         genuine_mask = dm_mask & (taus_flat.genPartFlav == 5)
         if mask is not None:
             genuine_mask = genuine_mask & mask
+        # TODO: 2024: the stat$i_dm$d variations are not yet existing in the TAU correction file (will they?), so fall
+        # back to nominal in the meantime
+        if self.config_inst.campaign.x.year == 2024 and syst.startswith("stat"):
+            syst = "nom"
+        # end TODO
+        inputs = {
+            "pt": taus_flat.pt[genuine_mask],
+            "dm": taus_flat.decayMode[genuine_mask],
+            "genmatch": 5,
+            "wp": vs_jet_wp,
+            "wp_VSe": vs_e_wp,
+            "syst": syst,
+            "flag": "dm",
+        }
         sfs_flat[genuine_mask] = self.id_vs_jet_corrector.evaluate(
-            taus_flat.pt[genuine_mask], taus_flat.decayMode[genuine_mask], 5, vs_jet_wp, vs_e_wp, syst, "dm",
+            *(inputs[inp.name] for inp in self.id_vs_jet_corrector.inputs),
         )
 
     # electrons faking taus (separately for decay modes)
@@ -134,8 +149,15 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         fake_mask = dm_mask & ((taus_flat.genPartFlav == 1) | (taus_flat.genPartFlav == 3))
         if mask is not None:
             fake_mask = fake_mask & mask
+        inputs = {
+            "eta": abseta_flat[fake_mask],
+            "dm": taus_flat.decayMode[fake_mask],
+            "genmatch": taus_flat.genPartFlav[fake_mask],
+            "wp": vs_e_wp,
+            "syst": syst,
+        }
         sfs_flat[fake_mask] = self.id_vs_e_corrector.evaluate(
-            abseta_flat[fake_mask], taus_flat.decayMode[fake_mask], taus_flat.genPartFlav[fake_mask], vs_e_wp, syst,
+            *(inputs[inp.name] for inp in self.id_vs_e_corrector.inputs),
         )
 
     # muons faking taus (channel dependent)
@@ -144,8 +166,16 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             fake_mask = (ch_flat == ch.id) & ((taus_flat.genPartFlav == 2) | (taus_flat.genPartFlav == 4))
             if mask is not None:
                 fake_mask = fake_mask & mask
+            inputs = {
+                "eta": abseta_flat[fake_mask],
+                "genmatch": taus_flat.genPartFlav[fake_mask],
+                "wp": vs_mu_wp[ch.name],
+                "wp_VSe": vs_e_wp,
+                "wp_VSjet": vs_jet_wp,
+                "syst": syst,
+            }
             sfs_flat[fake_mask] = self.id_vs_mu_corrector.evaluate(
-                abseta_flat[fake_mask], taus_flat.genPartFlav[fake_mask], vs_mu_wp[ch.name], syst,
+                *(inputs[inp.name] for inp in self.id_vs_mu_corrector.inputs),
             )
 
     # helper to reshape sfs_flat to the shape of taus, multiply across tau axis and store the results
@@ -168,7 +198,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             for i in range(2):
                 _sfs_flat = sfs_flat.copy()
                 fill_genuine_tau(_sfs_flat, f"stat{i + 1}_dm{dm}_{direction}", mask=(taus_flat.decayMode == dm))
-                events = add_weight(events, f"tau_weight_jet_stat{i + 1}_dm{dm}_{direction}", _sfs_flat)
+                events = add_weight(events, f"tau_weight_tau_stat{i + 1}_dm{dm}_{direction}", _sfs_flat)
 
         # electron fakes
         for region_name, region_mask in [
