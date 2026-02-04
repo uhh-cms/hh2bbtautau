@@ -69,6 +69,9 @@ def patch_htcondor_workflow_naf_resources():
 
     HTCondorWorkflow.htcondor_job_resources = htcondor_job_resources
 
+    # also disable the memory summary plot by default
+    HTCondorWorkflow.show_memory_summary_hist = False
+
     logger.debug(f"patched htcondor_job_resources of {HTCondorWorkflow.task_family}")
 
 
