@@ -17,6 +17,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
 from columnflow.selection.cms.jets import jet_veto_map
+from columnflow.selection.cms.btag import fill_btag_wp_count_hists
 from columnflow.production.cms.jet import jet_id, fatjet_id
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
@@ -38,7 +39,7 @@ import hbt.production.processes as process_producers
 from hbt.production.weights import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATA, IF_DATASET_HAS_TAG
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2024, IF_DATA, IF_DATASET_HAS_TAG
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -85,6 +86,7 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
         jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
+        IF_RUN_3_2024(fill_btag_wp_count_hists),
     },
     produces={
         jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
@@ -215,6 +217,12 @@ def default(
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
     results.event = event_sel
+
+    # fill btagging efficiency histograms (in-place, so no return value)
+    # ! note that this uses selected jets only of selected events with the full "event_sel", so selecting a subset
+    # of selection-steps later on will not affect these histograms
+    if self.has_dep(fill_btag_wp_count_hists):
+        self[fill_btag_wp_count_hists](events, results.event, results.objects.Jet.Jet, hists, **kwargs)
 
     # combined event selection after all but the bjet step
     def event_sel_nob(btag_weight_cls):

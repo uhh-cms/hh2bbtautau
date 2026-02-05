@@ -1386,6 +1386,24 @@ def add_config(
             discriminator="btagPNetB",
         )
 
+        if year == 2024:
+            from columnflow.selection.cms.btag import BTagWPCountConfig
+            cfg.x.btag_wp_count_config = BTagWPCountConfig(
+                jet_name="Jet",
+                btag_column="btagUParTAK4B",
+                btag_wps=cfg.x.btag_working_points.upart.copy(),
+                pt_edges=(0, 20, 30, 50, 70, 100, 140, 200, 300, 600, 10_000),
+                abs_eta_edges=(0.0, 1.0, 1.5, 2.0, 5.0),
+            )
+
+            from columnflow.production.cms.btag import BTagWPSFConfig
+            cfg.x.btag_wp_sf_config = BTagWPSFConfig(
+                jet_name="Jet",
+                btag_column="btagUParTAK4B",
+                correction_set="UPartTAK4_merged",
+                btag_wps=cfg.x.btag_working_points.upart.copy(),
+            )
+
     ################################################################################################
     # dataset / process specific methods
     ################################################################################################
@@ -1808,6 +1826,8 @@ def add_config(
     # btag scale factor
     # TODO: 2024: Remove HOTFIX at some point
     add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz").replace("Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/2025-12-03", "Run3-23DSep23-Summer23BPix-NanoAODv12/2025-08-20"), "v1"))  # noqa: E501
+    # TODO: 2024: add actual file with merged correction set, this is currently being done
+    add_external("btag_wp_sf_corr", (cat_info.get_file("btv", "btagging.json.gz").replace("Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/2025-12-03", "Run3-23DSep23-Summer23BPix-NanoAODv12/2025-08-20"), "v1"))  # noqa: E501
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
@@ -1943,10 +1963,10 @@ def add_config(
             # event info
             "deterministic_seed",
             # object info
-            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed,chHEF,neHEF,chEmEF,neEmEF,muEF,chMultiplicity,neMultiplicity}",  # noqa: E501
-            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
-            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
-            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*,deterministic_seed}",
+            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed,chHEF,neHEF,chEmEF,neEmEF,muEF,chMultiplicity,neMultiplicity}",  # noqa: E501
+            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
+            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
+            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
             "FatJet.*",
             "SubJet{1,2}.*",
             "Electron.*", *skip_column("Electron.{track_cov,gsf}*"),
@@ -1977,7 +1997,7 @@ def add_config(
                 "Electron.{eta,phi,pt,mass,charge}",
                 "Muon.{eta,phi,pt,mass,charge}",
                 "Tau.{eta,phi,pt,mass,charge,decayMode}",
-                "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+                "HHBJet.{pt,eta,phi,mass,hhbtag,btag*}",
                 "FatJet.{eta,phi,pt,mass}",
                 f"{cfg.x.met_name}.{{pt,phi,covXX,covXY,covYY}}",
                 "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
