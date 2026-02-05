@@ -146,7 +146,7 @@ def IF_RUN_3_2024(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> An
 
 
 @deferred_column
-def IF_RUN_3_22_23(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+def IF_RUN_3_2022_2023(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
     if func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2022, 2023}:
         return self.get()
     return None
