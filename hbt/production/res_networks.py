@@ -17,6 +17,7 @@ from columnflow.columnar_util import (
     set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections, ak_concatenate_safe,
     layout_ak_array,
 )
+from columnflow.tasks.external import BundleExternalFiles
 from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.types import Any
 
@@ -95,6 +96,13 @@ class _res_dnn_evaluation(Producer):
         # name of the model bundle in the external files
         return self.cls_name
 
+    def load_model_dir(self, bundle: BundleExternalFiles) -> law.LocalDirectoryTarget:
+        model_dir = bundle.files_dir.child(f"{self.external_name}_unpacked", type="d")
+        getattr(bundle.files, self.external_name).load(model_dir, formatter="tar")
+        if self.dir_name:
+            model_dir = model_dir.child(self.dir_name, type="d")
+        return model_dir
+
     def init_func(self, **kwargs) -> None:
         # set feature production options when requested
         if self.produce_features is None:
@@ -119,11 +127,8 @@ class _res_dnn_evaluation(Producer):
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
         super().requires_func(task=task, reqs=reqs, **kwargs)
 
-        if "external_files" in reqs:
-            return
-
-        from columnflow.tasks.external import BundleExternalFiles
-        reqs["external_files"] = BundleExternalFiles.req(task)
+        if "external_files" not in reqs:
+            reqs["external_files"] = BundleExternalFiles.req(task)
 
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
         super().setup_func(task=task, reqs=reqs, **kwargs)
@@ -140,10 +145,7 @@ class _res_dnn_evaluation(Producer):
         # unpack the model archive
         bundle = reqs["external_files"]
         bundle.files
-        model_dir = bundle.files_dir.child(f"{self.external_name}_unpacked", type="d")
-        getattr(bundle.files, self.external_name).load(model_dir, formatter="tar")
-        if self.dir_name:
-            model_dir = model_dir.child(self.dir_name, type="d")
+        model_dir = self.load_model_dir(bundle)
 
         # setup the evaluator
         self.evaluator.add_model(self.cls_name, model_dir.abspath, signature_key="serving_default")
@@ -699,6 +701,10 @@ class _vbf_dnn(_res_dnn_evaluation):
     def output_prefix(self) -> str:
         return self.cls_name
 
+    def load_model_dir(self, bundle: BundleExternalFiles) -> law.LocalDirectoryTarget:
+        # should be overwritten in inheriting produicers with knowledge on fold info
+        raise NotImplementedError
+
     def init_func(self, **kwargs) -> None:
         super().init_func(**kwargs)
 
@@ -890,6 +896,10 @@ class _vbf_dnn_xvalid(_vbf_dnn):
 
     n_folds = 5
     fold = None
+
+    def load_model_dir(self, bundle: BundleExternalFiles) -> law.LocalDirectoryTarget:
+        model_dir = bundle.files.vbf_dnn_repo[f"fold{self.fold}"]
+        return model_dir
 
     def define_event_mask(self, events: ak.Array, cat: DotDict, cont: DotDict) -> ak.Array:
         event_mask = super().define_event_mask(events, cat, cont)

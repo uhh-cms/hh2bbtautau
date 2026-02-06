@@ -79,6 +79,12 @@ def vbfjtag(
     n_jets_capped = ak.num(jets, axis=1)
     is_hhbjet = ak.values_astype(is_hhbjet_mask[jet_sorting_indices][vbfjet_mask_sorted][event_mask][..., :n_jets_max], np.float32)  # noqa: E501
 
+    # btag column
+    if self.config_inst.campaign.x.year == 2024:
+        btag_col = "btagUParTAK4B"
+    else:
+        btag_col = "btagPNetB"
+
     # additional features for v2 network
     if self.vbfjtag_version == "v2":
         # centrality
@@ -98,7 +104,7 @@ def vbfjtag(
         jets.mass / jets.pt,
         jets.energy / jets.pt,
         abs(jets.eta - htt.eta),
-        jets.btagPNetB,
+        jets[btag_col],
         jets.delta_phi(htt),
         is_hhbjet,
         centrality if self.vbfjtag_version == "v2" else None,

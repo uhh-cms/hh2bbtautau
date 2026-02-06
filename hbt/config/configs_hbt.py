@@ -1400,7 +1400,7 @@ def add_config(
             cfg.x.btag_wp_sf_config = BTagWPSFConfig(
                 jet_name="Jet",
                 btag_column="btagUParTAK4B",
-                correction_set="UPartTAK4_merged",
+                correction_set="UParTAK4_merged",
                 btag_wps=cfg.x.btag_working_points.upart.copy(),
             )
 
@@ -1847,9 +1847,6 @@ def add_config(
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
     add_external("torch_simple_kl01", (f"{central_hbt_dir}/run3_models/run3_torch_simple_kl01/comparison_dnn.pt2", "v3"))  # noqa: E501
-    # vbf models trained by cclub
-    for fold in range(5):
-        add_external(f"vbf_dnn_fold{fold}", (f"{central_hbt_dir}/run3_models/run3_vbf_dnn/model_fold{fold}.tgz", "v1"))
 
     # run specific files
     if run == 2:
@@ -1888,21 +1885,33 @@ def add_config(
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         hhb_postfix = "_2024" if year == 2024 else ""
         add_external("hh_btag_repo", Ext(
-            f"{central_hbt_dir}/HHbtag-79225dd.tar.gz",
+            f"{central_hbt_dir}/HHbtag-9b98eb8.tar.gz",
             subpaths=DotDict(
-                even=f"HHbtag-79225dd94019b1c0d6cc8bb416f55e4acf1c1f47/models/HHbtag_v3{hhb_postfix}_par_0",
-                odd=f"HHbtag-79225dd94019b1c0d6cc8bb416f55e4acf1c1f47/models/HHbtag_v3{hhb_postfix}_par_1",
+                even=f"HHbtag-9b98eb82f633115b0e6b9e45a9d8ac96dd3aa38f/models/HHbtag_v3{hhb_postfix}_par_0",
+                odd=f"HHbtag-9b98eb82f633115b0e6b9e45a9d8ac96dd3aa38f/models/HHbtag_v3{hhb_postfix}_par_1",
             ),
             version="v3",
         ))
         # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB, https://indico.cern.ch/event/1590750/contributions/6784135/attachments/3169657/5634394/Jet_taggers_0711.pdf # noqa
+        vbfj_postfix = "_2024" if year == 2024 else ""
         add_external("vbf_jtag_repo", Ext(
-            f"{central_hbt_dir}/VBFjtag-0f0bec9.tar.gz",
+            f"{central_hbt_dir}/VBFjtag-82b2a1a.tar.gz",
             subpaths=DotDict(
-                even="VBFjtag-0f0bec91c848c026156227ccecdcabc4f9daef89/models/VBFjTag_par_0",
-                odd="VBFjtag-0f0bec91c848c026156227ccecdcabc4f9daef89/models/VBFjTag_par_1",
+                even=f"VBFjtag-82b2a1ae7129cdc2679a2a3b14b7f12de5ca827b/models/VBFjTag{vbfj_postfix}_par_0",
+                odd=f"VBFjtag-82b2a1ae7129cdc2679a2a3b14b7f12de5ca827b/models/VBFjTag{vbfj_postfix}_par_1",
             ),
             version="v2",
+        ))
+        # vbf models trained by cclub
+        # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/tree/cclub_cmssw15010/data/DNN_models/HHRun3DNN?ref_type=heads
+        vbfnn_postfix = "_24" if year == 2024 else "_22-23"
+        add_external("vbf_dnn_repo", Ext(
+            f"{central_hbt_dir}/AnalysisCore-f69dda6c.tar.gz",
+            subpaths=DotDict.wrap({
+                f"fold{f}": f"AnalysisCore-cclub_cmssw15010/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
+                for f in range(5)
+            }),
+            version="v5",
         ))
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))

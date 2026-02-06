@@ -70,6 +70,15 @@ def hhbtag(
     jet_shape = abs(jets.pt) >= 0
     n_jets_capped = ak.num(jets, axis=1)
 
+    # btag column
+    if self.hhbtag_version == "v3":
+        if self.config_inst.campaign.x.year == 2024:
+            btag_col = "btagUParTAK4B"
+        else:
+            btag_col = "btagPNetB"
+    else:
+        btag_col = "btagDeepFlavB"
+
     # get input features
     input_features = [
         jet_shape * 1,
@@ -78,7 +87,7 @@ def hhbtag(
         jets.mass / jets.pt,
         jets.energy / jets.pt,
         abs(jets.eta - htt.eta),
-        (jets.btagDeepFlavB if self.hhbtag_version == "v2" else jets.btagPNetB),
+        jets[btag_col],
         jets.delta_phi(htt),
         jet_shape * (self.hhbtag_campaign),
         jet_shape * self.hhbtag_channel_map[events[event_mask].channel_id],
