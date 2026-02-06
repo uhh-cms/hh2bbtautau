@@ -1826,8 +1826,8 @@ def add_config(
     # btag scale factor
     # TODO: 2024: Remove HOTFIX at some point
     add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz").replace("Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/2025-12-03", "Run3-23DSep23-Summer23BPix-NanoAODv12/2025-08-20"), "v1"))  # noqa: E501
-    # TODO: 2024: add actual file with merged correction set, this is currently being done
-    add_external("btag_wp_sf_corr", (cat_info.get_file("btv", "btagging.json.gz").replace("Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/2025-12-03", "Run3-23DSep23-Summer23BPix-NanoAODv12/2025-08-20"), "v1"))  # noqa: E501
+    if run == 3 and year == 2024:
+        add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024.json.gz", "v1"))  # noqa: E501
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
