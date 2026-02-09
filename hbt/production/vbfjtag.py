@@ -79,12 +79,6 @@ def vbfjtag(
     n_jets_capped = ak.num(jets, axis=1)
     is_hhbjet = ak.values_astype(is_hhbjet_mask[jet_sorting_indices][vbfjet_mask_sorted][event_mask][..., :n_jets_max], np.float32)  # noqa: E501
 
-    # btag column
-    if self.config_inst.campaign.x.year == 2024:
-        btag_col = "btagUParTAK4B"
-    else:
-        btag_col = "btagPNetB"
-
     # additional features for v2 network
     if self.vbfjtag_version == "v2":
         # centrality
@@ -104,7 +98,7 @@ def vbfjtag(
         jets.mass / jets.pt,
         jets.energy / jets.pt,
         abs(jets.eta - htt.eta),
-        jets[btag_col],
+        jets[self.btag_col],
         jets.delta_phi(htt),
         is_hhbjet,
         centrality if self.vbfjtag_version == "v2" else None,
@@ -229,7 +223,11 @@ def vbfjtag(
 
 @vbfjtag.init
 def vbfjtag_init(self: Producer, **kwargs) -> None:
-    # produce input columns
+    # define btag column to be read and used
+    self.btag_col = "btagUParTAK4B" if self.config_inst.campaign.x.year == 2024 else "btagPNetB"
+    self.uses.add(f"Jet.{self.btag_col}")
+
+    # columns produced for sync
     if self.config_inst.x.sync:
         self.produces.add("sync_*")
 
@@ -296,7 +294,7 @@ def vbfjtag_setup(
         (2022, "EE"): 1,
         (2023, ""): 2,
         (2023, "BPix"): 3,
-        (2024, ""): 3,  # TODO: 2024: remove this HOTFIX at some point
+        (2024, ""): 4,
     }[campaign_key]
 
     # validate the met name

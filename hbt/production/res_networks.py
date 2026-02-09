@@ -98,7 +98,8 @@ class _res_dnn_evaluation(Producer):
 
     def load_model_dir(self, bundle: BundleExternalFiles) -> law.LocalDirectoryTarget:
         model_dir = bundle.files_dir.child(f"{self.external_name}_unpacked", type="d")
-        getattr(bundle.files, self.external_name).load(model_dir, formatter="tar")
+        if not model_dir.exists() or not model_dir.listdir():
+            getattr(bundle.files, self.external_name).load(model_dir, formatter="tar")
         if self.dir_name:
             model_dir = model_dir.child(self.dir_name, type="d")
         return model_dir
@@ -187,8 +188,7 @@ class _res_dnn_evaluation(Producer):
             (2022, "EE"): 3,
             (2023, ""): 3,
             (2023, "BPix"): 3,
-            # TODO: 2024: add correcton flag once training with 2024 is available, using 23post in the meantime
-            (2024, ""): 3,
+            (2024, ""): 4,
         }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:

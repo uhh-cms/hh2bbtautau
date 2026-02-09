@@ -1824,20 +1824,23 @@ def add_config(
     # jet veto map
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
     # btag scale factor
-    # TODO: 2024: Remove HOTFIX at some point
-    add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz").replace("Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/2025-12-03", "Run3-23DSep23-Summer23BPix-NanoAODv12/2025-08-20"), "v1"))  # noqa: E501
-    if run == 3 and year == 2024:
-        add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024.json.gz", "v1"))  # noqa: E501
+    if run == 3:
+        if year == 2024:
+            add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024.json.gz", "v1"))
+        else:
+            add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz"), "v1"))  # noqa: E501
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
-    add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
+    # add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
-    add_external("res_dnn", (f"{central_hbt_dir}/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))
+    # add_external("res_dnn", (f"{central_hbt_dir}/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))
     # non-parametric regression from the resonant analysis
-    add_external("reg_dnn", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))
-    add_external("reg_dnn_moe", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))
+    # add_external("reg_dnn", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))
+    add_external("reg_dnn_moe", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0{'_nobtag' if year == 2024 else ''}_moe.tgz", "v1"))  # noqa: E501
     # dnn models trained with run 2 legacy setup but run 3 data
     for fold in range(5):
-        add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
+        # for 2024, use version with btag for now, but we could also drop it since we have no full shape correction
+        basename = f"model_2024_fold{fold}_btag_moe.tgz" if year == 2024 else f"model_fold{fold}_moe.tgz"
+        add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/{basename}", "v1"))
     # simple version of same model for quick comparisons
     add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_fixedweights_kl01/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     # and again with different kl setups (disabled since they were still run with the broken dy frequencies)
