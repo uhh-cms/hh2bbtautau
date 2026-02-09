@@ -19,7 +19,7 @@ from columnflow.columnar_util import (
 )
 from columnflow.tasks.external import BundleExternalFiles
 from columnflow.util import maybe_import, dev_sandbox, DotDict
-from columnflow.types import Any
+from columnflow.types import Any, Literal
 
 from hbt.util import MET_COLUMN
 
@@ -32,6 +32,8 @@ logger = law.logger.get_logger(__name__)
 # helper functions
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
+
+BTagType = Literal["deepjet", "pnet", "upart", "none"]
 
 
 def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Array, ak.Array]:
@@ -60,13 +62,13 @@ class _res_dnn_evaluation(Producer):
         "Tau.{eta,phi,pt,mass,charge,decayMode}",
         "Electron.{eta,phi,pt,mass,charge}",
         "Muon.{eta,phi,pt,mass,charge}",
-        "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*}",
+        "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav*,btagPNet*,btagUParTAK4*}",
         "FatJet.{eta,phi,pt,mass}",
         MET_COLUMN("{pt,phi,covXX,covXY,covYY}"),
     }
 
-    # whether to use pnet instead of deepflavor for btagging variables
-    use_pnet: bool = False
+    # which type of btagging variables to use
+    btag_type: BTagType = "deepjet"
 
     # whether the model is parameterized in mass, spin and year
     # (this is a slight forward declaration but simplifies the code reasonably well in our use case)
@@ -105,6 +107,8 @@ class _res_dnn_evaluation(Producer):
         return model_dir
 
     def init_func(self, **kwargs) -> None:
+        assert self.btag_type in {"deepjet", "pnet", "upart", "none"}
+
         # set feature production options when requested
         if self.produce_features is None:
             self.produce_features = self.config_inst.x.sync
@@ -361,17 +365,31 @@ class _res_dnn_evaluation(Producer):
         # bjet 1
         cont.bjet1_px, cont.bjet1_py = rot(bjets[:, 0].px, bjets[:, 0].py)
         cont.bjet1_pz, cont.bjet1_e = bjets[:, 0].pz, bjets[:, 0].energy
-        cont.bjet1_tag_b = bjets[:, 0]["btagPNetB" if self.use_pnet else "btagDeepFlavB"]
-        cont.bjet1_tag_cvsb = bjets[:, 0]["btagPNetCvB" if self.use_pnet else "btagDeepFlavCvB"]
-        cont.bjet1_tag_cvsl = bjets[:, 0]["btagPNetCvL" if self.use_pnet else "btagDeepFlavCvL"]
+        if self.btag_type == "deepjet":
+            cont.bjet1_tag_b = bjets[:, 0].btagDeepFlavB
+            cont.bjet1_tag_cvsb = bjets[:, 0].btagDeepFlavCvB
+            cont.bjet1_tag_cvsl = bjets[:, 0].btagDeepFlavCvL
+        elif self.btag_type == "pnet":
+            cont.bjet1_tag_b = bjets[:, 0].btagPNetB
+            cont.bjet1_tag_cvsb = bjets[:, 0].btagPNetCvB
+            cont.bjet1_tag_cvsl = bjets[:, 0].btagPNetCvL
+        elif self.btag_type == "upart":
+            cont.bjet1_tag_b = bjets[:, 0].btagUParTAK4B
         cont.bjet1_hhbtag = bjets[:, 0].hhbtag
 
         # bjet 2
         cont.bjet2_px, cont.bjet2_py = rot(bjets[:, 1].px, bjets[:, 1].py)
         cont.bjet2_pz, cont.bjet2_e = bjets[:, 1].pz, bjets[:, 1].energy
-        cont.bjet2_tag_b = bjets[:, 1]["btagPNetB" if self.use_pnet else "btagDeepFlavB"]
-        cont.bjet2_tag_cvsb = bjets[:, 1]["btagPNetCvB" if self.use_pnet else "btagDeepFlavCvB"]
-        cont.bjet2_tag_cvsl = bjets[:, 1]["btagPNetCvL" if self.use_pnet else "btagDeepFlavCvL"]
+        if self.btag_type == "deepjet":
+            cont.bjet2_tag_b = bjets[:, 1].btagDeepFlavB
+            cont.bjet2_tag_cvsb = bjets[:, 1].btagDeepFlavCvB
+            cont.bjet2_tag_cvsl = bjets[:, 1].btagDeepFlavCvL
+        elif self.btag_type == "pnet":
+            cont.bjet2_tag_b = bjets[:, 1].btagPNetB
+            cont.bjet2_tag_cvsb = bjets[:, 1].btagPNetCvB
+            cont.bjet2_tag_cvsl = bjets[:, 1].btagPNetCvL
+        elif self.btag_type == "upart":
+            cont.bjet2_tag_b = bjets[:, 1].btagUParTAK4B
         cont.bjet2_hhbtag = bjets[:, 1].hhbtag
 
         # fatjet variables
@@ -383,6 +401,8 @@ class _res_dnn_evaluation(Producer):
             if not ak.any(mask):
                 return
             for field in fields:
+                if field not in cont:
+                    continue
                 arr = flat_np_view(ak.fill_none(cont[field], value, axis=0), copy=True)
                 arr[flat_np_view(mask)] = value
                 cont[field] = layout_ak_array(arr, cont[field]) if cont[field].ndim > 1 else arr
@@ -493,7 +513,7 @@ class res_dnn_pnet(res_dnn):
     """
 
     external_name = "res_dnn"
-    use_pnet = True
+    btag_type = "pnet"
     produce_features = True
     output_prefix = "res_dnn_pnet"
 
@@ -507,6 +527,10 @@ class _reg_dnn(_res_dnn_evaluation):
 
     empty_value = 0.0
     parametrized = False
+
+    @property
+    def btag_type(self):
+        return "none" if self.config_inst.campaign.x.year == 2024 else "deepjet"
 
     def init_func(self, **kwargs) -> None:
         super().init_func(**kwargs)
@@ -522,22 +546,11 @@ class _reg_dnn(_res_dnn_evaluation):
         self.produces |= set(self.output_columns)
 
 
-class reg_dnn(_reg_dnn):
-    """
-    Single regression network, trained with Radion samples and a flat mass range.
-    """
-
-    dir_name = "model_fold0_seed0"
-    output_prefix = "reg_dnn"
-    exposed = True
-
-
 class reg_dnn_moe(_reg_dnn):
     """
     Mixture of experts regression network, trained with Radion samples and a flat mass range.
     """
 
-    dir_name = "model_fold0_moe"
     output_prefix = "reg_dnn_moe"
     produce_features = True
     exposed = True
@@ -550,7 +563,6 @@ class reg_dnn_moe(_reg_dnn):
 class _run3_dnn(_res_dnn):
 
     parametrized = False
-    use_pnet = True
     dir_name = None
     fold = None
     n_folds = 5
@@ -558,6 +570,10 @@ class _run3_dnn(_res_dnn):
     @property
     def output_prefix(self) -> str:
         return self.cls_name
+
+    @property
+    def btag_type(self):
+        return "upart" if self.config_inst.campaign.x.year == 2024 else "pnet"
 
     def define_event_mask(self, events: ak.Array, cat: DotDict, cont: DotDict) -> ak.Array:
         event_mask = super().define_event_mask(events, cat, cont)
