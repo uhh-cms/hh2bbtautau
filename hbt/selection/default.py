@@ -221,7 +221,7 @@ def default(
     # fill btagging efficiency histograms (in-place, so no return value)
     # ! note that this uses selected jets only of selected events with the full "event_sel", so selecting a subset
     # of selection-steps later on will not affect these histograms
-    if self.has_dep(fill_btag_wp_count_hists):
+    if self.dataset_inst.is_mc and self.has_dep(fill_btag_wp_count_hists):
         self[fill_btag_wp_count_hists](events, results.event, results.objects.Jet.Jet, hists, **kwargs)
 
     # combined event selection after all but the bjet step

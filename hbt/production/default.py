@@ -16,7 +16,7 @@ from columnflow.columnar_util import attach_coffea_behavior, set_ak_column, full
 
 from hbt.production.weights import (
     stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_pdf_weight,
-    normalized_murmuf_weight, normalized_ps_weights, normalized_btag_weights_deepjet, normalized_btag_weights_pnet,
+    normalized_murmuf_weight, normalized_ps_weights, normalized_btag_weights_pnet,
 )
 from hbt.production.tau import tau_weights
 from hbt.production.trigger_sf import trigger_weight
@@ -83,14 +83,14 @@ muon_weights_lowpt = muon_weights.derive(
 @producer(
     uses={
         hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,
-        normalized_btag_weights_deepjet, IF_RUN_3_2022_2023(normalized_btag_weights_pnet),
-        IF_RUN_3_2024(btag_wp_weights), IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
+        IF_RUN_3_2022_2023(normalized_btag_weights_pnet), IF_RUN_3_2024(btag_wp_weights),
+        IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
     produces={
         hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,
-        normalized_btag_weights_deepjet, IF_RUN_3_2022_2023(normalized_btag_weights_pnet),
-        IF_RUN_3_2024(btag_wp_weights), IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
+        IF_RUN_3_2022_2023(normalized_btag_weights_pnet), IF_RUN_3_2024(btag_wp_weights),
+        IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
     shifts={
@@ -124,8 +124,6 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         events = self[normalized_ps_weights](events, **kwargs)
 
         # btag weights
-        if self.has_dep(normalized_btag_weights_deepjet):
-            events = self[normalized_btag_weights_deepjet](events, **kwargs)
         if self.has_dep(normalized_btag_weights_pnet):
             events = self[normalized_btag_weights_pnet](events, **kwargs)
         if self.has_dep(btag_wp_weights):
