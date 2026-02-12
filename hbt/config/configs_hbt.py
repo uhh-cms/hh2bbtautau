@@ -1400,7 +1400,7 @@ def add_config(
             cfg.x.btag_wp_sf_config = BTagWPSFConfig(
                 jet_name="Jet",
                 btag_column="btagUParTAK4B",
-                correction_set="UPartTAK4_merged",
+                correction_set="UParTAK4_merged",
                 btag_wps=cfg.x.btag_working_points.upart.copy(),
             )
 
