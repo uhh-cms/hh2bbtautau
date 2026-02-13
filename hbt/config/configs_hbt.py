@@ -1399,8 +1399,13 @@ def add_config(
             from columnflow.production.cms.btag import BTagWPSFConfig
 
             def dataset_groups(dataset_inst: od.Dataset) -> list[od.Dataset]:
-                # TODO: implement this properly
-                hh_group = ["hh_ggf_hbb_htt_kl1_kt1_powheg", "hh_ggf_hbb_htt_kl5_kt1_powheg"]
+                # TODO: 2024: implement this properly
+                hh_group = [
+                    "hh_ggf_hbb_htt_kl1_kt1_powheg",
+                    "hh_ggf_hbb_htt_kl0_kt1_powheg",
+                    "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
+                    "hh_ggf_hbb_htt_kl5_kt1_powheg",
+                ]
                 if dataset_inst.name in hh_group:
                     return hh_group
                 raise NotImplementedError(f"dataset group not implemented for dataset {dataset_inst.name}")
