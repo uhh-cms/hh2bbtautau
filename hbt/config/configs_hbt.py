@@ -579,6 +579,29 @@ def add_config(
             for info in dataset.info.values():
                 info.n_files = 1
 
+        # group datasets together for btag WP efficiency calculation in 2024
+        if year == 2024:
+            cfg.x.btag_wp_eff_groups = [
+                ["hh_*", "tt_*", "st_*", "ttw_*", "ttz_*", "ttww_*", "ttwz_*", "ttzz_*"],
+                ["dy_*"],
+                ["w_*", "z_*", "zz_*", "wz_*", "ww_*", "www_*", "wwz_*", "wzz_*", "zzz_*"],
+                ["h_*", "wmh_*", "wph_*", "zh_*", "tth_*"],
+            ]
+            group_matched = False
+            for i, dataset_pattern in enumerate(cfg.x.btag_wp_eff_groups):
+                if law.util.multi_match(dataset.name, dataset_pattern):
+                    if group_matched:
+                        raise ValueError(
+                            f"dataset '{dataset.name}' already has a btag WP group assigned! Cannot assign it to more "
+                            "than one group",
+                        )
+                    group_matched = True
+                    dataset.add_tag(f"btag_wp_eff_group_{i}")
+            if not group_matched and dataset.is_mc:
+                raise ValueError(f"no btag_wp_eff_group_* assigned to dataset '{dataset.name}'")
+            if group_matched and dataset.is_data:
+                raise ValueError(f"must not assign btag_wp_eff_group_* to dataset '{dataset.name}'")
+
     # verify that the root process of each dataset is part of any of the registered processes
     if not sync_mode:
         verify_config_processes(cfg, warn=True)
@@ -1399,16 +1422,16 @@ def add_config(
             from columnflow.production.cms.btag import BTagWPSFConfig
 
             def dataset_groups(dataset_inst: od.Dataset) -> list[od.Dataset]:
-                # TODO: 2024: implement this properly
-                hh_group = [
-                    "hh_ggf_hbb_htt_kl1_kt1_powheg",
-                    "hh_ggf_hbb_htt_kl0_kt1_powheg",
-                    "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
-                    "hh_ggf_hbb_htt_kl5_kt1_powheg",
-                ]
-                if dataset_inst.name in hh_group:
-                    return hh_group
-                raise NotImplementedError(f"dataset group not implemented for dataset {dataset_inst.name}")
+                # check which group the dataset belongs to
+                for group_index in range(1, len(cfg.x.btag_wp_eff_groups) + 1):
+                    group_tag = f"btag_wp_eff_group_{group_index}"
+                    if dataset_inst.has_tag(group_tag):
+                        return [
+                            _dataset_inst
+                            for _dataset_inst in cfg.datasets
+                            if _dataset_inst.has_tag(group_tag)
+                        ]
+                raise NotImplementedError(f"btag WP efficiency group not implemented for dataset {dataset_inst.name}")
 
             cfg.x.btag_wp_sf_config = BTagWPSFConfig(
                 jet_name="Jet",
