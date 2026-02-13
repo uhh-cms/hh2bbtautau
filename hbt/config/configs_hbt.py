@@ -1539,8 +1539,6 @@ def add_config(
                 cfg,
                 f"jec_{jec_source}",
                 {
-                    # "normalized_btag_weight_deepjet": "normalized_btag_weight_deepjet_{name}",
-                    # "normalized_njet_btag_weight_deepjet": "normalized_njet_btag_weight_deepjet_{name}",
                     "normalized_btag_weight_pnet": "normalized_btag_weight_pnet_{name}",
                     "normalized_njet_btag_weight_pnet": "normalized_njet_btag_weight_pnet_{name}",
                 },
@@ -1643,8 +1641,6 @@ def add_config(
             cfg,
             f"btag_{unc}",
             {
-                # "normalized_btag_weight_deepjet": f"normalized_btag_weight_deepjet_{unc}_{{direction}}",
-                # "normalized_njet_btag_weight_deepjet": f"normalized_njet_btag_weight_deepjet_{unc}_{{direction}}",
                 "normalized_btag_weight_pnet": f"normalized_btag_weight_pnet_{unc_no_suffix}_{{direction}}",
                 "normalized_njet_btag_weight_pnet": f"normalized_njet_btag_weight_pnet_{unc_no_suffix}_{{direction}}",
             },
@@ -1824,20 +1820,21 @@ def add_config(
     # jet veto map
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
     # btag scale factor
-    # TODO: 2024: Remove HOTFIX at some point
-    add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz").replace("Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/2025-12-03", "Run3-23DSep23-Summer23BPix-NanoAODv12/2025-08-20"), "v1"))  # noqa: E501
     if run == 3 and year == 2024:
-        add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024.json.gz", "v1"))  # noqa: E501
+        add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024.json.gz", "v1"))
+    else:
+        add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz"), "v1"))  # noqa: E501
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
-    add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
+    # add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
-    add_external("res_dnn", (f"{central_hbt_dir}/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))
+    # add_external("res_dnn", (f"{central_hbt_dir}/res_models/res_prod3_nonparam/model_fold0.tgz", "v1"))
     # non-parametric regression from the resonant analysis
-    add_external("reg_dnn", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_seed0.tgz", "v1"))
-    add_external("reg_dnn_moe", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0_moe.tgz", "v1"))
+    add_external("reg_dnn_moe", (f"{central_hbt_dir}/res_models/reg_prod1_nonparam/model_fold0{'_nobtag' if year == 2024 else ''}_moe.tgz", "v1"))  # noqa: E501
     # dnn models trained with run 2 legacy setup but run 3 data
     for fold in range(5):
-        add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/model_fold{fold}_moe.tgz", "v1"))  # noqa: E501
+        # for 2024, use version with btag for now, but we could also drop it since we have no full shape correction
+        basename = f"model_2024_fold{fold}_btag_moe.tgz" if year == 2024 else f"model_fold{fold}_moe.tgz"
+        add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/{basename}", "v1"))
     # simple version of same model for quick comparisons
     add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_fixedweights_kl01/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     # and again with different kl setups (disabled since they were still run with the broken dy frequencies)
@@ -1847,9 +1844,6 @@ def add_config(
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
     add_external("torch_simple_kl01", (f"{central_hbt_dir}/run3_models/run3_torch_simple_kl01/comparison_dnn.pt2", "v3"))  # noqa: E501
-    # vbf models trained by cclub
-    for fold in range(5):
-        add_external(f"vbf_dnn_fold{fold}", (f"{central_hbt_dir}/run3_models/run3_vbf_dnn/model_fold{fold}.tgz", "v1"))
 
     # run specific files
     if run == 2:
@@ -1888,21 +1882,33 @@ def add_config(
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         hhb_postfix = "_2024" if year == 2024 else ""
         add_external("hh_btag_repo", Ext(
-            f"{central_hbt_dir}/HHbtag-79225dd.tar.gz",
+            f"{central_hbt_dir}/HHbtag-9b98eb8.tar.gz",
             subpaths=DotDict(
-                even=f"HHbtag-79225dd94019b1c0d6cc8bb416f55e4acf1c1f47/models/HHbtag_v3{hhb_postfix}_par_0",
-                odd=f"HHbtag-79225dd94019b1c0d6cc8bb416f55e4acf1c1f47/models/HHbtag_v3{hhb_postfix}_par_1",
+                even=f"HHbtag-9b98eb82f633115b0e6b9e45a9d8ac96dd3aa38f/models/HHbtag_v3{hhb_postfix}_par_0",
+                odd=f"HHbtag-9b98eb82f633115b0e6b9e45a9d8ac96dd3aa38f/models/HHbtag_v3{hhb_postfix}_par_1",
             ),
             version="v3",
         ))
         # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB, https://indico.cern.ch/event/1590750/contributions/6784135/attachments/3169657/5634394/Jet_taggers_0711.pdf # noqa
+        vbfj_postfix = "_2024" if year == 2024 else ""
         add_external("vbf_jtag_repo", Ext(
-            f"{central_hbt_dir}/VBFjtag-0f0bec9.tar.gz",
+            f"{central_hbt_dir}/VBFjtag-82b2a1a.tar.gz",
             subpaths=DotDict(
-                even="VBFjtag-0f0bec91c848c026156227ccecdcabc4f9daef89/models/VBFjTag_par_0",
-                odd="VBFjtag-0f0bec91c848c026156227ccecdcabc4f9daef89/models/VBFjTag_par_1",
+                even=f"VBFjtag-82b2a1ae7129cdc2679a2a3b14b7f12de5ca827b/models/VBFjTag{vbfj_postfix}_par_0",
+                odd=f"VBFjtag-82b2a1ae7129cdc2679a2a3b14b7f12de5ca827b/models/VBFjTag{vbfj_postfix}_par_1",
             ),
             version="v2",
+        ))
+        # vbf models trained by cclub
+        # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/tree/cclub_cmssw15010/data/DNN_models/HHRun3DNN?ref_type=heads
+        vbfnn_postfix = "_24" if year == 2024 else "_22-23"
+        add_external("vbf_dnn_repo", Ext(
+            f"{central_hbt_dir}/AnalysisCore-f69dda6c.tar.gz",
+            subpaths=DotDict.wrap({
+                f"fold{f}": f"AnalysisCore-cclub_cmssw15010/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
+                for f in range(5)
+            }),
+            version="v5",
         ))
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
