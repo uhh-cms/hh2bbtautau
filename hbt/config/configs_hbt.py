@@ -1324,13 +1324,12 @@ def add_config(
                 "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.7667, "2023BPix": 0.7671, "2024": None}[btag_key],
                 "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.9459, "2023BPix": 0.9483, "2024": None}[btag_key],  # noqa: E501
             },
-            # TODO: 2024: remove HOTFIX once btagging SFs are available. using 2023BPix wp values for now
             "particleNet": {
-                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359, "2024": 0.0359}[btag_key],
-                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919, "2024": 0.1919}[btag_key],  # noqa: E501
-                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133, "2024": 0.6133}[btag_key],  # noqa: E501
-                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544, "2024": 0.7544}[btag_key],  # noqa: E501
-                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688, "2024": 0.9688}[btag_key],  # noqa: E501
+                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359, "2024": None}[btag_key],
+                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919, "2024": None}[btag_key],  # noqa: E501
+                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133, "2024": None}[btag_key],  # noqa: E501
+                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544, "2024": None}[btag_key],  # noqa: E501
+                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688, "2024": None}[btag_key],  # noqa: E501
             },
             # 2024 wps can be taken from "UParTAK4_wp_values" correction set in BTV correctionlib file
             "upart": {
@@ -1344,7 +1343,6 @@ def add_config(
             # performance studies for run 3 available and show improvements:
             # https://cds.cern.ch/record/2904691/files/DP2024_055.pdf
             # TODO: fallback to run2, due to missing wp values
-            # TODO: 2024: remove HOTFIX once btagging SFs are available. using 2023BPix wp values for now
             "particleNetMD": {
                 "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880, "2024": 0.9880}[btag_key],
                 "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734, "2024": 0.9734}[btag_key],
@@ -1985,7 +1983,7 @@ def add_config(
             ))
         elif year == 2024:
             add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
-            # TODO: 2024: add once available
+            # TODO: 2024: add trigger sf once available
             pass
     else:
         assert False
