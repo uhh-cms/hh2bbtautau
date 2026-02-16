@@ -17,6 +17,8 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
 from columnflow.selection.cms.jets import jet_veto_map
+from columnflow.selection.cms.btag import fill_btag_wp_count_hists
+from columnflow.production.cms.jet import jet_id, fatjet_id
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
@@ -37,7 +39,7 @@ import hbt.production.processes as process_producers
 from hbt.production.weights import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATA, IF_DATASET_HAS_TAG
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2024, IF_DATA, IF_DATASET_HAS_TAG
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -80,14 +82,15 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
 
 @selector(
     uses={
-        json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
-        mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
+        jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
+        jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
+        IF_RUN_3_2024(fill_btag_wp_count_hists),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
-        process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
+        jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
+        btag_weights_deepjet, process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
@@ -138,6 +141,10 @@ def default(
             events.patchedEcalBadCalibFilter
         )
     results += met_filter_results
+
+    # recompute jet ids for selections
+    events = self[jet_id](events, **kwargs)
+    events = self[fatjet_id](events, **kwargs)
 
     # jet veto map
     if self.has_dep(jet_veto_map):
@@ -201,10 +208,6 @@ def default(
     else:
         events = self[process_ids](events, **kwargs)
 
-    # create jet collections for categorization
-    events["HHBJet"] = events.Jet[results.objects.Jet.HHBJet]
-    events["FatJet"] = events.FatJet[results.objects.FatJet.FatJet]
-
     # store number of jets for stats and histograms
     events = set_ak_column(events, "n_jets_stats", results.x.n_central_jets, value_type=np.int32)
 
@@ -214,6 +217,12 @@ def default(
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
     results.event = event_sel
+
+    # fill btagging efficiency histograms (in-place, so no return value)
+    # ! note that this uses selected jets only of selected events with the full "event_sel", so selecting a subset
+    # of selection-steps later on will not affect these histograms
+    if self.dataset_inst.is_mc and self.has_dep(fill_btag_wp_count_hists):
+        self[fill_btag_wp_count_hists](events, results.event, results.objects.Jet.Jet, hists, **kwargs)
 
     # combined event selection after all but the bjet step
     def event_sel_nob(btag_weight_cls):
@@ -246,7 +255,16 @@ def default(
 @default.init
 def default_init(self: Selector, **kwargs) -> None:
     # build and store derived process id producers
-    self.stitch_tags = ["dy_amcatnlo", "dy_lep_amcatnlo", "dy_powheg", "w_lnu"]
+    self.stitch_tags = [
+        "dy_amcatnlo_2223",
+        "dy_lep_amcatnlo_2223",
+        "dy_powheg_2223",
+        "dy_ee_amcatnlo_24",
+        "dy_mumu_amcatnlo_24",
+        "dy_tautau_amcatnlo_24",
+        "w_lnu_amcatnlo_2223",
+    ]
+
     for tag in self.stitch_tags:
         prod_name = f"process_ids_{tag}"
         setattr(self, prod_name, None)
@@ -259,7 +277,7 @@ def default_init(self: Selector, **kwargs) -> None:
             # check if this dataset is covered by any dy id producer
             for stitch_name, cfg in stitching_cfg.items():
                 incl_dataset_inst = cfg["inclusive_dataset"]
-                # the dataset is "covered" if its process is a subprocess of that of the dy dataset
+                # the dataset is "covered" if its process is a subprocess of that of the inclusive dataset
                 if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
                     base_prod = getattr(process_producers, prod_name)
                     prod = base_prod.derive(f"{prod_name}_{stitch_name}", cls_dict={

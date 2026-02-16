@@ -203,6 +203,7 @@ class default(HBTInferenceModel):
         # TODO: additional theory uncertainties, especially on background processes!
 
         # lumi
+        # TODO: 2024: choose which uncertainty scheme to use here, lumi uncertainties contain values of multiple schemes
         for config_inst in self.config_insts:
             lumi = config_inst.x.luminosity
             for unc_name in lumi.uncertainties:
@@ -331,6 +332,8 @@ class default(HBTInferenceModel):
 
         # muon weights
         # TODO: possibly correlate?
+        # TODO: 2024: MUO recommendations on de/correlating id/iso systematics across years should be implemented
+        # see https://muon-wiki.docs.cern.ch/guidelines/corrections/#note-on-correlations
         for mu_source in ["mu_id", "mu_iso"]:
             for config_inst in self.config_insts:
                 self.add_parameter(

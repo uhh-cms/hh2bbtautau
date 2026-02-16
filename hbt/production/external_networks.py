@@ -17,7 +17,7 @@ from columnflow.columnar_util import (
     layout_ak_array,
 )
 from columnflow.util import maybe_import, dev_sandbox, DotDict
-from columnflow.types import Any
+from columnflow.types import Any, Literal
 
 from hbt.util import MET_COLUMN
 
@@ -29,6 +29,8 @@ logger = law.logger.get_logger(__name__)
 
 # helper functions
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
+
+BTagType = Literal["pnet", "upart", "none"]
 
 
 def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Array, ak.Array]:
@@ -53,10 +55,13 @@ class _external_dnn(Producer):
         "Tau.{eta,phi,pt,mass,charge,decayMode}",
         "Electron.{eta,phi,pt,mass,charge}",
         "Muon.{eta,phi,pt,mass,charge}",
-        "HHBJet.{pt,eta,phi,mass,hhbtag,btagPNet*}",
+        "HHBJet.{pt,eta,phi,mass,hhbtag,btagPNet*,btagUParTAK4*}",
         "FatJet.{eta,phi,pt,mass}",
         MET_COLUMN("{pt,phi,covXX,covXY,covYY}"),
     }
+
+    # which type of btagging variables to use
+    btag_type: BTagType = "pnet"
 
     # limited chunk size to avoid memory issues
     max_chunk_size: int = 10_000
@@ -249,17 +254,23 @@ class _external_dnn(Producer):
         # bjet 1
         f.bjet1_px, f.bjet1_py = rotate_to_phi(phi_lep, bjets[:, 0].px, bjets[:, 0].py)
         f.bjet1_pz, f.bjet1_e = bjets[:, 0].pz, bjets[:, 0].energy
-        f.bjet1_tag_b = bjets[:, 0].btagPNetB
-        f.bjet1_tag_cvsb = bjets[:, 0].btagPNetCvB
-        f.bjet1_tag_cvsl = bjets[:, 0].btagPNetCvL
+        if self.btag_type == "pnet":
+            f.bjet1_tag_b = bjets[:, 0].btagPNetB
+            f.bjet1_tag_cvsb = bjets[:, 0].btagPNetCvB
+            f.bjet1_tag_cvsl = bjets[:, 0].btagPNetCvL
+        elif self.btag_type == "upart":
+            f.bjet1_tag_b = bjets[:, 0].btagUParTAK4B
         f.bjet1_hhbtag = bjets[:, 0].hhbtag
 
         # bjet 2
         f.bjet2_px, f.bjet2_py = rotate_to_phi(phi_lep, bjets[:, 1].px, bjets[:, 1].py)
         f.bjet2_pz, f.bjet2_e = bjets[:, 1].pz, bjets[:, 1].energy
-        f.bjet2_tag_b = bjets[:, 1].btagPNetB
-        f.bjet2_tag_cvsb = bjets[:, 1].btagPNetCvB
-        f.bjet2_tag_cvsl = bjets[:, 1].btagPNetCvL
+        if self.btag_type == "pnet":
+            f.bjet2_tag_b = bjets[:, 1].btagPNetB
+            f.bjet2_tag_cvsb = bjets[:, 1].btagPNetCvB
+            f.bjet2_tag_cvsl = bjets[:, 1].btagPNetCvL
+        elif self.btag_type == "upart":
+            f.bjet2_tag_b = bjets[:, 1].btagUParTAK4B
         f.bjet2_hhbtag = bjets[:, 1].hhbtag
 
         # fatjet variables
@@ -271,6 +282,8 @@ class _external_dnn(Producer):
             if not ak.any(mask):
                 return
             for field in fields:
+                if field not in f:
+                    continue
                 arr = flat_np_view(ak.fill_none(f[field], value, axis=0), copy=True)
                 arr[flat_np_view(mask)] = value
                 f[field] = layout_ak_array(arr, f[field]) if f[field].ndim > 1 else arr

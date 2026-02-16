@@ -11,10 +11,9 @@ from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.gen_particles import transform_gen_part
-from columnflow.production.util import lv_mass
-from columnflow.columnar_util import (
-    EMPTY_FLOAT, Route, set_ak_column, attach_coffea_behavior, default_coffea_collections, ak_concatenate_safe,
-)
+from columnflow.production.util import lv_mass, transfer_produced_columns
+from columnflow.reduction.util import create_collections_from_masks
+from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column, attach_coffea_behavior, ak_concatenate_safe
 from columnflow.util import maybe_import
 
 from hbt.util import IF_MC, IF_DATASET_HAS_LHE_WEIGHTS, IF_DATASET_IS_TT, IF_DATASET_IS_DY, IF_DATASET_HAS_HIGGS
@@ -59,6 +58,7 @@ cutflow_category_ids = category_ids.derive("cutflow_category_ids", cls_dict={
         mc_weight, cutflow_category_ids,
         "cutflow.{n_jet,n_jet_selected,ht,jet1_pt,jet1_eta,jet1_phi,jet2_pt,n_ele,n_ele_selected}",
     },
+    exposed=False,
 )
 def cutflow_features(
     self: Producer,
@@ -66,25 +66,26 @@ def cutflow_features(
     object_masks: dict[str, dict[str, ak.Array]],
     **kwargs,
 ) -> ak.Array:
-    # columns required for cutflow plots
-    events = self[cutflow_category_ids](events, **kwargs)
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
-    # apply per-object selections
-    selected_jet = events.Jet[object_masks["Jet"]["Jet"]]
-    selected_ele = events.Electron[object_masks["Electron"]["Electron"]]
+    # apply object selections for the scope of this producer to mimic reduction
+    events_red = create_collections_from_masks(events, object_masks)
+
+    # categories
+    events_red = self[cutflow_category_ids](events_red, **kwargs)
+    events = transfer_produced_columns(self[cutflow_category_ids], events_red, events)
 
     # add feature columns
     events = set_ak_column_i32(events, "cutflow.n_jet", ak.num(events.Jet, axis=1))
-    events = set_ak_column_i32(events, "cutflow.n_jet_selected", ak.num(selected_jet, axis=1))
-    events = set_ak_column_f32(events, "cutflow.ht", ak.sum(selected_jet.pt, axis=1))
-    events = set_ak_column_f32(events, "cutflow.jet1_pt", Route("pt[:,0]").apply(selected_jet, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "cutflow.jet1_eta", Route("eta[:,0]").apply(selected_jet, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "cutflow.jet1_phi", Route("phi[:,0]").apply(selected_jet, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "cutflow.jet2_pt", Route("pt[:,1]").apply(selected_jet, EMPTY_FLOAT))
+    events = set_ak_column_i32(events, "cutflow.n_jet_selected", ak.num(events_red.Jet, axis=1))
+    events = set_ak_column_f32(events, "cutflow.ht", ak.sum(events_red.Jet.pt, axis=1))
+    events = set_ak_column_f32(events, "cutflow.jet1_pt", Route("pt[:,0]").apply(events_red.Jet, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet1_eta", Route("eta[:,0]").apply(events_red.Jet, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet1_phi", Route("phi[:,0]").apply(events_red.Jet, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.jet2_pt", Route("pt[:,1]").apply(events_red.Jet, EMPTY_FLOAT))
     events = set_ak_column_i32(events, "cutflow.n_ele", ak.num(events.Electron, axis=1))
-    events = set_ak_column_i32(events, "cutflow.n_ele_selected", ak.num(selected_ele, axis=1))
+    events = set_ak_column_i32(events, "cutflow.n_ele_selected", ak.num(events_red.Electron, axis=1))
 
     return events
 
@@ -104,7 +105,7 @@ def cutflow_features(
     require_producers=["default"],
 )
 def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    events = attach_coffea_behavior(events, {"HHBJet": default_coffea_collections["Jet"]})
+    events = attach_coffea_behavior(events, {"HHBJet": "Jet"})
 
     # only keep ee and mumu events in the analysis region
     # (not need to check tau2 isolation in these channels)

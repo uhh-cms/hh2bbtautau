@@ -115,10 +115,8 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
             # full jec and jer
             events = self[self.jec_full_cls](events, **kwargs)
             events = self[self.deterministic_jer_jec_full_cls](events, **kwargs)
-            # TODO: remove if statement wenn tec corrections are made available
-            if self.config_inst.campaign.x.year != 2024:
-                # full tec
-                events = self[self.tec_full_cls](events, **kwargs)
+            # full tec
+            events = self[self.tec_full_cls](events, **kwargs)
             # full ess
             events = self[self.ess_full_cls](events, **kwargs)
             # full muon scale and resolution
@@ -126,13 +124,11 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         else:
             # nominal jec and jer
             events = self[self.jec_nominal_cls](events, **kwargs)
-            events = self[self.deterministic_jec_jec_nominal_cls](events, **kwargs)
-            # TODO: remove if statement wenn tec corrections are made available
-            if self.config_inst.campaign.x.year != 2024:
-                # nominal tec
-                events = self[self.tec_nominal_cls](events, **kwargs)
+            events = self[self.deterministic_jer_jec_nominal_cls](events, **kwargs)
+            # nominal tec
+            events = self[self.tec_nominal_cls](events, **kwargs)
             # nominal ess
-            events = self[self.ees_nominal_cls](events, **kwargs)
+            events = self[self.ess_nominal_cls](events, **kwargs)
             # nominal muon scale and resolution
             events = self[self.muon_sr_nominal_cls](events, **kwargs)
     # TODO: remove if statement when met phi corrections are made available
@@ -178,21 +174,21 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "deterministic_seed_index": 0,
             "met_name": met_name,
         })
-        add_calib_cls("deterministic_jec_jec_nominal", jer, cls_dict={
+        add_calib_cls("deterministic_jer_jec_nominal", jer, cls_dict={
             "deterministic_seed_index": 0,
             "met_name": met_name,
             "jec_uncertainty_sources": [],
         })
-        # TODO: 2024: remove if statement wenn tec corrections are made available
-        if self.config_inst.campaign.x.year != 2024:
-            # derive tec calibrators
-            add_calib_cls("tec_full", tec, cls_dict={
-                "propagate_met": False,  # not needed after JET-to-MET propagation
-            })
-            add_calib_cls("tec_nominal", tec, cls_dict={
-                "propagate_met": False,  # not needed after JET-to-MET propagation
-                "with_uncertainties": False,
-            })
+        # derive tec calibrators
+        add_calib_cls("tec_full", tec, cls_dict={
+            "met_name": met_name,
+            "propagate_met": False,  # not needed after JET-to-MET propagation
+        })
+        add_calib_cls("tec_nominal", tec, cls_dict={
+            "met_name": met_name,
+            "propagate_met": False,  # not needed after JET-to-MET propagation
+            "with_uncertainties": False,
+        })
         # derive electron scale and resolution calibrators
         add_calib_cls("ess_full", electron_scale_smear, cls_dict={
             "deterministic_seed_index": 0,
@@ -202,11 +198,14 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "with_uncertainties": False,
         })
         # derive muon scale and resolution calibrators
-        add_calib_cls("muon_sr_full", muon_sr)
+        add_calib_cls("muon_sr_full", muon_sr, cls_dict={
+            "store_original": True,
+        })
         add_calib_cls("muon_sr_nominal", muon_sr, cls_dict={
+            "store_original": True,
             "with_uncertainties": False,
         })
-        # TODO: 2024: remove if statement wenn met phi corrections are made available
+        # TODO: 2024: remove if statement when met phi corrections are made available
         if self.config_inst.campaign.x.year != 2024:
             # derive met_phi calibrator
             add_calib_cls("met_phi", met_phi_run2 if self.config_inst.campaign.x.run == 2 else met_phi)
@@ -218,27 +217,25 @@ def default_init(self: Calibrator, **kwargs) -> None:
     self.jec_full_cls = self.config_inst.x.calib_jec_full_cls
     self.jec_nominal_cls = self.config_inst.x.calib_jec_nominal_cls
     self.deterministic_jer_jec_full_cls = self.config_inst.x.calib_deterministic_jer_jec_full_cls
-    self.deterministic_jec_jec_nominal_cls = self.config_inst.x.calib_deterministic_jec_jec_nominal_cls
-    # TODO: 2024: remove if statement wenn tec corrections are made available
-    if self.config_inst.campaign.x.year != 2024:
-        self.tec_full_cls = self.config_inst.x.calib_tec_full_cls
-        self.tec_nominal_cls = self.config_inst.x.calib_tec_nominal_cls
+    self.deterministic_jer_jec_nominal_cls = self.config_inst.x.calib_deterministic_jer_jec_nominal_cls
+    self.tec_full_cls = self.config_inst.x.calib_tec_full_cls
+    self.tec_nominal_cls = self.config_inst.x.calib_tec_nominal_cls
     self.ess_full_cls = self.config_inst.x.calib_ess_full_cls
     self.ess_nominal_cls = self.config_inst.x.calib_ess_nominal_cls
     self.muon_sr_full_cls = self.config_inst.x.calib_muon_sr_full_cls
     self.muon_sr_nominal_cls = self.config_inst.x.calib_muon_sr_nominal_cls
-    # TODO: 2024: remove if statement wenn met phi corrections are made available
+    # TODO: 2024: remove if statement when met phi corrections are made available
     if self.config_inst.campaign.x.year != 2024:
         self.met_phi_cls = self.config_inst.x.calib_met_phi_cls
 
-    # TODO: 2024: remove if else statement wenn tec corrections are made available
+    # TODO: 2024: remove if else statement when met phi corrections are made available
     if self.config_inst.campaign.x.year != 2024:
         # collect derived calibrators and add them to the calibrator uses and produces
         derived_calibrators = {
             self.jec_full_cls,
             self.jec_nominal_cls,
             self.deterministic_jer_jec_full_cls,
-            self.deterministic_jec_jec_nominal_cls,
+            self.deterministic_jer_jec_nominal_cls,
             self.tec_full_cls,
             self.tec_nominal_cls,
             IF_RUN_3(self.ess_full_cls),
@@ -252,7 +249,9 @@ def default_init(self: Calibrator, **kwargs) -> None:
             self.jec_full_cls,
             self.jec_nominal_cls,
             self.deterministic_jer_jec_full_cls,
-            self.deterministic_jec_jec_nominal_cls,
+            self.deterministic_jer_jec_nominal_cls,
+            self.tec_full_cls,
+            self.tec_nominal_cls,
             IF_RUN_3(self.ess_full_cls),
             IF_RUN_3(self.ess_nominal_cls),
             IF_RUN_3(self.muon_sr_full_cls),
