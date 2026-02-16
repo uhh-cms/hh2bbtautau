@@ -22,6 +22,7 @@ from columnflow.types import Any, Literal
 from hbt.util import MET_COLUMN
 
 np = maybe_import("numpy")
+scipy = maybe_import("scipy")
 ak = maybe_import("awkward")
 
 
@@ -377,21 +378,11 @@ class _external_dnn(Producer):
             np.concatenate(continuous_inputs, axis=1),
         )
 
-        # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
-        # so issue a warning and set them to a default value
-        nan_mask = ~np.isfinite(scores)
-        if np.any(nan_mask):
-            logger.warning(
-                f"{nan_mask.sum() // scores.shape[1]} out of {scores.shape[0]} events have NaN scores; "
-                f"setting them to {self.empty_value}",
-            )
-            scores[nan_mask] = self.empty_value
+        # sanitize scores (probably replacing nans)
+        scores = self.sanitize_scores(scores)
 
-        # prepare output columns with the shape of the original events and assign values into them
-        for i, column in enumerate(self.output_columns):
-            values = self.empty_value * np.ones(len(events), dtype=np.float32)
-            values[event_mask] = scores[:, i]
-            events = set_ak_column_f32(events, column, values)
+        # store scores in events
+        events = self.store_scores(events, scores, event_mask)
 
         if self.produce_features:
             # store input columns for sync
@@ -419,6 +410,28 @@ class _external_dnn(Producer):
 
         return events
 
+    def sanitize_scores(self, scores: Any) -> Any:
+        # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
+        # so issue a warning and set them to a default value
+        nan_mask = ~np.isfinite(scores)
+        if np.any(nan_mask):
+            logger.warning(
+                f"{nan_mask.sum() // scores.shape[1]} out of {scores.shape[0]} events have NaN scores; "
+                f"setting them to {self.empty_value}",
+            )
+            scores[nan_mask] = self.empty_value
+
+        return scores
+
+    def store_scores(self, events: ak.Array, scores: Any, event_mask: ak.Array) -> ak.Array:
+        # prepare output columns with the shape of the original events and assign values into them
+        for i, column in enumerate(self.output_columns):
+            values = self.empty_value * np.ones(len(events), dtype=np.float32)
+            values[event_mask] = scores[:, i]
+            events = set_ak_column_f32(events, column, values)
+
+        return events
+
     def update_event_mask(self, events: ak.Array, event_mask: ak.Array) -> ak.Array:
         return event_mask
 
@@ -428,4 +441,55 @@ class torch_test_dnn(_external_dnn):
 
 
 class torch_simple_kl01(_external_dnn):
+    exposed = True
+
+
+#
+# end-to-end model tests
+#
+
+class _e2e_dnn(_external_dnn):
+
+    latent_dim = 50
+
+    def init_func(self, **kwargs) -> None:
+        super(_e2e_dnn, self).init_func(**kwargs)
+
+        # store names of output columns for latent scores
+        self.latent_output_columns = [
+            f"{self.output_prefix}_bin{i}"
+            for i in range(self.latent_dim)
+        ]
+        self.produces |= set(self.latent_output_columns)
+
+    def sanitize_scores(self, scores: Any) -> Any:
+        # scores is a tuple of two arrays of scores that have no softmax applied yet, so apply it first, then perform
+        # the usual checks
+        return type(scores)(
+            super(_e2e_dnn, self).sanitize_scores(scipy.special.softmax(_scores, axis=1))
+            for _scores in scores
+        )
+
+    def store_scores(self, events: ak.Array, scores: Any, event_mask: ak.Array) -> ak.Array:
+        process_scores, latent_scores = scores
+
+        # check the latent dimension
+        if latent_scores.shape[1] != self.latent_dim:
+            raise ValueError(
+                f"expected latent scores to have dimension {self.latent_dim}, but got {latent_scores.shape[1]}",
+            )
+
+        # store the multi-class scores as usual
+        events = super(_e2e_dnn, self).store_scores(events, process_scores, event_mask)
+
+        # store latent scores
+        for i, column in enumerate(self.latent_output_columns):
+            values = self.empty_value * np.ones(len(events), dtype=np.float32)
+            values[event_mask] = latent_scores[:, i]
+            events = set_ak_column_f32(events, column, values)
+
+        return events
+
+
+class e2e_model1(_e2e_dnn):
     exposed = True

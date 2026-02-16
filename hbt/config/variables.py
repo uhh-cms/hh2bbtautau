@@ -814,3 +814,21 @@ def add_variables(config: od.Config) -> None:
             x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
         )
+
+    # end-to-end DNN outputs
+    add_variable(
+        name="e2e_model1_hh_fine",
+        expression="e2e_model1_hh",
+        binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+        x_title=rf"E2E DNN {proc.upper()} output",
+        aux={"x_transformations": "equal_distance_with_indices"},
+    )
+
+    # to be use with --hist-producer e2e
+    add_variable(
+        name="e2e_model1_bins",
+        expression=(lambda events: [events[f"e2e_model1_bin{i}"] for i in range(50)]),
+        binning=(50, -0.5, 49.5),
+        x_title="E2E latent space bins",
+        aux={"inputs": ["e2e_model1_bin*"]},
+    )

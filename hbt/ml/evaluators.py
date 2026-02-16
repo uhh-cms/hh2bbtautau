@@ -235,6 +235,19 @@ class TFModel(BaseModel):
         print("done")
         return tf
 
+    @classmethod
+    def cast_to_numpy(cls, obj: Any) -> Any:
+        tf = cls.imports()
+
+        if isinstance(obj, (list, tuple)):
+            return type(obj)(cls.cast_to_numpy(o) for o in obj)
+        if isinstance(obj, dict):
+            return type(obj)((k, cls.cast_to_numpy(v)) for k, v in obj.items())
+        if isinstance(obj, tf.Tensor):
+            return obj.numpy()
+
+        return obj
+
     def load(self) -> None:
         tf = self.imports()
 
@@ -247,7 +260,8 @@ class TFModel(BaseModel):
         print("done")
 
     def evaluate(self, *args, **kwargs) -> Any:
-        return self.model(*args, **kwargs).numpy()
+        out = self.model(*args, **kwargs)
+        return self.cast_to_numpy(out)
 
 
 class TFEvaluator(BaseEvaluator):
@@ -301,6 +315,19 @@ class TorchModel(BaseModel):
 
         return obj
 
+    @classmethod
+    def cast_to_numpy(cls, obj: Any) -> Any:
+        torch, _ = cls.imports()
+
+        if isinstance(obj, (list, tuple)):
+            return type(obj)(cls.cast_to_numpy(o) for o in obj)
+        if isinstance(obj, dict):
+            return type(obj)((k, cls.cast_to_numpy(v)) for k, v in obj.items())
+        if isinstance(obj, torch.Tensor):
+            return obj.numpy()
+
+        return obj
+
     def load(self) -> None:
         torch, _ = self.imports()
 
@@ -317,7 +344,8 @@ class TorchModel(BaseModel):
         with torch.no_grad():
             args = self.cast_from_numpy(args)
             kwargs = self.cast_from_numpy(kwargs)
-            return self.model(*args, **kwargs).numpy()
+            out = self.model(*args, **kwargs)
+            return self.cast_to_numpy(out)
 
 
 class TorchEvaluator(BaseEvaluator):

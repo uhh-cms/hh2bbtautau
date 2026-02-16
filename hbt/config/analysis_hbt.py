@@ -70,6 +70,10 @@ add_qcd_hooks(analysis_hbt)
 from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
 add_binning_hooks(analysis_hbt)
 
+# end-to-end DNN tools
+from hbt.hist_hooks.e2e import add_hooks as add_e2e_hooks
+add_e2e_hooks(analysis_hbt)
+
 
 #
 # define configs

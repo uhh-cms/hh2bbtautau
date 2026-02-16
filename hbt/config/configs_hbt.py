@@ -1876,6 +1876,8 @@ def add_config(
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
     add_external("torch_simple_kl01", (f"{central_hbt_dir}/run3_models/run3_torch_simple_kl01/comparison_dnn.pt2", "v3"))  # noqa: E501
+    # e2e model test
+    add_external("e2e_model1", (f"{central_hbt_dir}/run3_models/e2e_test/e2e_model1.pt2", "v1"))
 
     # run specific files
     if run == 2:
