@@ -76,6 +76,8 @@ Current status:
 701 -> HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60
 702 -> HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet75
 703 -> HLT_DoublePNetTauhPFJet26_L2NN_eta2p3_PFJet60
+
+801 -> HLT_PFHT250_QuadPFJet25_PNet1BTag0p20_PNet1Tauh0p50
 """
 
 from __future__ import annotations
@@ -2052,6 +2054,69 @@ def add_triggers_2024(config: od.Config) -> None:
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
         tags={"cross_trigger", "cross_tau_tau_jet"},
     )
+
+    config.x.triggers.add(
+        name="HLT_PFHT250_QuadPFJet25_PNet1BTag0p20_PNet1Tauh0p50",
+        id=801,
+        legs=dict(
+            # matched to a tau
+            jet1=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltPFCentralJetNoIDPt25PNet1TauHTag0p50
+                trigger_bits=get_bit_sum_v("jet", [
+                    # TODO: already an input from trigger path so shouldn't be required, to check again
+                    # https://cmshltcfg.app.cern.ch/cfg?path=/cdaq/physics/Run2024/2e34/v1.4.11/HLT/V1&db=online&tab=paths&type=mods&snippet=hltPFCentralJetPt25  # noqa: E501
+                    # "4PFCentralJetPt25",
+                    "PFCentralJetNoIDPt25PNet1TauHTag0p50",
+                ]),
+            ),
+            # matched to a bjet
+            jet2=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltPFCentralJetNoIDPt25PNet1BTag0p20
+                trigger_bits=get_bit_sum_v("jet", [
+                    # TODO: already an input from trigger path so shouldn't be required, to check again
+                    # "4PFCentralJetPt25",
+                    "PFCentralJetNoIDPt25PNet1BTag0p20",
+                ]),
+            ),
+            # no specific additional requirement to being a central pfjet with pt > 25 GeV
+            jet3=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hlt4PFCentralJetPt25
+                trigger_bits=get_bit_sum_v("jet", [
+                    "4PFCentralJetPt25",
+                ]),
+            ),
+            jet4=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hlt4PFCentralJetPt25
+                trigger_bits=get_bit_sum_v("jet", [
+                    "4PFCentralJetPt25",
+                ]),
+            ),
+        ),
+        aux={
+            "offline_cuts": {
+                "pt_jet_1": 25.0,
+                "pt_jet_2": 25.0,
+                "pt_jet_3": 25.0,
+                "pt_jet_4": 25.0,
+                # "ht": 250,  # not necessary according to CCLUB, TODO: check
+            },
+        },
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_hh")),
+        tags={"cross_trigger", "cross_quadjet"},
+    )
+
     #
     # vbf
     #
