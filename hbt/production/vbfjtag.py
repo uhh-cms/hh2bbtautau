@@ -181,7 +181,15 @@ def vbfjtag(
     flat_scores[flat_np_view(vbfjet_mask_sorted & event_mask, axis=1)] = flat_np_view(scores)
 
     # bring the scores and the fatjet cleaned mask back to the original order
-    flat_scores = flat_scores[flat_np_view(jet_unsorting_indices)]
+    # for that: create first the flattened version of the jet_unsorting_indices and increment the
+    # indices by the number of jets in the previous events to get the correct indices in the
+    # flattened array
+    flattened_jet_unsorting_indices = np.copy(flat_np_view(jet_unsorting_indices))  # we don't want a view here!
+    n_jets_per_event = ak.num(events.Jet.pt, axis=1)
+    cumulative_n_jets = np.cumsum(ak.to_numpy(n_jets_per_event)) - ak.to_numpy(n_jets_per_event)
+    flattened_jet_unsorting_indices += np.repeat(cumulative_n_jets, ak.to_numpy(n_jets_per_event))
+
+    flat_scores = flat_scores[flattened_jet_unsorting_indices]
     full_cross_cleaned_fatjet_mask = full_cross_cleaned_fatjet_mask[jet_unsorting_indices]
 
     # remove scores where the cross cleaning reveals "wrong" vbf jet (either a fatjet or a hhbjet)

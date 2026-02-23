@@ -589,6 +589,58 @@ def lepton_selection(
     ch_mumu = self.config_inst.get_channel("mumu")
     ch_emu = self.config_inst.get_channel("emu")
 
+    # store which events pass the base selection for which trigger
+    # TODO: later on, remove all events that do pass the base selections but not the full selection
+    # for some triggers and categories to include trigger priority in the selection
+    # e.g. an event passing the single e base selection should not be selected if it does not pass the
+    # full single e selection and the full cross e tau selection, even if it would pass the
+    # cross_e_vbf selection, as the vbf selections have lower priority than the other selections
+
+    # order of trigger priority (from highest to lowest):
+    # - single e/mu, cross e/mu tau, cross tau tau, cross tau tau jet,
+    # - cross quadjet (only tautau channel)
+    # - cross tau tau vbf (only tautau channel)
+    # - cross vbf, cross vbf triple jet(???) # TODO: check what is the deal with that one, never heard of it, seems to be used for 2023??? https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/data/HHtriggers_Run3.yaml?ref_type=heads#L192 -> would be extremely annoying for the trigger sfs calculation
+    # - cross e/mu/tau vbf
+    # as the full lepton triggers are all in the first priority group, the orthogonalization
+    # is done in the jet selection
+
+    passed_base_selection = {
+        "single_e": ak.full_like(events.event, False, dtype=bool),
+        "cross_e_tau": ak.full_like(events.event, False, dtype=bool),
+        "single_mu": ak.full_like(events.event, False, dtype=bool),
+        "cross_mu_tau": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau": ak.full_like(events.event, False, dtype=bool),
+    }
+    partially_passed_base_selection = {
+        "cross_e_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_mu_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau_jet": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_quadjet": ak.full_like(events.event, False, dtype=bool),
+    }
+
+    # TODO: decide whether this dictionary is needed or not, can be circumvented by not storing
+    # the events as being trigger matchedin the jet selection, this avoids the need for changes
+    # in the trigger sfs, maybe additional checks necessary to ensure that the trigger matching
+    # happens only on non orthonalized triggers
+    passed_full_selection = {
+        "single_e": ak.full_like(events.event, False, dtype=bool),
+        "cross_e_tau": ak.full_like(events.event, False, dtype=bool),
+        "single_mu": ak.full_like(events.event, False, dtype=bool),
+        "cross_mu_tau": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau": ak.full_like(events.event, False, dtype=bool),
+        "cross_e_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_mu_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau_jet": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_quadjet": ak.full_like(events.event, False, dtype=bool),
+    }
+
     # prepare vectors for output vectors
     false_mask = (abs(events.event) < 0)
     channel_id = np.uint8(1) * false_mask
@@ -610,6 +662,34 @@ def lepton_selection(
     f = 10**(np.ceil(np.log10(ak.max(events.Tau.pt) or 0.0)) + 2)
     tau_sorting_key = events.Tau[f"raw{self.config_inst.x.tau_tagger}VSjet"] * f + events.Tau.pt
     tau_sorting_indices = ak.argsort(tau_sorting_key, axis=-1, ascending=False)
+
+    def update_passed_selection_dict(
+        selection_dict: dict[str, ak.Array],
+        tau_trigger_mask: ak.Array,
+        ch_base_tau_mask: ak.Array,
+        relevant_triggers: set[str],
+        channel_type: str,
+        additional_object_mask: ak.Array | None = None,
+    ) -> dict[str, ak.Array]:
+
+        # store whether the base offline selections cuts are passed for the different triggers
+        # Warning: whether the trigger has fired or not is not relevant!
+        for trig in relevant_triggers:
+            if trigger.has_tag(trig):
+                if channel_type == "etau" or channel_type == "mutau":
+                    # order the tau trigger mask according to the isolation of the base selected taus
+                    ordered_trig_tau_selected = tau_trigger_mask[tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]]]  # noqa: E501
+                    selection_dict[trig] = selection_dict[trig] | ak.fill_none((
+                        (ak.sum(additional_object_mask, axis=1) == 1) & (ak.firsts(ordered_trig_tau_selected, axis=1))
+                    ), False)
+                if channel_type == "tautau":
+                    # define the mask containing the 2 most isolated taus among the base selected ones
+                    most_isolated_tau_mask = tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]][:, :2]
+                    most_isolated_tau_mask = mask_from_indices(most_isolated_tau_mask, events.Tau.pt)
+                    selection_dict[trig] = selection_dict[trig] | ak.fill_none((
+                        ak.sum(most_isolated_tau_mask & tau_trigger_specific_mask, axis=1) == 2
+                    ), False)
+        return selection_dict
 
     # perform each lepton election step separately per trigger, avoid caching
     sel_kwargs = {**kwargs, "call_force": True}
@@ -651,6 +731,27 @@ def lepton_selection(
                 tau_base_mask &
                 (events.Tau[get_tau_tagger("e")] >= self.config_inst.x.deeptau_ids.vs_e[self.config_inst.x.deeptau_wps.vs_e]) &  # noqa: E501
                 (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.etau])  # noqa: E501
+            )
+
+            # store whether the base offline selections cuts are passed for the different triggers
+            # Warning: whether the trigger has fired or not is not relevant!
+            relevant_full_triggers = {"single_e", "cross_e_tau"}
+            passed_base_selection = update_passed_selection_dict(
+                passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_full_triggers,
+                channel_type="etau",
+                additional_object_mask=electron_mask,
+            )
+            relevant_part_triggers = {"cross_e_vbf", "cross_vbf"}
+            partially_passed_base_selection = update_passed_selection_dict(
+                partially_passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_part_triggers,
+                channel_type="etau",
+                additional_object_mask=electron_mask,
             )
 
             # fold trigger matching into the selection if needed
@@ -733,6 +834,27 @@ def lepton_selection(
                 (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.mutau])  # noqa: E501
             )
 
+            # store whether the base offline selections cuts are passed for the different triggers
+            # Warning: whether the trigger has fired or not is not relevant!
+            relevant_full_triggers = {"single_mu", "cross_mu_tau"}
+            passed_base_selection = update_passed_selection_dict(
+                passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_full_triggers,
+                channel_type="mutau",
+                additional_object_mask=muon_mask,
+            )
+            relevant_part_triggers = {"cross_mu_vbf"}
+            partially_passed_base_selection = update_passed_selection_dict(
+                partially_passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_part_triggers,
+                channel_type="mutau",
+                additional_object_mask=muon_mask,
+            )
+
             # fold trigger matching into the selection
             trig_muon_mask = (
                 muon_mask &
@@ -812,6 +934,25 @@ def lepton_selection(
                 tau_base_mask &
                 (events.Tau[get_tau_tagger("e")] >= self.config_inst.x.deeptau_ids.vs_e[self.config_inst.x.deeptau_wps.vs_e]) &  # noqa: E501
                 (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.tautau])  # noqa: E501
+            )
+
+            # store whether the base offline selections cuts are passed for the different triggers
+            # Warning: whether the trigger has fired or not is not relevant!
+            relevant_full_triggers = {"cross_tau_tau"}
+            passed_base_selection = update_passed_selection_dict(
+                passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_full_triggers,
+                channel_type="tautau",
+            )
+            relevant_part_triggers = {"cross_tau_tau_jet", "cross_tau_tau_vbf", "cross_tau_vbf", "cross_vbf"}
+            partially_passed_base_selection = update_passed_selection_dict(
+                partially_passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_part_triggers,
+                channel_type="tautau",
             )
 
             # fold trigger matching into the selection if needed
@@ -1185,6 +1326,11 @@ def lepton_selection(
                 ],
                 axis=1,
             )[:, :2],
+
+            # save the full and partial offline selection decisions for the different triggers
+            # for the duration of the selection
+            "passed_base_selection": passed_base_selection,
+            "partially_passed_base_selection": partially_passed_base_selection,
         },
     )
 
