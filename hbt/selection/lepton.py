@@ -679,17 +679,16 @@ def lepton_selection(
                 if channel_type == "etau" or channel_type == "mutau":
                     # order the tau trigger mask according to the isolation of the base selected taus
                     ordered_trig_tau_selected = tau_trigger_mask[tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]]]  # noqa: E501
-                    from IPython import embed; embed(header="check tau selection in single e trigger")
-                    selection_dict[trig] = selection_dict[trig] | (
+                    selection_dict[trig] = selection_dict[trig] | ak.fill_none((
                         (ak.sum(additional_object_mask, axis=1) == 1) & (ak.firsts(ordered_trig_tau_selected, axis=1))
-                    )
+                    ), False)
                 if channel_type == "tautau":
                     # define the mask containing the 2 most isolated taus among the base selected ones
                     most_isolated_tau_mask = tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]][:, :2]
                     most_isolated_tau_mask = mask_from_indices(most_isolated_tau_mask, events.Tau.pt)
-                    selection_dict[trig] = selection_dict[trig] | (
+                    selection_dict[trig] = selection_dict[trig] | ak.fill_none((
                         ak.sum(most_isolated_tau_mask & tau_trigger_specific_mask, axis=1) == 2
-                    )
+                    ), False)
         return selection_dict
 
     # perform each lepton election step separately per trigger, avoid caching
