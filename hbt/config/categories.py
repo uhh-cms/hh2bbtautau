@@ -83,7 +83,7 @@ def add_categories(config: od.Config) -> None:
     def kwargs_fn(categories: dict[str, od.Category], add_qcd_group: bool = True) -> dict[str, Any]:
         # build auxiliary information
         aux = {}
-        if add_qcd_group:
+        if add_qcd_group and not ({"sign", "tau2"} - set(categories.keys())):
             aux["qcd_group"] = name_fn({
                 name: cat for name, cat in categories.items()
                 if name not in {"sign", "tau2"}
@@ -120,7 +120,7 @@ def add_categories(config: od.Config) -> None:
         config=config,
         categories=main_categories,
         name_fn=name_fn,
-        parent_mode="safe",
+        parent_mode="all",
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=True),
         skip_existing=False,
     )
@@ -161,6 +161,7 @@ def add_categories(config: od.Config) -> None:
     )
 
     # additional combined categories
+    """
     _add_category(
         name="incl__os__iso",
         id="+",
@@ -171,5 +172,5 @@ def add_categories(config: od.Config) -> None:
             config.get_category("tautau__incl__os__iso"),
         ],
     )
-
+    """
     track_category_changes(config)
