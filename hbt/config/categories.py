@@ -84,7 +84,7 @@ def add_categories(config: od.Config) -> None:
     def kwargs_fn(categories: dict[str, od.Category], add_qcd_group: bool = True) -> dict[str, Any]:
         # build auxiliary information
         aux = {}
-        if add_qcd_group:
+        if add_qcd_group and not ({"sign", "tau2"} - set(categories.keys())):
             aux["qcd_group"] = name_fn({
                 name: cat for name, cat in categories.items()
                 if name not in {"sign", "tau2"}
