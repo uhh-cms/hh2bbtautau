@@ -1884,7 +1884,9 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.has_tag("etau") or
             dataset_inst.has_tag("ee") or
             dataset_inst.has_tag("emu_from_e") or
-            dataset_inst.has_tag("emu_from_mu")
+            dataset_inst.has_tag("emu_from_mu") or
+            dataset_inst.has_tag("parking_vbf") or
+            dataset_inst.has_tag("parking_hh")
         )),
         tags={"single_trigger", "single_e"},
     )
@@ -1911,7 +1913,9 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.has_tag("mutau") or
             dataset_inst.has_tag("emu_from_e") or
             dataset_inst.has_tag("emu_from_mu") or
-            dataset_inst.has_tag("mumu")
+            dataset_inst.has_tag("mumu") or
+            dataset_inst.has_tag("parking_vbf") or
+            dataset_inst.has_tag("parking_hh")
         )),
         tags={"single_trigger", "single_mu"},
     )
@@ -1946,7 +1950,12 @@ def add_triggers_2024(config: od.Config) -> None:
                 ]),
             ),
         ),
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("etau")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("etau") or
+            dataset_inst.has_tag("parking_vbf") or
+            dataset_inst.has_tag("parking_hh")
+        )),
         tags={"cross_trigger", "cross_e_tau"},
     )
     #
@@ -1980,7 +1989,12 @@ def add_triggers_2024(config: od.Config) -> None:
                 ]),
             ),
         ),
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("mutau")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("mutau") or
+            dataset_inst.has_tag("parking_vbf") or
+            dataset_inst.has_tag("parking_hh")
+        )),
         tags={"cross_trigger", "cross_mu_tau"},
     )
     #
@@ -2013,7 +2027,12 @@ def add_triggers_2024(config: od.Config) -> None:
                 ]),
             ),
         ),
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("tautau") or
+            dataset_inst.has_tag("parking_vbf") or
+            dataset_inst.has_tag("parking_hh")
+        )),
         tags={"cross_trigger", "cross_tau_tau"},
     )
     #
@@ -2051,40 +2070,50 @@ def add_triggers_2024(config: od.Config) -> None:
                 ]),
             ),
         ),
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("tautau") or
+            dataset_inst.has_tag("parking_vbf") or
+            dataset_inst.has_tag("parking_hh")
+        )),
         tags={"cross_trigger", "cross_tau_tau_jet"},
     )
 
+    #
+    # quadjet
+    #
     config.x.triggers.add(
         name="HLT_PFHT250_QuadPFJet25_PNet1BTag0p20_PNet1Tauh0p50",
         id=801,
         legs=dict(
             # matched to a tau
-            jet1=TriggerLeg(
+            jet_tau=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
                 # hltPFCentralJetNoIDPt25PNet1TauHTag0p50
                 trigger_bits=get_bit_sum_v("jet", [
-                    # TODO: already an input from trigger path so shouldn't be required, to check again
-                    # https://cmshltcfg.app.cern.ch/cfg?path=/cdaq/physics/Run2024/2e34/v1.4.11/HLT/V1&db=online&tab=paths&type=mods&snippet=hltPFCentralJetPt25  # noqa: E501
+                    # already an input from trigger path so shouldn't be required, for now not included
                     # "4PFCentralJetPt25",
                     "PFCentralJetNoIDPt25PNet1TauHTag0p50",
                 ]),
             ),
             # matched to a bjet
-            jet2=TriggerLeg(
+            jet_bjet=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
                 # hltPFCentralJetNoIDPt25PNet1BTag0p20
                 trigger_bits=get_bit_sum_v("jet", [
-                    # TODO: already an input from trigger path so shouldn't be required, to check again
+                    # already an input from trigger path so shouldn't be required, for now not included
                     # "4PFCentralJetPt25",
                     "PFCentralJetNoIDPt25PNet1BTag0p20",
                 ]),
             ),
             # no specific additional requirement to being a central pfjet with pt > 25 GeV
+            # jet3 is used for taus, jet4 for the bjets, for now this is just semantics as both
+            # have the same trigger bits and offline cuts, but could be used to separate
+            # in the future if needed
             jet3=TriggerLeg(
                 pdg_id=1,
                 # min_pt=None,  # cut on reco objects, not TrigObj
@@ -2106,14 +2135,18 @@ def add_triggers_2024(config: od.Config) -> None:
         ),
         aux={
             "offline_cuts": {
-                "pt_jet_1": 25.0,
-                "pt_jet_2": 25.0,
+                "pt_jet_tau": 25.0,
+                "pt_jet_bjet": 25.0,
                 "pt_jet_3": 25.0,
                 "pt_jet_4": 25.0,
-                # "ht": 250,  # not necessary according to CCLUB, TODO: check
+                "ht": 400.0,
             },
         },
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_hh")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_hh") or
+            dataset_inst.has_tag("parking_vbf")
+        )),
         tags={"cross_trigger", "cross_quadjet"},
     )
 
@@ -2174,7 +2207,10 @@ def add_triggers_2024(config: od.Config) -> None:
                 "delta_eta_jj": None,
             },
         },
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
         tags={"cross_trigger", "cross_tau_tau_vbf"},
     )
 
@@ -2209,7 +2245,10 @@ def add_triggers_2024(config: od.Config) -> None:
                 "delta_eta_jj": None,
             },
         },
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
         tags={"cross_trigger", "cross_vbf"},
     )
 
@@ -2253,7 +2292,10 @@ def add_triggers_2024(config: od.Config) -> None:
                 "delta_eta_jj": None,
             },
         },
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
         tags={"cross_trigger", "cross_mu_vbf"},
     )
 
@@ -2297,9 +2339,10 @@ def add_triggers_2024(config: od.Config) -> None:
                 "delta_eta_jj": None,
             },
         },
-        applies_to_dataset=(
-            (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")))
-        ),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
         tags={"cross_trigger", "cross_e_vbf"},
     )
 
@@ -2348,7 +2391,10 @@ def add_triggers_2024(config: od.Config) -> None:
                 "delta_eta_jj": None,
             },
         },
-        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
         tags={"cross_trigger", "cross_tau_vbf"},
     )
 

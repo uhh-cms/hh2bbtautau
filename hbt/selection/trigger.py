@@ -66,8 +66,11 @@ def trigger_selection(
             # trigger bits match
             if leg.trigger_bits is not None:
                 # OR across bits themselves, AND between all decision in the list
+                # if key=="jet_tau":  # DEBUG
+                #     from IPython import embed; embed()  # DEBUG
                 for bits in leg.trigger_bits:
-                    leg_mask = leg_mask & ((events.TrigObj.filterBits & bits) > 0)
+                    # leg_mask = leg_mask & ((events.TrigObj.filterBits & bits) > 0)
+                    leg_mask = leg_mask & ((events.TrigObj.filterBits & bits) == bits)
             leg_masks[key] = index[leg_mask]
 
             # at least one object must match this leg

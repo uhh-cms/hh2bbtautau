@@ -379,6 +379,7 @@ def tau_selection(
     is_cross_tau_vbf = trigger.has_tag("cross_tau_tau_vbf")
     is_cross_tau_jet = trigger.has_tag("cross_tau_tau_jet")
     is_cross_vbf = trigger.has_tag("cross_tau_vbf")
+    is_quadjet = trigger.has_tag("cross_quadjet")
     is_vbf = trigger.has_tag({"cross_vbf", "cross_mu_vbf", "cross_e_vbf"})
     is_2016 = self.config_inst.campaign.x.year == 2016
     is_run3 = self.config_inst.campaign.x.run == 3
@@ -389,6 +390,8 @@ def tau_selection(
         raise ValueError("Invalid trigger configuration, no vbf trigger should be available before 2023")
     if is_cross_tau_jet and not is_run3:
         raise ValueError("Invalid trigger configuration, no tau-jet trigger should be available before run 3")
+    if is_quadjet and not (is_2024):
+        raise ValueError("Invalid trigger configuration, no quadjet trigger should be available before 2024")
 
     # determine minimum pt and maximum eta
     max_eta = 2.5
@@ -409,6 +412,8 @@ def tau_selection(
         min_pt = 50.0
     elif is_cross_tau_jet:
         min_pt = 31.0 if is_2024 else 35.0
+    elif is_quadjet:
+        min_pt = 25.0
 
     # base tau mask for default and qcd sideband tau
     base_mask = (
@@ -558,9 +563,112 @@ def tau_trigger_matching(
 
 
 @selector(
+    uses={"{Tau,TrigObj}.{pt,eta,phi}"},
+    # shifts are declared dynamically below in tau_selection_init
+    exposed=False,
+)
+def quadjet_tau_trigger_matching(
+    self: Selector,
+    events: ak.Array,
+    trigger: Trigger,
+    trigger_fired: ak.Array,
+    leg_masks: dict[str, ak.Array],
+    tau_object_mask: ak.Array,
+    **kwargs,
+) -> tuple[ak.Array]:
+    """
+    Quadjet tau trigger matching, also returns index of matched trigger objects.
+    """
+    if ak.all(ak.num(events.Tau) == 0):
+        logger.info("no taus found in event chunk")
+        return full_like(events.Tau.pt, False, dtype=bool)
+
+    is_quadjet = trigger.has_tag("cross_quadjet")
+    assert is_quadjet
+    assert tau_object_mask is not None, "For quadjet triggers, tau_object_mask must be defined to match only the 2 candidate taus"  # noqa: E501
+
+    # catch config errors
+    assert trigger.n_legs == 4
+
+    # define the tau objects to be considered for matching
+    masked_taus = events.Tau[tau_object_mask]
+
+    # define the back mapping to the original tau collection
+    def map_to_full_tau_array(matched_mask: ak.Array) -> ak.Array:
+        if tau_object_mask is None:
+            return matched_mask
+        flat_full_mask = flat_np_view(full_like(events.Tau.pt, False, dtype=bool))
+        flat_full_mask[flat_np_view(tau_object_mask)] = flat_np_view(matched_mask)
+        return layout_ak_array(flat_full_mask, events.Tau)
+
+    # catch config errors
+    assert abs(trigger.legs["jet_tau"].pdg_id) == 1
+    assert abs(trigger.legs["jet3"].pdg_id) == 1
+    # jet 3 and 4 legs have same trigger bits, so unnecessary to check both,
+    # might change for different SF handling
+    # assert abs(trigger.legs["jet4"].pdg_id) == 1
+
+    # match both legs
+    matches_leg_jet_tau = trigger_object_matching(
+        masked_taus,
+        events.TrigObj[leg_masks["jet_tau"]],
+        event_mask=trigger_fired,
+    )
+    matches_leg_jet = trigger_object_matching(
+        masked_taus,
+        events.TrigObj[leg_masks["jet3"]],
+        event_mask=trigger_fired,
+    )
+
+    # taus need to be matched to at least one leg, but as a side condition
+    # each leg has to have at least one match to a tau
+    matches = (
+        (matches_leg_jet_tau | matches_leg_jet) &
+        ak.any(matches_leg_jet_tau, axis=1) &
+        ak.any(matches_leg_jet, axis=1)
+    )
+
+    # additional condition: there must be at least two matched trigger objects
+    # since the same trigger object could fulfill both legs trigger bits and
+    # thus both reconstructed taus could match to the same trigger object
+
+    # since the last two jet legs will have a similar issue and there can even be double matching
+    # of trigger objects between the tau legs and the jet legs, we store the trigger object indices
+    # for the tau legs and will check in the jet selection that the union of sets of matched trigger
+    # objects for the tau legs and the jet legs contain at least 4 distinct trigger objects
+
+    # this works because the jet3 and jet4 legs have the same trigger bits and their trigger objects
+    # are a superset of the ones matching the jet_tau and jet_btag legs. Else e.g. jet_tau could
+    # match 3 different jets and jet3 could match the same jet as jet_bjet and jet4 and we would still
+    # have 4 matches without having 1 independent trigger object per leg. So: to check if this is
+    # still accurate in further iterations.
+
+    mask_leg_jet_tau = mask_from_indices(leg_masks["jet_tau"], events.TrigObj.pt)
+    mask_leg_jet3 = mask_from_indices(leg_masks["jet3"], events.TrigObj.pt)
+
+    mask_all_legs = mask_leg_jet_tau | mask_leg_jet3
+    matched_trig_objs = trigger_object_matching(
+        events.TrigObj[mask_all_legs],
+        masked_taus,
+        event_mask=trigger_fired,
+    )
+
+    # already remove events that do not have at least 2 matched trigger objects
+    matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
+
+    matched_trig_objs = matched_trig_objs & (ak.sum(matched_trig_objs, axis=1) >= 2)
+    index_trig_objs = ak.local_index(events.TrigObj)[mask_all_legs][matched_trig_objs]
+
+    # bring the mask back to the full tau collection
+    matches = map_to_full_tau_array(matches)
+
+    return matches, index_trig_objs
+
+
+@selector(
     uses={
         electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching, tau_selection,
-        tau_trigger_matching,
+        tau_trigger_matching, quadjet_tau_trigger_matching,
         "event", "{Electron,Muon,Tau}.{charge,mass}",
     },
     produces={
@@ -590,7 +698,7 @@ def lepton_selection(
     ch_emu = self.config_inst.get_channel("emu")
 
     # store which events pass the base selection for which trigger
-    # TODO: later on, remove all events that do pass the base selections but not the full selection
+    # later on, remove all events that do pass the base selections but not the full selection
     # for some triggers and categories to include trigger priority in the selection
     # e.g. an event passing the single e base selection should not be selected if it does not pass the
     # full single e selection and the full cross e tau selection, even if it would pass the
@@ -600,7 +708,9 @@ def lepton_selection(
     # - single e/mu, cross e/mu tau, cross tau tau, cross tau tau jet,
     # - cross quadjet (only tautau channel)
     # - cross tau tau vbf (only tautau channel)
-    # - cross vbf, cross vbf triple jet(???) # TODO: check what is the deal with that one, never heard of it, seems to be used for 2023??? https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/data/HHtriggers_Run3.yaml?ref_type=heads#L192 -> would be extremely annoying for the trigger sfs calculation
+    # - cross vbf, cross vbf triple jet(???)
+    # # TODO: check what is the deal with vbf triple jet, never heard of it, seems to be used for 2023???
+    # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/data/HHtriggers_Run3.yaml?ref_type=heads#L192 -> would be extremely annoying for the trigger sfs calculation  # noqa: E501
     # - cross e/mu/tau vbf
     # as the full lepton triggers are all in the first priority group, the orthogonalization
     # is done in the jet selection
@@ -622,24 +732,7 @@ def lepton_selection(
         "cross_quadjet": ak.full_like(events.event, False, dtype=bool),
     }
 
-    # TODO: decide whether this dictionary is needed or not, can be circumvented by not storing
-    # the events as being trigger matchedin the jet selection, this avoids the need for changes
-    # in the trigger sfs, maybe additional checks necessary to ensure that the trigger matching
-    # happens only on non orthonalized triggers
-    passed_full_selection = {
-        "single_e": ak.full_like(events.event, False, dtype=bool),
-        "cross_e_tau": ak.full_like(events.event, False, dtype=bool),
-        "single_mu": ak.full_like(events.event, False, dtype=bool),
-        "cross_mu_tau": ak.full_like(events.event, False, dtype=bool),
-        "cross_tau_tau": ak.full_like(events.event, False, dtype=bool),
-        "cross_e_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_mu_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_tau_tau_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_tau_tau_jet": ak.full_like(events.event, False, dtype=bool),
-        "cross_tau_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_quadjet": ak.full_like(events.event, False, dtype=bool),
-    }
+    tau_trig_objects_matched_quadjet = {}
 
     # prepare vectors for output vectors
     false_mask = (abs(events.event) < 0)
@@ -926,8 +1019,9 @@ def lepton_selection(
                 "cross_tau_tau_vbf",
                 "cross_tau_tau_jet",
                 "cross_tau_vbf",
-                "cross_vbf"}) and
-            (self.dataset_inst.is_mc or self.dataset_inst.has_tag("tautau") or self.dataset_inst.has_tag("parking_vbf"))
+                "cross_vbf",
+                "cross_quadjet"}) and
+            (self.dataset_inst.is_mc or self.dataset_inst.has_tag("tautau") or self.dataset_inst.has_tag("parking_vbf") or self.dataset_inst.has_tag("parking_hh"))  # noqa: E501
         ):
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
@@ -946,7 +1040,10 @@ def lepton_selection(
                 relevant_full_triggers,
                 channel_type="tautau",
             )
-            relevant_part_triggers = {"cross_tau_tau_jet", "cross_tau_tau_vbf", "cross_tau_vbf", "cross_vbf"}
+            relevant_part_triggers = {
+                "cross_tau_tau_jet", "cross_tau_tau_vbf", "cross_tau_vbf", "cross_vbf",
+                "cross_quadjet",
+            }
             partially_passed_base_selection = update_passed_selection_dict(
                 partially_passed_base_selection,
                 tau_trigger_specific_mask,
@@ -963,11 +1060,21 @@ def lepton_selection(
                 most_isolated_tau_mask = tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]][:, :2]
                 most_isolated_tau_mask = mask_from_indices(most_isolated_tau_mask, events.Tau.pt)
 
-                # trigger matching for the taus
-                trig_tau_mask = (
-                    trig_tau_mask &
-                    self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
-                )
+                # quadjet specific handling: one tau must match the tau leg and
+                # the second must match a jet leg out of 3/4, need to save which one(s)
+                if trigger.has_tag("cross_quadjet"):
+                    matching_mask, tau_trig_objects_matched_quadjet[trigger.id] = self[quadjet_tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
+                    trig_tau_mask = (
+                        trig_tau_mask &
+                        matching_mask
+                    )
+                else:
+                    # trigger matching for the taus
+                    trig_tau_mask = (
+                        trig_tau_mask &
+                        self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
+                    )
+
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
@@ -1016,7 +1123,10 @@ def lepton_selection(
             ids = ak.singletons(ak.nan_to_none(ids))
             # we need to store the trigger id for the ttv, ttj, tv and v triggers separately, as
             # we are not sure yet whether the matching is correct for the jet legs of the trigger
-            if trigger.has_tag({"cross_tau_tau_vbf", "cross_tau_tau_jet", "cross_tau_vbf", "cross_vbf"}):
+            if trigger.has_tag({
+                "cross_tau_tau_vbf", "cross_tau_tau_jet", "cross_tau_vbf",
+                "cross_vbf", "cross_quadjet"
+            }):
                 lepton_part_trigger_ids.append(ids)
             else:
                 matched_trigger_ids.append(ids)
@@ -1331,6 +1441,10 @@ def lepton_selection(
             # for the duration of the selection
             "passed_base_selection": passed_base_selection,
             "partially_passed_base_selection": partially_passed_base_selection,
+
+            # save the trigger objects indices matched to the taus for the quadjet triggers
+            # for the duration of the selection
+            "tau_trig_objects_idx_matched_quadjet": tau_trig_objects_matched_quadjet,
         },
     )
 
