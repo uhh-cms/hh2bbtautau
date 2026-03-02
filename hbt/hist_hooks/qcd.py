@@ -95,7 +95,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
         # get ABCD categories corresponding to the requested category
         requested_group = None
-        if requested_category and 0:
+        if requested_category:
             def find_cat(cat_name, cat_tags, check_group=None):
                 cat_inst = config_inst.get_category(cat_name)
                 if not cat_inst.has_tag(cat_tags, mode=all):
