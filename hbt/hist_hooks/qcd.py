@@ -95,6 +95,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
         # get ABCD categories corresponding to the requested category
         requested_group = None
+        # determine the group corresponding to the requested category
+        # (disable this check if the qcd estimation should be done on granular leaf categories again)
         if requested_category:
             def find_cat(cat_name, cat_tags, check_group=None):
                 cat_inst = config_inst.get_category(cat_name)
