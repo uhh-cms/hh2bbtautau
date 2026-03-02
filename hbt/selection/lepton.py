@@ -590,7 +590,7 @@ def lepton_selection(
     ch_emu = self.config_inst.get_channel("emu")
 
     # store which events pass the base selection for which trigger
-    # TODO: later on, remove all events that do pass the base selections but not the full selection
+    # later on, remove all events that do pass the base selections but not the full selection
     # for some triggers and categories to include trigger priority in the selection
     # e.g. an event passing the single e base selection should not be selected if it does not pass the
     # full single e selection and the full cross e tau selection, even if it would pass the
@@ -600,7 +600,9 @@ def lepton_selection(
     # - single e/mu, cross e/mu tau, cross tau tau, cross tau tau jet,
     # - cross quadjet (only tautau channel)
     # - cross tau tau vbf (only tautau channel)
-    # - cross vbf, cross vbf triple jet(???) # TODO: check what is the deal with that one, never heard of it, seems to be used for 2023??? https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/data/HHtriggers_Run3.yaml?ref_type=heads#L192 -> would be extremely annoying for the trigger sfs calculation
+    # - cross vbf, cross vbf triple jet(???)
+    # TODO: check what is the deal with that one, never heard of it, seems to be used for 2023???
+    # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/data/HHtriggers_Run3.yaml?ref_type=heads#L192 -> would be extremely annoying for the trigger sfs calculation  # noqa
     # - cross e/mu/tau vbf
     # as the full lepton triggers are all in the first priority group, the orthogonalization
     # is done in the jet selection
@@ -613,25 +615,6 @@ def lepton_selection(
         "cross_tau_tau": ak.full_like(events.event, False, dtype=bool),
     }
     partially_passed_base_selection = {
-        "cross_e_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_mu_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_tau_tau_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_tau_tau_jet": ak.full_like(events.event, False, dtype=bool),
-        "cross_tau_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_vbf": ak.full_like(events.event, False, dtype=bool),
-        "cross_quadjet": ak.full_like(events.event, False, dtype=bool),
-    }
-
-    # TODO: decide whether this dictionary is needed or not, can be circumvented by not storing
-    # the events as being trigger matchedin the jet selection, this avoids the need for changes
-    # in the trigger sfs, maybe additional checks necessary to ensure that the trigger matching
-    # happens only on non orthonalized triggers
-    passed_full_selection = {
-        "single_e": ak.full_like(events.event, False, dtype=bool),
-        "cross_e_tau": ak.full_like(events.event, False, dtype=bool),
-        "single_mu": ak.full_like(events.event, False, dtype=bool),
-        "cross_mu_tau": ak.full_like(events.event, False, dtype=bool),
-        "cross_tau_tau": ak.full_like(events.event, False, dtype=bool),
         "cross_e_vbf": ak.full_like(events.event, False, dtype=bool),
         "cross_mu_vbf": ak.full_like(events.event, False, dtype=bool),
         "cross_tau_tau_vbf": ak.full_like(events.event, False, dtype=bool),
