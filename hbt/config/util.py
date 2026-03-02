@@ -24,7 +24,7 @@ class TriggerLeg(object):
         - *trigger_bits*: Integer bit mask or masks describing whether the last filter of a trigger fired.
           See https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
           Per mask, any of the bits should match (*OR*). When multiple masks are configured, each of
-          them should match (*AND*).
+          them should fully match all bits (*AND*).
 
     For accepted types and conversions, see the *typed* setters implemented in this class.
     """
