@@ -13,6 +13,7 @@ from collections import defaultdict
 import law
 import order as od
 
+from columnflow.hist_util import select_category_bins
 from columnflow.util import maybe_import
 from columnflow.types import TYPE_CHECKING, Callable
 
@@ -222,20 +223,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
         # 1. select and sum over requested categories
         for config_inst in hists:
-            # get the leaf categories
             category_inst = config_inst.get_category(category_name)
-            leaf_cats = (
-                [category_inst]
-                if category_inst.is_leaf_category
-                else category_inst.get_leaf_categories()
-            )
 
             # select leaf categories and nominal shift
             def select(h: hist.Hist) -> hist.Hist:
                 # filter to existing categories
-                h = h[{"category": [hist.loc(c.name) for c in leaf_cats if c.name in h.axes["category"]]}]
-                # sum over categories and select nominal shift
-                h = h[{"category": sum, "shift": hist.loc("nominal")}]
+                h = select_category_bins(h, category_inst, use_leaves=True, prefer_parents=True, reduce=True)
+                # select nominal shift
+                h = h[{"shift": hist.loc("nominal")}]
                 return h
 
             signal_hist[config_inst] = select(signal_hist[config_inst])
