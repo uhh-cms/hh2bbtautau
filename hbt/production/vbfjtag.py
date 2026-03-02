@@ -173,7 +173,8 @@ def vbfjtag(
     # case 1: vbfjets matching the fatjet with highest particleNet_XbbVsQCD score
     fatjet_matches = events.Jet[event_mask].metric_table(selected_fatjets[event_mask]) < 0.8
     fatjet_matches = ak.fill_none(ak.any(fatjet_matches, axis=2), False, axis=1)
-    flat_reset_mask |= embed_with_mask(fatjet_matches, event_mask, layout_array=scores, value=False, dtype=bool)
+    fatjet_matches = embed_with_mask(fatjet_matches, event_mask, layout_array=scores, value=False, dtype=bool, flat=True)
+    flat_reset_mask |= fatjet_matches
     # case 2: vbfjets matching hhbjets
     flat_reset_mask |= flat_np_view(hhbjet_mask)
     # apply the restructured reset mask
