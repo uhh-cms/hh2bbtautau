@@ -161,7 +161,7 @@ def add_categories(config: od.Config) -> None:
     )
 
     # additional combined categories
-    """
+
     _add_category(
         name="incl__os__iso",
         id="+",
@@ -172,5 +172,5 @@ def add_categories(config: od.Config) -> None:
             config.get_category("tautau__incl__os__iso"),
         ],
     )
-    """
+
     track_category_changes(config)
