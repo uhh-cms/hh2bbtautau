@@ -11,6 +11,7 @@ import functools
 import law
 import order as od
 
+from columnflow.hist_util import select_category_bins
 from columnflow.util import maybe_import
 from columnflow.types import TYPE_CHECKING, Literal
 
@@ -38,9 +39,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         s_data = None
         b_data = None
         for config_inst, proc_hists in hists.items():
-            # get the leaf categories
             category_inst = config_inst.get_category(category_name)
-            leaf_cats = [category_inst] if category_inst.is_leaf_category else category_inst.get_leaf_categories()
 
             # loop over all processes
             for proc_inst, h in proc_hists.items():
@@ -54,8 +53,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                     else proc_inst.has_tag("signal")
                 )
                 # reduce and select axes
-                h = h[{"category": [hist.loc(c.name) for c in leaf_cats if c.name in h.axes["category"]]}]
-                h = h[{"category": sum, "shift": hist.loc("nominal")}]
+                h = select_category_bins(h, category_inst, use_leaves=True, prefer_parents=True, reduce=True)
+                h = h[{"shift": hist.loc("nominal")}]
                 # add bin contents
                 data = h.view().value
                 if is_signal:

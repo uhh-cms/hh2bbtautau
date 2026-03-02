@@ -69,9 +69,10 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="res1b", id="+", selection="cat_res1b", label="res1b")
     _add_category(name="res2b", id="+", selection="cat_res2b", label="res2b")
     _add_category(name="boosted", id="+", selection="cat_boosted", label="boosted")
-    _add_category(name="res1b_novbf", id="+", selection="cat_res1b_novbf", label="res1b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
-    _add_category(name="res2b_novbf", id="+", selection="cat_res2b_novbf", label="res2b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
-    _add_category(name="boosted_novbf", id="+", selection="cat_boosted_novbf", label="boosted (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
+    # VBF cleaned
+    _add_category(name="res1b_novbf", id="+", selection="cat_res1b_novbf", label="res1b, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="res2b_novbf", id="+", selection="cat_res2b_novbf", label="res2b, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="boosted_novbf", id="+", selection="cat_boosted_novbf", label="boosted, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
 
     #
     # build groups
