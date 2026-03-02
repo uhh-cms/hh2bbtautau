@@ -108,8 +108,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                         f"requested category {cat_name} is not part of the same ABCD group {check_group} as the "
                         f"other categories.",
                     )
-
                 return cat_inst
+
             cat_inst_req = DotDict()
             cat_inst_req.os_iso = find_cat(requested_category, {"os", "iso"})
             requested_group = cat_inst_req.os_iso.x.qcd_group
