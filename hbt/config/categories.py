@@ -121,7 +121,7 @@ def add_categories(config: od.Config) -> None:
         config=config,
         categories=main_categories,
         name_fn=name_fn,
-        parent_mode="all",
+        parent_mode="safe",
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=True),
         skip_existing=False,
     )
