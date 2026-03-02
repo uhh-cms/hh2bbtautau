@@ -162,7 +162,6 @@ def add_categories(config: od.Config) -> None:
     )
 
     # additional combined categories
-
     _add_category(
         name="incl__os__iso",
         id="+",
