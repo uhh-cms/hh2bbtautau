@@ -179,9 +179,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 # define intermediate categories to sum over if necessary
                 for cat in group[region_name]:
                     h = ensure_category(h, cat.name)
-
                 h = h[{"category": [hist.loc(cat.name) for cat in group[region_name]]}]
-
                 return h[{"category": sum}]
 
             os_noniso_mc = hist_to_num(get_hist(mc_hist, "os_noniso"), "os_noniso_mc")
