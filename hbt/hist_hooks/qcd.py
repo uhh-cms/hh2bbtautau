@@ -70,6 +70,9 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         fill_empty_negative_norms: bool = True,
         # residual filling of *empty_bin_value* (zero) into values (variances) where the bin content is <= 0
         fill_empty_residual: bool = True,
+        # whether to do sum leaf categories first for all data and mc histograms and then performing the ABCD method,
+        # opposed to doing the ABCD method per leaf category and then summing up the resulting qcd histograms
+        sum_leaves_first: bool = True,
         **kwargs,
     ) -> dict[od.Process, Any]:
         import numpy as np
@@ -97,7 +100,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         requested_group = None
         # determine the group corresponding to the requested category
         # (disable this check if the qcd estimation should be done on granular leaf categories again)
-        if requested_category:
+        if sum_leaves_first and requested_category:
             def find_cat(cat_name, cat_tags, check_group=None):
                 cat_inst = config_inst.get_category(cat_name)
                 if not cat_inst.has_tag(cat_tags, mode=all):
