@@ -74,10 +74,6 @@ setup_hbt() {
     export CF_REPO_BASE="${HBT_BASE}"
     export CF_REPO_BASE_ALIAS="HBT_BASE"
     export CF_SETUP_NAME="${setup_name}"
-    export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-naf-cms14.desy.de}"
-    export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8088}"
-    export CF_INTERACTIVE_VENV_FILE="${CF_INTERACTIVE_VENV_FILE:-${HBT_BASE}/sandboxes/venv_hbt_dev.sh}"
-    [ ! -z "${CF_INTERACTIVE_VENV_FILE}" ] && export CF_INSPECT_SANDBOX="$( basename "${CF_INTERACTIVE_VENV_FILE%.*}" )"
 
     # interactive setup
     if ! ${CF_REMOTE_ENV}; then
@@ -97,6 +93,12 @@ setup_hbt() {
     export CF_CONDA_BASE="${CF_CONDA_BASE:-${CF_SOFTWARE_BASE}/conda}"
     export CF_VENV_BASE="${CF_VENV_BASE:-${CF_SOFTWARE_BASE}/venvs}"
     export CF_CMSSW_BASE="${CF_CMSSW_BASE:-${CF_SOFTWARE_BASE}/cmssw}"
+    export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-naf-cms14.desy.de}"
+    export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8088}"
+    export CF_INTERACTIVE_VENV_FILE="${CF_INTERACTIVE_VENV_FILE:-${HBT_BASE}/sandboxes/venv_hbt_dev.sh}"
+    if [ -z "${CF_INSPECT_SANDBOX}" ] && [ ! -z "${CF_INTERACTIVE_VENV_FILE}" ]; then
+        export CF_INSPECT_SANDBOX="$( basename "${CF_INTERACTIVE_VENV_FILE%.*}" )"
+    fi
 
     #
     # common variables
