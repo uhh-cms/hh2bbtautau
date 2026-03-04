@@ -10,10 +10,11 @@ import functools
 
 import order as od
 
-from columnflow.columnar_util import EMPTY_FLOAT, attach_coffea_behavior, ak_concatenate_safe
+from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior
 from columnflow.util import maybe_import
+from columnflow.types import Sequence, Callable, Type, Any
 
-from hbt.util import create_lvector_xyz
+from hbt.util import create_lvector_xyz, stack_lvectors
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -58,21 +59,9 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
     add_variable(
-        name="n_hhbtag",
-        expression="n_hhbtag",
-        binning=(4, -0.5, 3.5),
-        x_title="Number of HH b-tags",
-        discrete_x=True,
-    )
-    def build_ht(events):
-        objs = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1, events.Jet * 1], axis=1)[:, :]
-        objs_sum = objs.sum(axis=1)
-        return objs_sum.pt
-    build_ht.inputs = ["{Electron,Muon,Tau,Jet}.{pt,eta,phi,mass}"]
-    add_variable(
         name="ht",
-        expression=functools.partial(build_ht),
-        aux={"inputs": build_ht.inputs},
+        expression=(var_ht := VarHt()),
+        aux={"inputs": var_ht.uses},
         binning=[0, 80, 120, 160, 200, 240, 280, 320, 400, 500, 600, 800],
         unit="GeV",
         x_title="HT",
@@ -134,6 +123,56 @@ def add_variables(config: od.Config) -> None:
         binning=(66, -3.3, 3.3),
         x_title=r"Subleading jet $\phi$",
     )
+
+    add_variable(
+        name="n_hhbtag",
+        expression="n_hhbtag",
+        binning=(4, -0.5, 3.5),
+        x_title="Number of HH b-tags",
+        discrete_x=True,
+    )
+    add_variable(
+        name="njets",
+        expression=lambda events: ak.num(events.Jet["pt"], axis=1),
+        aux={"inputs": {"Jet.pt"}},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of jets",
+    )
+    add_variable(
+        name="nbjets_deepjet",
+        expression=(var_nbjets := VarNBTags()).partial(config_inst=config, attr="btagDeepFlavB"),
+        aux={"inputs": var_nbjets.uses},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of b-jets (DeepJet medium)",
+        discrete_x=True,
+    )
+    add_variable(
+        name="nbjets_pnet",
+        expression=(var_nbjets := VarNBTags()).partial(config_inst=config, attr="btagPNetB"),
+        aux={"inputs": var_nbjets.uses},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of b-jets (PNet medium)",
+        discrete_x=True,
+    )
+
+    add_variable(
+        name="nbjets_pnet_overflow",
+        expression=config.variables.n.nbjets_pnet.expression,
+        aux={**config.variables.n.nbjets_pnet.aux, "overflow": True},
+        binning=(4, -0.5, 3.5),
+        x_title=r"Number of b-jets (PNet medium)",
+        discrete_x=True,
+    )
+
+    add_variable(
+        name="nbjets_pnet_no_overflow",
+        expression=config.variables.n.nbjets_pnet.expression,
+        aux={**config.variables.n.nbjets_pnet.aux, "overflow": False},
+        binning=(4, -0.5, 3.5),
+        x_title=r"Number of b-jets (PNet medium)",
+        discrete_x=True,
+    )
+
     add_variable(
         name="met_pt",
         expression="PuppiMET.pt",
@@ -160,80 +199,30 @@ def add_variables(config: od.Config) -> None:
         binning=(50, -250, 250),
         x_title=r"MET $p_y$",
     )
+
+    # regression variables
     for n in range(1, 2 + 1):
         for v in ["px", "py", "pz"]:
             add_variable(
                 name=f"reg_dnn_nu{n}_{v}",
+                expression=f"reg_dnn_moe_nu{n}_{v}",
                 binning=(40, -150, 150),
                 x_title=rf"Regressed $\nu_{n} {v}$",
             )
 
-    def build_reg_h(events, which=None):
-        import numpy as np
-        vis_leps = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-        ref_phi = vis_leps.sum(axis=1).phi
-        def rotate_px_py(px, py):
-            new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
-            pt = (px**2 + py**2)**0.5
-            return pt * np.cos(new_phi), pt * np.sin(new_phi)
-        nu1 = create_lvector_xyz(*rotate_px_py(events.reg_dnn_nu1_px, events.reg_dnn_nu1_py), events.reg_dnn_nu1_pz)
-        nu2 = create_lvector_xyz(*rotate_px_py(events.reg_dnn_nu2_px, events.reg_dnn_nu2_py), events.reg_dnn_nu2_pz)
-        if which == "nus":
-            return nu1, nu2
-        # build the higgs
-        h = ak_concatenate_safe([nu1[:, None] * 1, nu2[:, None] * 1, vis_leps], axis=1).sum(axis=1)
-        if which is None:
-            return h
-        if which == "mass":
-            return h.mass
-        raise ValueError(f"Unknown which: {which}")
-    build_reg_h.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}", "reg_dnn_nu{1,2}_p{x,y,z}"]
-    add_variable(
-        name="reg_h_mass",
-        expression=functools.partial(build_reg_h, which="mass"),
-        aux={"inputs": build_reg_h.inputs},
-        binning=(50, 0.0, 250.0),
-        x_title=r"Regressed $m_{H}$",
-    )
-
-    def build_vis_h(events, which=None):
-        vis_h = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2].sum(axis=1)
-        if which is None:
-            return vis_h
-        if which == "mass":
-            return vis_h.mass
-        raise ValueError(f"Unknown which: {which}")
-    build_vis_h.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
-    add_variable(
-        name="vis_h_mass",
-        expression=functools.partial(build_vis_h, which="mass"),
-        aux={"inputs": build_vis_h.inputs},
-        binning=(50, 0.0, 250.0),
-        x_title=r"Visible $m_{H}$",
-    )
-
-    def build_reg_met(events, which=None):
-        nu1, nu2 = build_reg_h(events, which="nus")
-        if which == "px":
-            return nu1.px + nu2.px
-        if which == "py":
-            return nu1.py + nu2.py
-        raise ValueError(f"Unknown which: {which}")
-    build_reg_met.inputs = build_reg_h.inputs
-
     add_variable(
         name="reg_met_px",
-        expression=functools.partial(build_reg_met, which="px"),
-        aux={"inputs": build_reg_met.inputs},
+        expression=(var_met_reg := VarMETReg()).partial(attr="px"),
+        aux={"inputs": var_met_reg.uses},
         binning=(50, -250.0, 250.0),
-        x_title=r"Regressed $\nu_1 p_x + \nu_2 p_x$",
+        x_title=r"$\nu_1 p_x + \nu_2 p_x$ (regressed)",
     )
     add_variable(
         name="reg_met_py",
-        expression=functools.partial(build_reg_met, which="py"),
-        aux={"inputs": build_reg_met.inputs},
+        expression=var_met_reg.partial(attr="py"),
+        aux={"inputs": var_met_reg.uses},
         binning=(50, -250.0, 250.0),
-        x_title=r"Regressed $\nu_1 p_y + \nu_2 p_y$",
+        x_title=r"$\nu_1 p_y + \nu_2 p_y$ (regressed)",
     )
 
     # weights
@@ -316,285 +305,255 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Subleading jet $p_{T}$",
     )
 
-    # build variables for dilepton, dijet, and hh
-    def delta_r12(vectors):
-        # delta r between first two elements
-        dr = ak.firsts(vectors[:, :1], axis=1).delta_r(ak.firsts(vectors[:, 1:2], axis=1))
-        return ak.fill_none(dr, EMPTY_FLOAT)
-
-    def build_dilep(events, which=None):
-        leps = ak_concatenate_safe([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
-        if which == "dr":
-            return delta_r12(leps)
-        dilep = leps.sum(axis=1)
-        if which is None:
-            return dilep * 1
-        if which == "mass":
-            return dilep.mass
-        if which == "pt":
-            return dilep.pt
-        if which == "eta":
-            return dilep.eta
-        if which == "abs_eta":
-            return abs(dilep.eta)
-        if which == "phi":
-            return dilep.phi
-        if which == "energy":
-            return dilep.energy
-        raise ValueError(f"Unknown which: {which}")
-
-    build_dilep.inputs = ["{Electron,Muon,Tau}.{pt,eta,phi,mass}"]
-
-    def build_dibjet(events, which=None):
-        events = attach_coffea_behavior(events, {"HHBJet": "Jet"})
-        hhbjets = events.HHBJet[:, :2]
-        if which == "dr":
-            return delta_r12(hhbjets)
-        dijet = hhbjets.sum(axis=1)
-        if which is None:
-            return dijet * 1
-        if which == "mass":
-            return dijet.mass
-        if which == "pt":
-            return dijet.pt
-        if which == "eta":
-            return dijet.eta
-        if which == "abs_eta":
-            return abs(dijet.eta)
-        if which == "phi":
-            return dijet.phi
-        if which == "energy":
-            return dijet.energy
-        raise ValueError(f"Unknown which: {which}")
-
-    build_dibjet.inputs = ["HHBJet.{pt,eta,phi,mass}"]
-
-    def build_hh(events, which=None):
-        dijet = build_dibjet(events)
-        dilep = build_dilep(events)
-        hs = ak_concatenate_safe([dijet[..., None], dilep[..., None]], axis=1)
-        if which == "dr":
-            return delta_r12(hs)
-        hh = hs.sum(axis=1)
-        if which is None:
-            return hh * 1
-        if which == "mass":
-            return hh.mass
-        if which == "pt":
-            return hh.pt
-        if which == "eta":
-            return hh.eta
-        if which == "abs_eta":
-            return abs(hh.eta)
-        if which == "phi":
-            return hh.phi
-        if which == "energy":
-            return hh.energy
-        raise ValueError(f"Unknown which: {which}")
-
-    build_hh.inputs = build_dibjet.inputs + build_dilep.inputs
-
-    # dibjet variables
+    # dihhbjet variables
     add_variable(
-        name="dibjet_energy",
-        expression=functools.partial(build_dibjet, which="energy"),
-        aux={"inputs": build_dibjet.inputs},
+        name="dihhbjet_energy",
+        expression=(var_dihhbjet := VarDiHHBJet()).partial(attr="energy"),
+        aux={"inputs": var_dihhbjet.uses},
         binning=(40, 40, 300),
         unit="GeV",
         x_title=r"$E_{bb}$",
     )
     add_variable(
-        name="dibjet_mass",
-        expression=functools.partial(build_dibjet, which="mass"),
-        aux={"inputs": build_dibjet.inputs},
+        name="dihhbjet_mass",
+        expression=var_dihhbjet.partial(attr="mass"),
+        aux={"inputs": var_dihhbjet.uses},
         binning=(30, 0, 300),
         unit="GeV",
         x_title=r"$m_{bb}$",
     )
     add_variable(
-        name="dibjet_pt",
-        expression=functools.partial(build_dibjet, which="pt"),
-        aux={"inputs": build_dibjet.inputs},
+        name="dihhbjet_pt",
+        expression=var_dihhbjet.partial(attr="pt"),
+        aux={"inputs": var_dihhbjet.uses},
         binning=(40, 0, 200),
         unit="GeV",
         x_title=r"$p_{T,bb}$",
     )
     add_variable(
-        name="dibjet_eta",
-        expression=functools.partial(build_dibjet, which="eta"),
-        aux={"inputs": build_dibjet.inputs},
+        name="dihhbjet_eta",
+        expression=var_dihhbjet.partial(attr="eta"),
+        aux={"inputs": var_dihhbjet.uses},
         binning=(50, -5, 5),
         x_title=r"$\eta_{bb}$",
     )
     add_variable(
-        name="dibjet_phi",
-        expression=functools.partial(build_dibjet, which="phi"),
-        aux={"inputs": build_dibjet.inputs},
+        name="dihhbjet_phi",
+        expression=var_dihhbjet.partial(attr="phi"),
+        aux={"inputs": var_dihhbjet.uses},
         binning=(66, -3.3, 3.3),
         x_title=r"$\phi_{bb}$",
     )
     add_variable(
-        name="dibjet_dr",
-        expression=functools.partial(build_dibjet, which="dr"),
-        aux={"inputs": build_dibjet.inputs},
+        name="dihhbjet_dr",
+        expression=var_dihhbjet.partial(attr="dr"),
+        aux={"inputs": var_dihhbjet.uses},
         binning=(30, 0, 6),
         x_title=r"$\Delta R_{bb}$",
     )
 
-    def build_nbjets(events, which=None):
-        wp = "medium"
-        if which == "btagPNetB":
-            wp_value = config.x.btag_working_points["particleNet"][wp]
-        elif which == "btagDeepFlavB":
-            wp_value = config.x.btag_working_points["deepjet"][wp]
-        else:
-            raise ValueError(f"Unknown which: {which}")
-        bjet_mask = events.Jet[which] >= wp_value
-        objects = events.Jet[bjet_mask]
-        objects_num = ak.num(objects, axis=1)
-        return objects_num
-
-    build_nbjets.inputs = ["Jet.{btagPNetB,btagDeepFlavB}"]
-
+    # visible dilepton variables
     add_variable(
-        name="nbjets_deepjet",
-        expression=functools.partial(build_nbjets, which="btagDeepFlavB"),
-        aux={"inputs": build_nbjets.inputs},
-        binning=(11, -0.5, 10.5),
-        x_title=r"Number of b-jets (DeepJet medium)",
-        discrete_x=True,
-    )
-    add_variable(
-        name="nbjets_pnet",
-        expression=functools.partial(build_nbjets, which="btagPNetB"),
-        aux={"inputs": build_nbjets.inputs},
-        binning=(11, -0.5, 10.5),
-        x_title=r"Number of b-jets (PNet medium)",
-        discrete_x=True,
-    )
-
-    add_variable(
-        name="nbjets_pnet_overflow",
-        expression=config.variables.n.nbjets_pnet.expression,
-        aux={**config.variables.n.nbjets_pnet.aux, "overflow": True},
-        binning=(4, -0.5, 3.5),
-        x_title=r"Number of b-jets (PNet medium)",
-        discrete_x=True,
-    )
-
-    add_variable(
-        name="nbjets_pnet_no_overflow",
-        expression=config.variables.n.nbjets_pnet.expression,
-        aux={**config.variables.n.nbjets_pnet.aux, "overflow": False},
-        binning=(4, -0.5, 3.5),
-        x_title=r"Number of b-jets (PNet medium)",
-        discrete_x=True,
-    )
-
-    # dilepton variables
-    add_variable(
-        name="dilep_energy",
-        expression=functools.partial(build_dilep, which="energy"),
-        aux={"inputs": build_dilep.inputs},
+        name="dilep_vis_energy",
+        expression=(var_dilepvis := VarDiLepVis()).partial(attr="energy"),
+        aux={"inputs": var_dilepvis.uses},
         binning=(40, 40, 300),
         unit="GeV",
-        x_title=r"$E_{ll}$",
+        x_title=r"$E_{ll}$ (visible)",
     )
     add_variable(
-        name="dilep_mass",
-        expression=functools.partial(build_dilep, which="mass"),
-        aux={"inputs": build_dilep.inputs},
-        binning=(40, 40, 120),
+        name="dilep_vis_mass",
+        expression=var_dilepvis.partial(attr="mass"),
+        aux={"inputs": var_dilepvis.uses},
+        binning=(50, 0.0, 250.0),
         unit="GeV",
-        x_title=r"$m_{ll}$",
+        x_title=r"$m_{ll}$ (visible)",
     )
     add_variable(
-        name="dilep_pt",
-        expression=functools.partial(build_dilep, which="pt"),
-        aux={"inputs": build_dilep.inputs},
+        name="dilep_vis_pt",
+        expression=var_dilepvis.partial(attr="pt"),
+        aux={"inputs": var_dilepvis.uses},
         binning=(40, 0, 200),
         unit="GeV",
-        x_title=r"$p_{T,ll}$",
+        x_title=r"$p_{T,ll}$ (visible)",
     )
     add_variable(
-        name="dilep_pt_low",
-        expression=functools.partial(build_dilep, which="pt"),
-        aux={"inputs": build_dilep.inputs, "overflow": False, "underflow": False},
+        name="dilep_vis_pt_low",
+        expression=var_dilepvis.partial(attr="pt"),
+        aux={"inputs": var_dilepvis.uses, "overflow": False, "underflow": False},
         binning=(50, 0, 50),
         unit="GeV",
-        x_title=r"$p_{T,ll}$",
+        x_title=r"$p_{T,ll}$ (visible)",
     )
     add_variable(
-        name="dilep_eta",
-        expression=functools.partial(build_dilep, which="eta"),
-        aux={"inputs": build_dilep.inputs},
+        name="dilep_vis_eta",
+        expression=var_dilepvis.partial(attr="eta"),
+        aux={"inputs": var_dilepvis.uses},
         binning=(50, -5, 5),
-        unit="GeV",
-        x_title=r"$\eta_{ll}$",
+        x_title=r"$\eta_{ll}$ (visible)",
     )
     add_variable(
-        name="dilep_phi",
-        expression=functools.partial(build_dilep, which="phi"),
-        aux={"inputs": build_dilep.inputs},
+        name="dilep_vis_phi",
+        expression=var_dilepvis.partial(attr="phi"),
+        aux={"inputs": var_dilepvis.uses},
         binning=(66, -3.3, 3.3),
-        unit="GeV",
-        x_title=r"$\phi_{ll}$",
+        x_title=r"$\phi_{ll}$ (visible)",
     )
     add_variable(
-        name="dilep_dr",
-        expression=functools.partial(build_dilep, which="dr"),
-        aux={"inputs": build_dilep.inputs},
+        name="dilep_vis_dr",
+        expression=var_dilepvis.partial(attr="dr"),
+        aux={"inputs": var_dilepvis.uses},
         binning=(30, 0, 6),
-        x_title=r"$\Delta R_{ll}$",
+        x_title=r"$\Delta R_{ll}$ (visible)",
     )
 
-    # hh variables
+    # regressed dilepton variables
     add_variable(
-        name="hh_energy",
-        expression=functools.partial(build_hh, which="energy"),
-        aux={"inputs": build_hh.inputs},
+        name="dilep_reg_energy",
+        expression=(var_dilepreg := VarDiLepReg()).partial(attr="energy"),
+        aux={"inputs": var_dilepreg.uses},
+        binning=(40, 40, 300),
+        unit="GeV",
+        x_title=r"$E_{ll}$ (regressed)",
+    )
+    add_variable(
+        name="dilep_reg_mass",
+        expression=var_dilepreg.partial(attr="mass"),
+        aux={"inputs": var_dilepreg.uses},
+        binning=(50, 0.0, 250.0),
+        unit="GeV",
+        x_title=r"$m_{ll}$ (regressed)",
+    )
+    add_variable(
+        name="dilep_reg_pt",
+        expression=var_dilepreg.partial(attr="pt"),
+        aux={"inputs": var_dilepreg.uses},
+        binning=(40, 0, 200),
+        unit="GeV",
+        x_title=r"$p_{T,ll}$ (regressed)",
+    )
+    add_variable(
+        name="dilep_reg_pt_low",
+        expression=var_dilepreg.partial(attr="pt"),
+        aux={"inputs": var_dilepreg.uses, "overflow": False, "underflow": False},
+        binning=(50, 0, 50),
+        unit="GeV",
+        x_title=r"$p_{T,ll}$ (regressed)",
+    )
+    add_variable(
+        name="dilep_reg_eta",
+        expression=var_dilepreg.partial(attr="eta"),
+        aux={"inputs": var_dilepreg.uses},
+        binning=(50, -5, 5),
+        x_title=r"$\eta_{ll}$ (regressed)",
+    )
+    add_variable(
+        name="dilep_reg_phi",
+        expression=var_dilepreg.partial(attr="phi"),
+        aux={"inputs": var_dilepreg.uses},
+        binning=(66, -3.3, 3.3),
+        x_title=r"$\phi_{ll}$ (regressed)",
+    )
+    add_variable(
+        name="dilep_reg_dr",
+        expression=var_dilepreg.partial(attr="dr"),
+        aux={"inputs": var_dilepreg.uses},
+        binning=(30, 0, 6),
+        x_title=r"$\Delta R_{ll}$ (regressed)",
+    )
+
+    # visible hh variables
+    add_variable(
+        name="hh_vis_energy",
+        expression=(var_hhvis := VarHHVis()).partial(attr="energy"),
+        aux={"inputs": var_hhvis.uses},
         binning=(35, 100, 800),
         unit="GeV",
-        x_title=r"$E_{ll+bb}$",
+        x_title=r"$E_{ll+bb}$ (visible)",
     )
     add_variable(
-        name="hh_mass",
-        expression=functools.partial(build_hh, which="mass"),
-        aux={"inputs": build_hh.inputs},
+        name="hh_vis_mass",
+        expression=var_hhvis.partial(attr="mass"),
+        aux={"inputs": var_hhvis.uses},
         binning=(50, 0, 1000),
         unit="GeV",
-        x_title=r"$m_{ll+bb}$",
+        x_title=r"$m_{ll+bb}$ (visible)",
     )
     add_variable(
-        name="hh_pt",
-        expression=functools.partial(build_hh, which="pt"),
-        aux={"inputs": build_hh.inputs},
+        name="hh_vis_pt",
+        expression=var_hhvis.partial(attr="pt"),
+        aux={"inputs": var_hhvis.uses},
         binning=(40, 0, 400),
         unit="GeV",
-        x_title=r"$p_{T,ll+bb}$",
+        x_title=r"$p_{T,ll+bb}$ (visible)",
     )
     add_variable(
-        name="hh_eta",
-        expression=functools.partial(build_hh, which="eta"),
-        aux={"inputs": build_hh.inputs},
+        name="hh_vis_eta",
+        expression=var_hhvis.partial(attr="eta"),
+        aux={"inputs": var_hhvis.uses},
         binning=(50, -5, 5),
-        unit="GeV",
-        x_title=r"$\eta_{ll+bb}$",
+        x_title=r"$\eta_{ll+bb}$ (visible)",
     )
     add_variable(
-        name="hh_phi",
-        expression=functools.partial(build_hh, which="phi"),
-        aux={"inputs": build_hh.inputs},
+        name="hh_vis_phi",
+        expression=var_hhvis.partial(attr="phi"),
+        aux={"inputs": var_hhvis.uses},
         binning=(66, -3.3, 3.3),
-        unit="GeV",
-        x_title=r"$\phi_{ll+bb}$",
+        x_title=r"$\phi_{ll+bb}$ (visible)",
     )
     add_variable(
-        name="hh_dr",
-        expression=functools.partial(build_hh, which="dr"),
-        aux={"inputs": build_hh.inputs},
+        name="hh_vis_dr",
+        expression=var_hhvis.partial(attr="dr"),
+        aux={"inputs": var_hhvis.uses},
         binning=(30, 0, 6),
-        x_title=r"$\Delta R_{ll,bb}$",
+        x_title=r"$\Delta R_{ll,bb}$ (visible)",
+    )
+
+    # Regressed hh variables
+    add_variable(
+        name="hh_reg_energy",
+        expression=(var_hhreg := VarHHReg()).partial(attr="energy"),
+        aux={"inputs": var_hhreg.uses},
+        binning=(35, 100, 800),
+        unit="GeV",
+        x_title=r"$E_{ll+bb}$ (regressed)",
+    )
+    add_variable(
+        name="hh_reg_mass",
+        expression=var_hhreg.partial(attr="mass"),
+        aux={"inputs": var_hhreg.uses},
+        binning=(50, 0, 1000),
+        unit="GeV",
+        x_title=r"$m_{ll+bb}$ (regressed)",
+    )
+    add_variable(
+        name="hh_reg_pt",
+        expression=var_hhreg.partial(attr="pt"),
+        aux={"inputs": var_hhreg.uses},
+        binning=(40, 0, 400),
+        unit="GeV",
+        x_title=r"$p_{T,ll+bb}$ (regressed)",
+    )
+    add_variable(
+        name="hh_reg_eta",
+        expression=var_hhreg.partial(attr="eta"),
+        aux={"inputs": var_hhreg.uses},
+        binning=(50, -5, 5),
+        x_title=r"$\eta_{ll+bb}$ (regressed)",
+    )
+    add_variable(
+        name="hh_reg_phi",
+        expression=var_hhreg.partial(attr="phi"),
+        aux={"inputs": var_hhreg.uses},
+        binning=(66, -3.3, 3.3),
+        x_title=r"$\phi_{ll+bb}$ (regressed)",
+    )
+    add_variable(
+        name="hh_reg_dr",
+        expression=var_hhreg.partial(attr="dr"),
+        aux={"inputs": var_hhreg.uses},
+        binning=(30, 0, 6),
+        x_title=r"$\Delta R_{ll,bb}$ (regressed)",
     )
 
     # single lepton variables
@@ -712,14 +671,7 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Subleading muon $\phi$",
     )
 
-    add_variable(
-        name="njets",
-        expression=lambda events: ak.num(events.Jet["pt"], axis=1),
-        aux={"inputs": {"Jet.pt"}},
-        binning=(11, -0.5, 10.5),
-        x_title=r"Number of jets",
-    )
-
+    # DNN outputs
     for proc in ["hh", "tt", "dy"]:
         # outputs of the resonant pDNN at SM-like mass and spin values
         add_variable(
@@ -832,3 +784,273 @@ def add_variables(config: od.Config) -> None:
         x_title="E2E latent space bins",
         aux={"inputs": ["e2e_model1_bin*"]},
     )
+
+
+#
+# tools for defining variable functions
+#
+
+class VarExp:
+
+    uses: set[str | Route] | None = None
+    compose: dict[str, Type[VarExp]] | None = None
+
+    def __init__(
+        self,
+        uses: Sequence[str | Route] | set[str | Route] | None = None,
+        compose: dict[str, Type[VarExp]] | None = None,
+    ) -> None:
+        super().__init__()
+
+        # store used columns
+        self.uses = set(uses or self.__class__.uses or set())
+
+        # create sub expressions for composing
+        for attr, cls in (compose or self.__class__.compose or {}).items():
+            assert attr not in {"uses", "compose"}
+            inst = cls()
+            setattr(self, attr, inst)
+            self.uses.update(inst.uses)
+
+    def partial(self, *args, **kwargs) -> Callable[[ak.Array], ak.Array | np.ndarray]:
+        return functools.partial(self.__call__, *args, **kwargs) if args or kwargs else self.__call__
+
+    def __call__(self, events) -> ak.Array | np.ndarray:
+        raise NotImplementedError
+
+    def raise_unknown_attr(self, attr) -> None:
+        raise ValueError(f"unknown {self.__class__.__name__} attr: {attr}")
+
+    def var_kwargs(self, *args, **kwargs) -> dict[str, Any]:
+        return {
+            "expression": self.partial(*args, **kwargs),
+            "aux": {"inputs": self.uses},
+        }
+
+
+#
+# kinematic helpers
+#
+
+def delta_r12(vectors: ak.Array) -> ak.Array:
+    # delta r between first two elements
+    dr = ak.firsts(vectors[:, :1], axis=1).delta_r(ak.firsts(vectors[:, 1:2], axis=1))
+    return ak.fill_none(dr, EMPTY_FLOAT)
+
+
+def rotate_px_py(
+    px: ak.Array | np.ndarray,
+    py: ak.Array | np.ndarray,
+    ref_phi: ak.Array | np.ndarray,
+) -> ak.Array | np.ndarray:
+    new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
+    pt = (px**2 + py**2)**0.5
+    return pt * np.cos(new_phi), pt * np.sin(new_phi)
+
+
+#
+# advanced variables
+#
+
+class VarHt(VarExp):
+
+    uses = {"{Electron,Muon,Tau,Jet}.{pt,eta,phi,mass}"}
+
+    def __call__(self, events: ak.Array) -> ak.Array:
+        vectors = stack_lvectors([events.Electron, events.Muon, events.Tau, events.Jet])
+        return vectors.sum(axis=-1).pt
+
+
+class VarDiHHBJet(VarExp):
+
+    uses = {"HHBJet.{pt,eta,phi,mass}"}
+
+    def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
+        events = attach_coffea_behavior(events, {"HHBJet": "Jet"})
+        hhbjets = events.HHBJet[:, :2]
+
+        if attr == "dr":
+            return delta_r12(hhbjets)
+
+        dijet = hhbjets.sum(axis=1)
+
+        if attr is None:
+            return dijet
+        if attr == "mass":
+            return dijet.mass
+        if attr == "pt":
+            return dijet.pt
+        if attr == "eta":
+            return dijet.eta
+        if attr == "abs_eta":
+            return abs(dijet.eta)
+        if attr == "phi":
+            return dijet.phi
+        if attr == "energy":
+            return dijet.energy
+
+        self.raise_unknown_attr()
+
+
+class VarDiLepVis(VarExp):
+
+    uses = {"{Electron,Muon,Tau}.{pt,eta,phi,mass}"}
+
+    def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
+        leps = stack_lvectors([events.Electron, events.Muon, events.Tau])[..., :2]
+
+        if attr == "dr":
+            return delta_r12(leps)
+
+        dilep = leps.sum(axis=1)
+
+        if attr is None:
+            return dilep
+        if attr == "mass":
+            return dilep.mass
+        if attr == "pt":
+            return dilep.pt
+        if attr == "eta":
+            return dilep.eta
+        if attr == "abs_eta":
+            return abs(dilep.eta)
+        if attr == "phi":
+            return dilep.phi
+        if attr == "energy":
+            return dilep.energy
+
+        self.raise_unknown_attr(attr)
+
+
+class VarDiLepReg(VarExp):
+
+    uses = {"reg_dnn_moe_nu{1,2}_p{x,y,z}"}
+    compose = {"dilepvis": VarDiLepVis}
+
+    def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
+        dilepvis = self.dilepvis(events)
+
+        # regressed nu components are relative to the visible dilep system and need to be rotated back
+        ref_phi = dilepvis.phi
+        nu1 = create_lvector_xyz(
+            *rotate_px_py(events.reg_dnn_moe_nu1_px, events.reg_dnn_moe_nu1_py, ref_phi),
+            events.reg_dnn_moe_nu1_pz,
+        )
+        nu2 = create_lvector_xyz(
+            *rotate_px_py(events.reg_dnn_moe_nu2_px, events.reg_dnn_moe_nu2_py, ref_phi),
+            events.reg_dnn_moe_nu2_pz,
+        )
+
+        if attr == "nus":
+            return nu1, nu2
+
+        # build the full system
+        dilepreg = stack_lvectors([nu1, nu2, dilepvis]).sum(axis=-1)
+
+        if attr is None:
+            return dilepreg
+        if attr == "mass":
+            return dilepreg.mass
+
+        self.raise_unknown_attr(attr)
+
+
+class VarMETReg(VarExp):
+
+    compose = {"dilepreg": VarDiLepReg}
+
+    def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
+        # build met
+        nu1, nu2 = self.dilepreg(events, attr="nus")
+        met = stack_lvectors([nu1, nu2]).sum(axis=-11)
+
+        if attr is None:
+            return met
+        if attr == "px":
+            return met.px
+        if attr == "py":
+            return met.py + met.py
+        if attr == "phi":
+            return met.phi
+
+        self.raise_unknown_attr(attr)
+
+
+class VarHHVis(VarExp):
+
+    compose = {"dihhbjet": VarDiHHBJet, "dilepvis": VarDiLepVis}
+
+    def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
+        dihhbjet = self.dihhbjet(events)
+        dilepvis = self.dilepvis(events)
+        hs = stack_lvectors([dihhbjet, dilepvis])
+
+        if attr == "dr":
+            return delta_r12(hs)
+
+        hh = hs.sum(axis=1)
+
+        if attr is None:
+            return hh * 1
+        if attr == "mass":
+            return hh.mass
+        if attr == "pt":
+            return hh.pt
+        if attr == "eta":
+            return hh.eta
+        if attr == "abs_eta":
+            return abs(hh.eta)
+        if attr == "phi":
+            return hh.phi
+        if attr == "energy":
+            return hh.energy
+
+        self.raise_unknown_attr(attr)
+
+
+class VarHHReg(VarExp):
+
+    compose = {"dihhbjet": VarDiHHBJet, "dilepreg": VarDiLepReg}
+
+    def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
+        dihhbjet = self.dihhbjet(events)
+        dilepreg = self.dilepreg(events)
+        hs = stack_lvectors([dihhbjet, dilepreg])
+
+        if attr == "dr":
+            return delta_r12(hs)
+
+        hh = hs.sum(axis=1)
+
+        if attr is None:
+            return hh * 1
+        if attr == "mass":
+            return hh.mass
+        if attr == "pt":
+            return hh.pt
+        if attr == "eta":
+            return hh.eta
+        if attr == "abs_eta":
+            return abs(hh.eta)
+        if attr == "phi":
+            return hh.phi
+        if attr == "energy":
+            return hh.energy
+
+        self.raise_unknown_attr(attr)
+
+
+class VarNBTags(VarExp):
+
+    uses = {"Jet.{btagPNetB,btagDeepFlavB}"}
+
+    def __call__(self, events: ak.Array, config_inst: od.Config, attr: str | None = None) -> ak.Array:
+        wp = "medium"
+        if attr == "btagPNetB":
+            wp_value = config_inst.x.btag_working_points["particleNet"][wp]
+        elif attr == "btagDeepFlavB":
+            wp_value = config_inst.x.btag_working_points["deepjet"][wp]
+        else:
+            self.raise_unknown_attr(attr)
+
+        return ak.sum(events.Jet[attr] >= wp_value, axis=1)
