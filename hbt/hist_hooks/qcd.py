@@ -157,12 +157,17 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
         # nothing to do if there are no complete groups
         if not complete_groups:
+            task.logger.warning("no complete ABCD groups found, skipping QCD estimation")
             return hists
 
         # sum up mc and data histograms, stop early when empty
         mc_hists = [h for p, h in hists.items() if p.is_mc and not p.has_tag("signal")]
+        if not mc_hists:
+            task.logger.warning("no MC histograms found, skipping QCD estimation")
+            return hists
         data_hists = [h for p, h in hists.items() if p.is_data]
-        if not mc_hists or not data_hists:
+        if not data_hists:
+            task.logger.warning("no data histograms found, skipping QCD estimation")
             return hists
         mc_hist = sum(mc_hists[1:], mc_hists[0].copy())
         data_hist = sum(data_hists[1:], data_hists[0].copy())
@@ -208,16 +213,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 broadcast_data_num(ss_noniso_data)
                 broadcast_data_num(ss_iso_data)
 
-            # estimate qcd shapes in the three sideband regions
+            # estimate the qcd shape in os_noniso region
             # shapes: (SHIFT, VAR)
             os_noniso_qcd = os_noniso_data - os_noniso_mc
-            ss_iso_qcd = ss_iso_data - ss_iso_mc
-            ss_noniso_qcd = ss_noniso_data - ss_noniso_mc
 
-            # get integrals in ss regions for the transfer factor
+            # get integrals in ss regions to compute the transfer factor
             # shapes: (SHIFT,)
-            int_ss_iso = integrate_num(ss_iso_qcd, axis=1)
-            int_ss_noniso = integrate_num(ss_noniso_qcd, axis=1)
+            int_ss_iso = integrate_num(ss_iso_data, axis=1) - integrate_num(ss_iso_mc, axis=1)
+            int_ss_noniso = integrate_num(ss_noniso_data, axis=1) - integrate_num(ss_noniso_mc, axis=1)
 
             # complain about negative integrals
             int_ss_iso_neg = int_ss_iso <= 0

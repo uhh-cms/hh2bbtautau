@@ -621,6 +621,11 @@ def add_config(
     cfg.x.default_variables = ("njet", "nbtag", "jet1_pt")
     cfg.x.default_hist_producer = "default"
 
+    # groups
+    cfg.x.producer_groups = {
+        "dnns": ["default", "run3_dnn_moe", "reg_dnn_moe"],
+    }
+
     # process groups for conveniently looping over certain processes
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {
