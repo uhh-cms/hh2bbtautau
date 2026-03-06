@@ -259,7 +259,7 @@ def quadjet_jet_trigger_matching(
     produces={
         hhbtag, vbfjtag,
         "Jet.hhbtag", "Jet.vbfjtag", "Jet.assignment_bits", "matched_trigger_ids",
-        IF_RUN_3_2024("ht_for_quadjets"),
+        IF_RUN_3_2024("ht_for_quadjets"),  # TODO: not produced when/o quadjet trigger exists
     },
     max_chunk_size=20_000,  # limit the chunk size due to hhbtag and vbfjtag being used simultaneously
 )
@@ -656,7 +656,8 @@ def jet_selection(
                     return tag
             return None
         trigger_data_with_tags = [
-            (trigger, trigger_fired, leg_masks, add_priority_tag(trigger)) for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data  # noqa: E501
+            (trigger, trigger_fired, leg_masks, add_priority_tag(trigger))
+            for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data
         ]
 
         for trigger, trigger_fired, leg_masks, priority_tag in trigger_data_with_tags:
@@ -780,11 +781,12 @@ def jet_selection(
                 orthogonalization_mask = full_like(events.event, False, dtype=bool)
                 for name in higher_priority_triggers:
                     if name not in passed_base_selection:
-                        if self.config_inst.campaign.x.year != 2024 and name == "cross_quadjet":
-                            continue
-                        else:
-                            print(f"Warning: no {name} trigger found for this config, is it expected?")
-                            continue
+                        if not (self.config_inst.campaign.x.year != 2024 and name == "cross_quadjet"):
+                            logger.warning_once(
+                                f"missing_{name}_trigger", 
+                                f"no {name} trigger found for this config, is it expected?",
+                            )
+                        continue
                     orthogonalization_mask = orthogonalization_mask | passed_base_selection[name]
 
                 # update the dictionary of passed base selection

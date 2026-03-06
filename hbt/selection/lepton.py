@@ -1021,7 +1021,7 @@ def lepton_selection(
                 "cross_tau_vbf",
                 "cross_vbf",
                 "cross_quadjet"}) and
-            (self.dataset_inst.is_mc or self.dataset_inst.has_tag("tautau") or self.dataset_inst.has_tag("parking_vbf") or self.dataset_inst.has_tag("parking_hh"))  # noqa: E501
+            (self.dataset_inst.is_mc or self.dataset_inst.has_tag({"tautau", "parking_vbf", "parking_hh"}, mode=any))
         ):
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
@@ -1041,8 +1041,7 @@ def lepton_selection(
                 channel_type="tautau",
             )
             relevant_part_triggers = {
-                "cross_tau_tau_jet", "cross_tau_tau_vbf", "cross_tau_vbf", "cross_vbf",
-                "cross_quadjet",
+                "cross_tau_tau_jet", "cross_tau_tau_vbf", "cross_tau_vbf", "cross_vbf", "cross_quadjet",
             }
             partially_passed_base_selection = update_passed_selection_dict(
                 partially_passed_base_selection,
@@ -1123,8 +1122,7 @@ def lepton_selection(
             # we need to store the trigger id for the ttv, ttj, tv and v triggers separately, as
             # we are not sure yet whether the matching is correct for the jet legs of the trigger
             if trigger.has_tag({
-                "cross_tau_tau_vbf", "cross_tau_tau_jet", "cross_tau_vbf",
-                "cross_vbf", "cross_quadjet",
+                "cross_tau_tau_vbf", "cross_tau_tau_jet", "cross_tau_vbf", "cross_vbf", "cross_quadjet",
             }):
                 lepton_part_trigger_ids.append(ids)
             else:
