@@ -798,7 +798,7 @@ def jet_selection(
                 _trigger_fired_all_matched = (
                     trigger_fired_leptons_matched &
                     trig_req_mask &
-                    (ak.sum(trigger_matching_jets[vbfjet_mask], axis=1) == n_required_jets) &
+                    (ak.sum(trigger_matching_jets[_trigger_jet_mask], axis=1) == n_required_jets) &
                     ~orthogonalization_mask
                 )
                 vbf_or_quadjet_trigger_fired_all_matched = vbf_or_quadjet_trigger_fired_all_matched | _trigger_fired_all_matched  # noqa: E501
