@@ -14,7 +14,7 @@ import order as od
 import scinum as sn
 
 from columnflow.util import maybe_import, DotDict
-from columnflow.types import TYPE_CHECKING, Any
+from columnflow.types import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     hist = maybe_import("hist")
@@ -73,10 +73,19 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # whether to do sum leaf categories first for all data and mc histograms and then performing the ABCD method,
         # opposed to doing the ABCD method per leaf category and then summing up the resulting qcd histograms
         sum_leaves_first: bool = True,
+        # strategy for shape transfer
+        shape_transfer: Literal["from_os_noniso", "from_ss_iso"] = "from_os_noniso",
         **kwargs,
     ) -> dict[od.Process, Any]:
         import numpy as np
         import hist
+
+        known_shape_transfers = {"from_os_noniso", "from_ss_iso"}
+        if shape_transfer not in known_shape_transfers:
+            raise ValueError(
+                f"unknown shape transfer strategy {shape_transfer}, known strategies are: "
+                f"{', '.join(known_shape_transfers)}",
+            )
 
         # get the qcd process
         qcd_proc = config_inst.get_process("qcd", default=None)
@@ -213,46 +222,57 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 broadcast_data_num(ss_noniso_data)
                 broadcast_data_num(ss_iso_data)
 
-            # estimate the qcd shape in os_noniso region
+            # helper to warn about negative bins
+            def warn_negative_bins(neg_mask: np.ndarray, region_name: str) -> None:
+                if neg_mask.any():
+                    shift_ids = [sid for neg, sid in zip(neg_mask, mc_hist.axes["shift"]) if neg]
+                    shifts = list(map(config_inst.get_shift, shift_ids))
+                    logger.warning(
+                        f"negative QCD integral in {region_name} region for group {group_name} and shifts: "
+                        f"{', '.join(shift.name for shift in shifts)}",
+                    )
+
+            # re-assign histograms to BCD regions depending on shape transfer strategy
+            # (B: shape transfer, C/D: transfer factor)
+            if shape_transfer == "from_os_noniso":
+                b_data, b_mc = os_noniso_data, os_noniso_mc
+                c_data, c_mc = ss_iso_data, ss_iso_mc
+                d_data, d_mc = ss_noniso_data, ss_noniso_mc
+                c_region_name, d_region_name = "ss_iso", "ss_noniso"
+            else:  # from_ss_iso
+                b_data, b_mc = ss_iso_data, ss_iso_mc
+                c_data, c_mc = os_noniso_data, os_noniso_mc
+                d_data, d_mc = ss_noniso_data, ss_noniso_mc
+                c_region_name, d_region_name = "os_noniso", "ss_noniso"
+
+            # get the qcd shape from B
             # shapes: (SHIFT, VAR)
-            os_noniso_qcd = os_noniso_data - os_noniso_mc
+            qcd: sn.Number = b_data - b_mc
 
-            # get integrals in ss regions to compute the transfer factor
+            # get integrals to compute the transfer factor
             # shapes: (SHIFT,)
-            int_ss_iso = integrate_num(ss_iso_data, axis=1) - integrate_num(ss_iso_mc, axis=1)
-            int_ss_noniso = integrate_num(ss_noniso_data, axis=1) - integrate_num(ss_noniso_mc, axis=1)
+            c_int: sn.Number = integrate_num(c_data, axis=1) - integrate_num(c_mc, axis=1)
+            d_int: sn.Number = integrate_num(d_data, axis=1) - integrate_num(d_mc, axis=1)
 
-            # complain about negative integrals
-            int_ss_iso_neg = int_ss_iso <= 0
-            int_ss_noniso_neg = int_ss_noniso <= 0
-            if int_ss_iso_neg.any():
-                shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_ss_iso_neg)[0]))
-                shifts = list(map(config_inst.get_shift, shift_ids))
-                logger.warning(
-                    f"negative QCD integral in ss_iso region for group {group_name} and shifts: "
-                    f"{', '.join(shift.name for shift in shifts)}",
-                )
-            if int_ss_noniso_neg.any():
-                shift_ids = list(map(mc_hist.axes["shift"].value, np.where(int_ss_noniso_neg)[0]))
-                shifts = list(map(config_inst.get_shift, shift_ids))
-                logger.warning(
-                    f"negative QCD integral in ss_noniso region for group {group_name} and shifts: "
-                    f"{', '.join(shift.name for shift in shifts)}",
-                )
+            # check negative integrals in shift bins
+            c_neg_mask = c_int() <= 0
+            warn_negative_bins(c_neg_mask, c_region_name)
+            d_neg_mask = d_int() <= 0
+            warn_negative_bins(d_neg_mask, d_region_name)
 
             # ABCD method
             # shape: (SHIFT, VAR)
-            os_iso_qcd = os_noniso_qcd * ((int_ss_iso / int_ss_noniso)[:, None])
+            qcd = qcd * ((c_int / d_int)[:, None])
 
             # combine uncertainties and store values in bare arrays
-            os_iso_qcd_values = os_iso_qcd()
-            os_iso_qcd_variances = os_iso_qcd(sn.UP, sn.ALL, unc=True)**2
+            qcd_values = qcd()
+            qcd_variances = qcd(sn.UP, sn.ALL, unc=True)**2
 
             # define uncertainties
-            unc_mc = os_iso_qcd(sn.UP, ["os_noniso_mc", "ss_iso_mc", "ss_noniso_mc"], unc=True)
-            unc_mc_rel = abs(unc_mc / os_iso_qcd_values)
-            unc_data = os_iso_qcd(sn.UP, ["os_noniso_data", "ss_iso_data", "ss_noniso_data"], unc=True)
-            unc_data_rel = abs(unc_data / os_iso_qcd_values)
+            unc_mc = qcd(sn.UP, ["os_noniso_mc", "ss_iso_mc", "ss_noniso_mc"], unc=True)
+            unc_mc_rel = abs(unc_mc / qcd_values)
+            unc_data = qcd(sn.UP, ["os_noniso_data", "ss_iso_data", "ss_noniso_data"], unc=True)
+            unc_data_rel = abs(unc_data / qcd_values)
 
             # only keep the MC uncertainty if it is larger than the data uncertainty
             # reason: the per-bin variance of all MC shapes (data-driven or not) is used by the autoMCstats feature to
@@ -265,23 +285,23 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             keep_variance_mask = np.isfinite(unc_mc_rel)
             if fill_empty_larger_data_unc:
                 keep_variance_mask &= unc_mc_rel > unc_data_rel
-            os_iso_qcd_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
-            os_iso_qcd_variances[~keep_variance_mask] = 0.0
+            qcd_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
+            qcd_variances[~keep_variance_mask] = 0.0
 
             # retro-actively set values to zero for shifts that had negative integrals
-            neg_int_mask = int_ss_iso_neg | int_ss_noniso_neg
+            neg_int_mask = c_neg_mask | d_neg_mask
             if fill_empty_negative_norms:
-                os_iso_qcd_values[neg_int_mask, :] = empty_bin_value
-                os_iso_qcd_variances[neg_int_mask, :] = 0.0
+                qcd_values[neg_int_mask, :] = empty_bin_value
+                qcd_variances[neg_int_mask, :] = 0.0
 
             # residual zero filling
             if fill_empty_residual:
-                zero_mask = os_iso_qcd_values <= 0
+                zero_mask = qcd_values <= 0
                 # when keeping negative norms, do exclude them from the usual zero filling
                 if not fill_empty_negative_norms:
                     zero_mask &= ~neg_int_mask
-                os_iso_qcd_values[zero_mask] = empty_bin_value
-                os_iso_qcd_variances[zero_mask] = 0.0
+                qcd_values[zero_mask] = empty_bin_value
+                qcd_variances[zero_mask] = 0.0
 
             # ensure that the requested category exists in the qcd histogram (if set)
             if requested_group:
@@ -292,8 +312,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             for cat_index in range(cat_axis.size):
                 target_qcd_bin = requested_category if requested_group else group.os_iso[0].name
                 if cat_axis.value(cat_index) == target_qcd_bin:
-                    qcd_hist.view().value[cat_index, ...] = os_iso_qcd_values
-                    qcd_hist.view().variance[cat_index, ...] = os_iso_qcd_variances
+                    qcd_hist.view().value[cat_index, ...] = qcd_values
+                    qcd_hist.view().variance[cat_index, ...] = qcd_variances
                     break
             else:
                 raise RuntimeError(
@@ -323,6 +343,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
     # add different hook variations
     analysis_inst.x.hist_hooks.qcd = qcd_estimation
+    analysis_inst.x.hist_hooks.qcd_from_ss_iso = functools.partial(qcd_estimation, shape_transfer="from_ss_iso")
     analysis_inst.x.hist_hooks.qcd_raw = functools.partial(
         qcd_estimation,
         fill_empty_larger_data_unc=False,
