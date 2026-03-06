@@ -19,6 +19,8 @@ ak = maybe_import("awkward")
 # helpers
 all_true = lambda events: full_like(events.event, True, dtype=bool)
 
+hhbjet_multiplicity = bjet_multiplicity.derive("hhbjet_multiplicity", cls_dict={"jet_name": "HHBJet"})
+
 
 #
 # dummy selector
@@ -221,9 +223,6 @@ def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[a
         (di_tau_mass <= 130)
     )
     return events, mask
-
-
-hhbjet_multiplicity = bjet_multiplicity.derive("hhbjet_multiplicity", cls_dict={"jet_name": "HHBJet"})
 
 
 @categorizer(
