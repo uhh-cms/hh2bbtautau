@@ -794,6 +794,7 @@ def jet_selection(
                     ~orthogonalization_mask
                 )
 
+                _trigger_jet_mask = hhbjet_mask if trigger.id in self.trigger_ids_quadjet else vbfjet_mask
                 _trigger_fired_all_matched = (
                     trigger_fired_leptons_matched &
                     trig_req_mask &
