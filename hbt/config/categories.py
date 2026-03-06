@@ -60,7 +60,6 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="eq1b", id="+", selection="cat_eq1b", label="1 b-tag")
     _add_category(name="eq2b", id="+", selection="cat_eq2b", label="2 b-tags")
     _add_category(name="ge2b", id="+", selection="cat_ge2b", label=r"$\geq$2 b-tags")
-    return
     _add_category(name="dy", id="+", selection="cat_dy", label="DY enriched")
     _add_category(name="dyc", id="+", selection="cat_dyc", label="DY region")
     _add_category(name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
@@ -174,7 +173,6 @@ def add_categories(config: od.Config) -> None:
         ],
     )
 
-    """
     for ch in ["etau", "mutau", "tautau"]:
         _add_category(
             name=f"{ch}__sr__os__iso",
@@ -226,6 +224,5 @@ def add_categories(config: od.Config) -> None:
         tags={"os", "iso"},
         aux={"qcd_group": "sr_novbf"},
     )
-    """
 
     track_category_changes(config)
