@@ -1786,35 +1786,35 @@ def add_config(
                 vnano=12,
                 era="22CDSep23-Summer22",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2022, "EE", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="22EFGSep23-Summer22EE",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23CSep23-Summer23",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23DSep23-Summer23BPix",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
                 run=3,
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-01-30", dc="2026-01-12", egm="2025-12-15", jme="2025-12-02", lum="2025-12-02", muo="2025-11-27", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-01-30", dc="2026-02-25", egm="2025-12-15", jme="2025-12-02", lum="2025-12-02", muo="2025-11-27", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1831,22 +1831,22 @@ def add_config(
             2016: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt", "v1"),  # noqa: E501
             2017: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt", "v1"),  # noqa: E501
             2018: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt", "v1"),  # noqa: E501
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2022
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2022
             2022: (cat_info.get_file("dc", "Cert_Collisions2022_355100_362760_Golden.json"), "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2023
             2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2024
             2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2017: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2018: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2022
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2022
             2022: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2023
             2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2024
             2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
         }[year],
     })
