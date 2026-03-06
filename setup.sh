@@ -99,6 +99,7 @@ setup_hbt() {
     if [ -z "${CF_INSPECT_SANDBOX}" ] && [ ! -z "${CF_INTERACTIVE_VENV_FILE}" ]; then
         export CF_INSPECT_SANDBOX="$( basename "${CF_INTERACTIVE_VENV_FILE%.*}" )"
     fi
+    export HBT_WLCG_RETRIES="${HBT_WLCG_RETRIES:-3}"
 
     #
     # common variables
