@@ -1860,7 +1860,11 @@ def add_config(
     if run == 3 and year == 2024:
         add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024.json.gz", "v1"))
     else:
-        add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz"), "v1"))  # noqa: E501
+        # tmp fix for 23post, see https://trello.com/c/DbgRNT7o/24-change-23post-btagsfcorr-back-to-cat-deployed-file
+        if (year, campaign.x.postfix) == (2023, "BPix"):
+            add_external("btag_sf_corr", ("/afs/cern.ch/work/v/vanderli/public/btv/tmpSFs/2023_Summer23BPix/btagging_v3.json", "v1"))  # noqa: E501
+        else:
+            add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz"), "v1"))  # noqa: E501
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     # add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
