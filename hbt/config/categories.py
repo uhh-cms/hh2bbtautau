@@ -60,6 +60,7 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="eq1b", id="+", selection="cat_eq1b", label="1 b-tag")
     _add_category(name="eq2b", id="+", selection="cat_eq2b", label="2 b-tags")
     _add_category(name="ge2b", id="+", selection="cat_ge2b", label=r"$\geq$2 b-tags")
+    return
     _add_category(name="dy", id="+", selection="cat_dy", label="DY enriched")
     _add_category(name="dyc", id="+", selection="cat_dyc", label="DY region")
     _add_category(name="dy_st", id="+", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
@@ -172,5 +173,59 @@ def add_categories(config: od.Config) -> None:
             config.get_category("tautau__incl__os__iso"),
         ],
     )
+
+    """
+    for ch in ["etau", "mutau", "tautau"]:
+        _add_category(
+            name=f"{ch}__sr__os__iso",
+            id="+",
+            label=f"{config.get_channel(ch).label}, SR",
+            categories=[
+                config.get_category(f"{ch}__res1b__os__iso"),
+                config.get_category(f"{ch}__res2b__os__iso"),
+                config.get_category(f"{ch}__boosted__os__iso"),
+            ],
+            tags={"os", "iso"},
+            aux={"qcd_group": f"{ch}__sr"},
+        )
+        # VBF cleaned categories
+        _add_category(
+            name=f"{ch}__sr_novbf__os__iso",
+            id="+",
+            label=f"{config.get_channel(ch).label}, SR, VBF cleaned",
+            categories=[
+                config.get_category(f"{ch}__res1b_novbf__os__iso"),
+                config.get_category(f"{ch}__res2b_novbf__os__iso"),
+                config.get_category(f"{ch}__boosted_novbf__os__iso"),
+            ],
+            tags={"os", "iso"},
+            aux={"qcd_group": f"{ch}__sr_novbf"},
+        )
+    # channel merged
+    _add_category(
+        name="sr__os__iso",
+        id="+",
+        label="All channels, SR",
+        categories=[
+            config.get_category("etau__sr__os__iso"),
+            config.get_category("mutau__sr__os__iso"),
+            config.get_category("tautau__sr__os__iso"),
+        ],
+        tags={"os", "iso"},
+        aux={"qcd_group": "sr"},
+    )
+    _add_category(
+        name="sr_novbf__os__iso",
+        id="+",
+        label="All channels, SR, VBF cleaned",
+        categories=[
+            config.get_category("etau__sr_novbf__os__iso"),
+            config.get_category("mutau__sr_novbf__os__iso"),
+            config.get_category("tautau__sr_novbf__os__iso"),
+        ],
+        tags={"os", "iso"},
+        aux={"qcd_group": "sr_novbf"},
+    )
+    """
 
     track_category_changes(config)
