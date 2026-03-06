@@ -1075,7 +1075,6 @@ def lepton_selection(
                         self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
                     )
 
-
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
 
@@ -1125,7 +1124,7 @@ def lepton_selection(
             # we are not sure yet whether the matching is correct for the jet legs of the trigger
             if trigger.has_tag({
                 "cross_tau_tau_vbf", "cross_tau_tau_jet", "cross_tau_vbf",
-                "cross_vbf", "cross_quadjet"
+                "cross_vbf", "cross_quadjet",
             }):
                 lepton_part_trigger_ids.append(ids)
             else:

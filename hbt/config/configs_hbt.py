@@ -451,7 +451,7 @@ def add_config(
             f"data_{stream}_d{v}" for stream in ["e", "mu", "tau", "parking_vbf"] for v in "12"
         ]),
         *if_era(year=2024, values=[
-            f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "cdefghi"
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "cdefghi"  # noqa: E501
         ]),
     ]
     for dataset_name in dataset_names:

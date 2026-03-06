@@ -152,6 +152,7 @@ def IF_RUN_3_2022_2023(self: ArrayFunction.DeferredColumn, func: ArrayFunction) 
         return self.get()
     return None
 
+
 @deferred_column
 def IF_BEFORE_2024(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
     if (
