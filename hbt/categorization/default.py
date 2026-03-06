@@ -4,9 +4,13 @@
 Exemplary selection methods.
 """
 
+from __future__ import annotations
+
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.columnar_util import attach_coffea_behavior, full_like, ak_concatenate_safe
 from columnflow.util import maybe_import
+
+from hbt.production.jet import jet_multiplicity, bjet_multiplicity
 from hbt.util import MET_COLUMN
 
 ak = maybe_import("awkward")
@@ -14,6 +18,8 @@ ak = maybe_import("awkward")
 
 # helpers
 all_true = lambda events: full_like(events.event, True, dtype=bool)
+
+hhbjet_multiplicity = bjet_multiplicity.derive("hhbjet_multiplicity", cls_dict={"jet_name": "HHBJet"})
 
 
 #
@@ -107,99 +113,94 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, all_true(events)
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_ge0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, all_true(events)
+    return events, self[jet_multiplicity](events, **kwargs) >= 0
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_eq0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) == 0
+    return events, self[jet_multiplicity](events, **kwargs) == 0
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_eq1j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) == 1
+    return events, self[jet_multiplicity](events, **kwargs) == 1
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_ge2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) >= 2
+    return events, self[jet_multiplicity](events, **kwargs) >= 2
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_eq2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) == 2
+    return events, self[jet_multiplicity](events, **kwargs) == 2
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_eq3j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) == 3
+    return events, self[jet_multiplicity](events, **kwargs) == 3
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_eq4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) == 4
+    return events, self[jet_multiplicity](events, **kwargs) == 4
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_eq5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) == 5
+    return events, self[jet_multiplicity](events, **kwargs) == 5
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) >= 4
+    return events, self[jet_multiplicity](events, **kwargs) >= 4
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_ge5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) >= 5
+    return events, self[jet_multiplicity](events, **kwargs) >= 5
 
 
-@categorizer(uses={"Jet.pt"})
+@categorizer(uses={jet_multiplicity})
 def cat_ge6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, ak.num(events.Jet, axis=1) >= 6
+    return events, self[jet_multiplicity](events, **kwargs) >= 6
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={bjet_multiplicity})
 def cat_ge0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, all_true(events)
+    return events, self[bjet_multiplicity](events, **kwargs) >= 0
 
 
-def get_bjets(events: ak.Array, config_inst):
-    wp = config_inst.x.btag_working_points["particleNet"]["medium"]
-    return ak.sum(events.Jet.btagPNetB > wp, axis=-1)
-
-
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={bjet_multiplicity})
 def cat_eq0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) == 0
+    return events, self[bjet_multiplicity](events, **kwargs) == 0
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={bjet_multiplicity})
 def cat_eq1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) == 1
+    return events, self[bjet_multiplicity](events, **kwargs) == 1
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={bjet_multiplicity})
 def cat_eq2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) == 2
+    return events, self[bjet_multiplicity](events, **kwargs) == 2
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={bjet_multiplicity})
 def cat_eq3b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) == 3
+    return events, self[bjet_multiplicity](events, **kwargs) == 3
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={bjet_multiplicity})
 def cat_ge1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) >= 1
+    return events, self[bjet_multiplicity](events, **kwargs) >= 1
 
 
-@categorizer(uses={"Jet.btagPNetB"})
+@categorizer(uses={bjet_multiplicity})
 def cat_ge2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, get_bjets(events, self.config_inst) >= 2
+    return events, self[bjet_multiplicity](events, **kwargs) >= 2
 
 
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
@@ -225,17 +226,13 @@ def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[a
 
 
 @categorizer(
-    uses={
-        di_bjet_mass_window, di_tau_mass_window,
-        "HHBJet.btagPNetB",
-    },
+    uses={di_bjet_mass_window, di_tau_mass_window, hhbjet_multiplicity},
 )
 def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = self.config_inst.x.btag_working_points.particleNet.medium
     events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
     events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
     mask = (
-        (ak.sum(events.HHBJet.btagPNetB > wp, axis=1) == 1) &
+        (self[hhbjet_multiplicity](events, **kwargs) == 1) &
         tau_mass_mask &
         bjet_mass_mask
     )
@@ -243,17 +240,13 @@ def cat_res1b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
 
 
 @categorizer(
-    uses={
-        di_bjet_mass_window, di_tau_mass_window,
-        "HHBJet.btagPNetB",
-    },
+    uses={di_bjet_mass_window, di_tau_mass_window, hhbjet_multiplicity},
 )
 def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    wp = self.config_inst.x.btag_working_points.particleNet.medium
     events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
     events, bjet_mass_mask = self[di_bjet_mass_window](events, **kwargs)
     mask = (
-        (ak.sum(events.HHBJet.btagPNetB > wp, axis=1) >= 2) &
+        (self[hhbjet_multiplicity](events, **kwargs) >= 2) &
         tau_mass_mask &
         bjet_mass_mask
     )

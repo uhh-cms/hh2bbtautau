@@ -39,7 +39,9 @@ import hbt.production.processes as process_producers
 from hbt.production.weights import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2024, IF_DATA, IF_DATASET_HAS_TAG
+from hbt.util import (
+    IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2022_2023, IF_RUN_3_2024, IF_DATA, IF_DATASET_HAS_TAG,
+)
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -83,14 +85,14 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
 @selector(
     uses={
         jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
-        jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
+        jet_selection, mc_weight, pu_weight, ps_weights, IF_RUN_3_2022_2023(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
         IF_RUN_3_2024(fill_btag_wp_count_hists),
     },
     produces={
         jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
-        btag_weights_deepjet, process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
+        process_ids, cutflow_features, IF_RUN_3_2022_2023(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
@@ -187,12 +189,13 @@ def default(
         events = self[pu_weight](events, **kwargs)
         # btag weights
         btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
-        events = self[btag_weights_deepjet](
-            events,
-            jet_mask=btag_weight_jet_mask,
-            negative_b_score_log_mode="none",
-            **kwargs,
-        )
+        if self.has_dep(btag_weights_deepjet):
+            events = self[btag_weights_deepjet](
+                events,
+                jet_mask=btag_weight_jet_mask,
+                negative_b_score_log_mode="none",
+                **kwargs,
+            )
         if self.has_dep(btag_weights_pnet):
             events = self[btag_weights_pnet](
                 events,
@@ -244,7 +247,7 @@ def default(
         no_sel=no_sel,
         event_sel=event_sel,
         event_sel_variations={
-            "nob_deepjet": event_sel_nob(btag_weights_deepjet),
+            "nob_deepjet": event_sel_nob(btag_weights_deepjet) if self.has_dep(btag_weights_deepjet) else None,
             "nob_pnet": event_sel_nob(btag_weights_pnet) if self.has_dep(btag_weights_pnet) else None,
         },
     )
@@ -406,12 +409,13 @@ def empty_call(
 
         # btag weights
         btag_weight_jet_mask = abs(events.Jet["eta"]) < 2.5
-        events = self[btag_weights_deepjet](
-            events,
-            jet_mask=btag_weight_jet_mask,
-            negative_b_score_log_mode="none",
-            **kwargs,
-        )
+        if self.has_dep(btag_weights_deepjet):
+            events = self[btag_weights_deepjet](
+                events,
+                jet_mask=btag_weight_jet_mask,
+                negative_b_score_log_mode="none",
+                **kwargs,
+            )
         if self.has_dep(btag_weights_pnet):
             events = self[btag_weights_pnet](
                 events,
@@ -452,7 +456,7 @@ def empty_call(
         no_sel=no_sel,
         event_sel=results.event,
         event_sel_variations={
-            "nob_deepjet": results.event,
+            "nob_deepjet": results.event if self.has_dep(btag_weights_deepjet) else None,
             "nob_pnet": results.event if self.has_dep(btag_weights_pnet) else None,
         },
     )

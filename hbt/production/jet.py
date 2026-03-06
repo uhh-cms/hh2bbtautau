@@ -11,8 +11,8 @@ import functools
 import law
 
 from columnflow.production import Producer, producer
-from columnflow.util import maybe_import, load_correction_set
 from columnflow.columnar_util import set_ak_column
+from columnflow.util import maybe_import, load_correction_set
 
 
 ak = maybe_import("awkward")
@@ -107,4 +107,39 @@ def jet_trigger_efficiencies_setup(
     self.jet_trig_corrector = correction_set[self.get_jet_corrector()]
 
     # check versions
-    assert self.jet_trig_corrector.version in [0, 1]
+    assert self.jet_trig_corrector.version in {0, 1}
+
+
+@producer(
+    jet_name="Jet",
+    exposed=False,
+)
+def jet_multiplicity(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    return ak.num(events[self.jet_name], axis=-1)
+
+
+@jet_multiplicity.init
+def jet_multiplicity_init(self: Producer) -> None:
+    self.uses.add(f"{self.jet_name}.pt")
+
+
+@producer(
+    jet_name="Jet",
+    exposed=False,
+)
+def bjet_multiplicity(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    return ak.sum(events[self.jet_name][self.btag_column] > self.btag_wp, axis=-1)
+
+
+@bjet_multiplicity.init
+def bjet_multiplicity_init(self: Producer) -> None:
+    if self.config_inst.campaign.x.year == 2024:
+        self.btag_column = "btagUParTAK4B"
+        self.btag_wp = self.config_inst.x.btag_working_points.upart.medium
+    elif self.config_inst.campaign.x.run == 3:
+        self.btag_column = "btagPNetB"
+        self.btag_wp = self.config_inst.x.btag_working_points.particleNet.medium
+    else:
+        raise NotImplementedError(f"unsupported campaign year: {self.config_inst.campaign.x.year}")
+
+    self.uses.add(f"{self.jet_name}.{self.btag_column}")
