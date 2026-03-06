@@ -6,17 +6,12 @@ Tasks to create correction_lib file for scale factor calculation for DY events.
 
 from __future__ import annotations
 
+import gzip
+import dataclasses
+import functools
+
 import law
 import order as od
-import awkward as ak
-import dataclasses
-import gzip
-import functools
-import numpy as np
-import correctionlib.schemav2 as cs
-
-from scipy import optimize
-from matplotlib import pyplot as plt
 
 from columnflow.types import TYPE_CHECKING, Callable
 from columnflow.hist_util import create_hist_from_variables, fill_hist
@@ -34,6 +29,9 @@ from columnflow.tasks.framework.mixins import (
     SelectorClassMixin, ReducerClassMixin,
 )
 
+np = maybe_import("numpy")
+ak = maybe_import("awkward")
+cs = maybe_import("correctionlib.schemav2")
 if TYPE_CHECKING:
     hist = maybe_import("hist")
 
@@ -322,6 +320,8 @@ class DYWeights(DYBaseTask):
         return LoadDYData.req(self)
 
     def run(self):
+        import scipy.optimize
+
         outputs = self.output()
 
         # read data, potentially from cache
@@ -436,7 +436,7 @@ class DYWeights(DYBaseTask):
                 upper_bounds = [1.2, 10, 50, 20, 2, 3, 100]
 
                 # perform the fit
-                popt, pcov = optimize.curve_fit(
+                popt, pcov = scipy.optimize.curve_fit(
                     self.get_fit_function,
                     bin_centers,
                     ratio_values,
@@ -631,6 +631,8 @@ class DYWeights(DYBaseTask):
         return fit_string
 
     def get_fit_plot(self, fit_njet_bin, fit_params, factor, ratio_values, ratio_err, bin_centers):
+        from matplotlib import pyplot as plt
+
         outputs = self.output()
 
         # initialize figure

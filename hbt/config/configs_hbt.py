@@ -623,6 +623,11 @@ def add_config(
     cfg.x.default_variables = ("njet", "nbtag", "jet1_pt")
     cfg.x.default_hist_producer = "default"
 
+    # groups
+    cfg.x.producer_groups = {
+        "dnns": ["default", "run3_dnn_moe", "reg_dnn_moe"],
+    }
+
     # process groups for conveniently looping over certain processes
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {
@@ -1783,35 +1788,35 @@ def add_config(
                 vnano=12,
                 era="22CDSep23-Summer22",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2022, "EE", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="22EFGSep23-Summer22EE",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23CSep23-Summer23",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23DSep23-Summer23BPix",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2025-11-15", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
                 run=3,
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-01-30", dc="2026-01-12", egm="2025-12-15", jme="2025-12-02", lum="2025-12-02", muo="2025-11-27", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-01-30", dc="2026-02-25", egm="2025-12-15", jme="2025-12-02", lum="2025-12-02", muo="2025-11-27", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1828,22 +1833,22 @@ def add_config(
             2016: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt", "v1"),  # noqa: E501
             2017: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt", "v1"),  # noqa: E501
             2018: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt", "v1"),  # noqa: E501
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2022
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2022
             2022: (cat_info.get_file("dc", "Cert_Collisions2022_355100_362760_Golden.json"), "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2023
             2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2024
             2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2017: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2018: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2022
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2022
             2022: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=161#Year_2023
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2023
             2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=180#Year_2024
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2024
             2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
         }[year],
     })
@@ -1857,7 +1862,11 @@ def add_config(
     if run == 3 and year == 2024:
         add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024.json.gz", "v1"))
     else:
-        add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz"), "v1"))  # noqa: E501
+        # tmp fix for 23post, see https://trello.com/c/DbgRNT7o/24-change-23post-btagsfcorr-back-to-cat-deployed-file
+        if (year, campaign.x.postfix) == (2023, "BPix"):
+            add_external("btag_sf_corr", ("/afs/cern.ch/work/v/vanderli/public/btv/tmpSFs/2023_Summer23BPix/btagging_v3.json", "v1"))  # noqa: E501
+        else:
+            add_external("btag_sf_corr", (cat_info.get_file("btv", "btagging.json.gz"), "v1"))  # noqa: E501
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     # add_external("res_pdnn", (f"{central_hbt_dir}/res_models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV

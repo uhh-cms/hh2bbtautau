@@ -69,9 +69,10 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="res1b", id="+", selection="cat_res1b", label="res1b")
     _add_category(name="res2b", id="+", selection="cat_res2b", label="res2b")
     _add_category(name="boosted", id="+", selection="cat_boosted", label="boosted")
-    _add_category(name="res1b_novbf", id="+", selection="cat_res1b_novbf", label="res1b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
-    _add_category(name="res2b_novbf", id="+", selection="cat_res2b_novbf", label="res2b (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
-    _add_category(name="boosted_novbf", id="+", selection="cat_boosted_novbf", label="boosted (vbf < 0.5)", tags={"skip_cutflow"})  # noqa: E501
+    # VBF cleaned
+    _add_category(name="res1b_novbf", id="+", selection="cat_res1b_novbf", label="res1b, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="res2b_novbf", id="+", selection="cat_res2b_novbf", label="res2b, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="boosted_novbf", id="+", selection="cat_boosted_novbf", label="boosted, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
 
     #
     # build groups
@@ -83,7 +84,7 @@ def add_categories(config: od.Config) -> None:
     def kwargs_fn(categories: dict[str, od.Category], add_qcd_group: bool = True) -> dict[str, Any]:
         # build auxiliary information
         aux = {}
-        if add_qcd_group:
+        if add_qcd_group and not ({"sign", "tau2"} - set(categories.keys())):
             aux["qcd_group"] = name_fn({
                 name: cat for name, cat in categories.items()
                 if name not in {"sign", "tau2"}
