@@ -451,7 +451,7 @@ def add_config(
             f"data_{stream}_d{v}" for stream in ["e", "mu", "tau", "parking_vbf"] for v in "12"
         ]),
         *if_era(year=2024, values=[
-            f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cdefghi"
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "cdefghi"  # noqa: E501
         ]),
     ]
     for dataset_name in dataset_names:
@@ -471,6 +471,8 @@ def add_config(
             dataset.add_tag({"tautau"})
         if dataset.name.startswith("data_parking_vbf_"):
             dataset.add_tag({"parking_vbf"})
+        if dataset.name.startswith("data_parking_hh_"):
+            dataset.add_tag({"parking_hh"})
         # tt
         if dataset.name.startswith("tt_"):
             dataset.add_tag({"has_top", "ttbar", "tt"})

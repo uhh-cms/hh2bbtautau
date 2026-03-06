@@ -21,11 +21,12 @@ from columnflow.util import maybe_import
 from hbt.production.hhbtag import hhbtag
 from hbt.production.vbfjtag import vbfjtag
 from hbt.selection.lepton import trigger_object_matching
-from hbt.util import IF_RUN_2
+from hbt.util import IF_RUN_2, IF_RUN_3_2024
 from hbt.config.util import Trigger
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
+
 
 logger = law.logger.get_logger(__name__)
 
@@ -120,7 +121,7 @@ def jet_trigger_matching(
 
     # additional condition: there must be at least two matched trigger objects
     # since the same trigger object could fulfill both legs trigger bits and
-    # thus both reconstructed taus could match to the same trigger object
+    # thus both reconstructed jets could match to the same trigger object
 
     mask_leg_1 = mask_from_indices(leg_masks["vbf1"], events.TrigObj.pt)
     mask_leg_2 = mask_from_indices(leg_masks["vbf2"], events.TrigObj.pt)
@@ -140,8 +141,118 @@ def jet_trigger_matching(
 
 
 @selector(
+    uses={"{Jet,TrigObj}.{pt,eta,phi}"},
+    # shifts are declared dynamically below in tau_selection_init
+    exposed=False,
+)
+def quadjet_jet_trigger_matching(
+    self: Selector,
+    events: ak.Array,
+    trigger: Trigger,
+    trigger_fired: ak.Array,
+    leg_masks: dict[str, ak.Array],
+    jet_object_mask: ak.Array,
+    lepton_results: SelectionResult,
+    **kwargs,
+) -> tuple[ak.Array]:
+    """
+    Jet trigger matching.
+    """
+    if ak.all(ak.num(events.Jet) == 0):
+        logger.info("no jets found in event chunk")
+        return full_like(events.Jet.pt, False, dtype=bool)
+
+    is_cross_quadjet = trigger.has_tag("cross_quadjet")
+    assert is_cross_quadjet, "This function is only relevant for the cross quadjet trigger,"
+    " trigger {} does not seem to fulfill the requirements".format(trigger.name)
+
+    # catch config errors
+    if is_cross_quadjet:
+        assert trigger.n_legs == len(leg_masks) == 4
+    assert abs(trigger.legs["jet_bjet"].pdg_id) == 1
+    assert abs(trigger.legs["jet4"].pdg_id) == 1
+
+    assert jet_object_mask is not None, "For quadjet triggers, jet_object_mask must be defined to match only the 2 candidate jets"  # noqa: E501
+
+    # define the jet objects to be considered for matching
+    masked_jets = events.Jet[jet_object_mask]
+
+    # define the back mapping to the original jet collection
+    def map_to_full_jet_array(matched_mask: ak.Array) -> ak.Array:
+        if jet_object_mask is None:
+            return matched_mask
+        flat_full_mask = flat_np_view(ak.drop_none(ak.full_like(events.Jet.pt, False, dtype=bool)))
+        flat_full_mask[flat_np_view(jet_object_mask)] = flat_np_view(matched_mask)
+        return layout_ak_array(flat_full_mask, events.Jet)
+
+    # match both legs
+    matches_leg_bjet = trigger_object_matching(
+        masked_jets,
+        events.TrigObj[leg_masks["jet_bjet"]],
+        event_mask=trigger_fired,
+    )
+    matches_leg_jet = trigger_object_matching(
+        masked_jets,
+        events.TrigObj[leg_masks["jet4"]],
+        event_mask=trigger_fired,
+    )
+
+    # jets need to be matched to at least one leg, but as a side condition
+    # each leg has to have at least one match to a jet
+    matches = (
+        (matches_leg_bjet | matches_leg_jet) &
+        ak.any(matches_leg_bjet, axis=1) &
+        ak.any(matches_leg_jet, axis=1)
+    )
+
+    # additional condition: there must be at least two matched trigger objects
+    # since the same trigger object could fulfill both legs trigger bits and
+    # thus both reconstructed jets could match to the same trigger object
+
+    # since there can also be double matching of trigger objects between the tau legs and the
+    # jet legs, we use the stored the trigger object indices from the tau legs
+    # and check that the union of sets of matched trigger objects for the tau legs and the
+    # jet legs contain at least 4 distinct trigger objects
+
+    # this works because the jet3 and jet4 legs have the same trigger bits and their trigger objects
+    # are a superset of the ones matching the jet_tau and jet_btag legs. Else e.g. jet_bjet could
+    # match 3 different jets and jet4 could match the same jet as jet_tau and jet3 and we would still
+    # have 4 matches without having 1 independent trigger object per leg. So: to check if this is
+    # still accurate in further iterations.
+
+    mask_leg_jet_bjet = mask_from_indices(leg_masks["jet_bjet"], events.TrigObj.pt)
+    mask_leg_jet4 = mask_from_indices(leg_masks["jet4"], events.TrigObj.pt)
+
+    mask_all_legs = mask_leg_jet_bjet | mask_leg_jet4
+    matched_trig_objs = trigger_object_matching(
+        events.TrigObj[mask_all_legs],
+        masked_jets,
+        event_mask=trigger_fired,
+    )
+
+    matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
+
+    # compare with the matched trig objs for the tau legs
+    matched_trig_objs_idx_tau_legs = lepton_results.x.tau_trig_objects_idx_matched_quadjet[trigger.id]
+    matched_trig_objs_idx_jet_legs = ak.local_index(events.TrigObj)[mask_all_legs][matched_trig_objs]
+    all_matched_trig_objs = ak.concatenate((matched_trig_objs_idx_jet_legs, matched_trig_objs_idx_tau_legs), axis=1)
+
+    # maybe remove completely, this is how it should be done but the SFs might not have
+    # been calculated with this requirement, making the correspondance not 1 to 1 anymore...
+    # amount of rejected events by this requirement and the two "at least two matched trigger objects"
+    # is fairly low (O(3%))
+    verify_4_different_matched_trig_objs = [len(set(x)) >= 4 for x in all_matched_trig_objs]
+    matches = matches & ak.Array(verify_4_different_matched_trig_objs)
+
+    # bring the mask back to the full jet collection
+    matches = map_to_full_jet_array(matches)
+
+    return matches
+
+
+@selector(
     uses={
-        hhbtag, vbfjtag, jet_trigger_matching,
+        hhbtag, vbfjtag, jet_trigger_matching, quadjet_jet_trigger_matching,
         "fired_trigger_ids", "TrigObj.{pt,eta,phi}",
         "Jet.{pt,eta,phi,mass,jetId}", IF_RUN_2("Jet.puId"),
         "FatJet.{pt,eta,phi,mass,msoftdrop,jetId,particleNet_XbbVsQCD}",
@@ -149,6 +260,7 @@ def jet_trigger_matching(
     produces={
         hhbtag, vbfjtag,
         "Jet.hhbtag", "Jet.vbfjtag", "Jet.assignment_bits", "matched_trigger_ids",
+        IF_RUN_3_2024("ht_for_quadjets"),  # TODO: not produced when/o quadjet trigger exists
     },
     max_chunk_size=20_000,  # limit the chunk size due to hhbtag and vbfjtag being used simultaneously
 )
@@ -262,10 +374,13 @@ def jet_selection(
         self.trigger_ids_ev +
         self.trigger_ids_mv
     )
-    vbf_lep_trigger_mask = (
+
+    all_vbf_quadjet_trigger = all_vbf_trigger + self.trigger_ids_quadjet
+
+    vbf_quadjet_lep_trigger_mask = (
         ak.any(reduce(
             or_,
-            [(lepton_results.x.lepton_part_trigger_ids == tid) for tid in all_vbf_trigger],
+            [(lepton_results.x.lepton_part_trigger_ids == tid) for tid in all_vbf_quadjet_trigger],
             false_mask,
         ), axis=1)
     )
@@ -278,8 +393,13 @@ def jet_selection(
     # prepare to fill the list of matched trigger ids with the events passing tautaujet and vbf
     matched_trigger_ids_list = [events.matched_trigger_ids]
 
+    # get information about passed base selections per trigger from lepton selection
+    partially_passed_base_selection = lepton_results.x.partially_passed_base_selection
+    passed_base_selection = lepton_results.x.passed_base_selection
+
     # only perform this special treatment when applicable
     if ak.any(ttj_mask):
+
         # store the leading hhbjet
         sel_hhbjet_mask = hhbjet_mask[ttj_mask]
         pt_sorting_indices = ak.argsort(events.Jet.pt[ttj_mask][sel_hhbjet_mask], axis=1, ascending=False)
@@ -289,6 +409,16 @@ def jet_selection(
         constraints_mask_matched_hhbjet = (
             (hhbjet_mask[ttj_mask] != EMPTY_FLOAT) &
             (events.Jet.pt[ttj_mask] > 60.0)  # ! Note: hardcoded value
+        )
+
+        # update passed base selection dictionary with ttj trigger results
+        # bring back constraints mask to full chunk shape
+        constraints_mask_matched_hhbjet_event = ak.sum(constraints_mask_matched_hhbjet, axis=1) > 0
+        constraints_mask_matched_hhbjet_event_full = np.zeros(len(events), dtype=bool)
+        constraints_mask_matched_hhbjet_event_full[flat_np_view(ttj_mask)] = flat_np_view(constraints_mask_matched_hhbjet_event)  # noqa: E501
+
+        passed_base_selection["cross_tau_tau_jet"] = partially_passed_base_selection["cross_tau_tau_jet"] & (
+            constraints_mask_matched_hhbjet_event_full
         )
 
         # check which jets can be matched to any of the jet legs
@@ -342,7 +472,7 @@ def jet_selection(
 
         # create a mask to select tautau events that were only triggered by a tau-tau-jet cross trigger
         only_ttj_mask = (
-            ttj_mask & ~tt_match_mask & ~vbf_lep_trigger_mask
+            ttj_mask & ~tt_match_mask & ~vbf_quadjet_lep_trigger_mask
         )
 
         #
@@ -462,9 +592,157 @@ def jet_selection(
     matched_trigger_ids_list = [events.matched_trigger_ids]
 
     parking_vbf_double_counting = full_like(events.event, False, dtype=bool)
-    if all_vbf_trigger:
-        vbf_trigger_fired_all_matched = full_like(events.event, False, dtype=bool)
-        for trigger, _, leg_masks in trigger_results.x.trigger_data:
+    parking_hh_double_counting = full_like(events.event, False, dtype=bool)
+    if all_vbf_quadjet_trigger:
+        vbf_or_quadjet_trigger_fired_all_matched = full_like(events.event, False, dtype=bool)
+
+        # do ordered loop over quadjet and vbf triggers to ensure orthogonalization
+        trigger_list = [trigger_data[0] for trigger_data in trigger_results.x.trigger_data]
+        positions = np.ones(len(trigger_list)) * 999
+        next_position = 0
+        # order of trigger priority (from highest to lowest):
+        # - single e/mu, cross e/mu tau, cross tau tau, cross tau tau jet,
+        # - cross quadjet (only tautau channel)
+        # - cross tau tau vbf (only tautau channel)
+        # - cross vbf, cross vbf triple jet(???)
+        # # TODO: check what is the deal with the triple jet one, never heard of it, seems to be used for 2023???
+        # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/data/HHtriggers_Run3.yaml?ref_type=heads#L192 -> would be extremely annoying for the trigger sfs calculation  # noqa: E501
+        # - cross e/mu/tau vbf
+        # as the full lepton triggers are all in the first priority group, the orthogonalization
+        # is done in the jet selection
+        trigger_tag_group1 = {
+            "single_e", "cross_e_tau", "single_mu", "cross_mu_tau",
+            "cross_tau_tau", "cross_tau_tau_jet",
+        }
+        trigger_tag_group2 = {"cross_quadjet"}
+        trigger_tag_group3 = {"cross_tau_tau_vbf"}
+        trigger_tag_group4 = {"cross_vbf", "cross_vbf_triplejet"}
+        trigger_tag_group5 = {"cross_e_vbf", "cross_mu_vbf", "cross_tau_vbf"}
+        trigger_tag_groups = [
+            trigger_tag_group1, trigger_tag_group2, trigger_tag_group3,
+            trigger_tag_group4, trigger_tag_group5,
+        ]
+        for trigger in trigger_list:
+            # group 1
+            if trigger.has_tag(trigger_tag_group1):
+                positions[trigger_list.index(trigger)] = next_position
+                next_position += 1
+        for trigger in trigger_list:
+            # group 2
+            if trigger.has_tag(trigger_tag_group2):
+                positions[trigger_list.index(trigger)] = next_position
+                next_position += 1
+        for trigger in trigger_list:
+            # group 3
+            if trigger.has_tag(trigger_tag_group3):
+                positions[trigger_list.index(trigger)] = next_position
+                next_position += 1
+        for trigger in trigger_list:
+            # group 4
+            if trigger.has_tag(trigger_tag_group4):
+                positions[trigger_list.index(trigger)] = next_position
+                next_position += 1
+        for trigger in trigger_list:
+            # group 5
+            if trigger.has_tag(trigger_tag_group5):
+                positions[trigger_list.index(trigger)] = next_position
+                next_position += 1
+
+        all_tags = trigger_tag_group1 | trigger_tag_group2 | trigger_tag_group3 | trigger_tag_group4 | trigger_tag_group5
+
+        # assuming all triggers are tagged with only one of the priority group tags, store it in the tuple
+        def add_priority_tag(trigger):
+            for tag in all_tags:
+                if trigger.has_tag(tag):
+                    return tag
+            return None
+        trigger_data_with_tags = [
+            (trigger, trigger_fired, leg_masks, add_priority_tag(trigger))
+            for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data
+        ]
+
+        for trigger, trigger_fired, leg_masks, priority_tag in trigger_data_with_tags:
+            if priority_tag is None:
+                raise ValueError(f"Trigger {trigger.name} does not have a priority tag from the defined groups, cannot be sorted for orthogonalization. Please check the trigger tags and the defined priority groups.")  # noqa: E501
+
+        reordered_trigger_data = [trigger_data_with_tags[i] for i in np.argsort(positions)]
+        higher_priority_triggers = trigger_tag_group1
+        next_higher_priority_triggers = trigger_tag_group2
+
+        ht_for_quadjet_calculated = False
+        for trigger, _, leg_masks, priority_tag in reordered_trigger_data:
+            # update the priority group if necessary and verify whether the leptons were matched for the trigger
+            if trigger.id in all_vbf_quadjet_trigger:
+                # if needed, update the trigger priority group for the priority tag of the current trigger
+                if priority_tag not in next_higher_priority_triggers:
+                    found = False
+                    for i, trigger_tag_group in enumerate(trigger_tag_groups):
+                        if priority_tag in trigger_tag_group:
+                            found = True
+                            # update the current and next higher priority groups
+                            for higher_priority_trigger_group in trigger_tag_groups[:i]:
+                                higher_priority_triggers = higher_priority_triggers.union(higher_priority_trigger_group)
+                            next_higher_priority_triggers = trigger_tag_group
+                            break
+                    if not found:
+                        raise ValueError(f"Priority tag {priority_tag} of trigger {trigger.name} not found in any of the defined trigger tag groups. Please check the trigger tags and the defined priority groups.")  # noqa: E501
+
+                # event-level mask for events with trigger matched leptons(/fired trigger for dijet trigger)
+                trigger_fired_leptons_matched = (
+                    ak.any(lepton_results.x.lepton_part_trigger_ids == trigger.id, axis=1)
+                )
+
+            # object selection and trigger matching for the quadjet triggers
+            if trigger.id in self.trigger_ids_quadjet:
+                pt_jet_btag = trigger.x.offline_cuts.get("pt_jet_bjet", None)
+                pt_jet_4 = trigger.x.offline_cuts.get("pt_jet_4", None)
+                ht_cut = trigger.x.offline_cuts.get("ht", None)
+
+                assert pt_jet_btag is not None, "pt cut for bjet leg of the quadjet trigger must be defined in the trigger config"  # noqa: E501
+                assert pt_jet_4 is not None, "pt cut for the 4th jet leg of the quadjet trigger must be defined in the trigger config"  # noqa: E501
+
+                if ht_for_quadjet_calculated is False and ht_cut is not None:
+                    events = set_ak_column(
+                        events,
+                        "ht_for_quadjets",
+                        ak.sum(events.Jet.pt[default_mask & (events.Jet.pt > 25.0)], axis=1),
+                        # ! Note: hardcoded min pt for HT calculation
+                        value_type=np.float32,
+                    )
+                    ht_for_quadjet_calculated = True
+
+                # store the hhbjets
+                pt_sorting_hhbjet_indices = ak.argsort(events.Jet.pt[hhbjet_mask], axis=1, ascending=False)
+                hhbjet_1 = ak.firsts(events.Jet[hhbjet_mask][pt_sorting_hhbjet_indices], axis=1)
+                hhbjet_2 = ak.firsts(events.Jet[hhbjet_mask][pt_sorting_hhbjet_indices][:, 1:], axis=1)
+
+                # use pt requirement for the btag leg from the highest pt jet and
+                # for the 4th jet leg from the second highest pt jet
+                # however the matching of the btag leg will be done for either one of the two hhbjets
+                # for now this is fine as the different legs have same pt requirements
+                # might need to rethink this mask/change the matching strategy if the pt cuts are
+                # different for the different jet legs but a mask change would make
+                # orthogonalization region very difficult to define
+                trig_req_mask = (
+                    (ak.fill_none(hhbjet_1.pt > pt_jet_btag, False)) &
+                    (ak.fill_none(hhbjet_2.pt > pt_jet_4, False)) &
+                    (ak.fill_none(events.ht_for_quadjets > ht_cut, False) if ht_cut is not None else True)
+                )
+
+                # object-level mask with the trigger matching jets
+                trigger_matching_jets = self[quadjet_jet_trigger_matching](
+                    events=events,
+                    trigger=trigger,
+                    trigger_fired=trigger_fired_leptons_matched,
+                    leg_masks=leg_masks,
+                    jet_object_mask=hhbjet_mask,
+                    lepton_results=lepton_results,
+                    **kwargs,
+                )
+
+                n_required_jets = 2
+
+            # object selection and trigger matching for the vbf triggers
             if trigger.id in all_vbf_trigger:
                 # create event-level trigger requirements mask
                 pt_jet_1 = trigger.x.offline_cuts.get("pt_jet1", None)
@@ -474,8 +752,9 @@ def jet_selection(
 
                 # create the mask for the trigger requirements, unnecessarily complicated due to the possibility
                 # of less than 2 vbf jets being present
-                vbf_jet_1 = ak.firsts(events.Jet[vbfjet_mask][:, :1])
-                vbf_jet_2 = ak.firsts(events.Jet[vbfjet_mask][:, 1:2])
+                pt_sorting_vbjet_indices = ak.argsort(events.Jet.pt[vbfjet_mask], axis=1, ascending=False)
+                vbf_jet_1 = ak.firsts(events.Jet[vbfjet_mask][pt_sorting_vbjet_indices][:, :1])
+                vbf_jet_2 = ak.firsts(events.Jet[vbfjet_mask][pt_sorting_vbjet_indices][:, 1:2])
                 trig_req_mask = (
                     (ak.fill_none(vbf_jet_1.pt > pt_jet_1, False)) &
                     (ak.fill_none(vbf_jet_2.pt > pt_jet_2, False) if pt_jet_2 is not None else True) &
@@ -483,15 +762,6 @@ def jet_selection(
                     (ak.fill_none((vbf_jet_1 + vbf_jet_2).mass > mjj, False) if mjj is not None else True) &  # noqa: E501
                     (ak.fill_none(abs(vbf_jet_1.eta - vbf_jet_2.eta) < delta_eta_jj, False) if delta_eta_jj is not None else True)  # noqa: E501
                 )
-
-                # event-level mask for events with trigger matched leptons(/fired trigger for dijet trigger)
-                trigger_fired_leptons_matched = (
-                    ak.any(lepton_results.x.lepton_part_trigger_ids == trigger.id, axis=1)
-                )
-
-                # TODO: change vbf jets matching procedure when SF procedure has been decided,
-                # not available for now, so define the final mask
-                # from the tt matching decision, jet matching and trigger thresholds for now
 
                 # object-level mask with the trigger matching jets
                 trigger_matching_jets = self[jet_trigger_matching](
@@ -504,12 +774,37 @@ def jet_selection(
                 )
 
                 n_required_jets = 2 if pt_jet_2 is not None else 1
+
+            # united part for vbf and quadjet triggers for orthogonalization and matched trigger
+            # ids storage, as the logic is the same for both types of triggers
+            if trigger.id in all_vbf_quadjet_trigger:
+                # create orthogonalization mask to remove higher priority trigger selected events
+                orthogonalization_mask = full_like(events.event, False, dtype=bool)
+                for name in higher_priority_triggers:
+                    if name not in passed_base_selection:
+                        if not (self.config_inst.campaign.x.year != 2024 and name == "cross_quadjet"):
+                            logger.warning_once(
+                                f"missing_{name}_trigger",
+                                f"no {name} trigger found for this config, is it expected?",
+                            )
+                        continue
+                    orthogonalization_mask = orthogonalization_mask | passed_base_selection[name]
+
+                # update the dictionary of passed base selection
+                passed_base_selection[priority_tag] = (
+                    partially_passed_base_selection[priority_tag] &
+                    trig_req_mask &
+                    ~orthogonalization_mask
+                )
+
+                _trigger_jet_mask = hhbjet_mask if trigger.id in self.trigger_ids_quadjet else vbfjet_mask
                 _trigger_fired_all_matched = (
                     trigger_fired_leptons_matched &
                     trig_req_mask &
-                    (ak.sum(trigger_matching_jets[vbfjet_mask], axis=1) == n_required_jets)
+                    (ak.sum(trigger_matching_jets[_trigger_jet_mask], axis=1) == n_required_jets) &
+                    ~orthogonalization_mask
                 )
-                vbf_trigger_fired_all_matched = vbf_trigger_fired_all_matched | _trigger_fired_all_matched
+                vbf_or_quadjet_trigger_fired_all_matched = vbf_or_quadjet_trigger_fired_all_matched | _trigger_fired_all_matched  # noqa: E501
                 ids = ak.where(_trigger_fired_all_matched, np.float32(trigger.id), np.float32(np.nan))
                 matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
 
@@ -519,24 +814,42 @@ def jet_selection(
 
         # remove events if from parking_vbf datasets and matched by another trigger
         if self.dataset_inst.has_tag("parking_vbf"):
-            set_trigger_tags_no_parking = {
-                "single_e", "single_mu", "cross_e_tau", "cross_mu_tau", "cross_tau_tau", "cross_tau_tau_jet",
+            set_trigger_tags_no_parking_vbf = {
+                "single_e", "single_mu", "cross_e_tau", "cross_mu_tau", "cross_tau_tau",
+                "cross_tau_tau_jet", "cross_quadjet",
             }
             if is_2023_pre:
-                set_trigger_tags_no_parking.add("cross_tau_tau_vbf")
-            trigger_ids_no_parking = [
+                set_trigger_tags_no_parking_vbf.add("cross_tau_tau_vbf")
+            trigger_ids_no_parking_vbf = [
                 trigger.id for trigger in self.config_inst.x.triggers
-                if trigger.has_tag(set_trigger_tags_no_parking)
+                if trigger.has_tag(set_trigger_tags_no_parking_vbf)
             ]
             # maybe use reduce instead?
-            for tid in trigger_ids_no_parking:
+            for tid in trigger_ids_no_parking_vbf:
                 parking_vbf_double_counting = (
                     parking_vbf_double_counting |
                     ak.any(events.matched_trigger_ids == tid, axis=1)
                 )
 
-        # remove all events that fired only vbf trigger but were not matched or
-        # that fired vbf and tautaujet triggers and matched the leptons but not the jets
+        # remove events if from parking_hh datasets and matched by another trigger except vbf
+        if self.dataset_inst.has_tag("parking_hh"):
+            set_trigger_tags_no_parking_hh = {
+                "single_e", "single_mu", "cross_e_tau", "cross_mu_tau", "cross_tau_tau",
+                "cross_tau_tau_jet",
+            }
+            trigger_ids_no_parking_hh = [
+                trigger.id for trigger in self.config_inst.x.triggers
+                if trigger.has_tag(set_trigger_tags_no_parking_hh)
+            ]
+            # maybe use reduce instead?
+            for tid in trigger_ids_no_parking_hh:
+                parking_hh_double_counting = (
+                    parking_hh_double_counting |
+                    ak.any(events.matched_trigger_ids == tid, axis=1)
+                )
+
+        # remove all events that fired only vbf/quadjet trigger but were not matched or
+        # that fired vbf/quadjet and tautaujet triggers and matched the leptons but not the jets
         lep_tid = [
             trigger.id for trigger in self.config_inst.x.triggers
             if trigger.has_tag({"single_e", "single_mu", "cross_e_tau", "cross_mu_tau", "cross_tau_tau"})
@@ -549,31 +862,31 @@ def jet_selection(
             ), axis=1)
         )
 
-        vbf_fired_j_not_matched = (
+        vbf_quadjet_fired_j_not_matched = (
             # need to match either only vbf or vbf and tautaujet triggers
             ~lep_trigger_matched_mask &  # need to not match any of the lepton triggers
-            vbf_lep_trigger_mask &  # need to pass the lepton matching for the vbf triggers
-            ~vbf_trigger_fired_all_matched    # need to not match the jet legs in the vbf trigger
+            vbf_quadjet_lep_trigger_mask &  # need to pass the lepton matching for the vbf or quadjet triggers
+            ~vbf_or_quadjet_trigger_fired_all_matched    # need to not match the jet legs in the vbf trigger
         )
         if ak.any(ttj_mask):
             # case where vbf and tautaujet triggers were both fired
-            ttjv_fired_j_not_matched = (
-                vbf_fired_j_not_matched &
+            ttjvq_fired_j_not_matched = (
+                vbf_quadjet_fired_j_not_matched &
                 ttj_mask &
                 ~full_leading_matched_all_events
             )
             match_at_least_one_trigger = ak.where(
-                ttjv_fired_j_not_matched,
+                ttjvq_fired_j_not_matched,
                 False,
                 match_at_least_one_trigger,
             )
             # case where only vbf trigger was fired
-            vbf_fired_j_not_matched = (
-                vbf_fired_j_not_matched &
+            vbf_quadjet_fired_j_not_matched = (
+                vbf_quadjet_fired_j_not_matched &
                 ~ttj_mask
             )
 
-        match_at_least_one_trigger = ak.where(vbf_fired_j_not_matched, False, match_at_least_one_trigger)
+        match_at_least_one_trigger = ak.where(vbf_quadjet_fired_j_not_matched, False, match_at_least_one_trigger)
 
     #
     # final selection and object construction
@@ -601,7 +914,8 @@ def jet_selection(
     jet_sel = (
         (ak.sum(default_mask, axis=1) >= 1) &
         match_at_least_one_trigger &
-        ~parking_vbf_double_counting
+        ~parking_vbf_double_counting &
+        ~parking_hh_double_counting
         # add additional cuts here in the future
     )
     jet_sel2 = jet_sel & (ak.sum(default_mask, axis=1) >= 2)
@@ -699,4 +1013,8 @@ def jet_selection_setup(self: Selector, task: law.Task, **kwargs) -> None:
     self.trigger_ids_mv = [
         trigger.id for trigger in self.config_inst.x.triggers
         if trigger.has_tag("cross_mu_vbf")
+    ]
+    self.trigger_ids_quadjet = [
+        trigger.id for trigger in self.config_inst.x.triggers
+        if trigger.has_tag("cross_quadjet")
     ]
