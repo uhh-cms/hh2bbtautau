@@ -173,7 +173,6 @@ def quadjet_jet_trigger_matching(
 
     assert jet_object_mask is not None, "For quadjet triggers, jet_object_mask must be defined to match only the 2 candidate jets"  # noqa: E501
 
-
     # define the jet objects to be considered for matching
     masked_jets = events.Jet[jet_object_mask]
 
@@ -230,7 +229,7 @@ def quadjet_jet_trigger_matching(
         event_mask=trigger_fired,
     )
 
-    # matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
+    matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
 
     # compare with the matched trig objs for the tau legs
     matched_trig_objs_idx_tau_legs = lepton_results.x.tau_trig_objects_idx_matched_quadjet[trigger.id]
@@ -592,8 +591,8 @@ def jet_selection(
     matched_trigger_ids_list = [events.matched_trigger_ids]
 
     parking_vbf_double_counting = full_like(events.event, False, dtype=bool)
-    parking_hhb_double_counting = full_like(events.event, False, dtype=bool)
-    if all_vbf_trigger or quadjet_trigger:
+    parking_hh_double_counting = full_like(events.event, False, dtype=bool)
+    if all_vbf_quadjet_trigger:
         vbf_or_quadjet_trigger_fired_all_matched = full_like(events.event, False, dtype=bool)
 
         # do ordered loop over quadjet and vbf triggers to ensure orthogonalization
@@ -704,7 +703,8 @@ def jet_selection(
                     events = set_ak_column(
                         events,
                         "ht_for_quadjets",
-                        ak.sum(events.Jet.pt[default_mask & (events.Jet.pt > 25.0)], axis=1),  # ! Note: hardcoded min pt for HT calculation
+                        ak.sum(events.Jet.pt[default_mask & (events.Jet.pt > 25.0)], axis=1),
+                        # ! Note: hardcoded min pt for HT calculation
                         value_type=np.float32,
                     )
                     ht_for_quadjet_calculated = True
@@ -800,7 +800,7 @@ def jet_selection(
                     (ak.sum(trigger_matching_jets[vbfjet_mask], axis=1) == n_required_jets) &
                     ~orthogonalization_mask
                 )
-                vbf_or_quadjet_trigger_fired_all_matched = vbf_or_quadjet_trigger_fired_all_matched | _trigger_fired_all_matched
+                vbf_or_quadjet_trigger_fired_all_matched = vbf_or_quadjet_trigger_fired_all_matched | _trigger_fired_all_matched  # noqa: E501
                 ids = ak.where(_trigger_fired_all_matched, np.float32(trigger.id), np.float32(np.nan))
                 matched_trigger_ids_list.append(ak.singletons(ak.nan_to_none(ids)))
 
@@ -808,8 +808,6 @@ def jet_selection(
         matched_trigger_ids = ak_concatenate_safe(matched_trigger_ids_list, axis=1)
         events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids, value_type=np.int32)
 
-
-        # TODO: update for quadjets and parkingHH
         # remove events if from parking_vbf datasets and matched by another trigger
         if self.dataset_inst.has_tag("parking_vbf"):
             set_trigger_tags_no_parking_vbf = {
