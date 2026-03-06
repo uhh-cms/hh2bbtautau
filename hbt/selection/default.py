@@ -39,7 +39,7 @@ import hbt.production.processes as process_producers
 from hbt.production.weights import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2024, IF_DATA, IF_DATASET_HAS_TAG, IF_BEFORE_2024, IF_RUN_3_2022_2023  # noqa: E501
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2024, IF_DATA, IF_DATASET_HAS_TAG
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -83,15 +83,14 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
 @selector(
     uses={
         jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
-        jet_selection, mc_weight, pu_weight, ps_weights, IF_BEFORE_2024(btag_weights_deepjet),
-        IF_RUN_3_2022_2023(btag_weights_pnet), process_ids,
+        jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
         IF_RUN_3_2024(fill_btag_wp_count_hists),
     },
     produces={
         jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
-        IF_BEFORE_2024(btag_weights_deepjet), process_ids, cutflow_features, IF_RUN_3_2022_2023(btag_weights_pnet),
+        btag_weights_deepjet, process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
@@ -186,22 +185,21 @@ def default(
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
-        if self.config_inst.campaign.x.year != 2024:
-            # btag weights
-            btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
-            events = self[btag_weights_deepjet](
+        # btag weights
+        btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
+        events = self[btag_weights_deepjet](
+            events,
+            jet_mask=btag_weight_jet_mask,
+            negative_b_score_log_mode="none",
+            **kwargs,
+        )
+        if self.has_dep(btag_weights_pnet):
+            events = self[btag_weights_pnet](
                 events,
                 jet_mask=btag_weight_jet_mask,
                 negative_b_score_log_mode="none",
                 **kwargs,
             )
-            if self.has_dep(btag_weights_pnet):
-                events = self[btag_weights_pnet](
-                    events,
-                    jet_mask=btag_weight_jet_mask,
-                    negative_b_score_log_mode="none",
-                    **kwargs,
-                )
     # create process ids
     for tag in self.stitch_tags:
         if (prod_cls := getattr(self, f"process_ids_{tag}", None)) is not None:
