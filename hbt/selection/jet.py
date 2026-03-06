@@ -27,6 +27,7 @@ from hbt.config.util import Trigger
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
+
 logger = law.logger.get_logger(__name__)
 
 
@@ -783,7 +784,7 @@ def jet_selection(
                     if name not in passed_base_selection:
                         if not (self.config_inst.campaign.x.year != 2024 and name == "cross_quadjet"):
                             logger.warning_once(
-                                f"missing_{name}_trigger", 
+                                f"missing_{name}_trigger",
                                 f"no {name} trigger found for this config, is it expected?",
                             )
                         continue
