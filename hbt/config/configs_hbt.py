@@ -625,7 +625,7 @@ def add_config(
 
     # groups
     cfg.x.producer_groups = {
-        "dnns": ["default", "run3_dnn_moe", "reg_dnn_moe"],
+        "dnns": ["run3_dnn_moe", "reg_dnn_moe", "vbf_dnn_moe"],
     }
 
     # process groups for conveniently looping over certain processes
@@ -1428,7 +1428,7 @@ def add_config(
 
             def dataset_groups(dataset_inst: od.Dataset) -> list[od.Dataset]:
                 # check which group the dataset belongs to
-                for group_index in range(1, len(cfg.x.btag_wp_eff_groups) + 1):
+                for group_index in range(len(cfg.x.btag_wp_eff_groups)):
                     group_tag = f"btag_wp_eff_group_{group_index}"
                     if dataset_inst.has_tag(group_tag):
                         return [

@@ -228,11 +228,11 @@ class TFModel(BaseModel):
     @classmethod
     @functools.cache
     def imports(cls):
-        print("importing tensorflow ...")
+        print("importing tensorflow ...", flush=True)
         import tensorflow as tf  # type: ignore[import-not-found,import-untyped]
         tf.config.threading.set_intra_op_parallelism_threads(1)
         tf.config.threading.set_inter_op_parallelism_threads(1)
-        print("done")
+        print("done", flush=True)
         return tf
 
     @classmethod
@@ -252,12 +252,12 @@ class TFModel(BaseModel):
         tf = self.imports()
 
         sig_msg = f" (signature '{self.signature_key}')" if self.signature_key else ""
-        print(f"loading {self.__class__.__name__} '{self.name}'{sig_msg} from {self.path} ...")
+        print(f"loading {self.__class__.__name__} '{self.name}'{sig_msg} from {self.path} ...", flush=True)
 
         model = tf.saved_model.load(self.path)
         self.model = model if not self.signature_key else model.signatures[self.signature_key]
 
-        print("done")
+        print("done", flush=True)
 
     def evaluate(self, *args, **kwargs) -> Any:
         out = self.model(*args, **kwargs)
@@ -294,12 +294,12 @@ class TorchModel(BaseModel):
     @classmethod
     @functools.cache
     def imports(cls):
-        print("importing torch ...")
+        print("importing torch ...", flush=True)
         import numpy as np
         import torch  # type: ignore[import-not-found,import-untyped]
         torch.set_num_threads(1)
         torch.set_num_interop_threads(1)
-        print("done")
+        print("done", flush=True)
         return torch, np
 
     @classmethod
@@ -331,11 +331,11 @@ class TorchModel(BaseModel):
     def load(self) -> None:
         torch, _ = self.imports()
 
-        print(f"loading {self.__class__.__name__} '{self.name}' from {self.path} ...")
+        print(f"loading {self.__class__.__name__} '{self.name}' from {self.path} ...", flush=True)
 
         self.model = torch.export.load(self.path).module()
 
-        print("done")
+        print("done", flush=True)
 
     def evaluate(self, *args, **kwargs) -> Any:
         torch, _ = self.imports()
