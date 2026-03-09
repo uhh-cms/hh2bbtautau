@@ -100,8 +100,14 @@ class _res_dnn_evaluation(Producer):
 
     def load_model_dir(self, bundle: BundleExternalFiles) -> law.LocalDirectoryTarget:
         model_dir = bundle.files_dir.child(f"{self.external_name}_unpacked", type="d")
-        if not model_dir.exists() or not model_dir.listdir():
-            getattr(bundle.files, self.external_name).load(model_dir, formatter="tar")
+        model_dir_exists = lambda: model_dir.exists() and model_dir.listdir()
+        if not model_dir_exists():
+            # unpack into a tmpdir first and then move to reduce race conditions
+            tmp_dir = law.LocalDirectoryTarget(is_tmp=True)
+            getattr(bundle.files, self.external_name).load(tmp_dir, formatter="tar")
+            if not model_dir_exists():
+                tmp_dir.move_to_local(model_dir)
+            tmp_dir.remove()
         if self.dir_name:
             model_dir = model_dir.child(self.dir_name, type="d")
         return model_dir
