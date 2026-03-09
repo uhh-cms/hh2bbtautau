@@ -165,6 +165,17 @@ IF_DATASET_IS_W_LNU = IF_DATASET_HAS_TAG("w_lnu")
 
 
 @deferred_column
+def IF_QUADJET_APPLIES_TO_DATASET(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    if any(
+        trigger_inst.applies_to_dataset(func.dataset_inst)
+        for trigger_inst in func.config_inst.x.triggers
+        if trigger_inst.has_tag("cross_quadjet")
+    ):
+        return self.get()
+    return None
+
+
+@deferred_column
 def MET_COLUMN(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
     met_name = func.config_inst.x("met_name", None)
     if not met_name:

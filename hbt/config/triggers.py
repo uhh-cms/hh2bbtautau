@@ -2139,7 +2139,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 "pt_jet_bjet": 25.0,
                 "pt_jet_3": 25.0,
                 "pt_jet_4": 25.0,
-                "ht": 400.0,
+                "ht": 250.0,
             },
         },
         applies_to_dataset=(lambda dataset_inst: (

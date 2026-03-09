@@ -581,7 +581,7 @@ def quadjet_tau_trigger_matching(
     """
     if ak.all(ak.num(events.Tau) == 0):
         logger.info("no taus found in event chunk")
-        return full_like(events.Tau.pt, False, dtype=bool)
+        return full_like(events.Tau.pt, False, dtype=bool), None
 
     is_quadjet = trigger.has_tag("cross_quadjet")
     assert is_quadjet
@@ -1063,16 +1063,10 @@ def lepton_selection(
                 # the second must match a jet leg out of 3/4, need to save which one(s)
                 if trigger.has_tag("cross_quadjet"):
                     matching_mask, tau_trig_objects_matched_quadjet[trigger.id] = self[quadjet_tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
-                    trig_tau_mask = (
-                        trig_tau_mask &
-                        matching_mask
-                    )
                 else:
                     # trigger matching for the taus
-                    trig_tau_mask = (
-                        trig_tau_mask &
-                        self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
-                    )
+                    matching_mask = self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
+                trig_tau_mask = trig_tau_mask & matching_mask
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask

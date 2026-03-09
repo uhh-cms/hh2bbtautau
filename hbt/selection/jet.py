@@ -21,7 +21,7 @@ from columnflow.util import maybe_import
 from hbt.production.hhbtag import hhbtag
 from hbt.production.vbfjtag import vbfjtag
 from hbt.selection.lepton import trigger_object_matching
-from hbt.util import IF_RUN_2, IF_RUN_3_2024
+from hbt.util import IF_RUN_2, IF_QUADJET_APPLIES_TO_DATASET
 from hbt.config.util import Trigger
 
 np = maybe_import("numpy")
@@ -233,9 +233,13 @@ def quadjet_jet_trigger_matching(
     matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
 
     # compare with the matched trig objs for the tau legs
-    matched_trig_objs_idx_tau_legs = lepton_results.x.tau_trig_objects_idx_matched_quadjet[trigger.id]
     matched_trig_objs_idx_jet_legs = ak.local_index(events.TrigObj)[mask_all_legs][matched_trig_objs]
-    all_matched_trig_objs = ak.concatenate((matched_trig_objs_idx_jet_legs, matched_trig_objs_idx_tau_legs), axis=1)
+    matched_trig_objs_idx_tau_legs = lepton_results.x.tau_trig_objects_idx_matched_quadjet[trigger.id]
+    all_matched_trig_objs = (
+        ak_concatenate_safe([matched_trig_objs_idx_jet_legs, matched_trig_objs_idx_tau_legs], axis=1)
+        if matched_trig_objs_idx_tau_legs is not None
+        else matched_trig_objs_idx_jet_legs
+    )
 
     # maybe remove completely, this is how it should be done but the SFs might not have
     # been calculated with this requirement, making the correspondance not 1 to 1 anymore...
@@ -260,7 +264,7 @@ def quadjet_jet_trigger_matching(
     produces={
         hhbtag, vbfjtag,
         "Jet.hhbtag", "Jet.vbfjtag", "Jet.assignment_bits", "matched_trigger_ids",
-        IF_RUN_3_2024("ht_for_quadjets"),  # TODO: not produced when/o quadjet trigger exists
+        IF_QUADJET_APPLIES_TO_DATASET("ht_for_quadjets"),
     },
     max_chunk_size=20_000,  # limit the chunk size due to hhbtag and vbfjtag being used simultaneously
 )
