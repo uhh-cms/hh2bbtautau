@@ -149,12 +149,12 @@ class CalculateLumi(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             "--normtag", (
                 expand_path(self.normtag_file)
                 if self.normtag_file not in {law.NO_STR, "", None}
-                else self.config_inst.x.external_files.lumi.normtag[0]
+                else self.config_inst.x.external_files.lumi.normtag.location
             ),
             "-i", (
                 expand_path(self.lumi_file)
                 if self.lumi_file not in {law.NO_STR, "", None}
-                else self.config_inst.x.external_files.lumi.golden[0]
+                else self.config_inst.x.external_files.lumi.golden.location
             ),
             "-u", f"/{self.unit}",
             *(
