@@ -32,7 +32,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 electron_trigger_weight = cf_electron_trigger_weight.derive(
     "electron_trigger_weight",
     cls_dict={
-        "get_electron_file": (lambda self, external_files: external_files.trigger_sf.electron),
+        "get_electron_file": (lambda self, external_files: external_files.trigger_sf_single_e),
     },
 )
 muon_trigger_weight = cf_muon_trigger_weight.derive(
@@ -116,7 +116,7 @@ cross_trigger_muon_mc_effs = muon_trigger_weight.derive(
 tau_trigger_effs_cclub = tau_trigger_efficiencies.derive(
     "tau_trigger_effs_cclub",
     cls_dict={
-        "get_tau_file": (lambda self, external_files: external_files.trigger_sf.tau),
+        "get_tau_file": (lambda self, external_files: external_files.trigger_sf_tau),
         "get_tau_corrector": (lambda self: self.config_inst.x.tau_trigger_corrector_cclub),
     },
 )

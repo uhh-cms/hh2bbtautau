@@ -1969,7 +1969,6 @@ def add_config(
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         if year in {2022, 2023}:
             # tau energy correction and scale factors
-            tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"
             if year == 2022:
                 tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
             else:  # 2023
@@ -1977,24 +1976,118 @@ def add_config(
             # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
             # custom corrections from Lucas Russel, blessed by TAU
             add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
+
             # trigger scale factors
-            trigger_sf_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"  # noqa: E501
+            tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"
+            trigger_sf_internal_subpath = "?????????/data/TriggerScaleFactors"  # TODO: choose correct subpath once available  # noqa: E501
+            cclub_postfix = cfg.x.full_postfix
+
+            if year == 2022:
+                ditaujet_postfix = f"{year}_{cclub_postfix}"
+                muon_postfix = f"{year}" if campaign.has_tag("preEE") else f"{year}_EE"
+            elif year == 2023:
+                ditaujet_postfix = f"{year}_{cclub_postfix}"
+                muon_postfix = f"{year}" if campaign.has_tag("preBPix") else f"{year}_BPix"
+
+            add_external("trigger_sf_single_e", (cat_info.get_file("egm", "electronHlt.json.gz"), "v2"))
+            add_external("trigger_sf_tau", (cat_info.get_file("tau", "tau.json.gz"), "v2"))
+
             add_external("trigger_sf", Ext(
+                f"{central_hbt_dir}/Analysis?????????????",  # TODO: choose correct file
+                subpaths=DotDict(
+                    muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ScaleFactors_Muon_Z_HLT_{muon_postfix}_eta_pt_schemaV2.json.gz",  # noqa: E501
+                    cross_muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossMuTauHlt.json.gz",
+                    cross_electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossEleTauHlt.json.gz",
+
+                    # TODO: check what this one is for, we don't use pnet triggers for 2022 and 2023
+                    # but the sfs exist only for 2022 and 2023... tests?
+                    # # tautau is pnet for 2024, ignore it for 2022/2023 since not used
+                    # pnet_ditau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/PNetTauTauTrigger_SFs_{year}.json.gz" if year == 2024 else None,  # noqa: E501
+
+                    ditau_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ditaujet_jetleg60_{ditaujet_postfix}.json.gz",  # noqa: E501
+
+                    vbf_dijet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBF2tau_SF_{year}.json.gz",  # noqa: E501
+                    vbf_e=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFEle_SF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
+                    vbf_mu=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFMu_SF_{year}.json.gz" if year != 2022 else None,  # noqa: E501
+                    vbf_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFTau_JetSF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
+                    vbf_incl=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFIncl_SF_{year}.json.gz" if year != 2022 else None,  # noqa: E501
+
+                    # MET and AK8 for boosted tautau, not used for now
+                    # met=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/METTrigger_SFs_run3_{tau_pog_era_cclub}.json.gz" if year != 2024 else None,  # noqa: E501
+                    # ak8=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/Trigger_SF_{year}_Ak8_Pnet_HLT_pT_mSD.json.gz" if year != 2024 else None,  # noqa: E501
+                ),
+                version="v2",
+            ))
+            trigger_sf_legacy_internal_subpath = "AnalysisCore-59ae66c4a39d3e54afad5733895c33b1fb511c47/data/TriggerScaleFactors"  # noqa: E501
+            add_external("trigger_sf_legacy", Ext(
                 f"{central_hbt_dir}/AnalysisCore-59ae66c4.tar.gz",
                 subpaths=DotDict(
-                    muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/temporary_MuHlt_abseta_pt.json",
-                    cross_muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossMuTauHlt.json",
-                    electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/electronHlt.json",
-                    cross_electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossEleTauHlt.json",
-                    tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json",  # noqa: E501
-                    jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ditaujet_jetleg_SFs_{cfg.x.full_postfix}.json",  # noqa: E501
+                    muon=f"{trigger_sf_legacy_internal_subpath}/{tau_pog_era_cclub}/temporary_MuHlt_abseta_pt.json",
+                    cross_muon=f"{trigger_sf_legacy_internal_subpath}/{tau_pog_era_cclub}/CrossMuTauHlt.json",
+                    electron=f"{trigger_sf_legacy_internal_subpath}/{tau_pog_era_cclub}/electronHlt.json",
+                    cross_electron=f"{trigger_sf_legacy_internal_subpath}/{tau_pog_era_cclub}/CrossEleTauHlt.json",
+                    tau=f"{trigger_sf_legacy_internal_subpath}/{tau_pog_era_cclub}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json",  # noqa: E501
+                    jet=f"{trigger_sf_legacy_internal_subpath}/{tau_pog_era_cclub}/ditaujet_jetleg_SFs_{cfg.x.full_postfix}.json",  # noqa: E501
                 ),
                 version="v1",
             ))
         elif year == 2024:
             add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
-            # TODO: 2024: add trigger sf once available
-            pass
+
+            tau_pog_era_cclub = f"{year}fullYear"
+            cclub_postfix = "fullYear"
+
+            # 2024
+            # CrossEleTauHlt.json.gz
+            # CrossMuTauHlt.json.gz
+            # ParkingHH_PNet1BTag0p20_BTag.json.gz
+            # ParkingHH_PNet1BTag0p20_L1HTTau.json.gz
+            # ScaleFactors_Muon_Z_HLT_2024_eta_pt_schemaV2.json.gz
+            # VBF2tau_SF_2024.json.gz
+            # VBFEle_SF_2024_fullYear.json.gz
+            # VBFIncl_SF_2024_fullYear.json.gz
+            # VBFMu_SF_2024_fullYear.json.gz
+            # ditaujet_jetleg60_2024.json.gz
+
+            add_external("trigger_sf_single_e", (cat_info.get_file("egm", "electronHlt.json.gz"), "v2"))
+            add_external("trigger_sf_tau", (cat_info.get_file("tau", "tau.json.gz"), "v2"))
+
+            add_external("trigger_sf", Ext(
+                f"{central_hbt_dir}/Analysis?????????????",  # TODO: choose correct file
+                subpaths=DotDict(
+                    muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ScaleFactors_Muon_Z_HLT_{year}_eta_pt_schemaV2.json.gz",  # noqa: E501
+                    cross_muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossMuTauHlt.json.gz",
+                    cross_electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossEleTauHlt.json.gz",
+
+                    # TODO: add back somehow, not in cclub repo anymore
+                    # electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/electronHlt.json",
+                    # tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/tau_trigger_DeepTau2018v2p5_{tau_pog_era_cclub}.json",
+
+                    # TODO: check what this one is for, we don't use pnet triggers for 2022 and 2023
+                    # but the sfs exist only for 2022 and 2023... tests?
+                    # # tautau is pnet for 2024, ignore it for 2022/2023 since not used
+                    # pnet_ditau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/PNetTauTauTrigger_SFs_{year}.json.gz" if year == 2024 else None,  # noqa: E501
+
+
+                    ditau_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ditaujet_jetleg60_{year}.json.gz",  # noqa: E501
+
+                    vbf_dijet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBF2tau_SF_{year}.json.gz",  # noqa: E501
+                    vbf_e=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFEle_SF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
+                    vbf_mu=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFMu_SF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
+                    # TODO: Does not exist for 2024?
+                    # vbf_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFTau_JetSF_{year}_{cclub_postfix}.json.gz",
+                    vbf_incl=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFIncl_SF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
+
+                    quadjet_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ParkingHH_PNet1BTag0p20_BTag.json.gz",  # noqa: E501
+                    quadjet_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ParkingHH_PNet1BTag0p20_L1HTTau.json.gz",  # noqa: E501
+
+                    # MET and AK8 for boosted tautau, not used for now
+                    # met=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/METTrigger_SFs_run3_{tau_pog_era_cclub}.json.gz" if year != 2024 else None,  # noqa: E501
+                    # ak8=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/Trigger_SF_{year}_Ak8_Pnet_HLT_pT_mSD.json.gz" if year != 2024 else None,  # noqa: E501
+
+                ),
+                version="v2",
+            ))
     else:
         assert False
 
