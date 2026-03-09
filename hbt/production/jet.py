@@ -109,7 +109,7 @@ def jet_trigger_efficiencies_setup(
     self.jet_trig_corrector = correction_set[self.get_jet_corrector()]
 
     # check versions
-    assert self.jet_trig_corrector.version in {0, 1}
+    assert self.jet_trig_corrector.version in {0, 1, 2}
 
 
 @producer(

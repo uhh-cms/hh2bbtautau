@@ -117,7 +117,6 @@ tau_trigger_effs_cclub = tau_trigger_efficiencies.derive(
     "tau_trigger_effs_cclub",
     cls_dict={
         "get_tau_file": (lambda self, external_files: external_files.trigger_sf_tau),
-        "get_tau_corrector": (lambda self: self.config_inst.x.tau_trigger_corrector_cclub),
     },
 )
 

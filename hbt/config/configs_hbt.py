@@ -1156,7 +1156,6 @@ def add_config(
 
     # tau trigger correctors
     cfg.x.tau_trigger_corrector = "tau_trigger"
-    cfg.x.tau_trigger_corrector_cclub = "tauTriggerSF"
 
     ################################################################################################
     # electron settings

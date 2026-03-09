@@ -352,6 +352,10 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
     # start with flat ones
     for kind in ["data", "mc"]:
         wp_config = self.config_inst.x.tau_trigger_working_points
+        if self.config_inst.campaign.x.year == 2024:
+            wp_config = DotDict.wrap({
+                "trigger_corr": "Medium",
+            })
         eval_args = lambda mask, ch, syst: (pt[mask], dm[mask], ch, wp_config.trigger_corr, f"eff_{kind}", syst)
         for corr_channel in ["etau", "mutau", "tautau", "tautaujet"]:  # TODO: add tautauvbf
             if corr_channel == "etau":
@@ -428,4 +432,4 @@ def tau_trigger_efficiencies_setup(
     self.tau_trig_corrector = load_correction_set(tau_file)[corrector_name]
 
     # check versions
-    assert self.tau_trig_corrector.version in [0, 1]
+    assert self.tau_trig_corrector.version in [0, 1, 2]
