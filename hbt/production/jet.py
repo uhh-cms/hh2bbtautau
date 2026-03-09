@@ -29,7 +29,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
     # only run on mc
     mc_only=True,
     # function to determine the correction file
-    get_jet_file=(lambda self, external_files: external_files.trigger_sf.jet),
+    get_jet_file=(lambda self, external_files: external_files.trigger_sf.ditau_jet),
     get_jet_corrector=(lambda self: self.config_inst.x.jet_trigger_corrector),
     efficiency_name="jet_trigger_eff",
 )
@@ -41,7 +41,7 @@ def jet_trigger_efficiencies(
 ) -> ak.Array:
     """
     Producer for jet trigger efficiencies derived by the CCLUB group at object level. Requires an external file in the
-    config under ``trigger_sf.jet``.
+    config under ``trigger_sf.ditau_jet``.
 
     *get_jet_file* can be adapted in a subclass in case it is stored differently in the external files. A correction set
     named ``"jet_trigger_corrector"`` is extracted from it.
@@ -66,7 +66,9 @@ def jet_trigger_efficiencies(
             variable_map_syst = {
                 **variable_map,
                 "syst": syst,
-                "data_or_mc": kind,
+                "corrtype": kind,
+                "syst_var": "leading_jet_pt_nom",
+                # TODO: check if other variations needed, e.g. "leading_jet_pt_nomJer_Total_up"
             }
             inputs = [variable_map_syst[inp.name] for inp in self.jet_trig_corrector.inputs]
             sf = self.jet_trig_corrector(*inputs)
