@@ -1946,11 +1946,12 @@ def add_config(
         ))
         # vbf models trained by cclub
         # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/tree/cclub_cmssw15010/data/DNN_models/HHRun3DNN?ref_type=heads
+        cclub_hash, cclub_branch = "c3441320", "cclub_cmssw15010"
         vbfnn_postfix = "_24" if year == 2024 else "_22-23"
         add_external("vbf_dnn_repo", Ext(
-            f"{central_hbt_dir}/AnalysisCore-f69dda6c.tar.gz",
+            f"{central_hbt_dir}/AnalysisCore-{cclub_hash}.tar.gz",
             subpaths=DotDict.wrap({
-                f"fold{f}": f"AnalysisCore-cclub_cmssw15010/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
+                f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
                 for f in range(5)
             }),
             version="v5",
