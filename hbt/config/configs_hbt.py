@@ -1951,7 +1951,7 @@ def add_config(
         add_external("vbf_dnn_repo", Ext(
             f"{central_hbt_dir}/AnalysisCore-{cclub_hash}.tar.gz",
             subpaths=DotDict.wrap({
-                f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
+                f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v6{vbfnn_postfix}/model_{f}"  # noqa: E501
                 for f in range(5)
             }),
             version="v5",
