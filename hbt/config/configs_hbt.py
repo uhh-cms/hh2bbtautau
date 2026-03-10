@@ -899,7 +899,7 @@ def add_config(
             "lumi_13p6TeV_2": 0.0127j,
         })
     elif year == 2024:
-        cfg.x.luminosity = Number(104_675.143180, {
+        cfg.x.luminosity = Number(109_948.177486, {
             "lumi_13p6TeV_2024": 0.016j,
             "lumi_13p6TeV_1": 0.0020j,
             "lumi_13p6TeV_2": 0.0068j,
@@ -1669,7 +1669,7 @@ def add_config(
     add_shift_aliases(cfg, "mer", {"Muon.pt": "Muon.pt_res_{direction}"})
 
     # btagging shifts
-    cfg.x.btag_unc_names = [
+    cfg.x.btag_unc_names = [  # TODO: 2024: update unc names
         "hf", "lf",
         "hfstats1", "hfstats2",
         "lfstats1", "lfstats2",
@@ -1845,11 +1845,11 @@ def add_config(
             2017: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2018: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2022
-            2022: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
+            2022: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2023
-            2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
+            2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2024
-            2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
+            2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
         }[year],
     })
     # pileup weight corrections
@@ -1946,11 +1946,12 @@ def add_config(
         ))
         # vbf models trained by cclub
         # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/tree/cclub_cmssw15010/data/DNN_models/HHRun3DNN?ref_type=heads
+        cclub_hash, cclub_branch = "c3441320", "cclub_cmssw15010"
         vbfnn_postfix = "_24" if year == 2024 else "_22-23"
         add_external("vbf_dnn_repo", Ext(
-            f"{central_hbt_dir}/AnalysisCore-f69dda6c.tar.gz",
+            f"{central_hbt_dir}/AnalysisCore-{cclub_hash}.tar.gz",
             subpaths=DotDict.wrap({
-                f"fold{f}": f"AnalysisCore-cclub_cmssw15010/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
+                f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
                 for f in range(5)
             }),
             version="v5",
@@ -2077,6 +2078,10 @@ def add_config(
     # mapped to shift instances they depend on
     # (this info is used by weight producers)
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
+    btag_weight_column = "normalized_njet_btag_weight_pnet"
+    if year == 2024:
+        btag_weight_column = "btag_weight"
+
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
         "normalization_weight_inclusive": [],
@@ -2085,7 +2090,7 @@ def add_config(
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
-        "normalized_njet_btag_weight_pnet": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
+        btag_weight_column: get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_id_weight": get_shifts("e_id"),
         "electron_reco_weight": get_shifts("e_reco"),
         "muon_id_weight": get_shifts("mu_id"),
