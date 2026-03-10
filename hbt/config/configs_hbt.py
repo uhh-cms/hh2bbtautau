@@ -1270,11 +1270,9 @@ def add_config(
 
         cfg.x.single_trigger_muon_data_effs_cfg = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
-            data_effs_in_scale_factors=True,
         )
         cfg.x.single_trigger_muon_mc_effs_cfg = MuonSFConfig(
             correction="NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight",
-            mc_effs_in_scale_factors=True,
         )
 
         cfg.x.cross_trigger_muon_data_effs_cfg = MuonSFConfig(

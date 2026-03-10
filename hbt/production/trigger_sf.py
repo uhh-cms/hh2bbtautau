@@ -77,12 +77,22 @@ cross_trigger_electron_mc_effs = electron_trigger_weight.derive(
     },
 )
 
+
 # subclass the muon weight producer to create the muon efficiencies
+
+# single muon files in cclub use modified scale_factors keys to reach efficiencies
+def add_data_efficiency_postfix(corrector, variable_map, postfix=""):
+    # get the efficiency key and modify the value variable map
+    variable_map["scale_factors"] = variable_map["scale_factors"] + postfix
+    return variable_map
+
+
 single_trigger_muon_data_effs = muon_trigger_weight.derive(
     "single_trigger_muon_data_effs",
     cls_dict={
         "get_muon_config": (lambda self: self.config_inst.x.single_trigger_muon_data_effs_cfg),
         "weight_name": "single_trigger_mu_data_effs",
+        "update_corrector_variables": functools.partial(add_data_efficiency_postfix, postfix="_DATAeff"),
     },
 )
 
@@ -91,8 +101,17 @@ single_trigger_muon_mc_effs = muon_trigger_weight.derive(
     cls_dict={
         "get_muon_config": (lambda self: self.config_inst.x.single_trigger_muon_mc_effs_cfg),
         "weight_name": "single_trigger_mu_mc_effs",
+        "update_corrector_variables": functools.partial(add_data_efficiency_postfix, postfix="_MCeff"),
     },
 )
+
+
+# cross muon files in cclub use "efficiencies" as input instead of "scale_factors" to reach the efficiencies
+def add_efficiencies_fields_to_variable_map(producer, corrector, variable_map):
+    # add the efficiency fields to the variable map
+    variable_map["efficiencies"] = variable_map["scale_factors"]
+    return variable_map
+
 
 cross_trigger_muon_data_effs = muon_trigger_weight.derive(
     "cross_trigger_muon_data_effs",
@@ -100,6 +119,7 @@ cross_trigger_muon_data_effs = muon_trigger_weight.derive(
         "get_muon_file": (lambda self, external_files: external_files.trigger_sf.cross_muon),
         "get_muon_config": (lambda self: self.config_inst.x.cross_trigger_muon_data_effs_cfg),
         "weight_name": "cross_trigger_mu_data_effs",
+        "update_corrector_variables": add_efficiencies_fields_to_variable_map,
     },
 )
 
@@ -109,6 +129,7 @@ cross_trigger_muon_mc_effs = muon_trigger_weight.derive(
         "get_muon_file": (lambda self, external_files: external_files.trigger_sf.cross_muon),
         "get_muon_config": (lambda self: self.config_inst.x.cross_trigger_muon_mc_effs_cfg),
         "weight_name": "cross_trigger_mu_mc_effs",
+        "update_corrector_variables": add_efficiencies_fields_to_variable_map,
     },
 )
 
