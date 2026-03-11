@@ -428,4 +428,4 @@ def tau_trigger_efficiencies_setup(
     self.tau_trig_corrector = load_correction_set(tau_file)[corrector_name]
 
     # check versions
-    assert self.tau_trig_corrector.version in [0, 1, 2]
+    assert self.tau_trig_corrector.version in {0, 1, 2}
