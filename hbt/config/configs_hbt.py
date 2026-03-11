@@ -1991,10 +1991,10 @@ def add_config(
             tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"
             cclub_postfix = cfg.x.full_postfix
             if year == 2022:
-                ditaujet_postfix = f"{year}_{cclub_postfix}"
+                ditaujet_postfix = f"{year}{cclub_postfix}"
                 muon_postfix = f"{year}" if campaign.has_tag("preEE") else f"{year}_EE"
             elif year == 2023:
-                ditaujet_postfix = f"{year}_{cclub_postfix}"
+                ditaujet_postfix = f"{year}{cclub_postfix}"
                 muon_postfix = f"{year}" if campaign.has_tag("preBPix") else f"{year}_BPix"
 
             add_external("trigger_sf_single_e", (cat_info.get_file("egm", "electronHlt.json.gz"), "v2"))
@@ -2006,15 +2006,13 @@ def add_config(
                     muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ScaleFactors_Muon_Z_HLT_{muon_postfix}_eta_pt_schemaV2.json.gz",  # noqa: E501
                     cross_muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossMuTauHlt.json.gz",
                     cross_electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossEleTauHlt.json.gz",
-
                     ditau_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ditaujet_jetleg60_{ditaujet_postfix}.json.gz",  # noqa: E501
-
                     vbf_dijet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBF2tau_SF_{year}.json.gz",  # noqa: E501
                     vbf_e=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFEle_SF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
                     vbf_mu=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFMu_SF_{year}.json.gz" if year != 2022 else None,  # noqa: E501
                     vbf_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFTau_JetSF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
                     vbf_incl=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFIncl_SF_{year}.json.gz" if year != 2022 else None,  # noqa: E501
-                    # TOD: MET and AK8 for boosted tautau, not used in analysis for now
+                    # TODO: MET and AK8 for boosted tautau, not used in analysis for now
                     # met=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/METTrigger_SFs_run3_{tau_pog_era_cclub}.json.gz",  # noqa: E501
                     # ak8=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/Trigger_SF_{year}_Ak8_Pnet_HLT_pT_mSD.json.gz",  # noqa: E501
                 ),
