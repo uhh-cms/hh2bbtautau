@@ -84,7 +84,16 @@ setup_hbt() {
             # query common variables
             cf_setup_interactive_common_variables
 
-            # specific variables would go here
+            # hbt specific variables
+            if [[ "$( hostname )" == *.desy.de ]]; then
+                query HBT_USE_CVMFS_SOFTWARE "Use centrally provided software on /cvmfs" "true"
+                if [ "${HBT_USE_CVMFS_SOFTWARE}" != "true" ]; then
+                    export_and_save CF_CONDA_BASE "/cvmfs/cms.desy.de/columnflow/software/conda_py39"
+                    export_and_save CF_VENV_BASE "/cvmfs/cms.desy.de/columnflow/software_hbt/venvs_py39"
+                fi
+            else
+                export_and_save HBT_USE_CVMFS_SOFTWARE "false"
+            fi
         }
         cf_setup_interactive "${CF_SETUP_NAME}" "${HBT_BASE}/.setups/${CF_SETUP_NAME}.sh" || return "$?"
     fi
