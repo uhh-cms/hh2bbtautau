@@ -1448,7 +1448,11 @@ def add_config(
                     if name != "xxtight"
                 },
                 dataset_groups=dataset_groups,
-                # merge bins
+                # merge pt and eta bins w.r.t. btag_wp_count_config
+                # (dropped pt 600 and eta 2.0)
+                pt_edges=(0, 20, 30, 50, 70, 100, 140, 200, 300, 10_000),
+                abs_eta_edges=(0.0, 1.0, 1.5, 5.0),
+                # also merge xxtight with xtight
                 wp_merging={
                     "xtight": ["xtight", "xxtight"],
                 },
