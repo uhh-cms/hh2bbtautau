@@ -1442,8 +1442,15 @@ def add_config(
                 jet_name="Jet",
                 btag_column="btagUParTAK4B",
                 correction_set="UParTAK4_merged",
-                btag_wps=cfg.x.btag_working_points.upart.copy(),
+                btag_wps={
+                    name: value for name, value in cfg.x.btag_working_points.upart.items()
+                    if name != "xxtight"
+                },
                 dataset_groups=dataset_groups,
+                # merge bins
+                wp_merging={
+                    "xtight": ["xtight", "xxtight"],
+                },
             )
 
     ################################################################################################
