@@ -1151,7 +1151,7 @@ def add_config(
         "vs_mu_cross": "VLoose",
         "vs_e_single": "VVLoose",
         "vs_e_cross": "VVLoose",
-        "trigger_corr": "VVLoose",
+        "trigger_corr": "Medium" if year == 2024 else "VVLoose",
     })
 
     # tau trigger correctors
@@ -2002,11 +2002,6 @@ def add_config(
                     cross_muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossMuTauHlt.json.gz",
                     cross_electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossEleTauHlt.json.gz",
 
-                    # TODO: check what this one is for, we don't use pnet triggers for 2022 and 2023
-                    # but the sfs exist only for 2022 and 2023... tests?
-                    # # tautau is pnet for 2024, ignore it for 2022/2023 since not used
-                    # pnet_ditau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/PNetTauTauTrigger_SFs_{year}.json.gz" if year == 2024 else None,  # noqa: E501
-
                     ditau_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ditaujet_jetleg60_{ditaujet_postfix}.json.gz",  # noqa: E501
 
                     vbf_dijet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBF2tau_SF_{year}.json.gz",  # noqa: E501
@@ -2015,9 +2010,9 @@ def add_config(
                     vbf_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFTau_JetSF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
                     vbf_incl=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFIncl_SF_{year}.json.gz" if year != 2022 else None,  # noqa: E501
 
-                    # MET and AK8 for boosted tautau, not used for now
-                    # met=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/METTrigger_SFs_run3_{tau_pog_era_cclub}.json.gz" if year != 2024 else None,  # noqa: E501
-                    # ak8=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/Trigger_SF_{year}_Ak8_Pnet_HLT_pT_mSD.json.gz" if year != 2024 else None,  # noqa: E501
+                    # MET and AK8 for boosted tautau, not used in analysis for now
+                    # met=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/METTrigger_SFs_run3_{tau_pog_era_cclub}.json.gz",  # noqa: E501
+                    # ak8=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/Trigger_SF_{year}_Ak8_Pnet_HLT_pT_mSD.json.gz",  # noqa: E501
                 ),
                 version="v2",
             ))
@@ -2050,26 +2045,21 @@ def add_config(
                     cross_muon=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossMuTauHlt.json.gz",
                     cross_electron=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/CrossEleTauHlt.json.gz",
 
-                    # TODO: check what this one is for, we don't use pnet triggers for 2022 and 2023
-                    # but the sfs exist only for 2022 and 2023... tests?
-                    # # tautau is pnet for 2024, ignore it for 2022/2023 since not used
-                    # pnet_ditau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/PNetTauTauTrigger_SFs_{year}.json.gz" if year == 2024 else None,  # noqa: E501
-
                     ditau_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ditaujet_jetleg60_{year}.json.gz",  # noqa: E501
 
                     vbf_dijet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBF2tau_SF_{year}.json.gz",  # noqa: E501
-                    vbf_e=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFEle_SF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
-                    vbf_mu=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFMu_SF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
-                    # TODO: Does not exist for 2024?
+                    vbf_e=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFEle_SF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
+                    vbf_mu=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFMu_SF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
+                    # TODO: does not exist for 2024 at the moment, update when there
                     # vbf_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFTau_JetSF_{year}_{cclub_postfix}.json.gz",
-                    vbf_incl=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFIncl_SF_{year}_{cclub_postfix}.json.gz" if year != 2022 else None,  # noqa: E501
+                    vbf_incl=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFIncl_SF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
 
                     quadjet_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ParkingHH_PNet1BTag0p20_BTag.json.gz",  # noqa: E501
                     quadjet_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ParkingHH_PNet1BTag0p20_L1HTTau.json.gz",  # noqa: E501
 
-                    # MET and AK8 for boosted tautau, not used for now
-                    # met=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/METTrigger_SFs_run3_{tau_pog_era_cclub}.json.gz" if year != 2024 else None,  # noqa: E501
-                    # ak8=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/Trigger_SF_{year}_Ak8_Pnet_HLT_pT_mSD.json.gz" if year != 2024 else None,  # noqa: E501
+                    # MET and AK8 for boosted tautau, not used in analysis for now
+                    # met=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/METTrigger_SFs_run3_{tau_pog_era_cclub}.json.gz",  # noqa: E501
+                    # ak8=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/Trigger_SF_{year}_Ak8_Pnet_HLT_pT_mSD.json.gz",  # noqa: E501
 
                 ),
                 version="v2",
