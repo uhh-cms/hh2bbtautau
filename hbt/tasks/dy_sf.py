@@ -76,15 +76,15 @@ class DYBaseTask(
             if cat_os.has_category(cat, deep=True)
         ]
 
-        self.dilep_pt_inst = self.config_inst.variables.n.dilep_pt
+        self.dilep_pt_inst = self.config_inst.variables.n.dilep_vis_pt
         self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow
         self.njets_inst = self.config_inst.variables.n.njets
 
-        self.variables = [
-            (self.dilep_pt_inst, "dilep_pt"),
-            (self.nbjets_inst, "nbjets"),
-        ]
-        self.variables_names = [var_name for _, var_name in self.variables]
+        # self.variables = [
+        #     (self.dilep_pt_inst, "dilep_vis_pt"),
+        #     (self.nbjets_inst, "nbjets"),
+        # ]
+        # self.variables_names = [var_name for _, var_name in self.variables]
 
     @classmethod
     def modify_param_values(cls, params):
@@ -156,7 +156,7 @@ class LoadDYData(DYBaseTask):
             "channel_id",
             "category_ids",
             "process_id",
-            "dilep_pt",
+            "dilep_vis_pt",
             "gen_dilepton_pt",
             "weight",
             "njets",
@@ -254,7 +254,7 @@ class LoadDYData(DYBaseTask):
 
                         events = set_ak_column(
                             events,
-                            "dilep_pt",
+                            "dilep_vis_pt",
                             self.dilep_pt_inst.expression(events),
                         )
 
@@ -600,7 +600,7 @@ class DYWeights(DYBaseTask):
         from scipy import special
 
         """
-        x: dependent variable (i.g., dilep_pt)
+        x: dependent variable (i.g., dilep_vis_pt)
         c: Gaussian offset
         n: Gaussian normalization
         mu and sigma: Gaussian parameters
