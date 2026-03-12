@@ -1501,6 +1501,11 @@ def add_config(
 
         # dy reweighting with custom weights
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
+        dy_btag_col, dy_btag_threshold = (
+            ("btagPNetB", cfg.x.btag_working_points.particleNet.medium)
+            if year != 2024
+            else ("btagUParTAK4B", cfg.x.btag_working_points.upart.medium)
+        )
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             correction="dy_weight",
@@ -1514,8 +1519,8 @@ def add_config(
                 "syst_linear_up", "syst_linear_down",
             ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
-            get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet.btagPNetB > cfg.x.btag_working_points.particleNet.medium, axis=1)),  # noqa: E501
-            used_columns={"Jet.btagPNetB"},
+            get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet[dy_btag_col] > dy_btag_threshold, axis=1)),  # noqa: E501
+            used_columns={f"Jet.{dy_btag_col}"},
         )
 
         # dy boson recoil correction

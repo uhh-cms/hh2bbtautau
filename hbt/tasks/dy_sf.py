@@ -179,15 +179,22 @@ class LoadDYData(DYBaseTask):
 
         return reqs
 
+    @law.decorator.notify
     def run(self):
+        inputs = self.input()
         outputs = self.output()
 
         data_events = []
         dy_events = []
         bkg_events = []
 
+        # progress callback for scheduler
+        n_files = sum(len(inps["reduction"].collection) for inps in inputs.values())
+        progress_cb = self.create_progress_callback(n_files)
+
         # loop over datasets and load inputs
-        for dataset_name, inps in self.input().items():
+        n_files_seen = 0
+        for dataset_name, inps in inputs.items():
             self.publish_message(f"Loading dataset '{dataset_name}'")
 
             # prepare columns to write
@@ -212,12 +219,14 @@ class LoadDYData(DYBaseTask):
                     targets.append(inps["production"][prod].collection.targets[i]["columns"])
 
                 # prepare inputs for localization
+                self.publish_message(f"  processing file {i + 1}/{len(coll)}")
                 with law.localize_file_targets(targets, mode="r") as local_inps:
                     reader = ChunkedIOHandler(
                         [t.abspath for t in local_inps],
                         source_type=len(targets) * ["awkward_parquet"],
                         read_columns=len(targets) * [read_columns],
                         chunk_size=50_000,
+                        iter_message="    handling chunk {pos.index}",
                     )
                     for (events, *columns), pos in reader:
                         events = update_ak_array(events, *columns)
@@ -277,6 +286,10 @@ class LoadDYData(DYBaseTask):
                         else:
                             bkg_events.append(events)
 
+                # update progress
+                progress_cb(n_files_seen)
+                n_files_seen += 1
+
         data_events = ak.concatenate(data_events, axis=0) if data_events else None
         dy_events = ak.concatenate(dy_events, axis=0) if dy_events else None
         bkg_events = ak.concatenate(bkg_events, axis=0) if bkg_events else None
@@ -319,6 +332,7 @@ class DYWeights(DYBaseTask):
     def requires(self):
         return LoadDYData.req(self)
 
+    @law.decorator.notify
     def run(self):
         import scipy.optimize
 
@@ -707,6 +721,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
     def output(self):
         return self.target("hbt_corrections.json.gz")
 
+    @law.decorator.notify
     def run(self):
         dy_weight_data = {}
 
