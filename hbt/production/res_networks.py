@@ -198,7 +198,7 @@ class _res_dnn_evaluation(Producer):
             (2022, "EE"): 3,
             (2023, ""): 3,
             (2023, "BPix"): 3,
-            (2024, ""): 4,
+            (2024, ""): 3,
         }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:
@@ -210,7 +210,7 @@ class _res_dnn_evaluation(Producer):
         task.taf_tf_evaluator = None
         self.evaluator = None
 
-    def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
+    def call_func(self, events: ak.Array, task: law.Task, **kwargs) -> ak.Array:
         # start the evaluator
         if not self.evaluator.running:
             self.evaluator.start()
@@ -227,6 +227,8 @@ class _res_dnn_evaluation(Producer):
 
         # apply event mask to all features
         event_mask = self.define_event_mask(events, cat, cont)
+        if not ak.any(event_mask):
+            task.logger.warning(f"{self.cls_name}: 0 / {len(events)} selected for evaluation")
         n_mask = ak.sum(event_mask)
         for n, v in cont.items():
             cont[n] = v[event_mask]

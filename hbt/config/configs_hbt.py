@@ -1965,13 +1965,22 @@ def add_config(
         # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/tree/cclub_cmssw15010/data/DNN_models/HHRun3DNN?ref_type=heads
         cclub_hash, cclub_branch = "c3441320", "cclub_cmssw15010"
         vbfnn_postfix = "_24" if year == 2024 else "_22-23"
+        # TODO: misses th TF version, so added old v5 model below for now
+        # add_external("vbf_dnn_repo", Ext(
+        #     f"{central_hbt_dir}/AnalysisCore-{cclub_hash}.tar.gz",
+        #     subpaths=DotDict.wrap({
+        #         f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v6{vbfnn_postfix}/model_{f}"  # noqa: E501
+        #         for f in range(5)
+        #     }),
+        #     version="v6",
+        # ))
         add_external("vbf_dnn_repo", Ext(
-            f"{central_hbt_dir}/AnalysisCore-{cclub_hash}.tar.gz",
+            f"{central_hbt_dir}/AnalysisCore-f69dda6c.tar.gz",
             subpaths=DotDict.wrap({
-                f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v6{vbfnn_postfix}/model_{f}"  # noqa: E501
+                f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
                 for f in range(5)
             }),
-            version="v6",
+            version="v5",
         ))
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
