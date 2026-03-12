@@ -228,7 +228,9 @@ class _res_dnn_evaluation(Producer):
         # apply event mask to all features
         event_mask = self.define_event_mask(events, cat, cont)
         if not ak.any(event_mask):
-            task.logger.warning(f"{self.cls_name}: 0 / {len(events)} selected for evaluation")
+            task.logger.warning(
+                f"{self.cls_name}: 0 / {len(events)} selected for evaluation ({task.dataset_inst.name})",
+            )
         n_mask = ak.sum(event_mask)
         for n, v in cont.items():
             cont[n] = v[event_mask]
