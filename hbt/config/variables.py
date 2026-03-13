@@ -730,15 +730,24 @@ def add_variables(config: od.Config) -> None:
         def logit(events, col):
             import numpy as np
             x = events[col]
-            eps = 1e-6  # confines the range of the transformed value to approx. [-13.8, 13.8]
+            eps = 1e-6  # confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
             return np.log((x + eps) / (1 - x + eps))
 
         add_variable(
             name=f"run3_dnn_moe_{proc}_logit",
             expression=functools.partial(logit, col=f"run3_dnn_moe_{proc}"),
-            binning=(100, -15, 15),
+            binning=(30, -15, 15),
             x_title=rf"logit(DNN {proc.upper()} output)",
             aux={"inputs": [f"run3_dnn_moe_{proc}"]},
+        )
+
+        add_variable(
+            name=f"run3_dnn_moe_{proc}_logit_fine",
+            expression=functools.partial(logit, col=f"run3_dnn_moe_{proc}"),
+            binning=(3000, -15, 15),
+            x_title=rf"logit(DNN {proc.upper()} output)",
+            aux={"inputs": [f"run3_dnn_moe_{proc}"],
+                "x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(
