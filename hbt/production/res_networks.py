@@ -70,7 +70,7 @@ class _res_dnn_evaluation(Producer):
     # which type of btagging variables to use
     btag_type: BTagType = "deepjet"
 
-    # whether the model is parameterized in mass, spin and year
+    # whether the model is parametrized in mass, spin and year
     # (this is a slight forward declaration but simplifies the code reasonably well in our use case)
     parametrized: bool | None = None
 
@@ -458,7 +458,7 @@ class _res_dnn_evaluation(Producer):
             np.isin(cat.vis_tau1_charge, self.embedding_expected_inputs["charge1"]) &
             np.isin(cat.vis_tau2_charge, self.embedding_expected_inputs["charge2"]) &
             (cat.has_jet_pair | cat.has_fatjet) &
-            (self.year_flag in self.embedding_expected_inputs["year"])
+            (not self.parametrized or self.year_flag in self.embedding_expected_inputs["year"])
         )
 
 
@@ -509,7 +509,7 @@ class res_pdnn(_res_dnn):
 
 class res_dnn(_res_dnn):
     """
-    Non-parameterized network, trained only with Radion (spin 0) samples up to mX = 800 GeV across all run 2 eras.
+    Non-parametrized network, trained only with Radion (spin 0) samples up to mX = 800 GeV across all run 2 eras.
     """
 
     parametrized = False
