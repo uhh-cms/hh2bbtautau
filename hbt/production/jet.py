@@ -14,9 +14,9 @@ from columnflow.production import Producer, producer
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import maybe_import, load_correction_set
 
-
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
+
 
 # helper
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
@@ -135,13 +135,7 @@ def bjet_multiplicity(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @bjet_multiplicity.init
 def bjet_multiplicity_init(self: Producer) -> None:
-    if self.config_inst.campaign.x.year == 2024:
-        self.btag_column = "btagUParTAK4B"
-        self.btag_wp = self.config_inst.x.btag_working_points.upart.medium
-    elif self.config_inst.campaign.x.run == 3:
-        self.btag_column = "btagPNetB"
-        self.btag_wp = self.config_inst.x.btag_working_points.particleNet.medium
-    else:
-        raise NotImplementedError(f"unsupported campaign year: {self.config_inst.campaign.x.year}")
+    self.btag_column = self.config_inst.x.btag_default.jet_column
+    self.btag_wp = self.config_inst.x.btag_default.wp
 
     self.uses.add(f"{self.jet_name}.{self.btag_column}")

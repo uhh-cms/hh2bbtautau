@@ -185,10 +185,7 @@ def hhbtag_init(self: Producer, **kwargs) -> None:
     self.hhbtag_version = self.config_inst.x.external_files.hh_btag_repo.version
 
     # define btag column to be read and used
-    if self.hhbtag_version == "v3":
-        self.btag_col = "btagUParTAK4B" if self.config_inst.campaign.x.year == 2024 else "btagPNetB"
-    else:
-        self.btag_col = "btagDeepFlavB"
+    self.btag_col = self.config_inst.x.btag_default.jet_column
     self.uses.add(f"Jet.{self.btag_col}")
 
     # columns produced for sync

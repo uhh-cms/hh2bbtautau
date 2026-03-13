@@ -1319,6 +1319,14 @@ def add_config(
                 "lp": {"2016APV": 0.9088, "2016": 0.9137, "2017": 0.9105, "2018": 0.9172}[btag_key],
             },
         })
+
+        # btag columns and working point values for easy use throughout the code
+        cfg.x.btag_deepjet = DotDict(
+            jet_column="btagDeepFlavB",
+            wp=cfg.x.btag_working_points.deepjet.medium,
+            weight_column="normalized_njet_btag_weight_deepjet",
+        )
+        cfg.x.btag_default = cfg.x.btag_default
     elif run == 3:
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE
@@ -1357,6 +1365,24 @@ def add_config(
                 "lp": {"2022": 0.9088, "2022EE": 0.9137, "2023": 0.9105, "2023BPix": 0.9172, "2024": 0.9172}[btag_key],
             },
         })
+
+        # btag columns and working point values for easy use throughout the code
+        cfg.x.btag_deepjet = DotDict(
+            jet_column="btagDeepFlavB",
+            wp=cfg.x.btag_working_points.deepjet.medium,
+            weight_column="normalized_njet_btag_weight_deepjet",
+        )
+        cfg.x.btag_pnet = DotDict(
+            jet_column="btagPNetB",
+            wp=cfg.x.btag_working_points.particleNet.medium,
+            weight_column="normalized_njet_btag_weight_pnet",
+        )
+        cfg.x.btag_upart = DotDict(
+            jet_column="btagUParTAK4B",
+            wp=cfg.x.btag_working_points.upart.medium,
+            weight_column="btag_weight",  # no need for normalization in wp based method
+        )
+        cfg.x.btag_default = cfg.x.btag_upart if year == 2024 else cfg.x.btag_pnet
     else:
         assert False
 
@@ -1406,20 +1432,20 @@ def add_config(
     cfg.x.btag_sf_deepjet = BTagSFConfig(
         correction_set="deepJet_shape",
         jec_sources=cfg.x.btag_sf_jec_sources,
-        discriminator="btagDeepFlavB",
+        discriminator=cfg.x.btag_deepjet.jet_column,
     )
     if run == 3:
-        cfg.x.btag_sf_pnet = BTagSFConfig(
-            correction_set="particleNet_shape",
-            jec_sources=cfg.x.btag_sf_jec_sources,
-            discriminator="btagPNetB",
-        )
-
-        if year == 2024:
+        if year != 2024:
+            cfg.x.btag_sf_pnet = BTagSFConfig(
+                correction_set="particleNet_shape",
+                jec_sources=cfg.x.btag_sf_jec_sources,
+                discriminator=cfg.x.btag_default.jet_column,
+            )
+        else:
             from columnflow.selection.cms.btag import BTagWPCountConfig
             cfg.x.btag_wp_count_config = BTagWPCountConfig(
                 jet_name="Jet",
-                btag_column="btagUParTAK4B",
+                btag_column=cfg.x.btag_default.jet_column,
                 btag_wps=cfg.x.btag_working_points.upart.copy(),
                 pt_edges=(0, 20, 30, 50, 70, 100, 140, 200, 300, 600, 10_000),
                 abs_eta_edges=(0.0, 1.0, 1.5, 2.0, 5.0),
@@ -1441,7 +1467,7 @@ def add_config(
 
             cfg.x.btag_wp_sf_config = BTagWPSFConfig(
                 jet_name="Jet",
-                btag_column="btagUParTAK4B",
+                btag_column=cfg.x.btag_default.jet_column,
                 correction_set="UParTAK4_merged",
                 btag_wps={
                     name: value for name, value in cfg.x.btag_working_points.upart.items()
@@ -1501,11 +1527,6 @@ def add_config(
 
         # dy reweighting with custom weights
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
-        dy_btag_col, dy_btag_threshold = (
-            ("btagPNetB", cfg.x.btag_working_points.particleNet.medium)
-            if year != 2024
-            else ("btagUParTAK4B", cfg.x.btag_working_points.upart.medium)
-        )
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             correction="dy_weight",
@@ -1519,8 +1540,8 @@ def add_config(
                 "syst_linear_up", "syst_linear_down",
             ],
             get_njets=(lambda prod, events: sys.modules["awkward"].num(events.Jet, axis=1)),
-            get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet[dy_btag_col] > dy_btag_threshold, axis=1)),  # noqa: E501
-            used_columns={f"Jet.{dy_btag_col}"},
+            get_nbtags=(lambda prod, events: sys.modules["awkward"].sum(events.Jet[cfg.x.btag_default.jet_column] > cfg.x.btag_default.wp, axis=1)),  # noqa: E501
+            used_columns={f"Jet.{cfg.x.btag_default.jet_column}"},
         )
 
         # dy boson recoil correction
@@ -2162,10 +2183,6 @@ def add_config(
     # mapped to shift instances they depend on
     # (this info is used by weight producers)
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
-    btag_weight_column = "normalized_njet_btag_weight_pnet"
-    if year == 2024:
-        btag_weight_column = "btag_weight"
-
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
         "normalization_weight_inclusive": [],
@@ -2174,7 +2191,7 @@ def add_config(
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
-        btag_weight_column: get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
+        cfg.x.btag_default.weight_column: get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_id_weight": get_shifts("e_id"),
         "electron_reco_weight": get_shifts("e_reco"),
         "muon_id_weight": get_shifts("mu_id"),

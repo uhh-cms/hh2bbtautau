@@ -218,7 +218,7 @@ def vbfjtag(
 @vbfjtag.init
 def vbfjtag_init(self: Producer, **kwargs) -> None:
     # define btag column to be read and used
-    self.btag_col = "btagUParTAK4B" if self.config_inst.campaign.x.year == 2024 else "btagPNetB"
+    self.btag_col = self.config_inst.x.btag_default.jet_column
     self.uses.add(f"Jet.{self.btag_col}")
 
     # columns produced for sync
