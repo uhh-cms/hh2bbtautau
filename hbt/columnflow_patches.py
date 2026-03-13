@@ -13,6 +13,8 @@ import order as od
 
 from columnflow.util import memoize
 
+import hbt
+
 
 logger = law.logger.get_logger(__name__)
 
@@ -231,7 +233,8 @@ def patch_serialize_inference_model_base():
 def patch_all():
     patch_bundle_repo_exclude_files()
     patch_remote_workflow_poll_interval()
-    patch_htcondor_workflow_naf_resources()
+    if hbt.env_is_desy:
+        patch_htcondor_workflow_naf_resources()
     patch_merge_reduction_stats_inputs()
     patch_unite_columns_keep_columns_key_default()
     patch_unite_columns_events_filter()
