@@ -1521,7 +1521,7 @@ def add_config(
         elif year == 2023:
             dy_era += "preBPix" if campaign.has_tag("preBPix") else "postBPix"
         elif year == 2024:
-            dy_era = "2023preBPix"  # TODO: 2024: use proper 2024 once available
+            dy_era = "2024"
         else:
             assert False
 

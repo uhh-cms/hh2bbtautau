@@ -320,8 +320,7 @@ class DYWeights(DYBaseTask):
             "plots": {},
         }
 
-        for factor in self.unc_factors:
-            outputs["weights"] = self.target("weights.pkl")
+        outputs["weights"] = self.target("weights.pkl")
 
         for tmp_id in self.fit_identifiers:
             for factor in self.unc_factors:
@@ -611,7 +610,6 @@ class DYWeights(DYBaseTask):
         return (ratio_values, ratio_err, bin_centers)
 
     def get_fit_function(self, x, c, n, mu, sigma, a, b, r):
-
         from scipy import special
 
         """
@@ -704,7 +702,6 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
         > law run hbt.ExportDYWeights \
             --configs 22pre_v14,22post_v14,... \
-            --hbt.DYWeights-datasets bkg_data \
             --version prod20_vbf
     """
     single_config = False
