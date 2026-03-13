@@ -109,14 +109,15 @@ class LoadDYData(DYBaseTask):
 
         > law run hbt.LoadDYData \
             --config 22pre_v14 \
-            --version prod20_vbf
+            --version prod20_vbf \
+            --datasets bkg_data
     """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.read_columns = [
-            "Jet.btagPNetB",
+            ("Jet.btagPNetB" if self.config_inst.campaign.x.year != 2024 else "Jet.btagUParTAK4B"),
             "channel_id",
             "category_ids",
             "process_id",
@@ -141,7 +142,7 @@ class LoadDYData(DYBaseTask):
             "normalized_pu_weight",
             "normalized_isr_weight",
             "normalized_fsr_weight",
-            "normalized_njet_btag_weight_pnet",
+            ("normalized_njet_btag_weight_pnet" if self.config_inst.campaign.x.year != 2024 else "btag_weight"),
             "electron_id_weight",
             "electron_reco_weight",
             "muon_id_weight",
@@ -252,8 +253,12 @@ class LoadDYData(DYBaseTask):
                             value_type=np.int32,
                         )
 
-                        wp_value = self.config_inst.x.btag_working_points.particleNet.medium
-                        bjet_mask = events.Jet.btagPNetB >= wp_value
+                        if self.config_inst.campaign.x.year != 2024:
+                            wp_value = self.config_inst.x.btag_working_points.particleNet.medium
+                            bjet_mask = events.Jet.btagPNetB >= wp_value
+                        else:
+                            wp_value = self.config_inst.x.btag_working_points.upart.medium
+                            bjet_mask = events.Jet.btagUParTAK4B >= wp_value
                         events = set_ak_column(
                             events,
                             "nbjets",
