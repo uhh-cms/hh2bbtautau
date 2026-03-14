@@ -727,10 +727,10 @@ def add_variables(config: od.Config) -> None:
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
-        def logit(events, col):
+        def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarray:
+            # eps confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
             import numpy as np
             x = events[col]
-            eps = 1e-6  # confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
             return np.log((x + eps) / (1 - x + eps))
 
         add_variable(
