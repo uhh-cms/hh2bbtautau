@@ -794,6 +794,7 @@ def add_config(
         "sm_data": sm_group + data_group,
         "sm_data_unstitched": sm_group_unstitched + data_group,
         "bkg_data": backgrounds + data_group,
+        "bkg_data_unstitched": backgrounds_unstitched + data_group,
         "bkg_data_dy": backgrounds + [
             dataset.name for dataset in cfg.datasets
             if dataset.is_data and re.match(r"^data_(e|mu)_.+$", dataset.name)

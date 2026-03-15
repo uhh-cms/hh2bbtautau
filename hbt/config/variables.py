@@ -163,16 +163,22 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Number of b-jets (PNet medium)",
         discrete_x=True,
     )
-
     add_variable(
-        name="nbjets_pnet_no_overflow",
-        expression=config.variables.n.nbjets_pnet.expression,
-        aux={**config.variables.n.nbjets_pnet.aux, "overflow": False},
-        binning=(4, -0.5, 3.5),
-        x_title=r"Number of b-jets (PNet medium)",
+        name="nbjets_upart",
+        expression=(var_nbjets := VarNBTags()).partial(config_inst=config, attr="btagUParTAK4B"),
+        aux={"inputs": var_nbjets.uses},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of b-jets (UParT medium)",
         discrete_x=True,
     )
-
+    add_variable(
+        name="nbjets_upart_overflow",
+        expression=config.variables.n.nbjets_upart.expression,
+        aux={**config.variables.n.nbjets_upart.aux, "overflow": True},
+        binning=(4, -0.5, 3.5),
+        x_title=r"Number of b-jets (UParT medium)",
+        discrete_x=True,
+    )
     add_variable(
         name="met_pt",
         expression="PuppiMET.pt",
@@ -1065,7 +1071,7 @@ class VarHHReg(VarExp):
 
 class VarNBTags(VarExp):
 
-    uses = {"Jet.{btagPNetB,btagDeepFlavB}"}
+    uses = {"Jet.{btagPNetB,btagDeepFlavB,btagUParTAK4B}"}
 
     def __call__(self, events: ak.Array, config_inst: od.Config, attr: str | None = None) -> ak.Array:
         wp = "medium"
@@ -1073,6 +1079,8 @@ class VarNBTags(VarExp):
             wp_value = config_inst.x.btag_working_points["particleNet"][wp]
         elif attr == "btagDeepFlavB":
             wp_value = config_inst.x.btag_working_points["deepjet"][wp]
+        elif attr == "btagUParTAK4B":
+            wp_value = config_inst.x.btag_working_points["upart"][wp]
         else:
             self.raise_unknown_attr(attr)
 

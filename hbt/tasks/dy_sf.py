@@ -76,15 +76,14 @@ class DYBaseTask(
             if cat_os.has_category(cat, deep=True)
         ]
 
-        self.dilep_pt_inst = self.config_inst.variables.n.dilep_vis_pt
-        self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow
-        self.njets_inst = self.config_inst.variables.n.njets
-
-        # self.variables = [
-        #     (self.dilep_pt_inst, "dilep_vis_pt"),
-        #     (self.nbjets_inst, "nbjets"),
-        # ]
-        # self.variables_names = [var_name for _, var_name in self.variables]
+        # get era dependent variables
+        self.dilep_pt_inst = self.config_inst.variables.n.dilep_vis_pt.copy()
+        self.njets_inst = self.config_inst.variables.n.njets.copy()
+        if self.config_inst.campaign.x.year == 2024:
+            self.dilep_pt_inst.binning = np.linspace(0.0, 80.0, 33).tolist() + np.linspace(80.0, 200.0, 25)[1:].tolist()
+            self.nbjets_inst = self.config_inst.variables.n.nbjets_upart_overflow.copy()
+        else:
+            self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow.copy()
 
     @classmethod
     def modify_param_values(cls, params):
@@ -627,7 +626,7 @@ class DYWeights(DYBaseTask):
         pol = a + b * np.minimum(x, 200)
 
         # parameter to control the transition smoothness between the two functions
-        step_par = 0.08
+        step_par = 0.04 if self.config_inst.campaign.x.year == 2024 else 0.08
 
         # use scipy erf function to create smooth transition
         sci_erf_neg = (0.5 * (special.erf(-step_par * (np.minimum(x, 200) - r)) + 1))
