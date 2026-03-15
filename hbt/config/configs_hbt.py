@@ -1519,10 +1519,8 @@ def add_config(
         dy_era = f"{year}"
         if year == 2022:
             dy_era += "preEE" if campaign.has_tag("preEE") else "postEE"
-        elif year == 2023:
+        if year == 2023:
             dy_era += "preBPix" if campaign.has_tag("preBPix") else "postBPix"
-        else:
-            assert False
 
         # dy reweighting with custom weights
         # (originally by hleprare group, https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight)
