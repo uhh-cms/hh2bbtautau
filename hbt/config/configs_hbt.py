@@ -314,7 +314,6 @@ def add_config(
         ]),
         # specific lepton enriched datasets, with pythia bug fix
         *if_era(year=2024, values=[  # were not produced for 2022/23
-            "dy_tautau_m50toinf_amcatnlo",
             "dy_ee_m50toinf_amcatnlo",
             "dy_ee_m50toinf_0j_amcatnlo",
             "dy_ee_m50toinf_1j_amcatnlo",
@@ -323,6 +322,7 @@ def add_config(
             "dy_mumu_m50toinf_0j_amcatnlo",
             "dy_mumu_m50toinf_1j_amcatnlo",
             "dy_mumu_m50toinf_2j_amcatnlo",
+            "dy_tautau_m50toinf_amcatnlo",
         ]),
         "dy_tautau_m50toinf_0j_amcatnlo",
         "dy_tautau_m50toinf_1j_amcatnlo",
@@ -809,7 +809,9 @@ def add_config(
 
     # category groups for conveniently looping over certain categories
     # (used during plotting)
-    cfg.x.category_groups = {}
+    cfg.x.category_groups = {
+        "dy_sf": [r"{ee,mumu}__dyc__ge2j__ge0b__os"],
+    }
 
     # variable groups for conveniently looping over certain variables
     # (used during plotting)
@@ -823,6 +825,8 @@ def add_config(
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
         ],
+        "dy_sf": ["dilep_vis_pt", "njets", "nbjets_pnet_overflow"],
+        "dy_sf_24": ["dilep_vis_pt", "njets", "nbjets_upart_overflow"],
     }
 
     # shift groups for conveniently looping over certain shifts
