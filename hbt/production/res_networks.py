@@ -182,9 +182,9 @@ class _res_dnn_evaluation(Producer):
             self.config_inst.channels.n.etau.id: 1,
             self.config_inst.channels.n.tautau.id: 2,
             # unknown during training
-            self.config_inst.channels.n.ee.id: 1,
-            self.config_inst.channels.n.mumu.id: 0,
-            self.config_inst.channels.n.emu.id: 1,
+            self.config_inst.channels.n.ee.id: 1,  # like etau
+            self.config_inst.channels.n.mumu.id: 0,  # like mutau
+            self.config_inst.channels.n.emu.id: 1,  # like etau
         }
 
         # define the year based on the incoming campaign
@@ -743,6 +743,13 @@ class _vbf_dnn(_res_dnn_evaluation):
         # update produced columns
         self.produces |= set(self.output_columns)
 
+    def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
+        super().setup_func(task=task, reqs=reqs, **kwargs)
+
+        # accepted categorical value dm1 changed, replace -1 by -999
+        self.embedding_expected_inputs["decay_mode1"].remove(-1)
+        self.embedding_expected_inputs["decay_mode1"].insert(0, -999)
+
     def update_events(self, events: ak.Array) -> ak.Array:
         events = super().update_events(events)
 
@@ -904,13 +911,15 @@ class _vbf_dnn(_res_dnn_evaluation):
         event_mask = super().define_event_mask(events, cat, cont)
 
         # add vbf preselection and presence of vbf jets
-        vbfjet1 = events.padded_vbf_jets[:, 0]
-        vbfjet2 = events.padded_vbf_jets[:, 1]
-        vbf_preselection_mask = (
-            ak.fill_none((vbfjet1 + vbfjet2).mass > 500.0, False) &
-            ak.fill_none(vbfjet1.delta_r(vbfjet2) > 2.5, False)
-        )
-        event_mask = event_mask & cat.has_vbf_jets & vbf_preselection_mask
+        # vbfjet1 = events.padded_vbf_jets[:, 0]
+        # vbfjet2 = events.padded_vbf_jets[:, 1]
+        # vbf_preselection_mask = (
+        #     ak.fill_none((vbfjet1 + vbfjet2).mass > 500.0, False) &
+        #     ak.fill_none(vbfjet1.delta_r(vbfjet2) > 2.5, False)
+        # )
+        # event_mask = event_mask & cat.has_vbf_jets & vbf_preselection_mask
+        # disabled for now
+        event_mask = event_mask & cat.has_vbf_jets
 
         return event_mask
 
