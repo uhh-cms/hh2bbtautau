@@ -14,7 +14,7 @@ from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
 
-from hbt.util import create_lvector_xyz, stack_lvectors
+from hbt.util import create_lvector_xyz, stack_lvectors, rotate_px_py, delta_r12
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -855,26 +855,6 @@ class VarExp:
             "expression": self.partial(*args, **kwargs),
             "aux": {"inputs": self.uses},
         }
-
-
-#
-# kinematic helpers
-#
-
-def delta_r12(vectors: ak.Array) -> ak.Array:
-    # delta r between first two elements
-    dr = ak.firsts(vectors[:, :1], axis=1).delta_r(ak.firsts(vectors[:, 1:2], axis=1))
-    return ak.fill_none(dr, EMPTY_FLOAT)
-
-
-def rotate_px_py(
-    px: ak.Array | np.ndarray,
-    py: ak.Array | np.ndarray,
-    ref_phi: ak.Array | np.ndarray,
-) -> ak.Array | np.ndarray:
-    new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
-    pt = (px**2 + py**2)**0.5
-    return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
 
 #

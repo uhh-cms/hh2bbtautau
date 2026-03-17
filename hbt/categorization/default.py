@@ -6,12 +6,14 @@ Exemplary selection methods.
 
 from __future__ import annotations
 
+import operator
+
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.columnar_util import attach_coffea_behavior, full_like, ak_concatenate_safe
 from columnflow.util import maybe_import
 
 from hbt.production.jet import jet_multiplicity, bjet_multiplicity
-from hbt.util import MET_COLUMN
+from hbt.util import MET_COLUMN, stack_lvectors, create_lvector_xyz, rotate_px_py
 
 ak = maybe_import("awkward")
 
@@ -261,17 +263,13 @@ def cat_res2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, 
 )
 def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # exclude res1b or res2b, and exactly one selected fat jet that should also pass a tighter pt cut
-    # TODO: run3 wp are not released, falling back to run2
-    wp = self.config_inst.x.btag_working_points["particleNetMD"]["lp"]
-    tagged = events.FatJet.particleNet_XbbVsQCD > wp
-    events, tau_mass_mask = self[di_tau_mass_window](events, **kwargs)
     mask = (
         ~self[cat_res1b](events, **kwargs)[1] &
         ~self[cat_res2b](events, **kwargs)[1] &
         (ak.num(events.FatJet, axis=1) == 1) &
         (ak.sum(events.FatJet.pt > 350, axis=1) == 1) &
-        (ak.sum(tagged, axis=1) >= 1) &
-        tau_mass_mask &
+        (ak.sum(events.FatJet.particleNet_XbbVsQCD > 0.75, axis=1) >= 1) &  # wp defined by cclub
+        self[di_tau_mass_window](events, **kwargs)[1] &
         ak.any(events.FatJet.msoftdrop >= 30, axis=1) &
         ak.any(events.FatJet.msoftdrop <= 450, axis=1)
     )
@@ -302,6 +300,112 @@ def cat_boosted_novbf(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak
     events, boosted_mask = self[cat_boosted](events, **kwargs)
     events, vbf_mask = self[cat_vbf_0p5](events, **kwargs)
     return events, (boosted_mask & ~vbf_mask)
+
+
+@categorizer(
+    uses={"FatJet.{pt,phi,msoftdrop,particleNet_XbbVsQCD,mass,eta}"},
+)
+def cat_boosted_cc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    mask = (
+        (ak.num(events.FatJet, axis=1) == 1) &
+        ak.any(events.FatJet.msoftdrop >= 80, axis=1) &
+        ak.any(events.FatJet.msoftdrop <= 170, axis=1) &
+        (ak.sum(events.FatJet.pt > 300, axis=1) == 1) &
+        (ak.sum(events.FatJet.particleNet_XbbVsQCD > 0.75, axis=1) >= 1)  # wp defined by cclub
+    )
+    return events, mask
+
+
+@categorizer(uses={cat_boosted_cc, "vbf_dnn_moe_hh_vbf"})
+def cat_vbf_cc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    mask = (
+        ~self[cat_boosted_cc](events, **kwargs)[1] &
+        (events.vbf_dnn_moe_hh_vbf > 0.5)
+    )
+    return events, mask
+
+
+@categorizer(
+    uses={"{Electron,Muon,Tau,HHBJet}.{mass,pt,eta,phi}", "reg_dnn_moe_nu{1,2}_p{x,y,z}", "channel_id"},
+    tautau_window={
+        "etau": (111.0, 38.0),
+        "mutau": (110.0, 45.0),
+        "tautau": (130.0, 36.0),
+        "ee": (118.0, 57.0),
+        "mumu": (116.0, 61.0),
+        "emu": (116.0, 61.0),  # values from mumu
+    },
+    bb_window={
+        "etau": (116.0, 225.0),
+        "mutau": (116.0, 225.0),
+        "tautau": (125.0, 222.0),
+        "ee": (109.0, 232.0),
+        "mumu": (114.0, 228.0),
+        "emu": (114.0, 228.0),  # values from mumu
+    },
+)
+def cat_hh_reg_mass_window_cc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # build bb system
+    events = attach_coffea_behavior(events, {"HHBJet": "Jet"})
+    bb = events.HHBJet[:, :2].sum(axis=1)
+    # build visible tautau system
+    tautau_vis = stack_lvectors([events.Electron, events.Muon, events.Tau])[..., :2].sum(axis=1)
+    # get regressed neutrinos and rotate them
+    ref_phi = tautau_vis.phi
+    nu1 = create_lvector_xyz(
+        *rotate_px_py(events.reg_dnn_moe_nu1_px, events.reg_dnn_moe_nu1_py, ref_phi),
+        events.reg_dnn_moe_nu1_pz,
+    )
+    nu2 = create_lvector_xyz(
+        *rotate_px_py(events.reg_dnn_moe_nu2_px, events.reg_dnn_moe_nu2_py, ref_phi),
+        events.reg_dnn_moe_nu2_pz,
+    )
+    # build regressed tautau system
+    tautau_reg = stack_lvectors([nu1, nu2, tautau_vis]).sum(axis=-1)
+    # get masses
+    m_bb = bb.mass
+    m_tautau = tautau_reg.mass
+
+    # apply channel dependent mass window cuts
+    def mass_window(channel_name: str) -> ak.Array:
+        channel_mask = events.channel_id == self.config_inst.get_channel(channel_name).id
+        chi_tautau = (m_tautau - self.tautau_window[channel_name][0]) / self.tautau_window[channel_name][1]
+        chi_bb = (m_bb - self.bb_window[channel_name][0]) / self.bb_window[channel_name][1]
+        return channel_mask & ((chi_tautau**2 + chi_bb**2) <= 1.0)
+
+    mass_mask = (
+        full_like(events.event, False, dtype=bool) |
+        mass_window("etau") |
+        mass_window("mutau") |
+        mass_window("tautau") |
+        mass_window("ee") |
+        mass_window("mumu") |
+        mass_window("emu")
+    )
+    return events, mass_mask
+
+
+@categorizer(
+    uses={cat_boosted_cc, cat_vbf_cc, hhbjet_multiplicity, cat_hh_reg_mass_window_cc},
+    n_btags=None,  # needs to be set
+    n_btags_op=None,  # needs to be set
+    reject_boosted=True,
+    reject_vbf=True,
+)
+def _cat_res_cc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    mask = (
+        self[cat_hh_reg_mass_window_cc](events, **kwargs)[1] &
+        (~self[cat_boosted_cc](events, **kwargs)[1] if self.reject_boosted else True) &
+        (~self[cat_vbf_cc](events, **kwargs)[1] if self.reject_vbf else True) &
+        (self.n_btags_op(self[hhbjet_multiplicity](events, **kwargs), self.n_btags))
+    )
+    return events, mask
+
+
+cat_res1b_cc = _cat_res_cc.derive("cat_res1b_cc", cls_dict={"n_btags": 1, "n_btags_op": operator.eq})
+cat_res2b_cc = _cat_res_cc.derive("cat_res2b_cc", cls_dict={"n_btags": 2, "n_btags_op": operator.ge})
+cat_res1b_novbf_cc = cat_res1b_cc.derive("cat_res1b_novbf_cc", cls_dict={"reject_vbf": False})
+cat_res2b_novbf_cc = cat_res2b_cc.derive("cat_res2b_novbf_cc", cls_dict={"reject_vbf": False})
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
