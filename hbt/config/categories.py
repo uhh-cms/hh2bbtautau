@@ -79,11 +79,11 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="boosted_novbf", selection="cat_boosted_novbf", label="boosted, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
     # new cclub based categories
     _add_category(name="res1b_cc", selection="cat_res1b_cc", label="Resolved, ggF, 1 b-tag", tags={"skip_cutflow"})
-    _add_category(name="res2b_cc", selection="cat_res2b_cc", label=r"Resolved, ggF, $\ge$2 b-tags", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="res2b_cc", selection="cat_res2b_cc", label=r"Resolved, ggF, $\geq$2 b-tags", tags={"skip_cutflow"})  # noqa: E501
     _add_category(name="vbf_cc", selection="cat_vbf_cc", label="Resolved, VBF", tags={"skip_cutflow"})
     _add_category(name="boosted_cc", selection="cat_boosted_cc", label="Boosted", tags={"skip_cutflow"})
-    _add_category(name="res1b_novbf_cc", selection="cat_res1b_novbf_cc", label="Resolved, ggF, 1 b-tag", tags={"skip_cutflow"})  # noqa: E501
-    _add_category(name="res2b_novbf_cc", selection="cat_res2b_novbf_cc", label=r"Resolved, ggF, $\ge$2 b-tags", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="res1b_inclvbf_cc", selection="cat_res1b_inclvbf_cc", label="Resolved, ggF, 1 b-tag", tags={"skip_cutflow"})  # noqa: E501
+    _add_category(name="res2b_inclvbf_cc", selection="cat_res2b_inclvbf_cc", label=r"Resolved, ggF, $\geq$2 b-tags", tags={"skip_cutflow"})  # noqa: E501
 
     #
     # build groups
@@ -124,7 +124,7 @@ def add_categories(config: od.Config) -> None:
         "kin": CategoryGroup(
             [
                 "incl", "res1b", "res2b", "boosted", "res1b_novbf", "res2b_novbf", "boosted_novbf",
-                "res1b_cc", "res2b_cc", "vbf_cc", "boosted_cc", "res1b_novbf_cc", "res2b_novbf_cc",
+                "res1b_cc", "res2b_cc", "vbf_cc", "boosted_cc", "res1b_inclvbf_cc", "res2b_inclvbf_cc",
             ],
             is_complete=True,
             has_overlap=True,

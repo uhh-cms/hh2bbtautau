@@ -811,8 +811,10 @@ def add_config(
     # (used during plotting)
     cfg.x.category_groups = {
         "dy_sf": [r"{ee,mumu}__dyc__ge2j__ge0b__os"],
+        # standard cclub categories
         "cc": [r"{e,mu,tau}tau__{res1b,res2b,vbf,boosted}_cc__os__iso"],
-        "cc_novbf": [r"{e,mu,tau}tau__{res1b_novbf,res2b_novbf,boosted}_cc__os__iso"],
+        # cclub categories with vbf category removed and events included in res categories
+        "cc_novbf": [r"{e,mu,tau}tau__{res1b_inclvbf,res2b_inclvbf,boosted}_cc__os__iso"],
     }
 
     # variable groups for conveniently looping over certain variables

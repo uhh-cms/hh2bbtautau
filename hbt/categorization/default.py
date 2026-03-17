@@ -327,17 +327,21 @@ def cat_vbf_cc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array,
 
 @categorizer(
     uses={"{Electron,Muon,Tau,HHBJet}.{mass,pt,eta,phi}", "reg_dnn_moe_nu{1,2}_p{x,y,z}", "channel_id"},
+    # channel dependent mean and std values for the regressed tautau system mass
     tautau_window={
+        # regressed values
         "etau": (111.0, 38.0),
         "mutau": (110.0, 45.0),
         "tautau": (130.0, 36.0),
-        "ee": (118.0, 57.0),
+        # values actually used for svfit based tautau system
+        "ee": (119.0, 57.0),
         "mumu": (116.0, 61.0),
         "emu": (116.0, 61.0),  # values from mumu
     },
+    # channel dependent mean and std values for the bb (from HHBJet) system mass
     bb_window={
-        "etau": (116.0, 225.0),
-        "mutau": (116.0, 225.0),
+        "etau": (118.0, 225.0),
+        "mutau": (118.0, 215.0),
         "tautau": (125.0, 222.0),
         "ee": (109.0, 232.0),
         "mumu": (114.0, 228.0),
@@ -404,8 +408,8 @@ def _cat_res_cc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
 
 cat_res1b_cc = _cat_res_cc.derive("cat_res1b_cc", cls_dict={"n_btags": 1, "n_btags_op": operator.eq})
 cat_res2b_cc = _cat_res_cc.derive("cat_res2b_cc", cls_dict={"n_btags": 2, "n_btags_op": operator.ge})
-cat_res1b_novbf_cc = cat_res1b_cc.derive("cat_res1b_novbf_cc", cls_dict={"reject_vbf": False})
-cat_res2b_novbf_cc = cat_res2b_cc.derive("cat_res2b_novbf_cc", cls_dict={"reject_vbf": False})
+cat_res1b_inclvbf_cc = cat_res1b_cc.derive("cat_res1b_inclvbf_cc", cls_dict={"reject_vbf": False})
+cat_res2b_inclvbf_cc = cat_res2b_cc.derive("cat_res2b_inclvbf_cc", cls_dict={"reject_vbf": False})
 
 
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
