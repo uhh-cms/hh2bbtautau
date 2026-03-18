@@ -132,8 +132,12 @@ class BaseEvaluator(abc.ABC):
 
         # wait for and receive result
         res_name, res = self._pipe.recv()  # type: ignore[union-attr]
+
+        # handle errors
         if res_name != name:
             raise RuntimeError(f"received result for unexpected model '{res_name}' (expected '{name}')")
+        if isinstance(res, Exception):
+            raise Exception(f"error evaluating model '{name}': {res}")
 
         return res
 
@@ -193,14 +197,20 @@ def evaluation_loop(
         data = pipe.recv()
         if isinstance(data, tuple) and len(data) == 3:
             # normal evaluation
+            name, args, kwargs = data
             try:
-                name, args, kwargs = data
                 result = models[name].evaluate(*args, **kwargs)
-                # send back result
+            except Exception as e:
+                # send error back
+                result = e
+
+            # send back result
+            try:
                 pipe.send((name, result))
             except:
                 shutdown()
                 raise
+
         elif isinstance(data, tuple) and len(data) == 2 and data[1] == STOP_SIGNAL:
             # stop a specific model
             try:
@@ -210,9 +220,11 @@ def evaluation_loop(
             except:
                 shutdown()
                 raise
+
         elif data == STOP_SIGNAL:
             # stop all models
             shutdown()
+
         else:
             raise ValueError(f"received unexpected data type through pipe: {type(data)}")
 
