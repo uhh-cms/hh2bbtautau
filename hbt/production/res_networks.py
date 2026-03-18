@@ -245,6 +245,7 @@ class _res_dnn_evaluation(Producer):
             ]
             if t is not None
         ]
+        continuous_inputs = np.concatenate(continuous_inputs, axis=1)
 
         # build categorical inputs
         categorical_inputs = [
@@ -254,15 +255,12 @@ class _res_dnn_evaluation(Producer):
                 (self.spin * np.ones(n_mask, dtype=np.int32)) if self.parametrized else None,
             ] if t is not None
         ]
+        categorical_inputs = np.concatenate(categorical_inputs, axis=1)
 
         # evaluate the model
-        scores = self.evaluator(
-            self.cls_name,
-            inputs=[
-                np.concatenate(continuous_inputs, axis=1),
-                np.concatenate(categorical_inputs, axis=1),
-            ],
-        )
+        scores = self.evaluator(self.cls_name, inputs=[continuous_inputs, categorical_inputs])
+        del continuous_inputs
+        del categorical_inputs
 
         # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
         # so issue a warning and set them to a default value
@@ -746,9 +744,23 @@ class _vbf_dnn(_res_dnn_evaluation):
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
         super().setup_func(task=task, reqs=reqs, **kwargs)
 
-        # accepted categorical value dm1 changed, replace -1 by -999
-        self.embedding_expected_inputs["decay_mode1"].remove(-1)
-        self.embedding_expected_inputs["decay_mode1"].insert(0, -999)
+        # our channel ids mapped to cclub "pair_type"
+        # (note that cclub used ee/mumu/emu as well)
+        self.channel_id_to_pair_type = {
+            self.config_inst.channels.n.mutau.id: 0,
+            self.config_inst.channels.n.etau.id: 1,
+            self.config_inst.channels.n.tautau.id: 2,
+            self.config_inst.channels.n.ee.id: 4,
+            self.config_inst.channels.n.mumu.id: 3,
+            self.config_inst.channels.n.emu.id: 5,
+        }
+
+        # adjust expected categorical inputs as well
+        # cclub training used additional pair types and uses -999 for invalid decay mode
+        self.embedding_expected_inputs["pair_type"] = list(self.channel_id_to_pair_type.values())
+        # cclub uses -999 for invalid decay mode
+        self.embedding_expected_inputs["decay_mode1"] = [-999, 0, 1, 10, 11]
+        self.embedding_expected_inputs["decay_mode2"] = [-999, 0, 1, 10, 11]
 
     def update_events(self, events: ak.Array) -> ak.Array:
         events = super().update_events(events)
@@ -767,8 +779,9 @@ class _vbf_dnn(_res_dnn_evaluation):
     def define_categorical_inputs(self, events: ak.Array, cat: DotDict) -> None:
         super().define_categorical_inputs(events, cat)
 
-        # dm1 for e/mu is changed from -1 to -999
+        # dm for e/mu is changed from -1 to -999
         cat.dm1[cat.dm1 == -1] = -999
+        cat.dm2[cat.dm2 == -1] = -999
 
         # add vbf jet pair presence
         cat.has_vbf_jets = ak.num(events.VBFJet) >= 2
