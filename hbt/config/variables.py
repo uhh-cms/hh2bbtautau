@@ -14,7 +14,7 @@ from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
 
-from hbt.util import create_lvector_xyz, stack_lvectors
+from hbt.util import create_lvector_xyz, stack_lvectors, rotate_px_py, delta_r12
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -163,16 +163,22 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Number of b-jets (PNet medium)",
         discrete_x=True,
     )
-
     add_variable(
-        name="nbjets_pnet_no_overflow",
-        expression=config.variables.n.nbjets_pnet.expression,
-        aux={**config.variables.n.nbjets_pnet.aux, "overflow": False},
-        binning=(4, -0.5, 3.5),
-        x_title=r"Number of b-jets (PNet medium)",
+        name="nbjets_upart",
+        expression=(var_nbjets := VarNBTags()).partial(config_inst=config, attr="btagUParTAK4B"),
+        aux={"inputs": var_nbjets.uses},
+        binning=(11, -0.5, 10.5),
+        x_title=r"Number of b-jets (UParT medium)",
         discrete_x=True,
     )
-
+    add_variable(
+        name="nbjets_upart_overflow",
+        expression=config.variables.n.nbjets_upart.expression,
+        aux={**config.variables.n.nbjets_upart.aux, "overflow": True},
+        binning=(4, -0.5, 3.5),
+        x_title=r"Number of b-jets (UParT medium)",
+        discrete_x=True,
+    )
     add_variable(
         name="met_pt",
         expression="PuppiMET.pt",
@@ -727,10 +733,10 @@ def add_variables(config: od.Config) -> None:
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
-        def logit(events, col):
+        def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarray:
+            # eps confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
             import numpy as np
             x = events[col]
-            eps = 1e-6  # confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
             return np.log((x + eps) / (1 - x + eps))
 
         add_variable(
@@ -746,8 +752,10 @@ def add_variables(config: od.Config) -> None:
             expression=functools.partial(logit, col=f"run3_dnn_moe_{proc}"),
             binning=(3000, -15, 15),
             x_title=rf"logit(DNN {proc.upper()} output)",
-            aux={"inputs": [f"run3_dnn_moe_{proc}"],
-                "x_transformations": "equal_distance_with_indices"},
+            aux={
+                "inputs": [f"run3_dnn_moe_{proc}"],
+                "x_transformations": "equal_distance_with_indices",
+            },
         )
 
         add_variable(
@@ -849,26 +857,6 @@ class VarExp:
             "expression": self.partial(*args, **kwargs),
             "aux": {"inputs": self.uses},
         }
-
-
-#
-# kinematic helpers
-#
-
-def delta_r12(vectors: ak.Array) -> ak.Array:
-    # delta r between first two elements
-    dr = ak.firsts(vectors[:, :1], axis=1).delta_r(ak.firsts(vectors[:, 1:2], axis=1))
-    return ak.fill_none(dr, EMPTY_FLOAT)
-
-
-def rotate_px_py(
-    px: ak.Array | np.ndarray,
-    py: ak.Array | np.ndarray,
-    ref_phi: ak.Array | np.ndarray,
-) -> ak.Array | np.ndarray:
-    new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
-    pt = (px**2 + py**2)**0.5
-    return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
 
 #
@@ -1065,7 +1053,7 @@ class VarHHReg(VarExp):
 
 class VarNBTags(VarExp):
 
-    uses = {"Jet.{btagPNetB,btagDeepFlavB}"}
+    uses = {"Jet.{btagPNetB,btagDeepFlavB,btagUParTAK4B}"}
 
     def __call__(self, events: ak.Array, config_inst: od.Config, attr: str | None = None) -> ak.Array:
         wp = "medium"
@@ -1073,6 +1061,8 @@ class VarNBTags(VarExp):
             wp_value = config_inst.x.btag_working_points["particleNet"][wp]
         elif attr == "btagDeepFlavB":
             wp_value = config_inst.x.btag_working_points["deepjet"][wp]
+        elif attr == "btagUParTAK4B":
+            wp_value = config_inst.x.btag_working_points["upart"][wp]
         else:
             self.raise_unknown_attr(attr)
 

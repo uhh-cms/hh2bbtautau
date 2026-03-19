@@ -13,21 +13,21 @@ import functools
 import law
 import order as od
 
-from columnflow.types import TYPE_CHECKING, Callable
-from columnflow.hist_util import create_hist_from_variables, fill_hist
-from hbt.tasks.base import HBTTask
-from columnflow.tasks.framework.base import TaskShifts, ConfigTask
-from columnflow.tasks.production import ProduceColumns
-from columnflow.tasks.reduction import ProvideReducedEvents
-from columnflow.util import maybe_import
-from columnflow.columnar_util import (
-    ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, layout_ak_array,
-    set_ak_column,
-)
+from columnflow.tasks.framework.base import AnalysisTask, TaskShifts, ConfigTask, wrapper_factory
 from columnflow.tasks.framework.mixins import (
     DatasetsProcessesMixin, ProducerClassesMixin, CalibratorClassesMixin,
     SelectorClassMixin, ReducerClassMixin,
 )
+from columnflow.tasks.production import ProduceColumns
+from columnflow.tasks.reduction import ProvideReducedEvents
+from columnflow.hist_util import create_hist_from_variables, fill_hist
+from columnflow.columnar_util import (
+    ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, layout_ak_array, set_ak_column,
+)
+from columnflow.util import maybe_import
+from columnflow.types import TYPE_CHECKING, Callable
+
+from hbt.tasks.base import HBTTask
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -76,15 +76,18 @@ class DYBaseTask(
             if cat_os.has_category(cat, deep=True)
         ]
 
-        self.dilep_pt_inst = self.config_inst.variables.n.dilep_vis_pt
-        self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow
-        self.njets_inst = self.config_inst.variables.n.njets
+        # get era dependent variables
+        self.dilep_pt_inst = self.config_inst.variables.n.dilep_vis_pt.copy_shallow()
+        self.njets_inst = self.config_inst.variables.n.njets.copy_shallow()
+        if self.config_inst.campaign.x.year == 2024:
+            # custom binning due to higher statistics
+            self.dilep_pt_inst.binning = np.linspace(0.0, 80.0, 33).tolist() + np.linspace(80.0, 200.0, 25)[1:].tolist()
+            self.nbjets_inst = self.config_inst.variables.n.nbjets_upart_overflow.copy_shallow()
+        else:
+            self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow.copy_shallow()
 
-        # self.variables = [
-        #     (self.dilep_pt_inst, "dilep_vis_pt"),
-        #     (self.nbjets_inst, "nbjets"),
-        # ]
-        # self.variables_names = [var_name for _, var_name in self.variables]
+        # get maximum value of dilep pt for later use
+        self.max_dilep_pt_inst = self.dilep_pt_inst.x_max
 
     @classmethod
     def modify_param_values(cls, params):
@@ -110,7 +113,7 @@ class LoadDYData(DYBaseTask):
         > law run hbt.LoadDYData \
             --config 22pre_v14 \
             --version prod20_vbf \
-            --datasets bkg_data
+            --datasets bkg_data_dy
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -298,13 +301,20 @@ class LoadDYData(DYBaseTask):
         outputs.dump((data_events, dy_events, bkg_events), formatter="pickle")
 
 
+LoadDYDataWrapper = wrapper_factory(
+    base_cls=AnalysisTask,
+    require_cls=LoadDYData,
+    enable=["configs", "skip_configs"],
+)
+
+
 class DYWeights(DYBaseTask):
     """
     Example command:
 
         > law run hbt.DYWeights \
             --config 22pre_v14 \
-            --datasets bkg_data \
+            --datasets bkg_data_dy \
             --version prod20_vbf
     """
     def __init__(self, *args, **kwargs) -> None:
@@ -320,8 +330,7 @@ class DYWeights(DYBaseTask):
             "plots": {},
         }
 
-        for factor in self.unc_factors:
-            outputs["weights"] = self.target("weights.pkl")
+        outputs["weights"] = self.target("weights.pkl")
 
         for tmp_id in self.fit_identifiers:
             for factor in self.unc_factors:
@@ -611,7 +620,6 @@ class DYWeights(DYBaseTask):
         return (ratio_values, ratio_err, bin_centers)
 
     def get_fit_function(self, x, c, n, mu, sigma, a, b, r):
-
         from scipy import special
 
         """
@@ -623,25 +631,34 @@ class DYWeights(DYBaseTask):
         r: regime boundary between Guassian and linear fits
         """
 
+        # we cap x to the last bin edge of dilep_pt to stay within the function range
+        max_x = self.max_dilep_pt_inst
+
         # choose gaussian and linear functions to do the fit
-        # we cap x at 200 GeV to avoid falling off the function range
-        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((np.minimum(x, 200) - mu) / sigma) ** 2))
-        pol = a + b * np.minimum(x, 200)
+        gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((np.minimum(x, max_x) - mu) / sigma) ** 2))
+        pol = a + b * np.minimum(x, max_x)
 
         # parameter to control the transition smoothness between the two functions
-        step_par = 0.08
+        step_par = 0.04 if self.config_inst.campaign.x.year == 2024 else 0.08
 
         # use scipy erf function to create smooth transition
-        sci_erf_neg = (0.5 * (special.erf(-step_par * (np.minimum(x, 200) - r)) + 1))
-        sci_erf_pos = (0.5 * (special.erf(step_par * (np.minimum(x, 200) - r)) + 1))
+        sci_erf_neg = (0.5 * (special.erf(-step_par * (np.minimum(x, max_x) - r)) + 1))
+        sci_erf_pos = (0.5 * (special.erf(step_par * (np.minimum(x, max_x) - r)) + 1))
 
         return sci_erf_neg * gauss + sci_erf_pos * pol
 
     def get_fit_str(self, c, n, mu, sigma, a, b, r):
+
+        # we cap x to the last bin edge of dilep_pt
+        max_x_str = str(self.max_dilep_pt_inst)
+
+        # parameter to control the transition smoothness between the two functions
+        step_par = 0.04 if self.config_inst.campaign.x.year == 2024 else 0.08
+
         # build fit function string
-        gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((min(x,200)-{mu})/{sigma})^2)))"
-        pol = f"(({a})+({b})*min(x,200))"
-        fit_string = f"(0.5*(erf(-0.08*(min(x,200)-{r}))+1))*{gauss}+(0.5*(erf(0.08*(min(x,200)-{r}))+1))*{pol}"
+        gauss = f"(({c})+(({n})*(1/{sigma})*exp(-0.5*((min(x,{max_x_str})-{mu})/{sigma})^2)))"
+        pol = f"(({a})+({b})*min(x,{max_x_str}))"
+        fit_string = f"(0.5*(erf(-{step_par}*(min(x,{max_x_str})-{r}))+1))*{gauss}+(0.5*(erf({step_par}*(min(x,{max_x_str})-{r}))+1))*{pol}"  # noqa: E501
 
         return fit_string
 
@@ -655,7 +672,7 @@ class DYWeights(DYBaseTask):
         fig.subplots_adjust(top=0.93)
 
         # get nominal fit
-        s = np.linspace(0, 200, 1000)
+        s = np.linspace(0, self.max_dilep_pt_inst, 1000)
         y_nom = [self.get_fit_function(v, *fit_params["nominal"][fit_njet_bin]) for v in s]
         ax.plot(s, y_nom, color="black", label="Nominal", lw=2)
 
@@ -704,7 +721,6 @@ class ExportDYWeights(HBTTask, ConfigTask):
 
         > law run hbt.ExportDYWeights \
             --configs 22pre_v14,22post_v14,... \
-            --hbt.DYWeights-datasets bkg_data \
             --version prod20_vbf
     """
     single_config = False
@@ -714,7 +730,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
             config_inst: DYWeights.req(
                 self,
                 config=config_inst.name,
-                datasets=("bkg_data",),
+                datasets=("bkg_data_dy",),
             )
             for config_inst in self.config_insts
         }

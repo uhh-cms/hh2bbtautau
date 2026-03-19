@@ -314,7 +314,6 @@ def add_config(
         ]),
         # specific lepton enriched datasets, with pythia bug fix
         *if_era(year=2024, values=[  # were not produced for 2022/23
-            "dy_tautau_m50toinf_amcatnlo",
             "dy_ee_m50toinf_amcatnlo",
             "dy_ee_m50toinf_0j_amcatnlo",
             "dy_ee_m50toinf_1j_amcatnlo",
@@ -323,6 +322,7 @@ def add_config(
             "dy_mumu_m50toinf_0j_amcatnlo",
             "dy_mumu_m50toinf_1j_amcatnlo",
             "dy_mumu_m50toinf_2j_amcatnlo",
+            "dy_tautau_m50toinf_amcatnlo",
         ]),
         "dy_tautau_m50toinf_0j_amcatnlo",
         "dy_tautau_m50toinf_1j_amcatnlo",
@@ -794,6 +794,7 @@ def add_config(
         "sm_data": sm_group + data_group,
         "sm_data_unstitched": sm_group_unstitched + data_group,
         "bkg_data": backgrounds + data_group,
+        "bkg_data_unstitched": backgrounds_unstitched + data_group,
         "bkg_data_dy": backgrounds + [
             dataset.name for dataset in cfg.datasets
             if dataset.is_data and re.match(r"^data_(e|mu)_.+$", dataset.name)
@@ -808,7 +809,13 @@ def add_config(
 
     # category groups for conveniently looping over certain categories
     # (used during plotting)
-    cfg.x.category_groups = {}
+    cfg.x.category_groups = {
+        "dy_sf": [r"{ee,mumu}__dyc__ge2j__ge0b__os"],
+        # standard cclub categories
+        "cc": [r"{e,mu,tau}tau__{res1b,res2b,vbf,boosted}_cc__os__iso"],
+        # cclub categories with vbf category removed and events included in res categories
+        "cc_novbf": [r"{e,mu,tau}tau__{res1b_inclvbf,res2b_inclvbf,boosted}_cc__os__iso"],
+    }
 
     # variable groups for conveniently looping over certain variables
     # (used during plotting)
@@ -822,6 +829,8 @@ def add_config(
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
         ],
+        "dy_sf": ["dilep_vis_pt", "njets", "nbjets_pnet_overflow"],
+        "dy_sf_24": ["dilep_vis_pt", "njets", "nbjets_upart_overflow"],
     }
 
     # shift groups for conveniently looping over certain shifts
@@ -1538,15 +1547,11 @@ def add_config(
         dy_era = f"{year}"
         if year == 2022:
             dy_era += "preEE" if campaign.has_tag("preEE") else "postEE"
-        elif year == 2023:
+        if year == 2023:
             dy_era += "preBPix" if campaign.has_tag("preBPix") else "postBPix"
-        elif year == 2024:
-            dy_era = "2023preBPix"  # TODO: 2024: use proper 2024 once available
-        else:
-            assert False
 
         # dy reweighting with custom weights
-        # https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight
+        # (originally by hleprare group, https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight)
         cfg.x.dy_weight_config = DrellYanConfig(
             era=dy_era,
             correction="dy_weight",
@@ -1874,7 +1879,7 @@ def add_config(
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-01-30", dc="2026-02-25", egm="2025-12-15", jme="2025-12-02", lum="2025-12-02", muo="2025-11-27", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-02-25", egm="2025-12-15", jme="2025-12-02", lum="2025-12-02", muo="2025-11-27", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1918,7 +1923,7 @@ def add_config(
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
     # btag scale factor
     if run == 3 and year == 2024:
-        add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024.json.gz", "v1"))
+        add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024_2026-03-10.json.gz", "v1"))  # noqa: E501
     else:
         # tmp fix for 23post, see https://trello.com/c/DbgRNT7o/24-change-23post-btagsfcorr-back-to-cat-deployed-file
         if (year, campaign.x.postfix) == (2023, "BPix"):
@@ -1934,7 +1939,7 @@ def add_config(
     # dnn models trained with run 2 legacy setup but run 3 data
     for fold in range(5):
         # for 2024, use version with btag for now, but we could also drop it since we have no full shape correction
-        basename = f"model_2024_fold{fold}_btag_moe.tgz" if year == 2024 else f"model_fold{fold}_moe.tgz"
+        basename = f"model_2024_v2_fold{fold}_btag_moe.tgz" if year == 2024 else f"model_fold{fold}_moe.tgz"
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/{basename}", "v1"))
     # simple version of same model for quick comparisons
     add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_fixedweights_kl01/model_fold0_seed1.tgz", "v1"))  # noqa: E501
@@ -2032,7 +2037,7 @@ def add_config(
         ))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections.json.gz", "v3"))
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v3.json.gz", "v4"))
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_branch}/data/TriggerScaleFactors"
