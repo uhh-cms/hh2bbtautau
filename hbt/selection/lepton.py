@@ -159,7 +159,7 @@ def electron_selection(
                 min_pt = 23.0
             else:
                 raise ValueError("Invalid configuration for cross_e_vbf trigger, should only exist in 2023 and 2024")
-        max_eta = 2.5 if is_single else 2.1
+        max_eta = 2.5 if is_single else 2.1  # TODO: cclub vbf takes eta cut 2.5
         default_mask = (
             (mva_iso_wp80 == 1) &
             (abs(events.Electron.eta) < max_eta) &
