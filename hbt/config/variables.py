@@ -752,8 +752,10 @@ def add_variables(config: od.Config) -> None:
             expression=functools.partial(logit, col=f"run3_dnn_moe_{proc}"),
             binning=(3000, -15, 15),
             x_title=rf"logit(DNN {proc.upper()} output)",
-            aux={"inputs": [f"run3_dnn_moe_{proc}"],
-                "x_transformations": "equal_distance_with_indices"},
+            aux={
+                "inputs": [f"run3_dnn_moe_{proc}"],
+                "x_transformations": "equal_distance_with_indices",
+            },
         )
 
         add_variable(

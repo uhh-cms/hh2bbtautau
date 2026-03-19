@@ -6,14 +6,15 @@ Histogram hooks for binning changes.
 
 from __future__ import annotations
 
+import re
 import functools
-from dataclasses import dataclass
-from collections import defaultdict
+import dataclasses
+import collections
 
 import law
 import order as od
 
-from columnflow.hist_util import select_category_bins
+from columnflow.hist_util import select_category_bins, sum_hists
 from columnflow.util import maybe_import
 from columnflow.types import TYPE_CHECKING, Callable, Literal
 
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 logger = law.logger.get_logger(__name__)
 
 
-@dataclass
+@dataclasses.dataclass
 class BinCount:
     # actual bin content
     val: float
@@ -40,7 +41,7 @@ class BinCount:
             self.num = self.val**2 / self.var
 
 
-@dataclass
+@dataclasses.dataclass
 class BinningConstraint:
     # tags that identify processes that are relevant for the constraint
     process_tags: list[str]
@@ -55,6 +56,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     def flat_s(
         task: law.Task,
         hists: dict[od.Config, dict[od.Process, hist.Hist]],
+        *,
         category_name: str,
         variable_name: str,
         signal_process_name: str = "",
@@ -225,19 +227,23 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
         # find signal and background histograms
         signal_hist: dict[od.Config, hist.Hist] = {}
-        background_hists: dict[od.Config, dict[od.Process, hist.Hist]] = defaultdict(dict)
+        signal_hists: dict[od.Config, list[hist.Hist]] = collections.defaultdict(list)
+        background_hists: dict[od.Config, dict[od.Process, hist.Hist]] = collections.defaultdict(dict)
         for config_inst, proc_hists in hists.items():
             for process_inst, h in proc_hists.items():
-                if process_inst.has_tag("signal") and (signal_process_name in (process_inst.name, "")):
-                    if config_inst in signal_hist:
-                        logger.warning("more than one signal histogram found, use the first one")
-                    else:
-                        signal_hist[config_inst] = h
+                is_signal = (
+                    (signal_process_name and law.util.multi_match(process_inst.name, signal_process_name)) or
+                    (not signal_process_name and process_inst.has_tag("signal"))
+                )
+                if is_signal:
+                    signal_hists[config_inst].append(h)
                 elif process_inst.is_mc:
                     background_hists[config_inst][process_inst] = h
+            # check if at least one signal was found for this config, then merge
             if config_inst not in signal_hist:
                 logger.warning(f"could not find any signal process for config {config_inst}, skip flat_s hook")
                 return hists
+            signal_hist[config_inst] = sum_hists(signal_hists[config_inst])
 
         # 1. select and sum over requested categories
         for config_inst in hists:
@@ -273,6 +279,37 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
         return hists
 
+    # variant of flat_s that selects the signal process to flatten based on the requested variable
+    # (likely using some heuristics)
+    def flat_s_autosignal(
+        task: law.Task,
+        hists: dict[od.Config, dict[od.Process, hist.Hist]],
+        *,
+        variable_name: str,
+        signal_process_name: str = "",
+        **kwargs,
+    ) -> dict[od.Config, dict[od.Process, hist.Hist]]:
+        if not signal_process_name:
+            # detect multi-class dnn variables
+            if (m := re.match(r"^.+dnn_.*(hh|hh_ggf|hh_vbf|tt|dy)(|_.+)$")):
+                proc, postfix = m.groups()
+                if proc in {"hh", "hh_ggf"}:
+                    kl = m.group(1) if (m := re.match(r"^.*kl([0-9pm]+).*$", postfix)) else "1"
+                    signal_process_name = f"hh_ggf_hbb_htt_kl{kl}_kt1"
+                elif proc == "hh_vbf":
+                    k2v = m.group(1) if (m := re.match(r"^.*k2v([0-9pm]+).*$", postfix)) else "1"
+                    signal_process_name = f"hh_vbf_hbb_htt_kv1_k2v{k2v}_kl1"
+                elif proc == "tt":
+                    signal_process_name = "tt_*"
+                else:  # dy
+                    signal_process_name = "dy_*"
+            else:
+                # not covered yet
+                logger.warning(f"auto-signal detection not yet implemented for variable '{variable_name}'")
+
+        # forward to flat_s
+        return flat_s(task, hists, variable_name=variable_name, signal_process_name=signal_process_name, **kwargs)
+
     # some usual binning constraints
     def constrain_tt_dy(counts: dict[str, BinCount], n_tt: int = 1, n_dy: int = 1, n_sum: int = 4) -> bool:
         # have at least one tt, one dy, and four total background events as well as positive yields
@@ -287,6 +324,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     # add hooks
     analysis_inst.x.hist_hooks.flats = flat_s
     for n_bins in [10, 15, 20, 30, 40]:
+        # hooks flattening specific kl signals
         for kl in ["0", "1", "2p45", "5"]:
             analysis_inst.x.hist_hooks[f"flats_kl{kl}_n{n_bins}"] = functools.partial(
                 flat_s,
@@ -312,3 +350,24 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 n_bins=n_bins,
                 constraint=BinningConstraint(["tt", "dy"], functools.partial(constrain_tt_dy, n_tt=5, n_dy=5, n_sum=10)),
             )
+        # hooks autoselecting the signal process to flatten
+        analysis_inst.x.hist_hooks[f"flats_n{n_bins}"] = functools.partial(
+            flat_s_autosignal,
+            n_bins=n_bins,
+        )
+        analysis_inst.x.hist_hooks[f"flats_n{n_bins}_guarded"] = functools.partial(
+            flat_s_autosignal,
+            n_bins=n_bins,
+            constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
+        )
+        analysis_inst.x.hist_hooks[f"flats_n{n_bins}_guardedext"] = functools.partial(
+            flat_s_autosignal,
+            n_bins=n_bins,
+            constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
+            advance_strategy="n_bins_ext_signal",
+        )
+        analysis_inst.x.hist_hooks[f"flats_n{n_bins}_guarded5"] = functools.partial(
+            flat_s_autosignal,
+            n_bins=n_bins,
+            constraint=BinningConstraint(["tt", "dy"], functools.partial(constrain_tt_dy, n_tt=5, n_dy=5, n_sum=10)),
+        )
