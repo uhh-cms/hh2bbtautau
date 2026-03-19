@@ -101,7 +101,7 @@ muon_weights_lowpt = muon_weights.derive(
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # category ids
-    events = attach_coffea_behavior(events, collections={"HHBJet": "Jet"})
+    events = attach_coffea_behavior(events, collections={"HHBJet": "Jet", "VBFJet": "Jet"})
     events = self[hbt_category_ids](events, **kwargs)
 
     # mc-only weights

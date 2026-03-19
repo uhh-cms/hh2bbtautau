@@ -1097,16 +1097,24 @@ def add_config(
     cfg.x.fatjet_id = JetIdConfig(corrections={"AK8PUPPI_Tight": 2, "AK8PUPPI_TightLeptonVeto": 3})
 
     # trigger sf corrector
+    # ditau + jet trigger
     cfg.x.jet_trigger_corrector = "jetleg60"
 
+    # vbf triggers
     from hbt.production.jet import VBFjetSFConfig
     cfg.x.vbfjet_ditau_trigger_config = VBFjetSFConfig(
         correction="VBFtrigSF",
         corr_type="sf",
-        lep_mask=None,
+        lep_used=False,
+    )
+    cfg.x.vbfjet_e_trigger_config = VBFjetSFConfig(
+        correction="VBFtrigSF",
+        corr_type="sf",
+        lep_used=True,
     )
 
-    # TODO: quadjet trigger SFs
+    # quadjet trigger
+    cfg.x.jet_quadjet_trigger_corrector = "QuadJet_btag"
 
     ################################################################################################
     # tau settings
@@ -1165,6 +1173,9 @@ def add_config(
 
     # tau trigger correctors
     cfg.x.tau_trigger_corrector = "tau_trigger"
+
+    # quadjet tau trigger corrector
+    cfg.x.tau_quadjet_trigger_corrector = "L1HTTauLeg_QuadJetTriggerSF"
 
     ################################################################################################
     # electron settings
@@ -2100,6 +2111,10 @@ def add_config(
                     vbf_mu=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFMu_SF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
                     # TODO: does not exist for 2024 at the moment, update when there
                     # vbf_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFTau_JetSF_{year}_{cclub_postfix}.json.gz",
+
+                    # HOTFIX in the meantime, use 2023 SFs TODO: remove when 2024 ones are available
+                    vbf_tau=f"{trigger_sf_internal_subpath}/2023postBPix/VBFTau_JetSF_2023_postBPix.json.gz",  # noqa: E501
+
                     vbf_incl=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFIncl_SF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
                     quadjet_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ParkingHH_PNet1BTag0p20_BTag.json.gz",  # noqa: E501
                     quadjet_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ParkingHH_PNet1BTag0p20_L1HTTau.json.gz",  # noqa: E501
