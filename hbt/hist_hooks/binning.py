@@ -305,7 +305,11 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                     signal_process_name = "dy_*"
             else:
                 # not covered yet
-                logger.warning(f"auto-signal detection not yet implemented for variable '{variable_name}'")
+                signal_process_name = "hh_ggf_hbb_htt_kl1_kt1"
+                logger.warning(
+                    f"auto-signal detection not yet implemented for variable '{variable_name}', falling back to "
+                    f"'{signal_process_name}'",
+                )
 
         # forward to flat_s
         return flat_s(task, hists, variable_name=variable_name, signal_process_name=signal_process_name, **kwargs)
