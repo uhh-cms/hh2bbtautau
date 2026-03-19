@@ -9,7 +9,8 @@ from __future__ import annotations
 __all__ = []
 
 from columnflow.columnar_util import (  # noqa: F401
-    IF_DATA, IF_MC, IF_DATASET_HAS_TAG, IF_DATASET_NOT_HAS_TAG, ArrayFunction, deferred_column, ak_concatenate_safe,
+    IF_DATA, IF_MC, IF_DATASET_HAS_TAG, IF_DATASET_NOT_HAS_TAG, EMPTY_FLOAT, ArrayFunction, deferred_column,
+    ak_concatenate_safe,
 )
 from columnflow.util import maybe_import
 from columnflow.types import Any, Sequence
@@ -304,6 +305,22 @@ def stack_lvectors(lvectors: Sequence[ak.Array]) -> ak.Array:
     stacked = ak_concatenate_safe(lvectors, axis=1)
 
     return stacked
+
+
+def rotate_px_py(
+    px: ak.Array | np.ndarray,
+    py: ak.Array | np.ndarray,
+    ref_phi: ak.Array | np.ndarray,
+) -> ak.Array | np.ndarray:
+    new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
+    pt = (px**2 + py**2)**0.5
+    return pt * np.cos(new_phi), pt * np.sin(new_phi)
+
+
+def delta_r12(vectors: ak.Array) -> ak.Array:
+    # delta r between first two elements
+    dr = ak.firsts(vectors[:, :1], axis=1).delta_r(ak.firsts(vectors[:, 1:2], axis=1))
+    return ak.fill_none(dr, EMPTY_FLOAT)
 
 
 _uppercase_wps = {

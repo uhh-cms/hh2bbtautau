@@ -13,21 +13,21 @@ import functools
 import law
 import order as od
 
-from columnflow.types import TYPE_CHECKING, Callable
-from columnflow.hist_util import create_hist_from_variables, fill_hist
-from hbt.tasks.base import HBTTask
-from columnflow.tasks.framework.base import TaskShifts, ConfigTask
-from columnflow.tasks.production import ProduceColumns
-from columnflow.tasks.reduction import ProvideReducedEvents
-from columnflow.util import maybe_import
-from columnflow.columnar_util import (
-    ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, layout_ak_array,
-    set_ak_column,
-)
+from columnflow.tasks.framework.base import AnalysisTask, TaskShifts, ConfigTask, wrapper_factory
 from columnflow.tasks.framework.mixins import (
     DatasetsProcessesMixin, ProducerClassesMixin, CalibratorClassesMixin,
     SelectorClassMixin, ReducerClassMixin,
 )
+from columnflow.tasks.production import ProduceColumns
+from columnflow.tasks.reduction import ProvideReducedEvents
+from columnflow.hist_util import create_hist_from_variables, fill_hist
+from columnflow.columnar_util import (
+    ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, layout_ak_array, set_ak_column,
+)
+from columnflow.util import maybe_import
+from columnflow.types import TYPE_CHECKING, Callable
+
+from hbt.tasks.base import HBTTask
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -109,7 +109,7 @@ class LoadDYData(DYBaseTask):
         > law run hbt.LoadDYData \
             --config 22pre_v14 \
             --version prod20_vbf \
-            --datasets bkg_data
+            --datasets bkg_data_dy
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -295,6 +295,13 @@ class LoadDYData(DYBaseTask):
         bkg_events = ak.concatenate(bkg_events, axis=0) if bkg_events else None
 
         outputs.dump((data_events, dy_events, bkg_events), formatter="pickle")
+
+
+LoadDYDataWrapper = wrapper_factory(
+    base_cls=AnalysisTask,
+    require_cls=LoadDYData,
+    enable=["configs", "skip_configs"],
+)
 
 
 class DYWeights(DYBaseTask):
