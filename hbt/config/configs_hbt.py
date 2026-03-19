@@ -829,8 +829,7 @@ def add_config(
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
         ],
-        "dy_sf": ["dilep_vis_pt", "njets", "nbjets_pnet_overflow"],
-        "dy_sf_24": ["dilep_vis_pt", "njets", "nbjets_upart_overflow"],
+        "dy_sf": ["dilep_vis_pt", "njets", "nbjets_upart_overflow" if year == 2024 else "nbjets_pnet_overflow"],
     }
 
     # shift groups for conveniently looping over certain shifts
