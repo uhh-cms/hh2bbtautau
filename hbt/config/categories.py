@@ -28,7 +28,8 @@ def add_categories(config: od.Config) -> None:
     root_cat = add_category(config, name="all", id=-1, selection="cat_all", label="")
 
     # helper to assign categories to config with cached ids
-    id_cache = CategoryIDCache(config).open()
+    id_cache_location = law.util.rel_path(__file__, "data", f"category_ids_{config.name}.json")
+    id_cache = CategoryIDCache(id_cache_location).open()
     def _add_category(**kwargs) -> od.Category:
         kwargs.setdefault("id", id_cache)
         return add_category(config, parent=root_cat, **kwargs)
