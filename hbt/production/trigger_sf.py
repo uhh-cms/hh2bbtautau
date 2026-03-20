@@ -20,7 +20,7 @@ from columnflow.production.cms.electron import electron_trigger_weights as cf_el
 
 from hbt.production.tau import tau_trigger_efficiencies, quadjet_tau_trigger_sf
 from hbt.production.jet import jet_trigger_efficiencies, quadjet_jet_trigger_sf, vbfjet_trigger_efficiencies
-from hbt.util import IF_QUADJET_APPLIES_TO_DATASET
+from hbt.util import IF_RUN_3_2024, IF_RUN_3_2023_2024
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
@@ -177,12 +177,20 @@ vbf_ditau_jet_trigger_sf = vbfjet_trigger_efficiencies.derive(
         "sf_name": "vbf_ditau_jet_trigger_sf",
     },
 )
-vbf_incl_jet_trigger_sf = vbfjet_trigger_efficiencies.derive(
-    "vbf_incl_jet_trigger_sf",
+vbf_incl_jet_trigger_sf_etau = vbfjet_trigger_efficiencies.derive(
+    "vbf_incl_jet_trigger_sf_etau",
     cls_dict={
         "get_vbfjet_file": (lambda self, external_files: external_files.trigger_sf.vbf_incl),
         # Note: if triple jet is added, change config to get efficiencies instead of sfs
-        "sf_name": "vbf_incl_jet_trigger_sf",
+        "sf_name": "vbf_incl_jet_trigger_sf_etau",
+    },
+)
+vbf_incl_jet_trigger_sf_tautau = vbfjet_trigger_efficiencies.derive(
+    "vbf_incl_jet_trigger_sf_tautau",
+    cls_dict={
+        "get_vbfjet_file": (lambda self, external_files: external_files.trigger_sf.vbf_incl),
+        # Note: if triple jet is added, change config to get efficiencies instead of sfs
+        "sf_name": "vbf_incl_jet_trigger_sf_tautau",
     },
 )
 vbf_mu_jet_trigger_sf = vbfjet_trigger_efficiencies.derive(
@@ -294,13 +302,17 @@ def create_trigger_weight(
         single_trigger_electron_mc_effs, cross_trigger_electron_mc_effs,
         single_trigger_muon_data_effs, cross_trigger_muon_data_effs,
         single_trigger_muon_mc_effs, cross_trigger_muon_mc_effs,
-        tau_trigger_effs_cclub, vbf_incl_jet_trigger_sf, vbf_e_jet_trigger_sf, vbf_mu_jet_trigger_sf,
+        tau_trigger_effs_cclub,
+        IF_RUN_3_2023_2024(vbf_incl_jet_trigger_sf_etau),
+        IF_RUN_3_2023_2024(vbf_e_jet_trigger_sf),
+        IF_RUN_3_2023_2024(vbf_mu_jet_trigger_sf),
     },
     produces={
         "{e,mu}tau_trigger_weight",
         "etau_trigger_weight_e_{up,down}",
         "mutau_trigger_weight_mu_{up,down}",
         "{e,mu}tau_trigger_weight_tau_dm{0,1,10,11}_{up,down}",
+        IF_RUN_3_2023_2024("{e,mu}tau_trigger_weight_vbfjets_{up,down}"),
     },
 )
 def etau_mutau_trigger_weight(
@@ -384,20 +396,21 @@ def etau_mutau_trigger_weight(
     events = self[tau_trigger_effs_cclub](events, **kwargs)
 
     # create the vbf sfs
-    events = self[vbf_incl_jet_trigger_sf](events, cross_jj_triggered_event_mask & (events.VBFJet.pt > 0), **kwargs)
-    events = self[vbf_e_jet_trigger_sf](events, cross_e_vbf_triggered_event_mask & (events.VBFJet.pt > 0), **kwargs)
-    events = self[vbf_mu_jet_trigger_sf](events, cross_mu_vbf_triggered_event_mask & (events.VBFJet.pt > 0), **kwargs)
+    if self.config_inst.campaign.x.year in {2023, 2024}:
+        events = self[vbf_incl_jet_trigger_sf_etau](events, cross_jj_triggered_event_mask & (events.VBFJet.pt > 0), **kwargs)  # noqa: E501
+        events = self[vbf_e_jet_trigger_sf](events, cross_e_vbf_triggered_event_mask & (events.VBFJet.pt > 0), **kwargs)
+        events = self[vbf_mu_jet_trigger_sf](events, cross_mu_vbf_triggered_event_mask & (events.VBFJet.pt > 0), **kwargs)  # noqa: E501
 
-    vbf_dict = {
-        "e": {
-            "mask": [cross_e_vbf_triggered_event_mask, cross_jj_triggered_event_mask],
-            "sf": ["vbf_e_jet_trigger_sf", "vbf_incl_jet_trigger_sf"],
-        },
-        "mu": {
-            "mask": [cross_mu_vbf_triggered_event_mask],
-            "sf": ["vbf_mu_jet_trigger_sf"],
-        },
-    }
+        vbf_dict = {
+            "e": {
+                "mask": [cross_e_vbf_triggered_event_mask, cross_jj_triggered_event_mask],
+                "sf": ["vbf_e_jet_trigger_sf", "vbf_incl_jet_trigger_sf_etau"],
+            },
+            "mu": {
+                "mask": [cross_mu_vbf_triggered_event_mask],
+                "sf": ["vbf_mu_jet_trigger_sf"],
+            },
+        }
 
     # create the nominal case
     for lepton, channel_name in [("e", "etau"), ("mu", "mutau")]:
@@ -432,16 +445,16 @@ def etau_mutau_trigger_weight(
             ((events.channel_id == channel.id) & cross_lt_trigger_passed),
         )
 
-        # add vbf nominal
-        for mask, sf in zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"]):
-            if ak.any(trigger_weight[mask] != 1):
-                from IPython import embed; embed(header=f"Debugging {channel_name} vbf trigger sf application")  # noqa: E501
-                raise ValueError(f"Trying to apply vbf trigger sf {sf} to events that are not in the {channel_name} channel or not passing the vbf trigger, which should have a nominal trigger weight of 1, but found values different than 1. Check the masks and sfs for {channel_name} vbf triggers.")
-            trigger_weight = ak.where(
-                mask,
-                events[sf],
-                trigger_weight,
-            )
+        if self.config_inst.campaign.x.year in {2023, 2024}:
+            # add vbf nominal
+            for mask, sf in zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"]):
+                if ak.any(trigger_weight[mask] != 1):
+                    raise ValueError(f"Trying to apply vbf trigger sf {sf} to events that are already affected by the single/cross trigger efficiencies in the {channel_name} channel")  # noqa: E501
+                trigger_weight = ak.where(
+                    mask,
+                    events[sf],
+                    trigger_weight,
+                )
 
         events = set_ak_column_f32(events, f"{channel_name}_trigger_weight", trigger_weight)
 
@@ -486,13 +499,14 @@ def etau_mutau_trigger_weight(
                 cross_triggered,
             )
 
-            # add vbf nominal
-            for mask, sf in zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"]):
-                trigger_weight = ak.where(
-                    mask,
-                    events[sf],
-                    trigger_weight,
-                )
+            if self.config_inst.campaign.x.year in {2023, 2024}:
+                # add vbf nominal
+                for mask, sf in zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"]):
+                    trigger_weight = ak.where(
+                        mask,
+                        events[sf],
+                        trigger_weight,
+                    )
 
             events = set_ak_column_f32(events, f"{channel.name}_trigger_weight_{lepton}_{direction}", trigger_weight)
 
@@ -516,31 +530,33 @@ def etau_mutau_trigger_weight(
                     cross_triggered,
                 )
 
-                # add vbf nominal
-                for mask, sf in zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"]):
-                    trigger_weight = ak.where(
-                        mask,
-                        events[sf],
-                        trigger_weight,
-                    )
+                if self.config_inst.campaign.x.year in {2023, 2024}:
+                    # add vbf nominal
+                    for mask, sf in zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"]):
+                        trigger_weight = ak.where(
+                            mask,
+                            events[sf],
+                            trigger_weight,
+                        )
 
                 events = set_ak_column_f32(events, f"{channel.name}_trigger_weight_tau_dm{dm}_{direction}", trigger_weight)  # noqa: E501
 
-                # vbf variations
-                for i, (mask, sf) in enumerate(zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"])):
-                    if i == 0:
-                        trigger_weight = ak.where(
-                            mask,
-                            events[f"{sf}_{direction}"],
-                            events[f"{channel.name}_trigger_weight"],
-                        )
-                    else:
-                        trigger_weight = ak.where(
-                            mask,
-                            events[f"{sf}_{direction}"],
-                            trigger_weight,
-                        )
-                events = set_ak_column_f32(events, f"{channel.name}_trigger_weight_vbfjets_{direction}", trigger_weight)
+                if self.config_inst.campaign.x.year in {2023, 2024}:
+                    # vbf variations
+                    for i, (mask, sf) in enumerate(zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"])):
+                        if i == 0:
+                            trigger_weight = ak.where(
+                                mask,
+                                events[f"{sf}_{direction}"],
+                                events[f"{channel.name}_trigger_weight"],
+                            )
+                        else:
+                            trigger_weight = ak.where(
+                                mask,
+                                events[f"{sf}_{direction}"],
+                                trigger_weight,
+                            )
+                    events = set_ak_column_f32(events, f"{channel.name}_trigger_weight_vbfjets_{direction}", trigger_weight)  # noqa: E501
 
     return events
 
@@ -549,15 +565,17 @@ def etau_mutau_trigger_weight(
     uses={
         "channel_id", "matched_trigger_ids", "HHBJet.pt", "Tau.pt", "VBFJet.pt",
         tau_trigger_effs_cclub, jet_trigger_efficiencies,
-        vbf_ditau_jet_trigger_sf, vbf_incl_jet_trigger_sf, vbf_tau_jet_trigger_sf,
-        IF_QUADJET_APPLIES_TO_DATASET(quadjet_tau_trigger_sf),
-        IF_QUADJET_APPLIES_TO_DATASET(quadjet_jet_trigger_sf),
+        vbf_ditau_jet_trigger_sf,
+        IF_RUN_3_2023_2024(vbf_incl_jet_trigger_sf_tautau),
+        IF_RUN_3_2023_2024(vbf_tau_jet_trigger_sf),
+        IF_RUN_3_2024(quadjet_tau_trigger_sf),
+        IF_RUN_3_2024(quadjet_jet_trigger_sf),
     },
     produces={
         "tautau_trigger_weight",
         "tautau_trigger_weight_jet_{up,down}",
         "tautau_trigger_weight_tau_dm{0,1,10,11}_{up,down}",
-        IF_QUADJET_APPLIES_TO_DATASET("tautau_trigger_weight_quadjet_{up,down}"),
+        IF_RUN_3_2024("tautau_trigger_weight_quadjet_{up,down}"),
         "tautau_trigger_weight_vbfjets_{up,down}",
     },
 )
@@ -621,7 +639,9 @@ def tautau_trigger_weight(
     # create object masks for the correctionlib producers
     sorted_hhbjet_indices = ak.argsort(events.HHBJet.pt, axis=1, ascending=False)
     leading_HHBJet_mask = (ak.zeros_like(events.HHBJet.pt, dtype=int) == ak.local_index(events.HHBJet.pt)[sorted_hhbjet_indices])  # noqa
-    jet_mask = (ttj_triggered & leading_HHBJet_mask)
+    ttj_jet_mask = (ttj_triggered & leading_HHBJet_mask)
+    if quadjet_applied:
+        quadjet_jet_mask = (quadjet_triggered & leading_HHBJet_mask)
     # indices for sorting taus first by isolation, then by pt
     # for this, combine iso and pt values, e.g. iso 255 and pt 32.3 -> 2550032.3
     f = 10**(np.ceil(np.log10(ak.max(events.Tau.pt) or 0.0)) + 2)
@@ -633,17 +653,46 @@ def tautau_trigger_weight(
     vbf_incl_jet_mask = (v_triggered & (events.VBFJet.pt > 0))
     vbf_tau_jet_mask = (tv_triggered & (events.VBFJet.pt > 0))
 
+    # HOTFIX vbf ditau: the sfs are only defined for vbfjet 1 pt > 160, vbfjet 2 pt > 70, mjj > 1100 for 2024
+    # 140,60,850 for 2022, 2023
+    # TODO: remove after new production
+    original_vbf_ditau_jet_mask = vbf_ditau_jet_mask
+    vbf_jet_1 = ak.firsts(events.VBFJet, axis=1)
+    vbf_jet_2 = ak.firsts(events.VBFJet[:, 1:], axis=1)
+    if self.config_inst.campaign.x.year == 2024:
+        vbf_ditau_jet_mask = vbf_ditau_jet_mask & (vbf_jet_2.pt > 70)
+        vbf_ditau_jet_mask = vbf_ditau_jet_mask & (vbf_jet_1.pt > 160)
+        vbf_ditau_jet_mask = vbf_ditau_jet_mask & ((vbf_jet_1 + vbf_jet_2).mass > 1100)
+    else:
+        vbf_ditau_jet_mask = vbf_ditau_jet_mask & (vbf_jet_2.pt > 60)
+        vbf_ditau_jet_mask = vbf_ditau_jet_mask & (vbf_jet_1.pt > 140)
+        vbf_ditau_jet_mask = vbf_ditau_jet_mask & ((vbf_jet_1 + vbf_jet_2).mass > 850)
+
     # get jet and quadjet efficiencies/sf
-    events = self[jet_trigger_efficiencies](events, jet_mask, **kwargs)
+    events = self[jet_trigger_efficiencies](events, ttj_jet_mask, **kwargs)
     if quadjet_applied:
         leading_tau_mask_for_quadjet = leading_tau_mask & quadjet_triggered
-        events = self[quadjet_jet_trigger_sf](events, jet_mask, **kwargs)
+        events = self[quadjet_jet_trigger_sf](events, quadjet_jet_mask, **kwargs)
         events = self[quadjet_tau_trigger_sf](events, leading_tau_mask_for_quadjet, **kwargs)
 
     # vbf jet efficiencies
     events = self[vbf_ditau_jet_trigger_sf](events, vbf_ditau_jet_mask, **kwargs)
-    events = self[vbf_incl_jet_trigger_sf](events, vbf_incl_jet_mask, **kwargs)
-    events = self[vbf_tau_jet_trigger_sf](events, vbf_tau_jet_mask, **kwargs)
+    if self.config_inst.campaign.x.year in {2023, 2024}:
+        events = self[vbf_incl_jet_trigger_sf_tautau](events, vbf_incl_jet_mask, **kwargs)
+        events = self[vbf_tau_jet_trigger_sf](events, vbf_tau_jet_mask, **kwargs)
+
+    # HOTFIX part 2, fill none entries due to vbf cuts with 1.0 TODO: remove after new production
+    original_vbf_ditau_jet_mask_event_mask = ak.any(original_vbf_ditau_jet_mask, axis=1)
+    vbf_ditau_jet_mask_event_mask = ak.any(vbf_ditau_jet_mask, axis=1)
+    for sys in ["", "_up", "_down"]:
+        vbf_ditau_jet_sf_column_name = f"vbf_ditau_jet_trigger_sf{sys}"
+        vbf_ditau_jet_sf_column = ak.where(
+            original_vbf_ditau_jet_mask_event_mask & ~vbf_ditau_jet_mask_event_mask,
+            1.0,
+            events[vbf_ditau_jet_sf_column_name],
+        )
+        events = set_ak_column_f32(events, vbf_ditau_jet_sf_column_name, vbf_ditau_jet_sf_column)
+    vbf_ditau_jet_mask = original_vbf_ditau_jet_mask
 
     # tau efficiencies
     # make ditau efficiencies to event level quantity
@@ -671,7 +720,25 @@ def tautau_trigger_weight(
         second_trigger_matched=ttj_triggered,
     )
 
-    # quadjet with variations
+    # vbf
+    trigger_weight = ak.where(
+        ttv_triggered,
+        ak.prod(events.tau_trigger_sf_tautauvbf, axis=1, mask_identity=False) * events.vbf_ditau_jet_trigger_sf,
+        trigger_weight,
+    )
+    if self.config_inst.campaign.x.year in {2023, 2024}:
+        trigger_weight = ak.where(
+            tv_triggered,
+            ak.prod(events.tau_trigger_sf_tauvbf, axis=1, mask_identity=False) * events.vbf_tau_jet_trigger_sf,
+            trigger_weight,
+        )
+        trigger_weight = ak.where(
+            v_triggered,
+            events.vbf_incl_jet_trigger_sf_tautau,
+            trigger_weight,
+        )
+
+    # quadjet with variations, needs to be applied after all the other sfs such that the variations are correct
     if quadjet_applied:
         trigger_weight = ak.where(
             quadjet_triggered,
@@ -686,22 +753,6 @@ def tautau_trigger_weight(
             )
             events = set_ak_column_f32(events, f"tautau_trigger_weight_quadjet_{direction}", trigger_weight_syst)
 
-    # vbf
-    trigger_weight = ak.where(
-        ttv_triggered,
-        ak.prod(events.tau_trigger_sf_tautauvbf, axis=1, mask_identity=False) * events.vbf_ditau_jet_trigger_sf,
-        trigger_weight,
-    )
-    trigger_weight = ak.where(
-        tv_triggered,
-        ak.prod(events.tau_trigger_sf_tauvbf, axis=1, mask_identity=False) * events.vbf_tau_jet_trigger_sf,
-        trigger_weight,
-    )
-    trigger_weight = ak.where(
-        v_triggered,
-        events.vbf_incl_jet_trigger_sf,
-        trigger_weight,
-    )
     events = set_ak_column_f32(events, "tautau_trigger_weight", trigger_weight)
 
     for direction in ["up", "down"]:
@@ -743,16 +794,17 @@ def tautau_trigger_weight(
             ak.prod(events.tau_trigger_sf_tautauvbf, axis=1, mask_identity=False) * events.vbf_ditau_jet_trigger_sf,
             trigger_weight,
         )
-        trigger_weight = ak.where(
-            tv_triggered,
-            ak.prod(events.tau_trigger_sf_tauvbf, axis=1, mask_identity=False) * events.vbf_tau_jet_trigger_sf,
-            trigger_weight,
-        )
-        trigger_weight = ak.where(
-            v_triggered,
-            events.vbf_incl_jet_trigger_sf,
-            trigger_weight,
-        )
+        if self.config_inst.campaign.x.year in {2023, 2024}:
+            trigger_weight = ak.where(
+                tv_triggered,
+                ak.prod(events.tau_trigger_sf_tauvbf, axis=1, mask_identity=False) * events.vbf_tau_jet_trigger_sf,
+                trigger_weight,
+            )
+            trigger_weight = ak.where(
+                v_triggered,
+                events.vbf_incl_jet_trigger_sf_tautau,
+                trigger_weight,
+            )
         events = set_ak_column_f32(events, f"tautau_trigger_weight_jet_{direction}", trigger_weight)
 
         # tau variations
@@ -787,16 +839,17 @@ def tautau_trigger_weight(
                 ak.prod(events[f"tau_trigger_sf_tautauvbf_dm{dm}_{direction}"], axis=1, mask_identity=False) * events.vbf_ditau_jet_trigger_sf,  # noqa: E501
                 trigger_weight,
             )
-            trigger_weight = ak.where(
-                tv_triggered,
-                ak.prod(events[f"tau_trigger_sf_tauvbf_dm{dm}_{direction}"], axis=1, mask_identity=False) * events.vbf_tau_jet_trigger_sf,  # noqa: E501
-                trigger_weight,
-            )
-            trigger_weight = ak.where(
-                v_triggered,
-                events.vbf_incl_jet_trigger_sf,
-                trigger_weight,
-            )
+            if self.config_inst.campaign.x.year in {2023, 2024}:
+                trigger_weight = ak.where(
+                    tv_triggered,
+                    ak.prod(events[f"tau_trigger_sf_tauvbf_dm{dm}_{direction}"], axis=1, mask_identity=False) * events.vbf_tau_jet_trigger_sf,  # noqa: E501
+                    trigger_weight,
+                )
+                trigger_weight = ak.where(
+                    v_triggered,
+                    events.vbf_incl_jet_trigger_sf_tautau,
+                    trigger_weight,
+                )
 
             events = set_ak_column_f32(events, f"tautau_trigger_weight_tau_dm{dm}_{direction}", trigger_weight)
 
@@ -810,19 +863,20 @@ def tautau_trigger_weight(
             ),
             events.tautau_trigger_weight,
         )
-        trigger_weight = ak.where(
-            tv_triggered,
-            (
-                ak.prod(events.tau_trigger_sf_tauvbf, axis=1, mask_identity=False) *
-                events[f"vbf_tau_jet_trigger_sf_{direction}"]
-            ),
-            trigger_weight,
-        )
-        trigger_weight = ak.where(
-            v_triggered,
-            events[f"vbf_incl_jet_trigger_sf_{direction}"],
-            trigger_weight,
-        )
+        if self.config_inst.campaign.x.year in {2023, 2024}:
+            trigger_weight = ak.where(
+                tv_triggered,
+                (
+                    ak.prod(events.tau_trigger_sf_tauvbf, axis=1, mask_identity=False) *
+                    events[f"vbf_tau_jet_trigger_sf_{direction}"]
+                ),
+                trigger_weight,
+            )
+            trigger_weight = ak.where(
+                v_triggered,
+                events[f"vbf_incl_jet_trigger_sf_tautau_{direction}"],
+                trigger_weight,
+            )
         events = set_ak_column_f32(events, f"tautau_trigger_weight_vbfjets_{direction}", trigger_weight)
 
     return events
@@ -947,7 +1001,8 @@ def ee_mumu_trigger_weight(
     },
     produces={
         "trigger_weight",
-        "trigger_weight_{e,mu,jet}_{up,down}",
+        "trigger_weight_{e,mu,jet,vbfjets}_{up,down}",
+        IF_RUN_3_2024("trigger_weight_quadjet_{up,down}"),
         "trigger_weight_tau_dm{0,1,10,11}_{up,down}",
     },
 )
@@ -1010,8 +1065,19 @@ def trigger_weight(
         ("emu", "tau_dm0"), ("emu", "tau_dm1"), ("emu", "tau_dm10"), ("emu", "tau_dm11"),
     }
 
+    if self.config_inst.campaign.x.year == 2022:
+        undefined_variations = undefined_variations.union({
+            ("etau", "vbfjets"),
+            ("mutau", "vbfjets"),
+        })
+
+    if self.config_inst.campaign.x.year == 2024:
+        variation_list = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet", "quadjet", "vbfjets"]
+    else:
+        variation_list = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet", "vbfjets"]
+
     for direction in ["up", "down"]:
-        for variation in ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet", "quadjet", "vbfjets"]:
+        for variation in variation_list:
             trigger_weight = events.trigger_weight
             weight_name = "trigger_weight"
             varied_weight_name = f"{weight_name}_{variation}_{direction}"

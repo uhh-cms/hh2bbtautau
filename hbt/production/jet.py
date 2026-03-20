@@ -253,11 +253,12 @@ def vbfjet_trigger_efficiencies(
         sf = self.vbfjet_trig_corrector(*inputs)
 
         # check whether any selected event gets None
-        event_mask = ak.sum(jet_mask, axis=-1) == 2
+        event_mask = ak.fill_none(ak.sum(jet_mask, axis=-1) == 2, False)
         if ak.any(ak.is_none(sf[event_mask])):
             raise ValueError("None value in vbfjet trigger sf, check inputs and correction file")
 
         # maybe TODO: remove Nones? should never be used anyway since they are for events not passing the triggers
+        # sf = ak.fill_none(sf, 1.0)
 
         # inflate uncertainty bei 15% to account for JES
         if syst == "up":
