@@ -1070,13 +1070,15 @@ def lepton_selection(
                 if trigger.has_tag("cross_quadjet"):
                     matching_mask, tau_trig_objects_matched_quadjet[trigger.id] = self[quadjet_tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
                 elif trigger.has_tag("cross_tau_vbf"):
-                    # for the cross tau vbf trigger, both taus can match the tau leg,
+                    # for the cross tau vbf trigger highest pt tau should match the tau leg
                     # TODO: check if both taus can match or only the highest pt/iso tau
-                    # but at least one of them needs to match it
                     # so keep the trig_tau_mask as ch_base_tau_mask, but remove the events for which
-                    # none of the two most isolated taus match the tau leg of the trigger
-                    matching_mask_obj = self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
-                    matching_mask = ak.sum(matching_mask_obj[most_isolated_tau_mask], axis=1) >= 1
+                    # the highest pt tau does not match the tau leg of the trigger
+                    pt_tau_sorting_indices = ak.argsort(events.Tau.pt, axis=-1, ascending=False)
+                    highest_pt_tau_mask = pt_tau_sorting_indices[ch_base_tau_mask[pt_tau_sorting_indices]][:, :1]
+                    highest_pt_tau_mask = mask_from_indices(highest_pt_tau_mask, events.Tau.pt)
+                    matching_mask_obj = self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=highest_pt_tau_mask, **sel_kwargs)  # noqa: E501
+                    matching_mask = ak.sum(matching_mask_obj[highest_pt_tau_mask], axis=1) >= 1
                 else:
                     # trigger matching for the taus
                     matching_mask = self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
@@ -1091,7 +1093,7 @@ def lepton_selection(
                 # the matching
                 # TODO: check if both taus can match or only the highest pt/iso tau
                 offline_cut_mask = ak.sum(
-                    (tau_trigger_specific_mask & matching_mask_obj)[most_isolated_tau_mask], axis=1,
+                    (tau_trigger_specific_mask & matching_mask_obj)[highest_pt_tau_mask], axis=1,
                 ) >= 1
             else:
                 offline_cut_mask = tau_trigger_specific_mask
