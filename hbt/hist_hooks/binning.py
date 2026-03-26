@@ -16,7 +16,7 @@ import order as od
 
 from columnflow.hist_util import select_category_bins, sum_hists
 from columnflow.util import maybe_import
-from columnflow.types import TYPE_CHECKING, Callable, Literal
+from columnflow.types import TYPE_CHECKING, Callable, Literal, Any
 
 if TYPE_CHECKING:
     hist = maybe_import("hist")
@@ -63,7 +63,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         n_bins: int = 10,
         constraint: BinningConstraint | None = None,
         # strategy to use in case the constraint is not met for a bin
-        advance_strategy: Literal["next_mini_bin", "extend_signal"] = "next_mini_bin",
+        advance_strategy: tuple[Literal["next_mini_bin", "extend_signal"], Any] = ("next_mini_bin", None),
     ) -> dict[od.Config, dict[od.Process, hist.Hist]]:
         """
         Rebinnig of the histograms in *hists* to archieve a flat-signal distribution.
@@ -72,8 +72,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         import hist
 
         # check advance strategy
-        known_strategies = {"next_mini_bin", "extend_signal"}
-        if advance_strategy not in known_strategies:
+        known_strategies = {"next_mini_bin", "extend_signal", "extend_signal_0p5"}
+        if advance_strategy[0] not in known_strategies:
             raise ValueError(f"unknown advance strategy {advance_strategy}, known strategies are {known_strategies}")
 
         # edge finding helper
@@ -111,30 +111,45 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             num_bins_orig = len(y)
             y_min = 1.0e-5
 
+            # prepare backgrounds for constraint
+            if constraint:
+                constraint_data = {}
+                for tag in constraint.process_tags:
+                    # loop over histograms and check if they fit the process
+                    for proc, h in background_hists:
+                        if proc.has_tag(tag):
+                            # initialize with empty data for counts and variances
+                            if tag not in constraint_data:
+                                constraint_data[tag] = [np.zeros_like(y), np.zeros_like(y)]
+                            constraint_data[tag][0] += np.flip(h.counts(), axis=-1)
+                            constraint_data[tag][1] += np.flip(h.variances(), axis=-1)
+                    # in case no matching process was found, complain and remove the entry
+                    if tag not in constraint_data:
+                        logger.error(f"flat_s: constraint process tag '{tag}' did not match any background process")
+
             # helper to find the index "stop_idx" of the source bin that marks the start of the next merged bin
             def find_stop_idx(start_idx: int, y_remaining: float, y_per_bin: float) -> int:
                 if y_remaining >= y_per_bin:
                     threshold = y_already_binned + y_per_bin
                     # get indices of array of values above threshold
                     # first entry defines the next bin edge
-                    stop_idx = start_idx + max(np.where(y_cumsum[start_idx:] > threshold)[0][0], 1)
+                    stop_idx = start_idx + max(np.where(y_cumsum[start_idx:] >= threshold)[0][0], 1)
                 else:
                     # special case: remaining signal yield smaller than the expected per-bin yield,
                     # so find the last bin
                     stop_idx = start_idx + np.where(y_cumsum[start_idx:])[0][-1] + 1
                 return stop_idx
 
-            # prepare backgrounds for constraint
-            if constraint:
-                constraint_data = {}
-                for tag in constraint.process_tags:
-                    # start with empty data for counts and variances
-                    constraint_data[tag] = [np.zeros_like(y), np.zeros_like(y)]
-                    # loop over histograms and check if they fit the process
-                    for proc, h in background_hists:
-                        if proc.has_tag(tag):
-                            constraint_data[tag][0] += np.flip(h.counts(), axis=-1)
-                            constraint_data[tag][1] += np.flip(h.variances(), axis=-1)
+            # helper to gather constraint counts given start and stop indices marking the bin to slice
+            def gather_constraint_counts(start_idx: int, stop_idx: int) -> dict[str, BinCount]:
+                # gather counts
+                return {
+                    tag: BinCount(
+                        val=float(val[start_idx:stop_idx].sum()),
+                        var=float(var[start_idx:stop_idx].sum()),
+                    )
+                    for tag, (val, var) in constraint_data.items()
+                }
 
             # start binning
             start_idx = 0
@@ -158,36 +173,32 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 # check background constraints
                 if constraint:
                     while stop_idx < num_bins_orig:
-                        # create the per-bin count objects
-                        counts = {
-                            tag: BinCount(
-                                val=float(constraint_data[tag][0][start_idx:stop_idx].sum()),
-                                var=float(constraint_data[tag][1][start_idx:stop_idx].sum()),
-                            )
-                            for tag in constraint.process_tags
-                        }
-
                         # check if the constraint is met
-                        if constraint.check(counts):
-                            # TODO: maybe also check if the background conditions are just barely met and advance
-                            # stop_idx to the middle between the current value and the next one that would change
-                            # anything about the background predictions; this might be more stable as the current
-                            # implementation can highly depend on the exact value of a single event (the one that tips
-                            # the constraints over the edge to fulfillment)
+                        counts = gather_constraint_counts(start_idx, stop_idx)
+                        constraint_met = constraint.check(counts)
+                        if not constraint_met:
+                            # constraints not met, advance index according to selected strategy and try again
+                            if advance_strategy[0] == "next_mini_bin":
+                                stop_idx += 1
+                            else:  # extend_signal with step argument
+                                # increase signal per bin as if there were fewer bins to fill
+                                n_bins_reduce = advance_strategy[1]
+                                assert isinstance(n_bins_reduce, (int, float)) and n_bins_reduce > 0
+                                stop_idx_ext = stop_idx
+                                n_bins_ext = n_bins
+                                while stop_idx_ext <= num_bins_orig and n_bins_ext > 1:
+                                    n_bins_ext -= n_bins_reduce
+                                    stop_idx_ext = find_stop_idx(start_idx, y_remaining, y_sum / n_bins_ext)
+                                    # re-evaluate constraint
+                                    counts = gather_constraint_counts(start_idx, stop_idx_ext)
+                                    if constraint.check(counts):
+                                        constraint_met = True
+                                        break
+                                stop_idx = stop_idx_ext if stop_idx_ext > stop_idx else num_bins_orig
+
+                        # break if constraint met
+                        if constraint_met:
                             break
-
-                        # constraints not met, advance index according to selected strategy and try again
-                        if advance_strategy == "next_mini_bin":
-                            stop_idx += 1
-                        else:  # extend_signal
-                            # increase signal per bin as if there was one bin less to fill
-                            stop_idx_ext = stop_idx
-                            n_bins_ext = n_bins
-                            while stop_idx_ext == stop_idx and n_bins_ext > 1:
-                                n_bins_ext -= 1
-                                stop_idx_ext = find_stop_idx(start_idx, y_remaining, y_sum / n_bins_ext)
-                            stop_idx = stop_idx_ext if stop_idx_ext > stop_idx else num_bins_orig
-
                     else:
                         # stopping condition 3: no more source bins left, so the last bin (most left one) does not
                         # fullfill constraints; however, this should practically never happen
@@ -240,8 +251,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 elif process_inst.is_mc:
                     background_hists[config_inst][process_inst] = h
             # check if at least one signal was found for this config, then merge
-            if config_inst not in signal_hist:
-                logger.warning(f"could not find any signal process for config {config_inst}, skip flat_s hook")
+            if config_inst not in signal_hists:
+                logger.error(f"flat_s: could not find any signal process for config {config_inst}, skip hook")
                 return hists
             signal_hist[config_inst] = sum_hists(signal_hists[config_inst])
 
@@ -270,7 +281,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             background_hists=background_sum,
             n_bins=n_bins,
         )
-        print(f"edges for {variable_name} in {category_name}: {flat_s_edges.tolist()}")
+        print(f"edges for {variable_name} in {category_name}: {flat_s_edges.tolist()}\n")
 
         # 3. apply to hists
         for config_inst, proc_hists in hists.items():
@@ -291,7 +302,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     ) -> dict[od.Config, dict[od.Process, hist.Hist]]:
         if not signal_process_name:
             # detect multi-class dnn variables
-            if (m := re.match(r"^.+dnn_.*(hh|hh_ggf|hh_vbf|tt|dy)(|_.+)$")):
+            if (m := re.match(r"^.+dnn_.*(hh|hh_ggf|hh_vbf|tt|dy)(|_.+)$", variable_name)):
                 proc, postfix = m.groups()
                 if proc in {"hh", "hh_ggf"}:
                     kl = m.group(1) if (m := re.match(r"^.*kl([0-9pm]+).*$", postfix)) else "1"
@@ -303,11 +314,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                     signal_process_name = "tt_*"
                 else:  # dy
                     signal_process_name = "dy_*"
+                task.logger.info(
+                    f"flat_s_autosignal: detected signal process '{signal_process_name}' for variable '{variable_name}'",
+                )
             else:
                 # not covered yet
                 signal_process_name = "hh_ggf_hbb_htt_kl1_kt1"
-                logger.warning(
-                    f"auto-signal detection not yet implemented for variable '{variable_name}', falling back to "
+                task.logger.warning(
+                    f"flat_s_autosignal: detection not yet implemented for variable '{variable_name}', falling back to "
                     f"'{signal_process_name}'",
                 )
 
@@ -346,7 +360,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 signal_process_name=f"hh_ggf_hbb_htt_kl{kl}_kt1",
                 n_bins=n_bins,
                 constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
-                advance_strategy="n_bins_ext_signal",
+                advance_strategy=("extend_signal", 1),
+            )
+            analysis_inst.x.hist_hooks[f"flats_kl{kl}_n{n_bins}_guardedext0p25"] = functools.partial(
+                flat_s,
+                signal_process_name=f"hh_ggf_hbb_htt_kl{kl}_kt1",
+                n_bins=n_bins,
+                constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
+                advance_strategy=("extend_signal", 0.25),
             )
             analysis_inst.x.hist_hooks[f"flats_kl{kl}_n{n_bins}_guarded5"] = functools.partial(
                 flat_s,
@@ -368,7 +389,13 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             flat_s_autosignal,
             n_bins=n_bins,
             constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
-            advance_strategy="n_bins_ext_signal",
+            advance_strategy=("extend_signal", 1),
+        )
+        analysis_inst.x.hist_hooks[f"flats_n{n_bins}_guardedext0p25"] = functools.partial(
+            flat_s_autosignal,
+            n_bins=n_bins,
+            constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
+            advance_strategy=("extend_signal", 0.25),
         )
         analysis_inst.x.hist_hooks[f"flats_n{n_bins}_guarded5"] = functools.partial(
             flat_s_autosignal,

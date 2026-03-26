@@ -464,20 +464,22 @@ class default(HBTInferenceModel):
         # )
 
 
-@default.inference_model
-def default_no_shifts(self):
-    super(default_no_shifts, self).init_func()
-
+# helper to remove all parameters that require shifted inputs from a model instance
+def remove_shift_parameters(model: default) -> None:
     # remove all parameters that require a shift source other than nominal
-    for category_name, process_name, parameter in self.iter_parameters():
+    for category_name, process_name, parameter in model.iter_parameters():
         remove = (
             (parameter.type.is_shape and not parameter.transformations.any_from_rate) or
             (parameter.type.is_rate and parameter.transformations.any_from_shape)
         )
         if remove:
-            self.remove_parameter(parameter.name, process=process_name, category=category_name)
+            model.remove_parameter(parameter.name, process=process_name, category=category_name)
 
-    # repeat the cleanup
+
+@default.inference_model
+def default_no_shifts(self):
+    super(default_no_shifts, self).init_func()
+    remove_shift_parameters(self)
     self.init_cleanup()
 
 
@@ -532,3 +534,36 @@ def default_bin_opt(self):
 
     # repeat the cleanup
     self.init_cleanup()
+
+
+class default_cc(default):
+    """
+    Model that uses the full phase space (typically res1b, res2b, vbf, boosted) and also uses different variables.
+    """
+
+    phasespaces = ["res1b_cc", "res2b_cc", "boosted_cc", "vbf_cc"]
+    use_logit = False
+
+    def get_category_variable(self, *, channel: str, phasespace: str) -> str:
+        # vbf dnn in vbf phasespace, otherwise default dnn
+        if re.match(r"^vbf.*$", phasespace):
+            return f"vbf_dnn_moe_hh_vbf_{'logit_' if self.use_logit else ''}fine"
+        return f"run3_dnn_moe_hh_{'logit_' if self.use_logit else ''}fine"
+
+
+@default_cc.inference_model
+def default_cc_no_shifts(self):
+    super(default_cc_no_shifts, self).init_func()
+    remove_shift_parameters(self)
+    self.init_cleanup()
+
+
+default_cc_logit_no_shifts = default_cc_no_shifts.derive(
+    "default_cc_logit_no_shifts",
+    cls_dict={"use_logit": True},
+)
+
+default_cc_no_vbf_no_shifts = default_cc_no_shifts.derive(
+    "default_cc_no_vbf_no_shifts",
+    cls_dict={"phasespaces": ["res1b_inclvbf_cc", "res2b_inclvbf_cc", "boosted_cc"]},
+)

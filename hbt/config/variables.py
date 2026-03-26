@@ -677,6 +677,13 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Subleading muon $\phi$",
     )
 
+    # helper for logit-conversion of (e.g.) dnn outputs into a less-compressed target space
+    def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarray:
+        # eps confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
+        import numpy as np
+        x = events[col]
+        return np.log((x + eps) / (1 - x + eps))
+
     # DNN outputs
     for proc in ["hh", "tt", "dy"]:
         # outputs of the resonant pDNN at SM-like mass and spin values
@@ -733,12 +740,6 @@ def add_variables(config: od.Config) -> None:
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
-        def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarray:
-            # eps confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
-            import numpy as np
-            x = events[col]
-            return np.log((x + eps) / (1 - x + eps))
-
         add_variable(
             name=f"run3_dnn_moe_{proc}_logit",
             expression=functools.partial(logit, col=f"run3_dnn_moe_{proc}"),
@@ -750,7 +751,7 @@ def add_variables(config: od.Config) -> None:
         add_variable(
             name=f"run3_dnn_moe_{proc}_logit_fine",
             expression=functools.partial(logit, col=f"run3_dnn_moe_{proc}"),
-            binning=(3000, -15, 15),
+            binning=(2000, -15, 15),
             x_title=rf"logit(DNN {proc.upper()} output)",
             aux={
                 "inputs": [f"run3_dnn_moe_{proc}"],
@@ -796,6 +797,26 @@ def add_variables(config: od.Config) -> None:
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
             x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+    # vbf dnn variables
+    for proc in ["hh_ggf", "hh_vbf", "tt", "dy"]:
+        add_variable(
+            name=f"vbf_dnn_moe_{proc}_fine",
+            expression=f"vbf_dnn_moe_{proc}",
+            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            x_title=rf"VBF DNN {proc.upper()} output",
+            aux={"x_transformations": "equal_distance_with_indices"},
+        )
+        add_variable(
+            name=f"vbf_dnn_moe_{proc}_logit_fine",
+            expression=functools.partial(logit, col=f"vbf_dnn_moe_{proc}"),
+            binning=(2000, -15, 15),
+            x_title=rf"logit(VBF DNN {proc.upper()} output)",
+            aux={
+                "inputs": [f"vbf_dnn_moe_{proc}"],
+                "x_transformations": "equal_distance_with_indices",
+            },
         )
 
     # end-to-end DNN outputs
