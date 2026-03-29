@@ -341,7 +341,6 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
         ((ak.local_index(events.Tau) == 0) | (ak.local_index(events.Tau) == 1))
     )
 
-    # TODO: add additional phase space requirements for tautauvbf
     tautau_mask = default_tautau_mask & tautau_trigger_passed
     flat_tautau_mask = flat_np_view(tautau_mask, axis=1)
     tautaujet_mask = default_tautau_mask & tautaujet_trigger_passed
@@ -356,8 +355,13 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
     mutau_mask = (channel_id == ch_mutau.id) & cross_lt_trigger_passed & (ak.local_index(events.Tau) == 0)
     flat_mutau_mask = flat_np_view(mutau_mask, axis=1)
 
-    # TODO: empty for 2022, check whether that is a problem, field does exist but mask is fully false
-    tauvbf_mask = (channel_id == ch_tautau.id) & tauvbf_trigger_passed & (ak.local_index(events.Tau) == 0)
+    # for tauvbf the highest pt Tau is taken, not the most isolated one
+    tauvbf_tau_sorting = np.argsort(events.Tau.pt, axis=1, ascending=False)
+    # TODO: test whether sorting works
+    tauvbf_mask = (
+        (channel_id == ch_tautau.id) & tauvbf_trigger_passed &
+        (ak.local_index(events.Tau)[tauvbf_tau_sorting] == 0)
+    )
     flat_tauvbf_mask = flat_np_view(tauvbf_mask, axis=1)
 
     # start with flat ones, no vbf as the sfs are directly used for them, no efficiency needed
