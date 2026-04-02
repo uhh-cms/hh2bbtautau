@@ -10,7 +10,7 @@ from columnflow.plotting.plot_all import plot_all
 from columnflow.plotting.plot_util import prepare_style_config, remove_residual_axis
 from columnflow.hist_util import create_hist_from_variables, sum_hists
 from columnflow.util import maybe_import
-from columnflow.types import TYPE_CHECKING
+from columnflow.types import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     hist = maybe_import("hist")
@@ -24,6 +24,7 @@ def calibration_curve_plot(
     variable_insts: list[od.Variable] | dict[str, list[od.Variable]],
     shift_insts: list[od.Shift],
     style_config: dict | None = None,
+    variable_settings: dict[str, Any] | None = None,
     classifier_setup: str = "hh_tt_dy__equal",
     classifier_label: str = r"HH vs. $t\bar{t}$ vs. DY (all 1/3)",
     **kwargs,
@@ -129,6 +130,7 @@ def calibration_curve_plot(
         ),
         # passed styles
         style_config,
+        (variable_settings or {}),
         # overwrite with hardcoded settings
         {
             "annotate_cfg": {"xy": (0.035, 0.95)},

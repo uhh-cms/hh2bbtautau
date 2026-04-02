@@ -237,6 +237,9 @@ def with_type(type_name: str, data: ak.Array | dict[str, ak.Array], behavior: di
     # extract the behavior from the first data column
     if behavior is None:
         behavior = next(iter(data.values())).behavior if isinstance(data, dict) else data.behavior
+    if behavior is None:
+        import coffea.nanoevents.methods.nanoaod
+        behavior = coffea.nanoevents.methods.nanoaod.behavior
     return ak.Array(data, with_name=type_name, behavior=behavior)
 
 
