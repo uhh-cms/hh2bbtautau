@@ -159,10 +159,10 @@ def electron_selection(
                 min_pt = 23.0
             else:
                 raise ValueError("Invalid configuration for cross_e_vbf trigger, should only exist in 2023 and 2024")
-        max_eta = 2.5 if is_single else 2.1  # TODO: cclub vbf takes eta cut 2.5
+        max_eta_base = 2.5
         default_mask = (
             (mva_iso_wp80 == 1) &
-            (abs(events.Electron.eta) < max_eta) &
+            (abs(events.Electron.eta) < max_eta_base) &
             (abs(events.Electron.dxy) < 0.045) &
             (abs(events.Electron.dz) < 0.2) &
             ~in_ecal_overlap
@@ -193,7 +193,10 @@ def electron_selection(
         # updated to 12 GeV for VBF strategy in 2023, but applied for all channels and eras
         control_mask = default_mask & (events.Electron.pt > 12.0)
         # control_mask = default_mask & (events.Electron.pt > 24.0)  # this would disable the VBF phase space
-        analysis_mask = default_mask & (events.Electron.pt > min_pt)
+        # additional eta cut for the cross triggers, should not influence the delta r vetoing for taus
+        # as it is a trigger specific cut and thus applied after the base tau selection
+        max_eta_trigger = 2.1 if is_cross else 2.5
+        analysis_mask = default_mask & (events.Electron.pt > min_pt) & (abs(events.Electron.eta) < max_eta_trigger)
 
     # veto electron mask (must be trigger independent!)
     veto_mask = (
@@ -285,10 +288,10 @@ def muon_selection(
             min_pt = 20.0 if is_2016 else 22.0
         elif is_cross_vbf:
             min_pt = 6.0
-        eta_cut = 2.4 if is_single else 2.1
+        eta_cut_base = 2.4
         default_mask = (
             (events.Muon.tightId == 1) &
-            (abs(events.Muon.eta) < eta_cut) &
+            (abs(events.Muon.eta) < eta_cut_base) &
             (abs(events.Muon.dxy) < 0.045) &
             (abs(events.Muon.dz) < 0.2) &
             (events.Muon.pfRelIso04_all < 0.15)  # tight iso working point
@@ -297,7 +300,10 @@ def muon_selection(
         # but applied for all channels and eras
         control_mask = default_mask & (events.Muon.pt > 6.0)
         # control_mask = default_mask & (events.Muon.pt > 20.0)  # this would disable the VBF phase space
-        analysis_mask = default_mask & (events.Muon.pt > min_pt)
+        # additional eta cut for the cross triggers, should not influence the delta r vetoing for taus
+        # as it is a trigger specific cut and thus applied after the base tau selection
+        eta_cut_trigger = 2.1 if is_cross else 2.4
+        analysis_mask = default_mask & (events.Muon.pt > min_pt) & (abs(events.Muon.eta) < eta_cut_trigger)
 
     # veto muon mask (must be trigger independent!)
     veto_mask = (
@@ -808,8 +814,8 @@ def lepton_selection(
         tau_base_mask, tau_trigger_specific_mask, tau_iso_mask = self[tau_selection](
             events,
             trigger,
-            electron_mask,
-            muon_mask,
+            electron_control_mask,
+            muon_control_mask,
             **sel_kwargs,
         )
 
@@ -847,9 +853,13 @@ def lepton_selection(
                 additional_object_mask=electron_mask,
             )
 
-            # fold trigger matching into the selection if needed
+            # fold trigger matching into the selection if needed and remove electron matching
+            # for etau trigger before 2024
             trig_electron_mask = electron_mask
-            if not trigger.has_tag("cross_vbf"):
+
+            if not trigger.has_tag("cross_vbf") and not (
+                trigger.has_tag("cross_e_tau") and self.config_inst.campaign.x.year in {2022, 2023}
+            ):
                 trig_electron_mask = (
                     trig_electron_mask &
                     self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
@@ -862,6 +872,11 @@ def lepton_selection(
                     trig_tau_mask &
                     self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
+
+            print("trigger: ", trigger.name)
+            print("etau channel")
+            print("trig_electron_mask after matching: ", ak.sum(ak.sum(trig_electron_mask, axis=1), axis=0))
+            print("trig tau mask after matching: ", ak.sum(ak.sum(trig_tau_mask, axis=1), axis=0))
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
@@ -960,6 +975,11 @@ def lepton_selection(
                     trig_tau_mask &
                     self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
+
+            print("trigger: ", trigger.name)
+            print("mutau channel")
+            print("trig_muon_mask after matching: ", ak.sum(ak.sum(trig_muon_mask, axis=1), axis=0))
+            print("trig tau mask after matching: ", ak.sum(ak.sum(trig_tau_mask, axis=1), axis=0))
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
@@ -1070,6 +1090,10 @@ def lepton_selection(
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
+
+            print("trigger: ", trigger.name)
+            print("tautau channel")
+            print("trig tau mask after matching: ", ak.sum(ak.sum(trig_tau_mask, axis=1), axis=0))
 
             # check if the two leading (most isolated) taus are matched (if needed, else at least selected)
             leading_taus_matched = ak.fill_none(

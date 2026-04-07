@@ -1128,10 +1128,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
                 trigger_bits=get_bit_sum_v("tau", [
                     "DeepTau",
-                    "HPS",
                     "OverlapFilterIsoEle",
-                    "ETauFilter" if nano_trigger_bit_version in {14, 15} else None,
-                    # CClub uses DeepTau, OverlapFilterIsoEle TODO: synchronize?
                 ]),
             ),
         ),
@@ -1162,12 +1159,9 @@ def add_triggers_2022(config: od.Config) -> None:
                 # filter names:
                 # hltHpsOverlapFilterIsoMu20LooseMuTauWPDeepTauPFTau27L1Seeded
                 trigger_bits=get_bit_sum_v("tau", [
+                    # Note: previously used "MuTauFilter" bit seems buggy, removed
                     "DeepTau",
-                    "HPS",
                     "OverlapFilterIsoMu",
-                    "MuTauFilter" if nano_trigger_bit_version in {14, 15} else None,
-                    "MatchL1HLT",
-                    # CClub uses DeepTau, OverlapFilterIsoMu TODO: synchronize?
                 ]),
             ),
         ),
@@ -1188,10 +1182,9 @@ def add_triggers_2022(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched
                 trigger_bits=get_bit_sum_v("tau", [
-                    "DeepTauDiTau",
-                    "HPS",
-                    "Medium" if nano_trigger_bit_version in {14, 15} else None,
-                    # Cclub uses DeepTau, DiTau TODO: synchronize?
+                    "DeepTau",
+                    "DiTau",
+
                 ]),
             ),
             tau2=TriggerLeg(
@@ -1200,10 +1193,8 @@ def add_triggers_2022(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched
                 trigger_bits=get_bit_sum_v("tau", [
-                    "DeepTauDiTau",
-                    "HPS",
-                    "Medium" if nano_trigger_bit_version in {14, 15} else None,
-                    # Cclub uses DeepTau, DiTau TODO: synchronize?
+                    "DeepTau",
+                    "DiTau",
                 ]),
             ),
         ),
@@ -1228,9 +1219,8 @@ def add_triggers_2022(config: od.Config) -> None:
                     # as there is nothing else matching due to wrong VBFpDoublePFTau_run3 bit
                     trigger_bits=get_bit_sum_v("tau", [
                         "VBFDiTau" if nano_trigger_bit_version in {14, 15} else None,
-                        "HPS",
                         "DeepTau",
-                        # CClub uses DeepTau, VBFDiTau TODO: synchronize?
+
                     ]),
                 ),
                 tau2=TriggerLeg(
@@ -1240,9 +1230,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                     trigger_bits=get_bit_sum_v("tau", [
                         "VBFDiTau" if nano_trigger_bit_version in {14, 15} else None,
-                        "HPS",
                         "DeepTau",
-                        # CClub uses DeepTau, VBFDiTau TODO: synchronize?
                     ]),
                 ),
                 # additional leg infos for vbf jets
@@ -1300,7 +1288,7 @@ def add_triggers_2022(config: od.Config) -> None:
     # tau tau jet
     #
     config.x.triggers.add(
-        name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60",  # TODO: cclub does jet eta 4.7 cut here, check whether it impacts hhbjets
+        name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60",
         id=701,
         legs=dict(
             tau1=TriggerLeg(
@@ -1430,10 +1418,7 @@ def add_triggers_2023(config: od.Config) -> None:
                 # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
                 trigger_bits=get_bit_sum_v("tau", [
                     "DeepTau",
-                    "HPS",
                     "OverlapFilterIsoEle",
-                    "ETauFilter" if nano_trigger_bit_version in {14, 15} else None,
-                    # CClub uses DeepTau, OverlapFilterIsoEle TODO: synchronize?
                 ]),
             ),
         ),
@@ -1468,11 +1453,10 @@ def add_triggers_2023(config: od.Config) -> None:
                 # filter names:
                 # hltHpsSelectedPFTau27LooseMuTauWPDeepTauVsJetsAgainstMuonL1HLTMatched (DeepTau + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
+                    # Note: previously used "MuTauFilter" bit seems buggy, removed
                     "DeepTau",
-                    "HPS",
                     "OverlapFilterIsoMu",
-                    "MuTauFilter" if nano_trigger_bit_version in {14, 15} else None,
-                    "MatchL1HLT",  # Cclub uses DeepTau, OverlapFilterIsoMu TODO: synchronize?
+                    "HPS" if nano_trigger_bit_version in {14, 15} else None,
                 ]),
             ),
         ),
@@ -1497,10 +1481,8 @@ def add_triggers_2023(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
-                    "DeepTauDiTau",
-                    "HPS",
-                    "Medium" if nano_trigger_bit_version in {14, 15} else None,
-                    # Cclub uses DeepTau, DiTau TODO: synchronize?
+                    "DeepTau",
+                    "DiTau",
                 ]),
             ),
             tau2=TriggerLeg(
@@ -1509,10 +1491,8 @@ def add_triggers_2023(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
-                    "DeepTauDiTau",
-                    "HPS",
-                    "Medium" if nano_trigger_bit_version in {14, 15} else None,
-                    # Cclub uses DeepTau, DiTau TODO: synchronize?
+                    "DeepTau",
+                    "DiTau",
                 ]),
             ),
         ),
@@ -1537,10 +1517,8 @@ def add_triggers_2023(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                 trigger_bits=get_bit_sum_v("tau", [
-                    "VBFDiTau" if nano_trigger_bit_version in {14, 15} else None,
-                    "HPS",
                     "DeepTau",
-                    # CClub uses DeepTau, VBFDiTau TODO: synchronize?
+                    "VBFDiTau" if nano_trigger_bit_version in {14, 15} else None,
                 ]),
             ),
             tau2=TriggerLeg(
@@ -1549,10 +1527,8 @@ def add_triggers_2023(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau20TrackDeepTauDitauWPForVBFIsoTau
                 trigger_bits=get_bit_sum_v("tau", [
-                    "VBFDiTau" if nano_trigger_bit_version in {14, 15} else None,
-                    "HPS",
                     "DeepTau",
-                    # CClub uses DeepTau, VBFDiTau TODO: synchronize?
+                    "VBFDiTau" if nano_trigger_bit_version in {14, 15} else None,
                 ]),
             ),
             # additional leg infos for vbf jets
@@ -1656,7 +1632,7 @@ def add_triggers_2023(config: od.Config) -> None:
                 # filter names:
                 # hltMuon3RelTrkIsoVVLFiltered -> bit 0, "*RelTrkIsoVVLFiltered", "TrkIsoVVL"
                 trigger_bits=get_bit_sum_v("mu", [
-                    "TrkIsoVVL",  # -> CCLUB has none here on 05.08.2025 TODO: synchronize?
+                    # "TrkIsoVVL",  # should probably be applied, but trigger sfs calculated by CCLUB don't include it, so we don't either  # noqa: E501
                 ]),
             ),
         ),
@@ -1798,8 +1774,8 @@ def add_triggers_2023(config: od.Config) -> None:
                 # CCLUB has DeepTau, VBFSingleTau -> 3, 30
                 # redundant with VBFSingleTau
                 trigger_bits=get_bit_sum_v("tau", [
-                    "VBFSingleTau" if nano_trigger_bit_version in {14, 15} else None,  # TODO: sybchronize? CClub has DeepTau too
-                    # TODO: add trigger bits for v12
+                    "DeepTau",
+                    "VBFSingleTau" if nano_trigger_bit_version in {14, 15} else None,
                 ]),
             ),
         ),
@@ -1819,7 +1795,7 @@ def add_triggers_2023(config: od.Config) -> None:
     # tau tau jet
     #
     config.x.triggers.add(
-        name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60",  # TODO: cclub does jet eta 4.7 cut here, check whether it impacts hhbjets
+        name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60",
         id=701,
         legs=dict(
             tau1=TriggerLeg(
@@ -1942,11 +1918,9 @@ def add_triggers_2024(config: od.Config) -> None:
                 pdg_id=11,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
-                # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPPNetPFTau30L1Seeded (OverlapFilter)
+                # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPPNetPFTau30L1Seeded
                 trigger_bits=get_bit_sum_v("e", [
-                    "OverlapFilterPFTau",
-                    "EleTau",
-                    "EleTauPNet",  # CCLUB has EleTauPNet, TODO: synchronize?
+                    "EleTauPNet",
                 ]),
             ),
             tau=TriggerLeg(
@@ -1955,10 +1929,12 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPPNetPFTau30L1Seeded
                 trigger_bits=get_bit_sum_v("tau", [
-                    "HPS",
+                    "PNet",
+                    # Note: the "PNet" trigger bit is probably incorrect, it expects
+                    # "PNetTauhTag" in the filter name. However, effect is minimal (< 1%).
+                    # added for synchronization purposes.
                     "OverlapFilterIsoEle",
-                    "ETauFilter" if nano_trigger_bit_version == 15 else None,
-                    # CCLUB has Loose, PNet, OverlapFilterIsoEle TODO: synchronize?
+                    "Loose",
                 ]),
             ),
         ),
@@ -1978,8 +1954,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsOverlapFilterIsoMu20LooseMuTauWPPNetPFJet27 (OverlapFilter PFTau)
                 trigger_bits=get_bit_sum_v("mu", [
-                    "OverlapFilterPFTau",  # CCLUB has only MuTauPNet, TODO: synchronize?
-                    "MuTau",
                     "MuTauPNet",
                 ]),
             ),
@@ -1989,10 +1963,12 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsOverlapFilterIsoMu20LooseMuTauWPPNetPFJet27
                 trigger_bits=get_bit_sum_v("tau", [
-                    "HPS",
                     "OverlapFilterIsoMu",
-                    "MuTauFilter" if nano_trigger_bit_version == 15 else None,
-                    "MatchL1HLT",  # CCLUB has Loose, PNet, OverlapFilterIsoMu TODO: synchronize?
+                    "Loose",
+                    "PNet",
+                    # Note: the "PNet" trigger bit is probably incorrect, it expects
+                    # "PNetTauhTag" in the filter name. However, effect is minimal (~ 1%).
+                    # added for synchronization purposes.
                 ]),
             ),
         ),
@@ -2036,7 +2012,7 @@ def add_triggers_2024(config: od.Config) -> None:
     # tau tau jet pnet
     #
     config.x.triggers.add(
-        name="HLT_DoublePNetTauhPFJet26_L2NN_eta2p3_PFJet60",  # TODO: check if cclub eta 4.7 cut has meaning
+        name="HLT_DoublePNetTauhPFJet26_L2NN_eta2p3_PFJet60",
         id=703,
         legs=dict(
             tau1=TriggerLeg(
@@ -2087,9 +2063,8 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltPFCentralJetNoIDPt25PNet1TauHTag0p50
                 trigger_bits=get_bit_sum_v("jet", [
-                    # already an input from trigger path so shouldn't be required, for now not included
-                    # "4PFCentralJetPt25",  # CClub has added that, TODO: synchronize?
                     "PFCentralJetNoIDPt25PNet1TauHTag0p50",
+                    "4PFCentralJetPt25",  # already required for the other trigger bit, but doesn't hurt to also require it here  # noqa: E501
                 ]),
             ),
             # matched to a bjet
@@ -2099,9 +2074,8 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltPFCentralJetNoIDPt25PNet1BTag0p20
                 trigger_bits=get_bit_sum_v("jet", [
-                    # already an input from trigger path so shouldn't be required, for now not included
-                    # "4PFCentralJetPt25",  # CClub has added that, TODO: synchronize?
                     "PFCentralJetNoIDPt25PNet1BTag0p20",
+                    "4PFCentralJetPt25",  # already required for the other trigger bit, but doesn't hurt to also require it here  # noqa: E501
                 ]),
             ),
             # no specific additional requirement to being a central pfjet with pt > 25 GeV
@@ -2269,7 +2243,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltMuon3RelTrkIsoVVLFiltered -> bit 0, "*RelTrkIsoVVLFiltered", "TrkIsoVVL"
                 trigger_bits=get_bit_sum_v("mu", [
-                    "TrkIsoVVL",  # -> CCLUB has none here on 05.08.2025 # TODO: synchronize?
+                    # "TrkIsoVVL",  # should probably be applied, but trigger sfs calculated by CCLUB don't include it, so we don't either  # noqa: E501
                 ]),
             ),
         ),
@@ -2347,7 +2321,6 @@ def add_triggers_2024(config: od.Config) -> None:
                 # CCLUB has VBFcrossCleanedDijet -> 19
                 trigger_bits=get_bit_sum_v("jet", [
                     "VBFcrossCleanedUsingDijetCorr",
-
                 ]),
             ),
             vbf2=TriggerLeg(
@@ -2388,6 +2361,8 @@ def add_triggers_2024(config: od.Config) -> None:
     )
 
     """
+    # deeptau trigger paths, all SFs are now calculated from PNet ones so we remove them for now
+
     #
     # e tauh deeptau
     #
@@ -2396,7 +2371,7 @@ def add_triggers_2024(config: od.Config) -> None:
         id=405,
         legs=dict(
             e=TriggerLeg(
-                pdg_id=11,  # TODO: check: trigger matching for e leg not done????????  https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/commit/5a614a6dba569d5af4716c8a087576b3571afc77
+                pdg_id=11,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
                 # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30 (OverlapFilter)
@@ -2412,10 +2387,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPDeepTauPFTau30
                 trigger_bits=get_bit_sum_v("tau", [
                     "DeepTau",
-                    "HPS",
                     "OverlapFilterIsoEle",
-                    "ETauFilter" if nano_trigger_bit_version == 15 else None,
-                    # CClub uses DeepTau, OverlapFilterIsoEle TODO: synchronize?
                 ]),
             ),
         ),
@@ -2451,10 +2423,7 @@ def add_triggers_2024(config: od.Config) -> None:
                 # hltHpsSelectedPFTau27LooseMuTauWPDeepTauVsJetsAgainstMuonL1HLTMatched (DeepTau + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
                     "DeepTau",
-                    "HPS",
                     "OverlapFilterIsoMu",
-                    "MuTauFilter" if nano_trigger_bit_version == 15 else None,
-                    "MatchL1HLT",  # CCLUB uses only DeepTau, OverlapFilterIsoMu TODO: synchronize?
                 ]),
             ),
         ),
@@ -2479,10 +2448,8 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
-                    "DeepTauDiTau",
-                    "HPS",
-                    "Medium" if nano_trigger_bit_version == 15 else None,
-                    # CClub uses DeepTau, DiTau TODO: synchronize?
+                    "DeepTau",
+                    "DiTau",
                 ]),
             ),
             tau2=TriggerLeg(
@@ -2491,10 +2458,8 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau35MediumDitauWPDeepTauL1HLTMatched (Deeptau + HPS)
                 trigger_bits=get_bit_sum_v("tau", [
-                    "DeepTauDiTau",
-                    "HPS",
-                    "Medium" if nano_trigger_bit_version == 15 else None,
-                    # CClub uses DeepTau, DiTau TODO: synchronize?
+                    "DeepTau",
+                    "DiTau",
                 ]),
             ),
         ),
@@ -2510,7 +2475,7 @@ def add_triggers_2024(config: od.Config) -> None:
     # tau tau jet deeptau
     #
     config.x.triggers.add(
-        name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60",  # TODO: cclub does jet eta 4.7 cut here, check whether it impacts hhbjets
+        name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet60",
         id=701,
         legs=dict(
             tau1=TriggerLeg(
@@ -2564,10 +2529,8 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau20TrackDeepTauDitauWPAgainstMuon
                 trigger_bits=get_bit_sum_v("tau", [
-                    "VBFDiTau" if nano_trigger_bit_version == 15 else None,
-                    "HPS",
                     "DeepTau",
-                    # CClub uses DeepTau, VBFDiTau TODO: synchronize?
+                    "VBFDiTau" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
             tau2=TriggerLeg(
@@ -2576,10 +2539,8 @@ def add_triggers_2024(config: od.Config) -> None:
                 # filter names:
                 # hltHpsDoublePFTau20TrackDeepTauDitauWPAgainstMuon
                 trigger_bits=get_bit_sum_v("tau", [
-                    "VBFDiTau" if nano_trigger_bit_version == 15 else None,
-                    "HPS",
                     "DeepTau",
-                    # CClub uses DeepTau, VBFDiTau TODO: synchronize?
+                    "VBFDiTau" if nano_trigger_bit_version == 15 else None,
                 ]),
             ),
             # additional leg infos for vbf jets
