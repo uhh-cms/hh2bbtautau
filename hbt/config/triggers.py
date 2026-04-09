@@ -1111,7 +1111,7 @@ def add_triggers_2022(config: od.Config) -> None:
         name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseDeepTauPFTauHPS30_eta2p1_CrossL1",
         id=405,
         legs=dict(
-            e=TriggerLeg(  # TODO: check: trigger matching for e leg not done????????  https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/commit/5a614a6dba569d5af4716c8a087576b3571afc77
+            e=TriggerLeg(
                 pdg_id=11,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:
@@ -1401,7 +1401,7 @@ def add_triggers_2023(config: od.Config) -> None:
         name="HLT_Ele24_eta2p1_WPTight_Gsf_LooseDeepTauPFTauHPS30_eta2p1_CrossL1",
         id=405,
         legs=dict(
-            e=TriggerLeg(  # TODO: check: trigger matching for e leg not done????????  https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/commit/5a614a6dba569d5af4716c8a087576b3571afc77
+            e=TriggerLeg(
                 pdg_id=11,
                 # min_pt=None,  # cut on reco objects, not TrigObj
                 # filter names:

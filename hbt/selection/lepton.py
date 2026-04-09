@@ -853,13 +853,10 @@ def lepton_selection(
                 additional_object_mask=electron_mask,
             )
 
-            # fold trigger matching into the selection if needed and remove electron matching
-            # for etau trigger before 2024
+            # fold trigger matching into the selection if needed
             trig_electron_mask = electron_mask
 
-            if not trigger.has_tag("cross_vbf") and not (
-                trigger.has_tag("cross_e_tau") and self.config_inst.campaign.x.year in {2022, 2023}
-            ):
+            if not trigger.has_tag("cross_vbf"):
                 trig_electron_mask = (
                     trig_electron_mask &
                     self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
@@ -872,11 +869,6 @@ def lepton_selection(
                     trig_tau_mask &
                     self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
-
-            print("trigger: ", trigger.name)
-            print("etau channel")
-            print("trig_electron_mask after matching: ", ak.sum(ak.sum(trig_electron_mask, axis=1), axis=0))
-            print("trig tau mask after matching: ", ak.sum(ak.sum(trig_tau_mask, axis=1), axis=0))
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
@@ -975,11 +967,6 @@ def lepton_selection(
                     trig_tau_mask &
                     self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
-
-            print("trigger: ", trigger.name)
-            print("mutau channel")
-            print("trig_muon_mask after matching: ", ak.sum(ak.sum(trig_muon_mask, axis=1), axis=0))
-            print("trig tau mask after matching: ", ak.sum(ak.sum(trig_tau_mask, axis=1), axis=0))
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
@@ -1090,10 +1077,6 @@ def lepton_selection(
 
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
-
-            print("trigger: ", trigger.name)
-            print("tautau channel")
-            print("trig tau mask after matching: ", ak.sum(ak.sum(trig_tau_mask, axis=1), axis=0))
 
             # check if the two leading (most isolated) taus are matched (if needed, else at least selected)
             leading_taus_matched = ak.fill_none(
