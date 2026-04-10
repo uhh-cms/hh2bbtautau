@@ -2347,9 +2347,9 @@ def add_triggers_2024(config: od.Config) -> None:
         ),
         aux={
             "offline_cuts": {
-                "pt_jet1": 45.0,
-                "pt_jet2": 45.0,
-                "mjj": 650.0,
+                "pt_jet1": 65.0,
+                "pt_jet2": 65.0,
+                "mjj": 900.0,
                 "delta_eta_jj": None,
             },
         },
