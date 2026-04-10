@@ -14,7 +14,7 @@ from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
 
-from hbt.util import create_lvector_xyz, stack_lvectors, rotate_px_py, delta_r12
+from hbt.util import create_lvector_xyz, stack_lvectors, rotate_px_py, delta_r12, with_type
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -481,7 +481,7 @@ def add_variables(config: od.Config) -> None:
         name="hh_vis_mass",
         expression=var_hhvis.partial(attr="mass"),
         aux={"inputs": var_hhvis.uses},
-        binning=(50, 0, 1000),
+        binning=(60, 0, 1200),
         unit="GeV",
         x_title=r"$m_{ll+bb}$ (visible)",
     )
@@ -515,7 +515,7 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$\Delta R_{ll,bb}$ (visible)",
     )
 
-    # Regressed hh variables
+    # regressed hh variables
     add_variable(
         name="hh_reg_energy",
         expression=(var_hhreg := VarHHReg()).partial(attr="energy"),
@@ -528,7 +528,7 @@ def add_variables(config: od.Config) -> None:
         name="hh_reg_mass",
         expression=var_hhreg.partial(attr="mass"),
         aux={"inputs": var_hhreg.uses},
-        binning=(50, 0, 1000),
+        binning=(60, 0, 1200),
         unit="GeV",
         x_title=r"$m_{ll+bb}$ (regressed)",
     )
@@ -560,6 +560,25 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": var_hhreg.uses},
         binning=(30, 0, 6),
         x_title=r"$\Delta R_{ll,bb}$ (regressed)",
+    )
+
+    # hh kinfit variables
+    add_variable(
+        name="hh_kinfit_mass",
+        expression="h_kinfit.hh.mass",
+        binning=(60, 0, 1200),
+        unit="GeV",
+        x_title=r"$m_{ll+bb}$ (regressed + kinfit)",
+    )
+
+    # hh generator variables
+    add_variable(
+        name="hh_gen_mass",
+        expression=(var_hhgen := VarHHGen()).partial(attr="mass"),
+        aux={"inputs": var_hhgen.uses},
+        binning=(60, 0, 1200),
+        unit="GeV",
+        x_title=r"$m_{ll+bb}$ (Gen)",
     )
 
     # single lepton variables
@@ -1053,6 +1072,37 @@ class VarHHReg(VarExp):
             return delta_r12(hs)
 
         hh = hs.sum(axis=1)
+
+        if attr is None:
+            return hh * 1
+        if attr == "mass":
+            return hh.mass
+        if attr == "pt":
+            return hh.pt
+        if attr == "eta":
+            return hh.eta
+        if attr == "abs_eta":
+            return abs(hh.eta)
+        if attr == "phi":
+            return hh.phi
+        if attr == "energy":
+            return hh.energy
+
+        self.raise_unknown_attr(attr)
+
+
+class VarHHGen(VarExp):
+
+    uses = {"gen_higgs.h.{pt,eta,phi,mass}"}
+
+    def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
+        assert ak.all(ak.num(events.gen_higgs.h, axis=-1) == 2)
+        hh = with_type("LorentzVector", events.gen_higgs.h)
+
+        if attr == "dr":
+            return delta_r12(hh)
+
+        hh = hh.sum(axis=1)
 
         if attr is None:
             return hh * 1

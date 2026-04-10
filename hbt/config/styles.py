@@ -113,8 +113,10 @@ def stylize_processes(config: od.Config) -> None:
         "dark_orange", "bright_blue", "dark_green", "red", "purple", "bright_orange", "dark_blue", "teal", "grey",
         "brown", "green",
     ]
-
     cfg.x.get_color_from_sequence = lambda i: cfg.x.colors[cfg.x.color_names[i % len(cfg.x.color_names)]]
+
+    cfg.x.line_styles = ["solid", "dotted", "dashed", "dashdot"]
+    cfg.x.get_line_style_from_sequence = lambda i: cfg.x.line_styles[i % len(cfg.x.line_styles)]
 
     for kl, *opts in [
         ("0", cfg.x.colors.bright_orange),
