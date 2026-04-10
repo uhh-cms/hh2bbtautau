@@ -356,8 +356,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
     flat_mutau_mask = flat_np_view(mutau_mask, axis=1)
 
     # for tauvbf the highest pt Tau is taken, not the most isolated one
-    tauvbf_tau_sorting = np.argsort(events.Tau.pt, axis=1, ascending=False)
-    # TODO: test whether sorting works
+    tauvbf_tau_sorting = ak.argsort(events.Tau.pt, axis=1, ascending=False)
     tauvbf_mask = (
         (channel_id == ch_tautau.id) & tauvbf_trigger_passed &
         (ak.local_index(events.Tau)[tauvbf_tau_sorting] == 0)
@@ -521,7 +520,7 @@ def quadjet_tau_trigger_sf(
     variable_map = {
         "tau_pt": tau_1.pt,
         "tau_eta": tau_1.eta,
-        "HT": events.ht_for_quadjets,  # TODO: check whether mask needed here as well
+        "HT": events.ht_for_quadjets,
     }
 
     for syst, postfix in [

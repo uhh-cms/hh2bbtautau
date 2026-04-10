@@ -2008,7 +2008,7 @@ def add_config(
         ))
         # vbf models trained by cclub
         # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/tree/cclub_cmssw15010/data/DNN_models/HHRun3DNN?ref_type=heads
-        cclub_hash, cclub_branch = "c3441320", "cclub_cmssw15010"
+        cclub_hash, cclub_long_hash, cclub_branch = "23f347b7", "23f347b7000d8acdff995beaba47114677ee9c66", "cclub_cmssw15010"  # noqa: E501
         vbfnn_postfix = "_24" if year == 2024 else "_22-23"
         # TODO: misses th TF version, so added old v5 model below for now
         add_external("vbf_dnn_repo", Ext(
@@ -2039,7 +2039,7 @@ def add_config(
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v3.json.gz", "v4"))
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
-        trigger_sf_internal_subpath = f"AnalysisCore-{cclub_branch}/data/TriggerScaleFactors"
+        trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
         if year in {2022, 2023}:
             # tau energy correction and scale factors
             if year == 2022:
@@ -2128,12 +2128,7 @@ def add_config(
                     vbf_ditau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBF2tau_SF_{year}.json.gz",  # noqa: E501
                     vbf_e=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFEle_SF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
                     vbf_mu=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFMu_SF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
-                    # TODO: does not exist for 2024 at the moment, update when there
-                    # vbf_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFTau_JetSF_{year}_{cclub_postfix}.json.gz",
-
-                    # HOTFIX in the meantime, use 2023 SFs TODO: remove when 2024 ones are available
-                    vbf_tau=f"{trigger_sf_internal_subpath}/2023postBPix/VBFTau_JetSF_2023_postBPix.json.gz",  # noqa: E501
-
+                    vbf_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFTau_JetSF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
                     vbf_incl=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/VBFIncl_SF_{year}_{cclub_postfix}.json.gz",  # noqa: E501
                     quadjet_jet=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ParkingHH_PNet1BTag0p20_BTag.json.gz",  # noqa: E501
                     quadjet_tau=f"{trigger_sf_internal_subpath}/{tau_pog_era_cclub}/ParkingHH_PNet1BTag0p20_L1HTTau.json.gz",  # noqa: E501
