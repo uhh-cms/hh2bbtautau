@@ -531,6 +531,7 @@ def add_variables(config: od.Config) -> None:
         binning=(60, 0, 1200),
         unit="GeV",
         x_title=r"$m_{ll+bb}$ (regressed)",
+        # x_title=r"$m_{ll+bb}$ (bb x, ll x, reg y)",
     )
     add_variable(
         name="hh_reg_pt",
@@ -568,7 +569,33 @@ def add_variables(config: od.Config) -> None:
         expression="h_kinfit.hh.mass",
         binning=(60, 0, 1200),
         unit="GeV",
-        x_title=r"$m_{ll+bb}$ (regressed + kinfit)",
+        x_title=r"$m_{ll+bb}$ (bb y, ll y, reg y)",
+    )
+    add_variable(
+        name="hh_kinfit_vis_mass",
+        expression="h_kinfit_vis.hh.mass",
+        binning=(60, 0, 1200),
+        unit="GeV",
+        x_title=r"$m_{ll+bb}$ (bb y, ll y, reg x)",
+    )
+    add_variable(
+        name="hh_kinfit_ll_mass",
+        expression="h_kinfit_ll.hh.mass",
+        binning=(60, 0, 1200),
+        unit="GeV",
+        x_title=r"$m_{ll+bb}$ (bb x, ll y, reg y)",
+    )
+    add_variable(
+        name="hh_kinfit_b_scale",
+        expression="h_kinfit.b_scale",
+        binning=(30, 0, 3),
+        x_title=r"$b$ scale",
+    )
+    add_variable(
+        name="hh_kinfit_l_scale",
+        expression="h_kinfit.l_scale",
+        binning=(30, 0, 3),
+        x_title=r"$l$ scale",
     )
 
     # hh generator variables
