@@ -626,6 +626,7 @@ def add_config(
     # groups
     cfg.x.producer_groups = {
         "dnns": ["run3_dnn_moe", "reg_dnn_moe", "vbf_dnn_moe"],
+        "kinfits": ["h_kinfit", "h_kinfit_bb", "h_kinfit_ll", "h_kinfit_llvis", "h_kinfit_vis"],
     }
 
     # process groups for conveniently looping over certain processes
