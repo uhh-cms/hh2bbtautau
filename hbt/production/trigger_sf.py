@@ -648,24 +648,6 @@ def tautau_trigger_weight(
     vbf_incl_jet_mask = (v_triggered & (events.VBFJet.pt > 0))
     vbf_tau_jet_mask = (tv_triggered & (events.VBFJet.pt > 0))
 
-    # HOTFIX vbf ditau: the sfs are only defined for vbfjet 1 pt > 160, vbfjet 2 pt > 70, mjj > 1100 for 2024
-    # 140,60,850 for 2022, 2023
-    # vbf tau 2024: jet cut put to 65 and mjj cut to 900
-    # TODO: remove after new production
-    original_vbf_ditau_jet_mask = vbf_ditau_jet_mask
-    original_vbf_tau_jet_mask = vbf_tau_jet_mask
-    vbf_jet_1 = ak.firsts(events.VBFJet, axis=1)
-    vbf_jet_2 = ak.firsts(events.VBFJet[:, 1:], axis=1)
-    if self.config_inst.campaign.x.year == 2024:
-        vbf_ditau_jet_mask = vbf_ditau_jet_mask & (vbf_jet_2.pt > 70)
-        vbf_ditau_jet_mask = vbf_ditau_jet_mask & (vbf_jet_1.pt > 160)
-        vbf_ditau_jet_mask = vbf_ditau_jet_mask & ((vbf_jet_1 + vbf_jet_2).mass > 1100)
-        vbf_tau_jet_mask = vbf_tau_jet_mask & (vbf_jet_1.pt > 65) & (vbf_jet_2.pt > 65) & ((vbf_jet_1 + vbf_jet_2).mass > 900)  # noqa: E501
-    else:
-        vbf_ditau_jet_mask = vbf_ditau_jet_mask & (vbf_jet_2.pt > 60)
-        vbf_ditau_jet_mask = vbf_ditau_jet_mask & (vbf_jet_1.pt > 140)
-        vbf_ditau_jet_mask = vbf_ditau_jet_mask & ((vbf_jet_1 + vbf_jet_2).mass > 850)
-
     # get jet and quadjet efficiencies/sf
     events = self[jet_trigger_efficiencies](events, ttj_jet_mask, **kwargs)
     if quadjet_applied:
@@ -678,31 +660,6 @@ def tautau_trigger_weight(
     if self.config_inst.campaign.x.year in {2023, 2024}:
         events = self[vbf_incl_jet_trigger_sf_tautau](events, vbf_incl_jet_mask, **kwargs)
         events = self[vbf_tau_jet_trigger_sf](events, vbf_tau_jet_mask, **kwargs)
-
-    # HOTFIX part 2, fill none entries due to vbf cuts with 1.0 TODO: remove after new production
-    original_vbf_ditau_jet_mask_event_mask = ak.any(original_vbf_ditau_jet_mask, axis=1)
-    vbf_ditau_jet_mask_event_mask = ak.any(vbf_ditau_jet_mask, axis=1)
-    original_vbf_tau_jet_mask_event_mask = ak.any(original_vbf_tau_jet_mask, axis=1)
-    vbf_tau_jet_mask_event_mask = ak.any(vbf_tau_jet_mask, axis=1)
-    for sys in ["", "_up", "_down"]:
-        vbf_ditau_jet_sf_column_name = f"vbf_ditau_jet_trigger_sf{sys}"
-        vbf_ditau_jet_sf_column = ak.where(
-            original_vbf_ditau_jet_mask_event_mask & ~vbf_ditau_jet_mask_event_mask,
-            1.0,
-            events[vbf_ditau_jet_sf_column_name],
-        )
-        events = set_ak_column_f32(events, vbf_ditau_jet_sf_column_name, vbf_ditau_jet_sf_column)
-        if self.config_inst.campaign.x.year == 2024:
-            vbf_tau_jet_sf_column_name = f"vbf_tau_jet_trigger_sf{sys}"
-            vbf_tau_jet_sf_column = ak.where(
-                original_vbf_tau_jet_mask_event_mask & ~vbf_tau_jet_mask_event_mask,
-                1.0,
-                events[vbf_tau_jet_sf_column_name],
-            )
-            events = set_ak_column_f32(events, vbf_tau_jet_sf_column_name, vbf_tau_jet_sf_column)
-    vbf_ditau_jet_mask = original_vbf_ditau_jet_mask
-    if self.config_inst.campaign.x.year == 2024:
-        vbf_tau_jet_mask = original_vbf_tau_jet_mask
 
     # tau efficiencies
     # make ditau efficiencies to event level quantity
