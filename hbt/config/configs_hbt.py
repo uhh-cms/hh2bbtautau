@@ -888,31 +888,31 @@ def add_config(
     elif year == 2022 and campaign.has_tag("preEE"):
         cfg.x.luminosity = Number(7_980.4541, {
             "lumi_13p6TeV_2022": 0.014j,
-            "lumi_13p6TeV_1": 0.0138j,
+            "lumi_13p6TeV_22_23_24": 0.0138j,
         })
     elif year == 2022 and campaign.has_tag("postEE"):
         cfg.x.luminosity = Number(26_671.6097, {
             "lumi_13p6TeV_2022": 0.014j,
-            "lumi_13p6TeV_1": 0.0138j,
+            "lumi_13p6TeV_22_23_24": 0.0138j,
         })
     elif year == 2023 and campaign.has_tag("preBPix"):
         cfg.x.luminosity = Number(18_062.6591, {
             "lumi_13p6TeV_2023": 0.013j,
-            "lumi_13p6TeV_1": 0.0017j,
-            "lumi_13p6TeV_2": 0.0127j,
+            "lumi_13p6TeV_22_23_24": 0.0017j,
+            "lumi_13p6TeV_23_24": 0.0127j,
         })
     elif year == 2023 and campaign.has_tag("postBPix"):
         cfg.x.luminosity = Number(9_693.1301, {
             "lumi_13p6TeV_2023": 0.013j,
-            "lumi_13p6TeV_1": 0.0017j,
-            "lumi_13p6TeV_2": 0.0127j,
+            "lumi_13p6TeV_22_23_24": 0.0017j,
+            "lumi_13p6TeV_23_24": 0.0127j,
         })
     elif year == 2024:
         cfg.x.luminosity = Number(109_948.177486, {
             "lumi_13p6TeV_2024": 0.016j,
-            "lumi_13p6TeV_1": 0.0020j,
-            "lumi_13p6TeV_2": 0.0068j,
-            "lumi_13p6TeV_3": 0.0144j,
+            "lumi_13p6TeV_22_23_24": 0.0020j,
+            "lumi_13p6TeV_23_24": 0.0068j,
+            "lumi_13p6TeV_24": 0.0144j,
         })
     else:
         assert False
