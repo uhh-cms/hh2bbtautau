@@ -140,23 +140,96 @@ class default(HBTInferenceModel):
         self.add_parameter(
             "BR_hbb",
             type=ParameterType.rate_gauss,
-            process=["*_hbb", "*_hbbhtt"],
+            process=["*_hbb", "*_hbbhtt"], # TODO: 2024: split processes by _hbb and _htt
             effect=(0.9874, 1.0124),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "BR_htt",
             type=ParameterType.rate_gauss,
-            process=["*_htt", "*_hbbhtt"],
+            process=["*_htt", "*_hbbhtt"], # TODO: 2024: split processes by _hbb and _htt
             effect=(0.9837, 1.0165),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
-            "pdf_gg",  # contains alpha_s
+            "QCDscale_qqHH",
             type=ParameterType.rate_gauss,
-            process=self.inject_all_eras("ttbar"),
-            effect=1.042,
-            group=["theory", "rate_nuisances"],
+            process="qqHH_*",
+            effect=(0.9997, 1.0005),
+            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
+        )
+
+        QCDscale_ttbar_dic = {
+            "ttbar": (0.964, 1.024),
+            "ttbarV": (0.981, 1.020),  # TW = ttbarV ?
+            "singlet": (0.981, 1.026),  # ST = singlet ?
+        }
+        for proc, val in QCDscale_ttbar_dic.items():
+            self.add_parameter(
+                "QCDscale_ttbar",
+                type=ParameterType.rate_gauss,
+                # process=self.inject_all_eras("ttbar"),
+                # effect=(0.965, 1.024),
+                process=proc,
+                effect=val,
+                group=["theory", "rate_nuisances"],
+            )
+
+        self.add_parameter(
+            "QCDscale_V",
+            type=ParameterType.rate_gauss,
+            process="W",
+            effect=(0.986, 1.013),
+            group=["theory","rate_nuisances"],
+        )
+
+        QCDscale_VH_dic = {
+            "WH_htt": (0.993, 1.004),
+            "ZH_hbb": (0.968, 1.038),
+        }
+        for proc, val in QCDscale_VH_dic.items():
+            self.add_parameter(
+                "QCDscale_VH",
+                type=ParameterType.rate_gauss,
+                process=proc,
+                effect=val,
+                group=["theory","rate_nuisances"],
+            )
+
+        self.add_parameter(
+            "QCDscale_VV",
+            type=ParameterType.rate_gauss,
+            process="VV",
+            effect=1.050,
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VVV",
+            type=ParameterType.rate_gauss,
+            process="VVV",
+            effect=1.050,
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ggH",
+            type=ParameterType.rate_gauss,
+            process="ggH_*",
+            effect=1.039,
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_qqH",
+            type=ParameterType.rate_gauss,
+            process="qqH_*",
+            effect=(0.997, 1.005),
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ttH",
+            type=ParameterType.rate_gauss,
+            process="ttH_*",
+            effect=(0.907, 1.06),
+            group=["theory","rate_nuisances"],
         )
         self.add_parameter(
             "pdf_Higgs_ggHH",  # contains alpha_s
@@ -172,20 +245,82 @@ class default(HBTInferenceModel):
             effect=1.027,
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
+
+        pdf_qqbar_dic = {
+            "ttbar": 1.025,
+            "W": 1.008,
+            "singlet": (0.978, 1.034),
+            "VV": 1.050,
+        }
+        for proc, val in pdf_qqbar_dic.items():
+            self.add_parameter(
+                "pdf_qqbar",
+                type=ParameterType.rate_gauss,
+                process=proc,
+                effect=val,
+                group=["theory", "rate_nuisances"],
+            )
+
         self.add_parameter(
-            "QCDscale_ttbar",
+            "pdf_qg",
             type=ParameterType.rate_gauss,
-            process=self.inject_all_eras("ttbar"),
-            effect=(0.965, 1.024),
+            process="ttbarV",
+            effect=1.024,
             group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
-            "QCDscale_qqHH",
+            "pdf_gg",  # contains alpha_s
             type=ParameterType.rate_gauss,
-            process="qqHH_*",
-            effect=(0.9997, 1.0005),
-            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
+            process=self.inject_all_eras("ttbar"),
+            effect=1.042,
+            group=["theory", "rate_nuisances"],
         )
+        self.add_parameter(
+            "pdf_Higgs_gg",
+            type=ParameterType.rate_gauss,
+            process="ggH_*",
+            effect=1.019,
+            group=["theory", "rate_nuisances"],
+        )
+
+        pdf_Higgs_qqbar_dic = {
+            "qqH_*": 1.021,
+            "WH_htt": 1.016,
+            "ZH_hbb": 1.013,
+        }
+        for proc, val in pdf_Higgs_qqbar_dic.items():
+            self.add_parameter(
+                "pdf_Higgs_qqbar",
+                type=ParameterType.rate_gauss,
+                process=proc,
+                effect=val,
+                group=["theory", "rate_nuisances"],
+            )
+
+        self.add_parameter(
+            "pdf_Higgs_ttH",
+            type=ParameterType.rate_gauss,
+            process="ttH_hbb",
+            effect=1.030,
+            group=["theory", "rate_nuisances"],
+        )
+
+        alpha_s_dic = {
+            "ggH_13p6TeV_htt": 1.026,
+            "qqH_13p6TeV_htt": 1.005,
+            "WH_13p6TeV_htt": 1.009,
+            "ZH_13p6TeV_hbb": 1.009,
+            "ttH_13p6TeV_hbb": 1.020,
+        }
+        for proc, val in alpha_s_dic.items():
+            self.add_parameter(
+                "alpha_s",
+                type=ParameterType.rate_gauss,
+                process=proc,
+                effect=val,
+                group=["theory", "rate_nuisances"],
+            )
+
         self.add_parameter(
             "bbH_norm_ggH",
             type=ParameterType.rate_gauss,
@@ -200,22 +335,34 @@ class default(HBTInferenceModel):
             effect=(0.5, 1.5),
             group=["theory", "rate_nuisances"],
         )
-        # TODO: additional theory uncertainties, especially on background processes!
 
         # lumi
-        # TODO: 2024: choose which uncertainty scheme to use here, lumi uncertainties contain values of multiple schemes
+        correlated_lumi = True  # switch between (un)correlated lumi scheme
         for config_inst in self.config_insts:
             lumi = config_inst.x.luminosity
             for unc_name in lumi.uncertainties:
-                self.add_parameter(
-                    unc_name,
-                    type=ParameterType.rate_gauss,
-                    effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
-                    process=self.process_matches(configs=config_inst, skip_qcd=True),
-                    process_match_mode=all,
-                    group=["experiment", "rate_nuisances"],
-                )
-
+                # uncorrelated unc e.g. lumi_13p6TeV_2023
+                if not correlated_lumi and config_inst.x.year in unc_name:
+                    self.add_parameter(
+                        unc_name,
+                        type=ParameterType.rate_gauss,
+                        effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
+                        process=self.process_matches(configs=config_inst, skip_qcd=True),
+                        process_match_mode=all,
+                        group=["experiment", "rate_nuisances"],
+                    )
+                # correlated unc e.g. lumi_13p6TeV_22_23
+                elif correlated_lumi and config_inst.x.year not in unc_name:
+                    self.add_parameter(
+                        unc_name,
+                        type=ParameterType.rate_gauss,
+                        effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
+                        process=self.process_matches(configs=config_inst, skip_qcd=True),
+                        process_match_mode=all,
+                        group=["experiment", "rate_nuisances"],
+                    )
+                else:
+                    raise ValueError(f"unknown lumi correlation for unc {unc_name} in config {config_inst.name}.")
         #
         # shape parameters from shifts acting on ProduceColumns or CreateHistograms (mostly weight variations)
         #
@@ -410,7 +557,7 @@ class default(HBTInferenceModel):
         # dy shifts
         for i, dy_name in enumerate(["syst", "stat"]):
             self.add_parameter(
-                f"CMS_bbtt_dy_{dy_name}",
+                f"CMS_DY_{dy_name}_{config_inst.x.year}",
                 type=ParameterType.shape,
                 config_data={
                     config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}")
