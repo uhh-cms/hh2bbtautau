@@ -990,7 +990,7 @@ def add_config(
         jec_version = {
             (2022, ""): "V3",
             (2022, "EE"): "V3",
-            (2023, ""): "V2",
+            (2023, ""): "V3",
             (2023, "BPix"): "V3",
             (2024, ""): "V2",
         }[(year, campaign.x.postfix)]
@@ -1851,35 +1851,35 @@ def add_config(
                 vnano=12,
                 era="22CDSep23-Summer22",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-09-23", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2026-04-13", lum="2024-01-31", muo="2026-04-28", tau="2025-12-25"),  # noqa: E501
             ),
             (2022, "EE", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="22EFGSep23-Summer22EE",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2026-04-13", lum="2024-01-31", muo="2026-04-28", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23CSep23-Summer23",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2026-04-13", lum="2024-01-31", muo="2026-04-28", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23DSep23-Summer23BPix",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2025-10-07", lum="2024-01-31", muo="2025-08-14", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2026-04-13", lum="2024-01-31", muo="2026-04-28", tau="2025-12-25"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
                 run=3,
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-02-25", egm="2025-12-15", jme="2025-12-02", lum="2025-12-02", muo="2025-11-27", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-02-25", egm="2025-12-15", jme="2025-12-02", lum="2026-04-15", muo="2026-04-28", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -2009,7 +2009,7 @@ def add_config(
         ))
         # vbf models trained by cclub
         # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/tree/cclub_cmssw15010/data/DNN_models/HHRun3DNN?ref_type=heads
-        cclub_hash, cclub_long_hash, cclub_branch = "23f347b7", "23f347b7000d8acdff995beaba47114677ee9c66", "cclub_cmssw15010"  # noqa: E501
+        cclub_hash, cclub_long_hash, cclub_branch = "d08a1868", "d08a1868a05818f3cb525367f9b72f9aba2667c9", "cclub_cmssw15010"  # noqa: E501
         vbfnn_postfix = "_24" if year == 2024 else "_22-23"
         # TODO: misses th TF version, so added old v5 model below for now
         add_external("vbf_dnn_repo", Ext(
@@ -2031,7 +2031,7 @@ def add_config(
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
         add_external("muon_sr_tools", Ext(
-            f"{central_hbt_dir}/muonscarekit-master.tar.gz",
+            f"{central_hbt_dir}/muonscarekit-244739ce.tar.gz",
             subpaths="muonscarekit-master/scripts/MuonScaRe.py",
             version="v1",
         ))
