@@ -40,23 +40,20 @@ def add_variables(config: od.Config) -> None:
     add_variable(
         name="event",
         expression="event",
-        binning=(1, 0.0, 1.0e9),
+        binning=(100, 0.0, 1.0e9),
         x_title="Event number",
-        discrete_x=True,
     )
     add_variable(
         name="run",
         expression="run",
-        binning=(1, 100000.0, 500000.0),
+        binning=(100, 100000.0, 500000.0),
         x_title="Run number",
-        discrete_x=True,
     )
     add_variable(
         name="lumi",
         expression="luminosityBlock",
-        binning=(1, 0.0, 5000.0),
+        binning=(100, 0.0, 5000.0),
         x_title="Luminosity block",
-        discrete_x=True,
     )
     add_variable(
         name="ht",
@@ -531,6 +528,7 @@ def add_variables(config: od.Config) -> None:
         binning=(60, 0, 1200),
         unit="GeV",
         x_title=r"$m_{ll+bb}$ (regressed)",
+        # x_title=r"$m_{ll+bb}$ (bb x, ll x, reg y)",
     )
     add_variable(
         name="hh_reg_pt",
@@ -568,7 +566,33 @@ def add_variables(config: od.Config) -> None:
         expression="h_kinfit.hh.mass",
         binning=(60, 0, 1200),
         unit="GeV",
-        x_title=r"$m_{ll+bb}$ (regressed + kinfit)",
+        x_title=r"$m_{ll+bb}$ (bb y, ll y, reg y)",
+    )
+    add_variable(
+        name="hh_kinfit_vis_mass",
+        expression="h_kinfit_vis.hh.mass",
+        binning=(60, 0, 1200),
+        unit="GeV",
+        x_title=r"$m_{ll+bb}$ (bb y, ll y, reg x)",
+    )
+    add_variable(
+        name="hh_kinfit_ll_mass",
+        expression="h_kinfit_ll.hh.mass",
+        binning=(60, 0, 1200),
+        unit="GeV",
+        x_title=r"$m_{ll+bb}$ (bb x, ll y, reg y)",
+    )
+    add_variable(
+        name="hh_kinfit_b_scale",
+        expression="h_kinfit.b_scale",
+        binning=(30, 0, 3),
+        x_title=r"$b$ scale",
+    )
+    add_variable(
+        name="hh_kinfit_l_scale",
+        expression="h_kinfit.l_scale",
+        binning=(30, 0, 3),
+        x_title=r"$l$ scale",
     )
 
     # hh generator variables
