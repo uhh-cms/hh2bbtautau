@@ -544,18 +544,11 @@ def etau_mutau_trigger_weight(
                 if self.config_inst.campaign.x.year in {2023, 2024}:
                     # vbf variations
                     for i, (mask, sf) in enumerate(zip(vbf_dict[lepton]["mask"], vbf_dict[lepton]["sf"])):
-                        if i == 0:
-                            trigger_weight = ak.where(
-                                mask,
-                                events[f"{sf}_{direction}"],
-                                events[f"{channel.name}_trigger_weight"],
-                            )
-                        else:
-                            trigger_weight = ak.where(
-                                mask,
-                                events[f"{sf}_{direction}"],
-                                trigger_weight,
-                            )
+                        trigger_weight = ak.where(
+                            mask,
+                            events[f"{sf}_{direction}"],
+                            events[f"{channel.name}_trigger_weight"] if i == 0 else trigger_weight,
+                        )
                     events = set_ak_column_f32(events, f"{channel.name}_trigger_weight_vbfjets_{direction}", trigger_weight)  # noqa: E501
 
     return events
@@ -1038,10 +1031,9 @@ def trigger_weight(
             ("mutau", "vbfjets"),
         })
 
-    if self.config_inst.campaign.x.year == 2024:
-        variation_list = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet", "quadjet", "vbfjets"]
-    else:
-        variation_list = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet", "vbfjets"]
+    variation_list = ["e", "mu", "tau_dm0", "tau_dm1", "tau_dm10", "tau_dm11", "jet", "quadjet", "vbfjets"]
+    if self.config_inst.campaign.x.year != 2024:
+        variation_list.remove("quadjet")
 
     for direction in ["up", "down"]:
         for variation in variation_list:

@@ -1604,9 +1604,6 @@ def add_triggers_2023(config: od.Config) -> None:
         tags={"cross_trigger", "cross_vbf"},
     )
 
-    # additional triple jet trigger added by cclub, seems to be a backup path but no idea why needed
-    # HLT_VBF_DiPFJet105_40_Mjj1000_Detajj3p5_TriplePFJet same cuts used...
-
     config.x.triggers.add(
         name="HLT_VBF_DiPFJet90_40_Mjj600_Detajj2p5_Mu3_TrkIsoVVL",
         id=606,

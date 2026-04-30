@@ -426,10 +426,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
             corr_channel_arg = "vbfditau"
         elif corr_channel == "tauvbf":
             flat_mask = flat_tauvbf_mask
-            if self.config_inst.campaign.x.year == 2024:
-                corr_channel_arg = "vbfsingletau"
-            else:
-                corr_channel_arg = "vbftau"
+            corr_channel_arg = "vbfsingletau" if self.config_inst.campaign.x.year == 2024 else "vbftau"
         else:
             raise ValueError(f"Unknown vbf channel {corr_channel}")
 
