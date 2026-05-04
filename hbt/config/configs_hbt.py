@@ -2009,25 +2009,16 @@ def add_config(
         ))
         # vbf models trained by cclub
         # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/tree/cclub_cmssw15010/data/DNN_models/HHRun3DNN?ref_type=heads
-        cclub_hash, cclub_long_hash, cclub_branch = "d08a1868", "d08a1868a05818f3cb525367f9b72f9aba2667c9", "cclub_cmssw15010"  # noqa: E501
+        cclub_hash, cclub_long_hash = "d08a1868", "d08a1868a05818f3cb525367f9b72f9aba2667c9"
         vbfnn_postfix = "_24" if year == 2024 else "_22-23"
-        # TODO: misses th TF version, so added old v5 model below for now
         add_external("vbf_dnn_repo", Ext(
-            f"{central_hbt_dir}/AnalysisCore-f69dda6c.tar.gz",
+            f"{central_hbt_dir}/AnalysisCore-{cclub_hash}.tar.gz",
             subpaths=DotDict.wrap({
-                f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v5{vbfnn_postfix}/model_{f}"  # noqa: E501
+                f"fold{f}": f"AnalysisCore-{cclub_long_hash}/data/DNN_models/HHRun3DNN/vbf_model_v7{vbfnn_postfix}/model_{f}/model.onnx"  # noqa: E501
                 for f in range(5)
             }),
-            version="v5",
+            version="v7",
         ))
-        # add_external("vbf_dnn_repo", Ext(
-        #     f"{central_hbt_dir}/AnalysisCore-{cclub_hash}.tar.gz",
-        #     subpaths=DotDict.wrap({
-        #         f"fold{f}": f"AnalysisCore-{cclub_branch}/data/DNN_models/HHRun3DNN/vbf_model_v6{vbfnn_postfix}/model_{f}"  # noqa: E501
-        #         for f in range(5)
-        #     }),
-        #     version="v6",
-        # ))
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
         add_external("muon_sr_tools", Ext(

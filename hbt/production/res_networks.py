@@ -67,6 +67,9 @@ class _res_dnn_evaluation(Producer):
         MET_COLUMN("{pt,phi,covXX,covXY,covYY}"),
     }
 
+    # if onnx is used, otherwise assumes the default tf model type
+    use_onnx: bool = False
+
     # which type of btagging variables to use
     btag_type: BTagType = "deepjet"
 
@@ -98,7 +101,7 @@ class _res_dnn_evaluation(Producer):
         # name of the model bundle in the external files
         return self.cls_name
 
-    def load_model_dir(self, bundle: BundleExternalFiles) -> law.LocalDirectoryTarget:
+    def load_model(self, bundle: BundleExternalFiles) -> law.LocalTarget:
         model_dir = bundle.files_dir.child(f"{self.external_name}_unpacked", type="d")
         model_dir_exists = lambda: model_dir.exists() and model_dir.listdir()
         if not model_dir_exists():
@@ -144,22 +147,38 @@ class _res_dnn_evaluation(Producer):
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
         super().setup_func(task=task, reqs=reqs, **kwargs)
 
-        from hbt.ml.evaluators import TFEvaluator
-        if not getattr(task, "taf_tf_evaluator", None):
-            task.taf_tf_evaluator = TFEvaluator()
-        self.evaluator = task.taf_tf_evaluator
-
         # some checks
         if not isinstance(self.parametrized, bool):
             raise AttributeError("'parametrized' must be set in the producer configuration")
 
-        # unpack the model archive
-        bundle = reqs["external_files"]
-        bundle.files
-        model_dir = self.load_model_dir(bundle)
+        # tf or onnx setup
+        if not self.use_onnx:
+            from hbt.ml.evaluators import TFEvaluator
+            if not getattr(task, "taf_tf_evaluator", None):
+                task.taf_tf_evaluator = TFEvaluator()
+            self.evaluator = task.taf_tf_evaluator
 
-        # setup the evaluator
-        self.evaluator.add_model(self.cls_name, model_dir.abspath, signature_key="serving_default")
+            # unpack the model archive
+            bundle = reqs["external_files"]
+            bundle.files
+            model_dir = self.load_model(bundle)
+
+            # setup the evaluator
+            self.evaluator.add_model(self.cls_name, model_dir.abspath, signature_key="serving_default")
+
+        else:
+            from hbt.ml.evaluators import ONNXEvaluator
+            if not getattr(task, "taf_onnx_evaluator", None):
+                task.taf_onnx_evaluator = ONNXEvaluator()
+            self.evaluator = task.taf_onnx_evaluator
+
+            # unpack the model archive
+            bundle = reqs["external_files"]
+            bundle.files
+            model = self.load_model(bundle)
+
+            # setup the evaluator
+            self.evaluator.add_model(self.cls_name, model.abspath)
 
         # categorical values handled by the network
         # (names and values from training code that was aligned to KLUB notation)
@@ -203,11 +222,12 @@ class _res_dnn_evaluation(Producer):
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:
         """
-        Stops the TF evaluator.
+        Stops the ML evaluator.
         """
-        if (evaluator := getattr(task, "taf_tf_evaluator", None)):
+        attr = "taf_onnx_evaluator" if self.use_onnx else "taf_tf_evaluator"
+        if (evaluator := getattr(task, attr, None)):
             evaluator.stop()
-        task.taf_tf_evaluator = None
+        setattr(task, attr, None)
         self.evaluator = None
 
     def call_func(self, events: ak.Array, task: law.Task, **kwargs) -> ak.Array:
@@ -258,7 +278,13 @@ class _res_dnn_evaluation(Producer):
         categorical_inputs = np.concatenate(categorical_inputs, axis=1)
 
         # evaluate the model
-        scores = self.evaluator(self.cls_name, inputs=[continuous_inputs, categorical_inputs])
+        if not self.use_onnx:
+            scores = self.evaluator(self.cls_name, inputs=[continuous_inputs, categorical_inputs])
+        else:
+            scores = self.evaluator(
+                self.cls_name,
+                {"cont_input": continuous_inputs, "cat_input": categorical_inputs.astype(np.float32)},
+            )[0]
         del continuous_inputs
         del categorical_inputs
 
@@ -273,6 +299,7 @@ class _res_dnn_evaluation(Producer):
             scores[nan_mask] = self.empty_value
 
         # prepare output columns with the shape of the original events and assign values into them
+        assert scores.shape[1] == len(self.output_columns)
         for i, column in enumerate(self.output_columns):
             values = self.empty_value * np.ones(len(events), dtype=np.float32)
             values[event_mask] = scores[:, i]
@@ -725,17 +752,22 @@ class _vbf_dnn(_res_dnn_evaluation):
     def output_prefix(self) -> str:
         return self.cls_name
 
-    def load_model_dir(self, bundle: BundleExternalFiles) -> law.LocalDirectoryTarget:
+    def load_model(self, bundle: BundleExternalFiles) -> law.LocalTarget:
         # should be overwritten in inheriting produicers with knowledge on fold info
         raise NotImplementedError
 
     def init_func(self, **kwargs) -> None:
         super().init_func(**kwargs)
 
+        # store the model version and check if onnx should be used which was used starting from v6 onwards
+        self.vbf_dnn_version = self.config_inst.x.external_files.vbf_dnn_repo.version
+        self.use_onnx = int(self.vbf_dnn_version[1:]) >= 6
+
         # output column names (in this order)
+        # note: in the onnx models, the output columns changed
         self.output_columns = [
             f"{self.output_prefix}_{name}"
-            for name in ["hh_ggf", "tt", "dy", "hh_vbf"]
+            for name in (["hh_vbf", "tt", "dy"] if self.use_onnx else ["hh_ggf", "tt", "dy", "hh_vbf"])
         ]
 
         # update produced columns
@@ -945,9 +977,8 @@ class _vbf_dnn_xvalid(_vbf_dnn):
     n_folds = 5
     fold = None
 
-    def load_model_dir(self, bundle: BundleExternalFiles) -> law.LocalDirectoryTarget:
-        model_dir = bundle.files.vbf_dnn_repo[f"fold{self.fold}"]
-        return model_dir
+    def load_model(self, bundle: BundleExternalFiles) -> law.LocalTarget:
+        return bundle.files.vbf_dnn_repo[f"fold{self.fold}"]
 
     def define_event_mask(self, events: ak.Array, cat: DotDict, cont: DotDict) -> ak.Array:
         event_mask = super().define_event_mask(events, cat, cont)
