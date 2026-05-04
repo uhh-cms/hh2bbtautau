@@ -272,7 +272,7 @@ class default(HBTInferenceModel):
             "pdf_gg",  # contains alpha_s
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("ttbar"),
-            effect=1.042,
+            effect=1.024,
             group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
