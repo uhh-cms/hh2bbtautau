@@ -154,6 +154,13 @@ def IF_RUN_3_2022_2023(self: ArrayFunction.DeferredColumn, func: ArrayFunction) 
     return None
 
 
+@deferred_column
+def IF_RUN_3_2023_2024(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    if func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2023, 2024}:
+        return self.get()
+    return None
+
+
 IF_DATASET_HAS_LHE_WEIGHTS = IF_DATASET_NOT_HAS_TAG("no_lhe_weights")
 IF_DATASET_HAS_TOP = IF_DATASET_HAS_TAG("has_top")
 IF_DATASET_HAS_HIGGS = IF_DATASET_HAS_TAG("has_higgs")

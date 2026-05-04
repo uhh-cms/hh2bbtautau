@@ -660,6 +660,7 @@ def jet_selection(
                 if trigger.has_tag(tag):
                     return tag
             return None
+
         trigger_data_with_tags = [
             (trigger, trigger_fired, leg_masks, add_priority_tag(trigger))
             for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data
@@ -795,6 +796,9 @@ def jet_selection(
                     orthogonalization_mask = orthogonalization_mask | passed_base_selection[name]
 
                 # update the dictionary of passed base selection
+                # Note: could add channel check -> vbf ditau cannot remove events from etau for example
+                # for now, already done through lepton selection, so included
+                # in partially_passed_base_selection
                 passed_base_selection[priority_tag] = (
                     partially_passed_base_selection[priority_tag] &
                     trig_req_mask &

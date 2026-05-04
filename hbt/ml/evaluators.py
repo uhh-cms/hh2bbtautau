@@ -374,3 +374,75 @@ class TorchEvaluator(BaseEvaluator):
 
     def get_model_cls(self) -> Type[BaseModel]:
         return TorchModel
+
+
+#
+# ONNX model and evaluator
+#
+
+@dataclasses.dataclass
+class ONNXModel(BaseModel):
+
+    @classmethod
+    @functools.cache
+    def imports(cls):
+        print("importing onnx ...", flush=True)
+        import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]
+        print("done", flush=True)
+        return ort
+
+    @classmethod
+    def cast_from_numpy(cls, obj: Any) -> Any:
+        if isinstance(obj, (list, tuple)):
+            return type(obj)(cls.cast_from_numpy(o) for o in obj)
+        if isinstance(obj, dict):
+            return type(obj)((k, cls.cast_from_numpy(v)) for k, v in obj.items())
+
+        # onnx natively supports numpy arrays, so no conversion here
+
+        return obj
+
+    @classmethod
+    def cast_to_numpy(cls, obj: Any) -> Any:
+        if isinstance(obj, (list, tuple)):
+            return type(obj)(cls.cast_to_numpy(o) for o in obj)
+        if isinstance(obj, dict):
+            return type(obj)((k, cls.cast_to_numpy(v)) for k, v in obj.items())
+
+        # onnx natively produces numpy arrays, so no conversion here
+
+        return obj
+
+    def load(self) -> None:
+        ort = self.imports()
+
+        print(f"loading {self.__class__.__name__} '{self.name}' from {self.path} ...", flush=True)
+
+        sess_options = ort.SessionOptions()
+        sess_options.intra_op_num_threads = 0
+        self.model = ort.InferenceSession(self.path, sess_options=sess_options, providers=["CPUExecutionProvider"])
+
+        print("done", flush=True)
+
+    def evaluate(self, *args, **kwargs) -> Any:
+        # cast inputs to torch tensors
+        args = self.cast_from_numpy(args)
+        kwargs = self.cast_from_numpy(kwargs)
+        out = self.model.run(None, *args, **kwargs)
+        return self.cast_to_numpy(out)
+
+
+class ONNXEvaluator(BaseEvaluator):
+    """
+    ONNX model evaluator that runs in a separate process with support for multiple models.
+
+    .. code-block:: python
+
+        evaluator = ONNXEvaluator()
+        evaluator.add_model("model_name", "path/to/model")
+        with evaluator:
+            result = evaluator("model_name", input_data)
+    """
+
+    def get_model_cls(self) -> Type[BaseModel]:
+        return ONNXModel
