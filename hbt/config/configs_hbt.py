@@ -1083,7 +1083,7 @@ def add_config(
         "Jet": {
             "campaign": jec_campaign,
             "version": jec_version,
-            "data_per_era": year == 2022,  # 2022 JEC has the era in the correction set name
+            "data_per_era": False,  # no more era-dependence in latest jec campaigns
             "jet_type": jet_type,
             "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
             "levels_for_type1_met": ["L1FastJet"],
