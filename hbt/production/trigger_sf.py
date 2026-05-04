@@ -207,11 +207,26 @@ vbf_tau_jet_trigger_sf = vbfjet_trigger_efficiencies.derive(
         "sf_name": "vbf_tau_jet_trigger_sf",
     },
 )
+
+
+def mask_corrector_inputs_vbf_e_jet(self, inputs):
+    # specific cuts only for 2023, needs to be understood better (TODO: nathan)
+    if self.config_inst.campaign.x.year != 2023:
+        return None
+    # in/valid value ranges extracted manually from correctionlib file
+    # -> specific bins in case the lep_pt is between 10 and 20 GeV
+    return (
+        (inputs["lep_pt"] < 20) &
+        (inputs["mjj"] < 1000)
+    )
+
+
 vbf_e_jet_trigger_sf = vbfjet_trigger_efficiencies.derive(
     "vbf_e_jet_trigger_sf",
     cls_dict={
         "get_vbfjet_file": (lambda self, external_files: external_files.trigger_sf.vbf_e),
         "get_vbfjet_config": (lambda self: self.config_inst.x.vbfjet_e_trigger_config),
+        "mask_corrector_inputs": mask_corrector_inputs_vbf_e_jet,
         "sf_name": "vbf_e_jet_trigger_sf",
     },
 )

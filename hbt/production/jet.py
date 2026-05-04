@@ -172,6 +172,9 @@ class VBFjetSFConfig:
     # function to determine the correction file
     get_vbfjet_file=(lambda self, external_files: external_files.trigger_sf.vbf_ditau),
     get_vbfjet_config=(lambda self: self.config_inst.x.vbfjet_ditau_trigger_config),
+    # function to mask inputs to the vbfjet_trig_corrector, matching events will receive a value of 1
+    mask_corrector_inputs=(lambda self, inputs: None),
+    # name of the sf
     sf_name="vbfjet_trigger_sf",
 )
 def vbfjet_trigger_efficiencies(
@@ -204,17 +207,17 @@ def vbfjet_trigger_efficiencies(
 
     # pt sorting
     vbfjet_pt_sorting = ak.argsort(events.VBFJet.pt[jet_mask], axis=-1, ascending=False)
-    vbf_jet_1 = ak.firsts(events.VBFJet[vbfjet_pt_sorting][jet_mask[vbfjet_pt_sorting]][:, :1], axis=1)
-    vbf_jet_2 = ak.firsts(events.VBFJet[vbfjet_pt_sorting][jet_mask[vbfjet_pt_sorting]][:, 1:2], axis=1)
+    vbfjet1 = ak.firsts(events.VBFJet[vbfjet_pt_sorting][jet_mask[vbfjet_pt_sorting]][:, :1], axis=1)
+    vbfjet2 = ak.firsts(events.VBFJet[vbfjet_pt_sorting][jet_mask[vbfjet_pt_sorting]][:, 1:2], axis=1)
 
     variable_map = {
-        "vbfjet1_pt": vbf_jet_1.pt,
-        "vbfjet2_pt": vbf_jet_2.pt,
-        "mjj": (vbf_jet_1 + vbf_jet_2).mass,
+        "vbfjet1_pt": vbfjet1.pt,
+        "vbfjet2_pt": vbfjet2.pt,
+        "mjj": (vbfjet1 + vbfjet2).mass,
     }
 
     # check that the vbfjet1 and vbfjet2 are always there for the same events
-    if ak.any(ak.is_none(vbf_jet_2.pt[~ak.is_none(vbf_jet_1.pt)])) or ak.any(ak.is_none(vbf_jet_1.pt[~ak.is_none(vbf_jet_2.pt)])):  # noqa: E501
+    if ak.any(ak.is_none(vbfjet2.pt[~ak.is_none(vbfjet1.pt)])) or ak.any(ak.is_none(vbfjet1.pt[~ak.is_none(vbfjet2.pt)])):  # noqa: E501
         raise ValueError("vbfjet2 is None while vbfjet1 is not, check jet mask and sorting")
 
     if self.vbfjet_config.lep_used:
@@ -234,7 +237,7 @@ def vbfjet_trigger_efficiencies(
         variable_map["lep_pt"] = ak.firsts(events.Electron[mask][:, :1].pt, axis=1)
 
         # check that the electron is always there for the same events as the vbf jets
-        if ak.any(ak.is_none(variable_map["lep_pt"][~ak.is_none(vbf_jet_1.pt)])) or ak.any(ak.is_none(vbf_jet_1.pt[~ak.is_none(variable_map["lep_pt"])])):  # noqa: E501
+        if ak.any(ak.is_none(variable_map["lep_pt"][~ak.is_none(vbfjet1.pt)])) or ak.any(ak.is_none(vbfjet1.pt[~ak.is_none(variable_map["lep_pt"])])):  # noqa: E501
             raise ValueError("electron is None while vbfjet1 is not, check trigger matching and sorting")
 
     # no efficiency needed except if triple jet trigger used, let it be decided by the config
@@ -250,7 +253,18 @@ def vbfjet_trigger_efficiencies(
             "syst": syst,
         }
         inputs = [variable_map_syst[inp.name] for inp in self.vbfjet_trig_corrector.inputs]
-        sf = self.vbfjet_trig_corrector(*inputs)
+
+        # optionally apply input masking and fill output with ones where it matches
+        one_mask = self.mask_corrector_inputs(variable_map_syst)
+        if one_mask is None:
+            sf = self.vbfjet_trig_corrector.evaluate(*inputs)
+        else:
+            inputs = [
+                (ak.mask(inp, one_mask, valid_when=False) if isinstance(inp, (ak.Array, np.ndarray)) else inp)
+                for inp in inputs
+            ]
+            sf = self.vbfjet_trig_corrector.evaluate(*inputs)
+            sf = ak.where(one_mask, 1.0, sf)
 
         # check whether any selected event gets None
         event_mask = ak.fill_none(ak.sum(jet_mask, axis=-1) == 2, False)
