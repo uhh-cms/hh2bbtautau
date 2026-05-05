@@ -278,13 +278,16 @@ class _res_dnn_evaluation(Producer):
         categorical_inputs = np.concatenate(categorical_inputs, axis=1)
 
         # evaluate the model
-        if not self.use_onnx:
-            scores = self.evaluator(self.cls_name, inputs=[continuous_inputs, categorical_inputs])
+        if ak.any(event_mask):
+            if not self.use_onnx:
+                scores = self.evaluator(self.cls_name, inputs=[continuous_inputs, categorical_inputs])
+            else:
+                scores = self.evaluator(
+                    self.cls_name,
+                    {"cont_input": continuous_inputs, "cat_input": categorical_inputs.astype(np.float32)},
+                )[0]
         else:
-            scores = self.evaluator(
-                self.cls_name,
-                {"cont_input": continuous_inputs, "cat_input": categorical_inputs.astype(np.float32)},
-            )[0]
+            scores = np.empty((0, len(self.output_columns)), dtype=np.float32)
         del continuous_inputs
         del categorical_inputs
 
