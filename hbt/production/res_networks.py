@@ -278,13 +278,16 @@ class _res_dnn_evaluation(Producer):
         categorical_inputs = np.concatenate(categorical_inputs, axis=1)
 
         # evaluate the model
-        if not self.use_onnx:
-            scores = self.evaluator(self.cls_name, inputs=[continuous_inputs, categorical_inputs])
+        if ak.any(event_mask):
+            if not self.use_onnx:
+                scores = self.evaluator(self.cls_name, inputs=[continuous_inputs, categorical_inputs])
+            else:
+                scores = self.evaluator(
+                    self.cls_name,
+                    {"cont_input": continuous_inputs, "cat_input": categorical_inputs.astype(np.float32)},
+                )[0]
         else:
-            scores = self.evaluator(
-                self.cls_name,
-                {"cont_input": continuous_inputs, "cat_input": categorical_inputs.astype(np.float32)},
-            )[0]
+            scores = np.empty((0, len(self.output_columns)), dtype=np.float32)
         del continuous_inputs
         del categorical_inputs
 
@@ -763,11 +766,14 @@ class _vbf_dnn(_res_dnn_evaluation):
         self.vbf_dnn_version = self.config_inst.x.external_files.vbf_dnn_repo.version
         self.use_onnx = int(self.vbf_dnn_version[1:]) >= 6
 
+        # store names of output classes
+        self.output_classes = ["hh_vbf", "tt", "dy"] if self.use_onnx else ["hh_ggf", "tt", "dy", "hh_vbf"]
+
         # output column names (in this order)
         # note: in the onnx models, the output columns changed
         self.output_columns = [
             f"{self.output_prefix}_{name}"
-            for name in (["hh_vbf", "tt", "dy"] if self.use_onnx else ["hh_ggf", "tt", "dy", "hh_vbf"])
+            for name in self.output_classes
         ]
 
         # update produced columns
@@ -1012,18 +1018,25 @@ class vbf_dnn_moe(Producer):
     # used and produced columns
     # (used ones are updated dynamically in init_func)
     uses = {"event"}
-    produces = {"vbf_dnn_moe_{hh_ggf,tt,dy,hh_vbf}"}
 
     def init_func(self, **kwargs) -> None:
+        # store the model version and check if onnx should be used which was used starting from v6 onwards
+        self.vbf_dnn_version = self.config_inst.x.external_files.vbf_dnn_repo.version
+        self.use_onnx = int(self.vbf_dnn_version[1:]) >= 6
+
+        # store names of output classes
+        self.output_classes = ["hh_vbf", "tt", "dy"] if self.use_onnx else ["hh_ggf", "tt", "dy", "hh_vbf"]
+
         # store dnn evaluation classes
         self.dnn_classes = {
             f: _vbf_dnn_xvalid.get_cls(f"vbf_dnn_fold{f}")
             for f in range(_run3_dnn.n_folds)
         }
 
-        # update used columns / dependencies
+        # update columns & dependencies
+        self.produces.add(f"vbf_dnn_moe_{{{','.join(self.output_classes)}}}")
         for dnn_cls in self.dnn_classes.values():
-            self.uses.add(f"{dnn_cls.cls_name}_{{hh_ggf,tt,dy,hh_vbf}}" if self.require_folds else dnn_cls)
+            self.uses.add(f"{dnn_cls.cls_name}_{{{','.join(self.output_classes)}}}" if self.require_folds else dnn_cls)
 
     @property
     def require_producers(self) -> list[str] | None:
@@ -1058,7 +1071,7 @@ class vbf_dnn_moe(Producer):
             for dnn_cls in self.dnn_classes.values():
                 events = self[dnn_cls](events, **kwargs)
 
-        for out in ["hh_ggf", "tt", "dy", "hh_vbf"]:
+        for out in self.output_classes:
             # fill score from columns at positions with different folds
             score = EMPTY_FLOAT * np.ones(len(events), dtype=np.float32)
             for f in range(_vbf_dnn_xvalid.n_folds):

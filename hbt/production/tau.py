@@ -358,9 +358,13 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
     # for tauvbf the highest pt Tau is taken, not the most isolated one
     tauvbf_tau_sorting = ak.argsort(events.Tau.pt, axis=1, ascending=False)
     tauvbf_mask = (
-        (channel_id == ch_tautau.id) & tauvbf_trigger_passed &
+        (channel_id == ch_tautau.id) &
+        tauvbf_trigger_passed &
         (ak.local_index(events.Tau)[tauvbf_tau_sorting] == 0)
     )
+    # !! HOTFIX: minimum pt input for corrector is about 24.6, but in rare cases the tau pt is below (TODO: Nathan)
+    tauvbf_mask = tauvbf_mask & (events.Tau.pt >= 24.6)
+    # !! END HOTFIX
     flat_tauvbf_mask = flat_np_view(tauvbf_mask, axis=1)
 
     # start with flat ones, no vbf as the sfs are directly used for them, no efficiency needed
