@@ -2190,6 +2190,7 @@ def add_config(
                 "reg_dnn{,_moe}_nu{1,2}_p{x,y,z}",
                 "reg_dnn_moe_*",
                 "run3_dnn{,_moe}_*",
+                "h_kinfit*.*_scale", "h_kinfit*.*.{pt,eta,phi,mass}",
                 "vbf_dnn*",
                 "nu_truth.*.*",
                 *skip_column("*_{up,down}"),
