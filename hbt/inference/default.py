@@ -342,7 +342,7 @@ class default(HBTInferenceModel):
             lumi = config_inst.x.luminosity
             for unc_name in lumi.uncertainties:
                 # uncorrelated unc e.g. lumi_13p6TeV_2023
-                if not correlated_lumi and config_inst.x.year in unc_name:
+                if not correlated_lumi and str(config_inst.campaign.get_aux("year")) in unc_name:
                     self.add_parameter(
                         unc_name,
                         type=ParameterType.rate_gauss,
@@ -352,7 +352,7 @@ class default(HBTInferenceModel):
                         group=["experiment", "rate_nuisances"],
                     )
                 # correlated unc e.g. lumi_13p6TeV_22_23
-                elif correlated_lumi and config_inst.x.year not in unc_name:
+                elif correlated_lumi and str(config_inst.campaign.get_aux("year")) not in unc_name:
                     self.add_parameter(
                         unc_name,
                         type=ParameterType.rate_gauss,
@@ -362,7 +362,8 @@ class default(HBTInferenceModel):
                         group=["experiment", "rate_nuisances"],
                     )
                 else:
-                    raise ValueError(f"unknown lumi correlation for unc {unc_name} in config {config_inst.name}.")
+                    logger.warning_once(f"lumi correlation: {correlated_lumi}. skipping unc {unc_name} in {config_inst.name}")
+                    continue
         #
         # shape parameters from shifts acting on ProduceColumns or CreateHistograms (mostly weight variations)
         #
@@ -557,7 +558,7 @@ class default(HBTInferenceModel):
         # dy shifts
         for i, dy_name in enumerate(["syst", "stat"]):
             self.add_parameter(
-                f"CMS_DY_{dy_name}_{config_inst.x.year}",
+                f"CMS_DY_{dy_name}_{config_inst.campaign.get_aux('year')}",
                 type=ParameterType.shape,
                 config_data={
                     config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}")
