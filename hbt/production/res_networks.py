@@ -90,6 +90,9 @@ class _res_dnn_evaluation(Producer):
     produce_features: bool | None = None
     features_prefix: str = ""
 
+    # aggregation method
+    ensemble_aggregation: Literal["mean"] | None = None
+
     # produced columns are added in the deferred init below
     sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_hbt.sh")
 
@@ -291,6 +294,11 @@ class _res_dnn_evaluation(Producer):
         del continuous_inputs
         del categorical_inputs
 
+        # scores potentially come from a ensemble of models without an aggregation layer, so in case dim is still 3,
+        # average manually over them
+        if scores.ndim == 3:
+            scores = self.aggregate_ensemble_output(scores)
+
         # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
         # so issue a warning and set them to a default value
         nan_mask = ~np.isfinite(scores)
@@ -320,6 +328,15 @@ class _res_dnn_evaluation(Producer):
                 events = set_ak_column_i32(events, f"{self.features_prefix}{self.cls_name}_{name}", values)
 
         return events
+
+    def aggregate_ensemble_output(self, scores: np.ndarray) -> np.ndarray:
+        if self.ensemble_aggregation == "mean":
+            return np.mean(scores, axis=1)
+
+        if not self.ensemble_aggregation:
+            return scores
+
+        raise ValueError(f"invalid ensemble aggregation method: {self.ensemble_aggregation}")
 
     def update_events(self, events: ak.Array) -> ak.Array:
         # ensure coffea behavior for HHBJets
