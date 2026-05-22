@@ -37,6 +37,26 @@ setup_hbt() {
     local cf_base="${this_dir}/modules/columnflow"
     CF_SKIP_SETUP="true" source "${cf_base}/setup.sh" "" || return "$?"
 
+
+    #
+    # opinionated host specific checks
+    #
+
+    # on maxwell, check that the user's primary group is af-cms
+    local on_maxwell="$( [[ "$( hostname )" = max-*.desy.de ]] && echo "true" || echo "false" )"
+    if ${on_maxwell}; then
+        local primary_group="$( id -gn )"
+        if [ "${primary_group}" != "af-cms" ]; then
+            cf_color red_bright "detected maxwell node but primary group is '${primary_group}' and not 'af-cms', so first run"
+            echo
+            cf_color bright "> newgrp af-cms"
+            echo
+            cf_color red_bright "which starts a new subshell with your primary group changed, then re-source the setup"
+            return "1"
+        fi
+    fi
+
+
     #
     # prevent repeated setups
     #
