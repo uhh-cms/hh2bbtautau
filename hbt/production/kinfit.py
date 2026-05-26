@@ -93,6 +93,8 @@ def h_kinfit(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @h_kinfit.init
 def h_kinfit_init(self: Producer, **kwargs) -> None:
+    super(h_kinfit, self).init_func(**kwargs)
+
     if not self.hbb and not self.hll:
         raise ValueError(f"at least one of hbb or hll must be True for '{self.cls_name}' producer")
 

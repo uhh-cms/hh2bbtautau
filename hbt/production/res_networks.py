@@ -119,6 +119,8 @@ class _res_dnn_evaluation(Producer):
         return model_dir
 
     def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+
         assert self.btag_type in {"deepjet", "pnet", "upart", "none"}
 
         # set feature production options when requested
@@ -227,6 +229,8 @@ class _res_dnn_evaluation(Producer):
         """
         Stops the ML evaluator.
         """
+        super().teardown_func(task=task, **kwargs)
+
         attr = "taf_onnx_evaluator" if self.use_onnx else "taf_tf_evaluator"
         if (evaluator := getattr(task, attr, None)):
             evaluator.stop()
@@ -687,6 +691,8 @@ class run3_dnn_moe(Producer):
     produces = {"run3_dnn_moe_{hh,tt,dy}"}
 
     def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+
         # store dnn evaluation classes
         self.dnn_classes = {
             f: _run3_dnn.get_cls(f"run3_dnn_fold{f}_moe")
@@ -1037,6 +1043,8 @@ class vbf_dnn_moe(Producer):
     uses = {"event"}
 
     def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+
         # store the model version and check if onnx should be used which was used starting from v6 onwards
         self.vbf_dnn_version = self.config_inst.x.external_files.vbf_dnn_repo.version
         self.use_onnx = int(self.vbf_dnn_version[1:]) >= 6

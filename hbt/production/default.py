@@ -174,6 +174,8 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @default.init
 def default_init(self: Producer, **kwargs) -> None:
+    super(default, self).init_func(**kwargs)
+
     if self.produce_weights:
         weight_producers = {
             tau_weights,

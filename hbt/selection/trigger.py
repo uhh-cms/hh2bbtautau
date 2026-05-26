@@ -99,6 +99,8 @@ def trigger_selection(
 
 @trigger_selection.init
 def trigger_selection_init(self: Selector, **kwargs) -> None:
+    super(trigger_selection, self).init_func(**kwargs)
+
     # full used columns
     self.uses |= {
         opt(trigger.name)

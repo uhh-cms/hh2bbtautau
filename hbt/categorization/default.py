@@ -430,7 +430,8 @@ def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
 
 
 @cat_dy.init
-def cat_dy_init(self: Categorizer) -> None:
+def cat_dy_init(self: Categorizer, **kwargs) -> None:
+    super(cat_dy, self).init_func(**kwargs)
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
 
@@ -460,5 +461,6 @@ def cat_tt(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
 
 
 @cat_tt.init
-def cat_tt_init(self: Categorizer) -> None:
+def cat_tt_init(self: Categorizer, **kwargs) -> None:
+    super(cat_tt, self).init_func(**kwargs)
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")

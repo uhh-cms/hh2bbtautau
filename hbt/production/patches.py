@@ -47,6 +47,8 @@ def patch_ecalBadCalibFilter(
 
 @patch_ecalBadCalibFilter.init
 def patch_ecalBadCalibFilter_init(self: Producer, **kwargs) -> None:
+    super(patch_ecalBadCalibFilter, self).init_func(self, **kwargs)
+
     # only meant to be configured to run on data
     if not self.dataset_inst.is_data:
         raise Exception(f"{self} is only meant to run on data, but running on dataset {self.dataset_inst}")

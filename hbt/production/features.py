@@ -180,6 +180,8 @@ def dy_dnn_features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @dy_dnn_features.init
 def dy_dnn_features_init(self: Producer, **kwargs) -> None:
+    super(dy_dnn_features, self).init_func(**kwargs)
+
     # define mc weights that are to be multiplied
     if self.dataset_inst.is_mc:
         self.weight_names = [

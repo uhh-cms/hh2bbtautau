@@ -859,6 +859,8 @@ def tautau_trigger_weight(
 
 @tautau_trigger_weight.init
 def tautau_trigger_weight_init(self: Producer, **kwargs) -> None:
+    super(tautau_trigger_weight_init, self).init_func(**kwargs)
+
     # add column to load the raw tau tagger score
     self.uses.add(f"Tau.raw{self.config_inst.x.tau_tagger}VSjet")
 
@@ -944,7 +946,6 @@ def ee_mumu_trigger_weight(
     """
     Producer for ee and mumu trigger scale factors.
     """
-
     ee_mask = (events.channel_id == self.config_inst.channels.n.ee.id) & (ak.local_index(events.Electron) == 0)
     mumu_mask = (events.channel_id == self.config_inst.channels.n.mumu.id) & (ak.local_index(events.Muon) == 0)
     events = self[ee_trigger_weight](events, electron_mask=ee_mask, **kwargs)

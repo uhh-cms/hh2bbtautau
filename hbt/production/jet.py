@@ -83,12 +83,16 @@ def jet_trigger_efficiencies(
 
 @jet_trigger_efficiencies.init
 def jet_trigger_efficiencies_init(self: Producer, **kwargs) -> None:
+    super(jet_trigger_efficiencies, self).init_func(**kwargs)
+
     # add the product of nominal and up/down variations to produced columns
     self.produces.add(f"{self.efficiency_name}_{{data,mc}}{{,_up,_down}}")
 
 
 @jet_trigger_efficiencies.requires
-def jet_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict) -> None:
+def jet_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
+    super(jet_trigger_efficiencies, self).requires_func(task, reqs, **kwargs)
+
     if "external_files" in reqs:
         return
 
@@ -103,7 +107,10 @@ def jet_trigger_efficiencies_setup(
     reqs: dict,
     inputs: dict,
     reader_targets: law.util.InsertableDict,
+    **kwargs,
 ) -> None:
+    super(jet_trigger_efficiencies, self).setup_func(task, reqs, inputs, reader_targets, **kwargs)
+
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors
@@ -123,7 +130,8 @@ def jet_multiplicity(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 
 @jet_multiplicity.init
-def jet_multiplicity_init(self: Producer) -> None:
+def jet_multiplicity_init(self: Producer, **kwargs) -> None:
+    super(jet_multiplicity, self).init_func(**kwargs)
     self.uses.add(f"{self.jet_name}.pt")
 
 
@@ -136,7 +144,9 @@ def bjet_multiplicity(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 
 @bjet_multiplicity.init
-def bjet_multiplicity_init(self: Producer) -> None:
+def bjet_multiplicity_init(self: Producer, **kwargs) -> None:
+    super(bjet_multiplicity, self).init_func(**kwargs)
+
     self.btag_column = self.config_inst.x.btag_default.jet_column
     self.btag_wp = self.config_inst.x.btag_default.wp
 
@@ -297,6 +307,8 @@ def vbfjet_trigger_efficiencies(
 
 @vbfjet_trigger_efficiencies.init
 def vbfjet_trigger_efficiencies_init(self: Producer, **kwargs) -> None:
+    super(vbfjet_trigger_efficiencies, self).init_func(**kwargs)
+
     # add the product of nominal and up/down variations to produced columns
     if self.get_vbfjet_config().lep_used:
         self.uses.add("Electron.pt")
@@ -305,7 +317,9 @@ def vbfjet_trigger_efficiencies_init(self: Producer, **kwargs) -> None:
 
 
 @vbfjet_trigger_efficiencies.requires
-def vbfjet_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict) -> None:
+def vbfjet_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
+    super(vbfjet_trigger_efficiencies, self).requires_func(task, reqs, **kwargs)
+
     if "external_files" in reqs:
         return
 
@@ -320,7 +334,10 @@ def vbfjet_trigger_efficiencies_setup(
     reqs: dict,
     inputs: dict,
     reader_targets: law.util.InsertableDict,
+    **kwargs,
 ) -> None:
+    super(vbfjet_trigger_efficiencies, self).setup_func(task, reqs, inputs, reader_targets, **kwargs)
+
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors
@@ -391,13 +408,17 @@ def quadjet_jet_trigger_sf(
 
 @quadjet_jet_trigger_sf.init
 def quadjet_jet_trigger_sf_init(self: Producer, **kwargs) -> None:
+    super(quadjet_jet_trigger_sf, self).init_func(**kwargs)
+
     # add the product of nominal and up/down variations to produced columns
     self.uses.add(f"HHBJet.{self.config_inst.x.btag_default.jet_column}")
     self.produces.add(f"{self.sf_name}{{,_up,_down}}")
 
 
 @quadjet_jet_trigger_sf.requires
-def quadjet_jet_trigger_sf_requires(self: Producer, task: law.Task, reqs: dict) -> None:
+def quadjet_jet_trigger_sf_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
+    super(quadjet_jet_trigger_sf, self).requires_func(task, reqs, **kwargs)
+
     if "external_files" in reqs:
         return
 
@@ -412,7 +433,10 @@ def quadjet_jet_trigger_sf_setup(
     reqs: dict,
     inputs: dict,
     reader_targets: law.util.InsertableDict,
+    **kwargs,
 ) -> None:
+    super(quadjet_jet_trigger_sf, self).setup_func(task, reqs, inputs, reader_targets, **kwargs)
+
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors

@@ -91,6 +91,8 @@ class _external_dnn(Producer):
         return self.cls_name
 
     def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+
         # set feature production options when requested
         if self.produce_features is None:
             self.produce_features = self.config_inst.x.sync
@@ -122,6 +124,8 @@ class _external_dnn(Producer):
         self.produces |= set(self.output_columns)
 
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
+        super().requires_func(task, reqs, **kwargs)
+
         if "external_files" in reqs:
             return
 
@@ -129,6 +133,8 @@ class _external_dnn(Producer):
         reqs["external_files"] = BundleExternalFiles.req(task)
 
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
+        super().setup_func(task, reqs, **kwargs)
+
         from hbt.ml.evaluators import TorchEvaluator
 
         if not getattr(task, "taf_torch_evaluator", None):
@@ -156,6 +162,8 @@ class _external_dnn(Producer):
         """
         Stops the Torch evaluator.
         """
+        super().teardown_func(task, **kwargs)
+
         if (evaluator := getattr(task, "taf_torch_evaluator", None)):
             evaluator.stop()
         task.taf_torch_evaluator = None
@@ -453,7 +461,7 @@ class _e2e_dnn(_external_dnn):
     latent_dim = 50
 
     def init_func(self, **kwargs) -> None:
-        super(_e2e_dnn, self).init_func(**kwargs)
+        super().init_func(**kwargs)
 
         # store names of output columns for latent scores
         self.latent_output_columns = [

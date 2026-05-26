@@ -212,7 +212,9 @@ def electron_selection(
 
 
 @electron_selection.init
-def electron_selection_init(self) -> None:
+def electron_selection_init(self: Selector, **kwargs) -> None:
+    super(electron_selection, self).init_func(**kwargs)
+
     if self.config_inst.campaign.x.run == 3 and self.config_inst.campaign.x.year == 2022:
         self.shifts |= {
             shift_inst.name for shift_inst in self.config_inst.shifts
@@ -447,7 +449,9 @@ def tau_selection(
 
 
 @tau_selection.init
-def tau_selection_init(self: Selector) -> None:
+def tau_selection_init(self: Selector, **kwargs) -> None:
+    super(tau_selection, self).init_func(**kwargs)
+
     # register tec shifts
     self.shifts |= {
         shift_inst.name
@@ -1494,5 +1498,7 @@ def lepton_selection(
 
 @lepton_selection.init
 def lepton_selection_init(self: Selector, **kwargs) -> None:
+    super(lepton_selection, self).init_func(**kwargs)
+
     # add column to load the raw tau tagger score
     self.uses.add(f"Tau.raw{self.config_inst.x.tau_tagger}VSjet")
