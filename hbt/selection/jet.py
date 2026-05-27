@@ -995,7 +995,7 @@ def jet_selection_init(self: Selector, **kwargs) -> None:
 
 @jet_selection.setup
 def jet_selection_setup(self: Selector, task: law.Task, **kwargs) -> None:
-    super(jet_selection, self).setup_func(task, **kwargs)
+    super(jet_selection, self).setup_func(task=task, **kwargs)
 
     # store ids of tau-tau cross triggers
     self.trigger_ids_tt = [

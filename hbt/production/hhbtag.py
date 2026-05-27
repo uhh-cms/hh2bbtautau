@@ -200,7 +200,7 @@ def hhbtag_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> Non
     """
     Add the external files bundle to requirements.
     """
-    super(hhbtag, self).requires_func(task, reqs, **kwargs)
+    super(hhbtag, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     if "external_files" in reqs:
         return
@@ -219,7 +219,7 @@ def hhbtag_setup(
     """
     Sets up the two HHBtag TF models.
     """
-    super(hhbtag, self).setup_func(task, reqs, **kwargs)
+    super(hhbtag, self).setup_func(task=task, reqs=reqs, **kwargs)
 
     from hbt.ml.evaluators import TFEvaluator
 
@@ -281,7 +281,7 @@ def hhbtag_teardown(self: Producer, task: law.Task, **kwargs) -> None:
     """
     Stops the TF evaluator.
     """
-    super(hhbtag, self).teardown_func(task, **kwargs)
+    super(hhbtag, self).teardown_func(task=task, **kwargs)
 
     if (evaluator := getattr(task, "taf_tf_evaluator", None)):
         evaluator.stop()

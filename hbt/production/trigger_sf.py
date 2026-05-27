@@ -859,7 +859,7 @@ def tautau_trigger_weight(
 
 @tautau_trigger_weight.init
 def tautau_trigger_weight_init(self: Producer, **kwargs) -> None:
-    super(tautau_trigger_weight_init, self).init_func(**kwargs)
+    super(tautau_trigger_weight, self).init_func(**kwargs)
 
     # add column to load the raw tau tagger score
     self.uses.add(f"Tau.raw{self.config_inst.x.tau_tagger}VSjet")

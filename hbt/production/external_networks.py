@@ -124,7 +124,7 @@ class _external_dnn(Producer):
         self.produces |= set(self.output_columns)
 
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
-        super().requires_func(task, reqs, **kwargs)
+        super().requires_func(task=task, reqs=reqs, **kwargs)
 
         if "external_files" in reqs:
             return
@@ -133,7 +133,7 @@ class _external_dnn(Producer):
         reqs["external_files"] = BundleExternalFiles.req(task)
 
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
-        super().setup_func(task, reqs, **kwargs)
+        super().setup_func(task=task, reqs=reqs, **kwargs)
 
         from hbt.ml.evaluators import TorchEvaluator
 
@@ -162,7 +162,7 @@ class _external_dnn(Producer):
         """
         Stops the Torch evaluator.
         """
-        super().teardown_func(task, **kwargs)
+        super().teardown_func(task=task, **kwargs)
 
         if (evaluator := getattr(task, "taf_torch_evaluator", None)):
             evaluator.stop()

@@ -748,7 +748,7 @@ class run3_dnn_moe(Producer):
         return events
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:
-        super().teardown_func(task, **kwargs)
+        super().teardown_func(task=task, **kwargs)
 
         # remove outputs of required fold producers
         for inp in self.remove_fold_inputs:
@@ -1108,7 +1108,7 @@ class vbf_dnn_moe(Producer):
         return events
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:
-        super().teardown_func(task, **kwargs)
+        super().teardown_func(task=task, **kwargs)
 
         # remove outputs of required producers
         for inp in self.remove_fold_inputs:

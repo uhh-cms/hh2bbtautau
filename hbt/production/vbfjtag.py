@@ -233,7 +233,7 @@ def vbfjtag_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> No
     """
     Add the external files bundle to requirements.
     """
-    super(vbfjtag, self).requires_func(task, reqs, **kwargs)
+    super(vbfjtag, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     if "external_files" in reqs:
         return
@@ -252,7 +252,7 @@ def vbfjtag_setup(
     """
     Sets up the two VBFjTag TF models.
     """
-    super(vbfjtag, self).setup_func(task, reqs, **kwargs)
+    super(vbfjtag, self).setup_func(task=task, reqs=reqs, **kwargs)
 
     from hbt.ml.evaluators import TFEvaluator
 
@@ -311,7 +311,7 @@ def vbfjtag_teardown(self: Producer, task: law.Task, **kwargs) -> None:
     """
     Stops the TF evaluator.
     """
-    super(vbfjtag, self).teardown_func(task, **kwargs)
+    super(vbfjtag, self).teardown_func(task=task, **kwargs)
 
     if (evaluator := getattr(task, "taf_tf_evaluator", None)):
         evaluator.stop()

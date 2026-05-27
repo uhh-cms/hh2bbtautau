@@ -226,7 +226,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @tau_weights.requires
 def tau_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(tau_weights, self).requires_func(task, reqs, **kwargs)
+    super(tau_weights, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     if "external_files" in reqs:
         return
@@ -242,7 +242,7 @@ def tau_weights_setup(
     reqs: dict[str, DotDict[str, Any]],
     **kwargs,
 ) -> None:
-    super(tau_weights, self).setup_func(task, reqs, **kwargs)
+    super(tau_weights, self).setup_func(task=task, reqs=reqs, **kwargs)
 
     # create the trigger and id correctors
     tau_file = self.get_tau_file(reqs["external_files"].files)
@@ -468,7 +468,7 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
 
 @tau_trigger_efficiencies.requires
 def tau_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(tau_trigger_efficiencies, self).requires_func(task, reqs, **kwargs)
+    super(tau_trigger_efficiencies, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     if "external_files" in reqs:
         return
@@ -484,7 +484,7 @@ def tau_trigger_efficiencies_setup(
     reqs: dict[str, DotDict[str, Any]],
     **kwargs,
 ) -> None:
-    super(tau_trigger_efficiencies, self).setup_func(task, reqs, **kwargs)
+    super(tau_trigger_efficiencies, self).setup_func(task=task, reqs=reqs, **kwargs)
 
     # create the trigger and id correctors
     tau_file = self.get_tau_file(reqs["external_files"].files)
@@ -562,7 +562,7 @@ def quadjet_tau_trigger_sf_init(self: Producer, **kwargs) -> None:
 
 @quadjet_tau_trigger_sf.requires
 def quadjet_tau_trigger_sf_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(quadjet_tau_trigger_sf, self).requires_func(task, reqs, **kwargs)
+    super(quadjet_tau_trigger_sf, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     if "external_files" in reqs:
         return
@@ -580,7 +580,13 @@ def quadjet_tau_trigger_sf_setup(
     reader_targets: law.util.InsertableDict,
     **kwargs,
 ) -> None:
-    super(quadjet_tau_trigger_sf, self).setup_func(task, reqs, inputs, reader_targets, **kwargs)
+    super(quadjet_tau_trigger_sf, self).setup_func(
+        task=task,
+        reqs=reqs,
+        inputs=inputs,
+        reader_targets=reader_targets,
+        **kwargs,
+    )
 
     bundle = reqs["external_files"]
 

@@ -103,7 +103,7 @@ def normalized_pu_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Array
 
 @normalized_pu_weight.post_init
 def normalized_pu_weight_post_init(self: Producer, task: law.Task, **kwargs) -> None:
-    super(normalized_pu_weight, self).post_init_func(task, **kwargs)
+    super(normalized_pu_weight, self).post_init_func(task=task, **kwargs)
 
     # remember pu columns to read and produce
     self.pu_weight_names = {
@@ -122,7 +122,7 @@ def normalized_pu_weight_post_init(self: Producer, task: law.Task, **kwargs) -> 
 
 @normalized_pu_weight.requires
 def normalized_pu_weight_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(normalized_pu_weight, self).requires_func(task, reqs, **kwargs)
+    super(normalized_pu_weight, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     from columnflow.tasks.selection import MergeSelectionStats
     reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
@@ -133,7 +133,7 @@ def normalized_pu_weight_requires(self: Producer, task: law.Task, reqs: dict, **
 
 @normalized_pu_weight.setup
 def normalized_pu_weight_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
-    super(normalized_pu_weight, self).setup_func(task, inputs, **kwargs)
+    super(normalized_pu_weight, self).setup_func(task=task, inputs=inputs, **kwargs)
 
     import hist
 
@@ -182,7 +182,7 @@ def normalized_pdf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.Arra
 
 @normalized_pdf_weight.post_init
 def normalized_pdf_weight_post_init(self: Producer, task: law.Task, **kwargs) -> None:
-    super(normalized_pdf_weight, self).post_init_func(task, **kwargs)
+    super(normalized_pdf_weight, self).post_init_func(task=task, **kwargs)
 
     # remember pdf columns to read and produce
     self.pdf_weight_names = {
@@ -201,7 +201,7 @@ def normalized_pdf_weight_post_init(self: Producer, task: law.Task, **kwargs) ->
 
 @normalized_pdf_weight.requires
 def normalized_pdf_weight_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(normalized_pdf_weight, self).requires_func(task, reqs, **kwargs)
+    super(normalized_pdf_weight, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     from columnflow.tasks.selection import MergeSelectionStats
     reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
@@ -212,7 +212,7 @@ def normalized_pdf_weight_requires(self: Producer, task: law.Task, reqs: dict, *
 
 @normalized_pdf_weight.setup
 def normalized_pdf_weight_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
-    super(normalized_pdf_weight, self).setup_func(task, inputs, **kwargs)
+    super(normalized_pdf_weight, self).setup_func(task=task, inputs=inputs, **kwargs)
 
     # load the selection stats
     hists = task.cached_value(
@@ -250,7 +250,7 @@ def normalized_murmuf_weight(self: Producer, events: ak.Array, **kwargs) -> ak.A
 
 @normalized_murmuf_weight.post_init
 def normalized_murmuf_weight_post_init(self: Producer, task: law.Task, **kwargs) -> None:
-    super(normalized_murmuf_weight, self).post_init_func(task, **kwargs)
+    super(normalized_murmuf_weight, self).post_init_func(task=task, **kwargs)
 
     # remember mur/muf columns to read and produce
     self.mu_weight_names = {
@@ -269,7 +269,7 @@ def normalized_murmuf_weight_post_init(self: Producer, task: law.Task, **kwargs)
 
 @normalized_murmuf_weight.requires
 def normalized_murmuf_weight_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(normalized_murmuf_weight, self).requires_func(task, reqs, **kwargs)
+    super(normalized_murmuf_weight, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     from columnflow.tasks.selection import MergeSelectionStats
     reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
@@ -280,7 +280,7 @@ def normalized_murmuf_weight_requires(self: Producer, task: law.Task, reqs: dict
 
 @normalized_murmuf_weight.setup
 def normalized_murmuf_weight_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
-    super(normalized_murmuf_weight, self).setup_func(task, inputs, **kwargs)
+    super(normalized_murmuf_weight, self).setup_func(task=task, inputs=inputs, **kwargs)
 
     # load the selection stats
     hists = task.cached_value(
@@ -313,7 +313,7 @@ def normalized_ps_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Arra
 
 @normalized_ps_weights.post_init
 def normalized_ps_weights_post_init(self: Producer, task: law.Task, **kwargs) -> None:
-    super(normalized_ps_weights, self).post_init_func(task, **kwargs)
+    super(normalized_ps_weights, self).post_init_func(task=task, **kwargs)
 
     # remember ps weight columns to read and produce
     self.ps_weight_names = {
@@ -332,7 +332,7 @@ def normalized_ps_weights_post_init(self: Producer, task: law.Task, **kwargs) ->
 
 @normalized_ps_weights.requires
 def normalized_ps_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(normalized_ps_weights, self).requires_func(task, reqs, **kwargs)
+    super(normalized_ps_weights, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     from columnflow.tasks.selection import MergeSelectionStats
     reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
@@ -343,7 +343,7 @@ def normalized_ps_weights_requires(self: Producer, task: law.Task, reqs: dict, *
 
 @normalized_ps_weights.setup
 def normalized_ps_weights_setup(self: Producer, task: law.Task, inputs: dict, **kwargs) -> None:
-    super(normalized_ps_weights, self).setup_func(task, inputs, **kwargs)
+    super(normalized_ps_weights, self).setup_func(task=task, inputs=inputs, **kwargs)
 
     # load the selection stats
     hists = task.cached_value(
@@ -428,7 +428,7 @@ def _normalized_btag_weights_post_init(self: Producer, **kwargs) -> None:
 
 @_normalized_btag_weights.requires
 def _normalized_btag_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(_normalized_btag_weights, self).requires_func(task, reqs, **kwargs)
+    super(_normalized_btag_weights, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     from columnflow.tasks.selection import MergeSelectionStats
     reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
@@ -444,7 +444,7 @@ def _normalized_btag_weights_setup(
     inputs: dict[str, Any],
     **kwargs,
 ) -> None:
-    super(_normalized_btag_weights, self).setup_func(task, inputs, **kwargs)
+    super(_normalized_btag_weights, self).setup_func(task=task, inputs=inputs, **kwargs)
 
     import hist
 

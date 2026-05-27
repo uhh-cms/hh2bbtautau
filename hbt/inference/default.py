@@ -7,7 +7,6 @@ Default inference model.
 from __future__ import annotations
 
 import re
-import functools
 import itertools
 import collections
 
@@ -15,19 +14,12 @@ import law
 import order as od
 
 from columnflow.inference import ParameterType  # , ParameterTransformation
-from columnflow.config_util import get_datasets_from_process
 from columnflow.util import DotDict
 
 from hbt.inference.base import HBTInferenceModel
 
 
 logger = law.logger.get_logger(__name__)
-
-get_all_datasets_from_process = functools.partial(
-    get_datasets_from_process,
-    strategy="all",
-    only_first=False,
-)
 
 
 class default(HBTInferenceModel):

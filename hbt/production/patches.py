@@ -47,7 +47,7 @@ def patch_ecalBadCalibFilter(
 
 @patch_ecalBadCalibFilter.init
 def patch_ecalBadCalibFilter_init(self: Producer, **kwargs) -> None:
-    super(patch_ecalBadCalibFilter, self).init_func(self, **kwargs)
+    super(patch_ecalBadCalibFilter, self).init_func(**kwargs)
 
     # only meant to be configured to run on data
     if not self.dataset_inst.is_data:

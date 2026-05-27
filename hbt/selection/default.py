@@ -302,7 +302,7 @@ def default_init(self: Selector, **kwargs) -> None:
 
 @default.setup
 def default_setup(self: Selector, task: law.Task, **kwargs) -> None:
-    super(default, self).setup_func(task, **kwargs)
+    super(default, self).setup_func(task=task, **kwargs)
 
     # pre-define variable objects for creating stats histograms
     self.hist_vars = [

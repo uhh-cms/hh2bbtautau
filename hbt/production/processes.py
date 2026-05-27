@@ -242,7 +242,7 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
         ...
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
-        super().setup_func(task, **kwargs)
+        super().setup_func(task=task, **kwargs)
 
         import scipy.sparse
 
@@ -322,7 +322,7 @@ class stitched_process_ids_nj(stitched_process_ids):
         ...
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
-        super().setup_func(task, **kwargs)
+        super().setup_func(task=task, **kwargs)
 
         import scipy.sparse
 
@@ -408,7 +408,7 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         return super().call_func(events, **kwargs)
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
-        super().setup_func(task, **kwargs)
+        super().setup_func(task=task, **kwargs)
 
         import scipy.sparse
 
@@ -505,7 +505,7 @@ class stitched_process_ids_m(stitched_process_ids):
         self.produces |= cond(["process_id"])
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
-        super().setup_func(task, **kwargs)
+        super().setup_func(task=task, **kwargs)
 
         import scipy.sparse
 

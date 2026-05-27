@@ -91,7 +91,7 @@ def jet_trigger_efficiencies_init(self: Producer, **kwargs) -> None:
 
 @jet_trigger_efficiencies.requires
 def jet_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(jet_trigger_efficiencies, self).requires_func(task, reqs, **kwargs)
+    super(jet_trigger_efficiencies, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     if "external_files" in reqs:
         return
@@ -109,7 +109,13 @@ def jet_trigger_efficiencies_setup(
     reader_targets: law.util.InsertableDict,
     **kwargs,
 ) -> None:
-    super(jet_trigger_efficiencies, self).setup_func(task, reqs, inputs, reader_targets, **kwargs)
+    super(jet_trigger_efficiencies, self).setup_func(
+        task=task,
+        reqs=reqs,
+        inputs=inputs,
+        reader_targets=reader_targets,
+        **kwargs,
+    )
 
     bundle = reqs["external_files"]
 
@@ -318,7 +324,7 @@ def vbfjet_trigger_efficiencies_init(self: Producer, **kwargs) -> None:
 
 @vbfjet_trigger_efficiencies.requires
 def vbfjet_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(vbfjet_trigger_efficiencies, self).requires_func(task, reqs, **kwargs)
+    super(vbfjet_trigger_efficiencies, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     if "external_files" in reqs:
         return
@@ -336,7 +342,13 @@ def vbfjet_trigger_efficiencies_setup(
     reader_targets: law.util.InsertableDict,
     **kwargs,
 ) -> None:
-    super(vbfjet_trigger_efficiencies, self).setup_func(task, reqs, inputs, reader_targets, **kwargs)
+    super(vbfjet_trigger_efficiencies, self).setup_func(
+        task=task,
+        reqs=reqs,
+        inputs=inputs,
+        reader_targets=reader_targets,
+        **kwargs,
+    )
 
     bundle = reqs["external_files"]
 
@@ -417,7 +429,7 @@ def quadjet_jet_trigger_sf_init(self: Producer, **kwargs) -> None:
 
 @quadjet_jet_trigger_sf.requires
 def quadjet_jet_trigger_sf_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
-    super(quadjet_jet_trigger_sf, self).requires_func(task, reqs, **kwargs)
+    super(quadjet_jet_trigger_sf, self).requires_func(task=task, reqs=reqs, **kwargs)
 
     if "external_files" in reqs:
         return
@@ -435,7 +447,13 @@ def quadjet_jet_trigger_sf_setup(
     reader_targets: law.util.InsertableDict,
     **kwargs,
 ) -> None:
-    super(quadjet_jet_trigger_sf, self).setup_func(task, reqs, inputs, reader_targets, **kwargs)
+    super(quadjet_jet_trigger_sf, self).setup_func(
+        task=task,
+        reqs=reqs,
+        inputs=inputs,
+        reader_targets=reader_targets,
+        **kwargs,
+    )
 
     bundle = reqs["external_files"]
 
