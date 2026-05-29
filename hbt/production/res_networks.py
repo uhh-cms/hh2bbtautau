@@ -90,6 +90,9 @@ class _res_dnn_evaluation(Producer):
     produce_features: bool | None = None
     features_prefix: str = ""
 
+    # aggregation method
+    ensemble_aggregation: Literal["mean"] | None = None
+
     # produced columns are added in the deferred init below
     sandbox = dev_sandbox("bash::$HBT_BASE/sandboxes/venv_hbt.sh")
 
@@ -116,6 +119,8 @@ class _res_dnn_evaluation(Producer):
         return model_dir
 
     def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+
         assert self.btag_type in {"deepjet", "pnet", "upart", "none"}
 
         # set feature production options when requested
@@ -224,6 +229,8 @@ class _res_dnn_evaluation(Producer):
         """
         Stops the ML evaluator.
         """
+        super().teardown_func(task=task, **kwargs)
+
         attr = "taf_onnx_evaluator" if self.use_onnx else "taf_tf_evaluator"
         if (evaluator := getattr(task, attr, None)):
             evaluator.stop()
@@ -291,6 +298,11 @@ class _res_dnn_evaluation(Producer):
         del continuous_inputs
         del categorical_inputs
 
+        # scores potentially come from a ensemble of models without an aggregation layer, so in case dim is still 3,
+        # average manually over them
+        if scores.ndim == 3:
+            scores = self.aggregate_ensemble_output(scores)
+
         # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
         # so issue a warning and set them to a default value
         nan_mask = ~np.isfinite(scores)
@@ -320,6 +332,15 @@ class _res_dnn_evaluation(Producer):
                 events = set_ak_column_i32(events, f"{self.features_prefix}{self.cls_name}_{name}", values)
 
         return events
+
+    def aggregate_ensemble_output(self, scores: np.ndarray) -> np.ndarray:
+        if self.ensemble_aggregation == "mean":
+            return np.mean(scores, axis=1)
+
+        if not self.ensemble_aggregation:
+            return scores
+
+        raise ValueError(f"invalid ensemble aggregation method: {self.ensemble_aggregation}")
 
     def update_events(self, events: ak.Array) -> ak.Array:
         # ensure coffea behavior for HHBJets
@@ -670,6 +691,8 @@ class run3_dnn_moe(Producer):
     produces = {"run3_dnn_moe_{hh,tt,dy}"}
 
     def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+
         # store dnn evaluation classes
         self.dnn_classes = {
             f: _run3_dnn.get_cls(f"run3_dnn_fold{f}_moe")
@@ -725,7 +748,7 @@ class run3_dnn_moe(Producer):
         return events
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:
-        super().teardown_func(task, **kwargs)
+        super().teardown_func(task=task, **kwargs)
 
         # remove outputs of required fold producers
         for inp in self.remove_fold_inputs:
@@ -1020,6 +1043,8 @@ class vbf_dnn_moe(Producer):
     uses = {"event"}
 
     def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+
         # store the model version and check if onnx should be used which was used starting from v6 onwards
         self.vbf_dnn_version = self.config_inst.x.external_files.vbf_dnn_repo.version
         self.use_onnx = int(self.vbf_dnn_version[1:]) >= 6
@@ -1083,7 +1108,7 @@ class vbf_dnn_moe(Producer):
         return events
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:
-        super().teardown_func(task, **kwargs)
+        super().teardown_func(task=task, **kwargs)
 
         # remove outputs of required producers
         for inp in self.remove_fold_inputs:

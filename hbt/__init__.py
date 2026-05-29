@@ -8,6 +8,7 @@ import os
 import socket
 
 import law
+import order as od
 
 from hbt.columnflow_patches import patch_all
 
@@ -27,3 +28,11 @@ force_desy_resources = law.util.flag_to_bool(os.getenv("HBT_FORCE_DESY", "0"))
 
 # apply cf patches once
 patch_all()
+
+
+def get_config(name_or_id: str | int) -> od.Config:
+    """
+    Helper to load a config from the analysis by *name_or_id* and return it.
+    """
+    from hbt.config.analysis_hbt import analysis_hbt
+    return analysis_hbt.get_config(name_or_id)

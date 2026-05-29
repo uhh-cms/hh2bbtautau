@@ -80,6 +80,8 @@ class stitched_process_ids(Producer):
         ...
 
     def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+
         # if there is a include_condition set, apply it to both used and produced columns
         cond = lambda args: {self.include_condition(*args)} if self.include_condition else {*args}
         if (load := self.uses_for_stitching):
@@ -240,6 +242,8 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
         ...
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        super().setup_func(task=task, **kwargs)
+
         import scipy.sparse
 
         # fill stitching ranges
@@ -318,6 +322,8 @@ class stitched_process_ids_nj(stitched_process_ids):
         ...
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        super().setup_func(task=task, **kwargs)
+
         import scipy.sparse
 
         # fill stitching ranges
@@ -402,6 +408,8 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         return super().call_func(events, **kwargs)
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        super().setup_func(task=task, **kwargs)
+
         import scipy.sparse
 
         # fill stitching ranges
@@ -497,6 +505,8 @@ class stitched_process_ids_m(stitched_process_ids):
         self.produces |= cond(["process_id"])
 
     def setup_func(self, task: law.Task, **kwargs) -> None:
+        super().setup_func(task=task, **kwargs)
+
         import scipy.sparse
 
         # define stitching ranges for the DY datasets covered by this producer's dy_inclusive_dataset

@@ -181,6 +181,8 @@ def hhbtag(
 
 @hhbtag.init
 def hhbtag_init(self: Producer, **kwargs) -> None:
+    super(hhbtag, self).init_func(**kwargs)
+
     # get the model version (coincides with the external file version)
     self.hhbtag_version = self.config_inst.x.external_files.hh_btag_repo.version
 
@@ -198,6 +200,8 @@ def hhbtag_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> Non
     """
     Add the external files bundle to requirements.
     """
+    super(hhbtag, self).requires_func(task=task, reqs=reqs, **kwargs)
+
     if "external_files" in reqs:
         return
 
@@ -215,6 +219,8 @@ def hhbtag_setup(
     """
     Sets up the two HHBtag TF models.
     """
+    super(hhbtag, self).setup_func(task=task, reqs=reqs, **kwargs)
+
     from hbt.ml.evaluators import TFEvaluator
 
     if not getattr(task, "taf_tf_evaluator", None):
@@ -275,6 +281,8 @@ def hhbtag_teardown(self: Producer, task: law.Task, **kwargs) -> None:
     """
     Stops the TF evaluator.
     """
+    super(hhbtag, self).teardown_func(task=task, **kwargs)
+
     if (evaluator := getattr(task, "taf_tf_evaluator", None)):
         evaluator.stop()
     task.taf_tf_evaluator = None

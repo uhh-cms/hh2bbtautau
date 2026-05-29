@@ -226,6 +226,8 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @tau_weights.requires
 def tau_weights_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
+    super(tau_weights, self).requires_func(task=task, reqs=reqs, **kwargs)
+
     if "external_files" in reqs:
         return
 
@@ -240,6 +242,8 @@ def tau_weights_setup(
     reqs: dict[str, DotDict[str, Any]],
     **kwargs,
 ) -> None:
+    super(tau_weights, self).setup_func(task=task, reqs=reqs, **kwargs)
+
     # create the trigger and id correctors
     tau_file = self.get_tau_file(reqs["external_files"].files)
     correction_set = load_correction_set(tau_file)
@@ -464,6 +468,8 @@ def tau_trigger_efficiencies(self: Producer, events: ak.Array, **kwargs) -> ak.A
 
 @tau_trigger_efficiencies.requires
 def tau_trigger_efficiencies_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
+    super(tau_trigger_efficiencies, self).requires_func(task=task, reqs=reqs, **kwargs)
+
     if "external_files" in reqs:
         return
 
@@ -478,6 +484,8 @@ def tau_trigger_efficiencies_setup(
     reqs: dict[str, DotDict[str, Any]],
     **kwargs,
 ) -> None:
+    super(tau_trigger_efficiencies, self).setup_func(task=task, reqs=reqs, **kwargs)
+
     # create the trigger and id correctors
     tau_file = self.get_tau_file(reqs["external_files"].files)
     corrector_name = self.get_tau_corrector()
@@ -546,12 +554,16 @@ def quadjet_tau_trigger_sf(
 
 @quadjet_tau_trigger_sf.init
 def quadjet_tau_trigger_sf_init(self: Producer, **kwargs) -> None:
+    super(quadjet_tau_trigger_sf, self).init_func(**kwargs)
+
     # add the product of nominal and up/down variations to produced columns
     self.produces.add(f"{self.sf_name}{{,_up,_down}}")
 
 
 @quadjet_tau_trigger_sf.requires
-def quadjet_tau_trigger_sf_requires(self: Producer, task: law.Task, reqs: dict) -> None:
+def quadjet_tau_trigger_sf_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> None:
+    super(quadjet_tau_trigger_sf, self).requires_func(task=task, reqs=reqs, **kwargs)
+
     if "external_files" in reqs:
         return
 
@@ -566,7 +578,16 @@ def quadjet_tau_trigger_sf_setup(
     reqs: dict,
     inputs: dict,
     reader_targets: law.util.InsertableDict,
+    **kwargs,
 ) -> None:
+    super(quadjet_tau_trigger_sf, self).setup_func(
+        task=task,
+        reqs=reqs,
+        inputs=inputs,
+        reader_targets=reader_targets,
+        **kwargs,
+    )
+
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors

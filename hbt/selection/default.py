@@ -257,6 +257,8 @@ def default(
 
 @default.init
 def default_init(self: Selector, **kwargs) -> None:
+    super(default, self).init_func(**kwargs)
+
     # build and store derived process id producers
     self.stitch_tags = [
         "dy_amcatnlo_2223",
@@ -300,6 +302,8 @@ def default_init(self: Selector, **kwargs) -> None:
 
 @default.setup
 def default_setup(self: Selector, task: law.Task, **kwargs) -> None:
+    super(default, self).setup_func(task=task, **kwargs)
+
     # pre-define variable objects for creating stats histograms
     self.hist_vars = [
         od.Variable(

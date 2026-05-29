@@ -142,6 +142,8 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
 
 @default.init
 def default_init(self: Calibrator, **kwargs) -> None:
+    super(default, self).init_func(**kwargs)
+
     # set the name of the met collection to use
     met_name = self.config_inst.x.met_name
     raw_met_name = self.config_inst.x.raw_met_name
