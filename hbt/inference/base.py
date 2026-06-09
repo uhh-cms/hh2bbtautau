@@ -159,6 +159,7 @@ class HBTInferenceModel(HBTInferenceModelBase):
                         combine_name
                         for config_inst, proc_name in proc_map.items()
                         if not config_inst.get_process(proc_name).has_tag(self.signal_process_tag)
+                        or proc_name in {"hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1"}
                     }
                     for combine_name, proc_map in self.proc_map.items()
                 )))
@@ -195,7 +196,7 @@ class HBTInferenceModel(HBTInferenceModelBase):
                 if not is_dynamic:
                     dataset_names = [dataset.name for dataset in get_all_datasets_from_process(config_inst, proc_name)]
                     if not dataset_names:
-                        logger.debug(
+                        logger.info(
                             f"skipping process {proc_name} in inference model {self.cls_name}, no matching datasets "
                             f"found in config {config_inst.name}",
                         )
