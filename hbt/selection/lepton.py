@@ -191,8 +191,8 @@ def electron_selection(
 
         # control mask for the electron selection
         # updated to 12 GeV for VBF strategy in 2023, but applied for all channels and eras
-        control_mask = default_mask & (events.Electron.pt > 12.0)
-        # control_mask = default_mask & (events.Electron.pt > 24.0)  # this would disable the VBF phase space
+        # control_mask = default_mask & (events.Electron.pt > 12.0)
+        control_mask = default_mask & (events.Electron.pt > 24.0)  # this would disable the VBF phase space
         # additional eta cut for the cross triggers, should not influence the delta r vetoing for taus
         # as it is a trigger specific cut and thus applied after the base tau selection
         max_eta_trigger = 2.1 if is_cross else 2.5
@@ -300,8 +300,8 @@ def muon_selection(
         )
         # pt control mask cut updated to 6 GeV for VBF strategy in 2023,
         # but applied for all channels and eras
-        control_mask = default_mask & (events.Muon.pt > 6.0)
-        # control_mask = default_mask & (events.Muon.pt > 20.0)  # this would disable the VBF phase space
+        # control_mask = default_mask & (events.Muon.pt > 6.0)
+        control_mask = default_mask & (events.Muon.pt > 20.0)  # this would disable the VBF phase space
         # additional eta cut for the cross triggers, should not influence the delta r vetoing for taus
         # as it is a trigger specific cut and thus applied after the base tau selection
         eta_cut_trigger = 2.1 if is_cross else 2.4
@@ -314,8 +314,8 @@ def muon_selection(
         (abs(events.Muon.dxy) < 0.045) &
         (abs(events.Muon.dz) < 0.2) &
         (events.Muon.pfRelIso04_all < 0.3) &
-        (events.Muon.pt > 6.0)
-        #  (events.Muon.pt > 10.0)  # this would disable the VBF phase space
+        # (events.Muon.pt > 6.0)
+        (events.Muon.pt > 10.0)  # this would disable the VBF phase space
     )
 
     return analysis_mask, control_mask, veto_mask
