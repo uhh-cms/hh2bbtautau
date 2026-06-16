@@ -1413,7 +1413,7 @@ def lepton_selection(
                 matched_trigger_ids.append(ak.drop_none(ak.nan_to_none(ids)))
 
     # some final type conversions
-    channel_id = ak.values_astype(channel_id, np.uint8)
+    channel_id = ak.values_astype(channel_id, np.int8)
     leptons_os = ak.fill_none(leptons_os, False)
 
     # concatenate matched trigger ids
