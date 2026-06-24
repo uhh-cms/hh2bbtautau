@@ -2028,7 +2028,7 @@ def add_config(
         ))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        add_external("dy_weight_sf", ("/data/dust/user/alvesand/hh2bbtautau/hbt_store/analysis_hbt/hbt.ExportDYWeights/22pre_v14__22post_v14__23pre_v14__23post_v14__24_v15/prod24/hbt_corrections.json.gz", "v5"))
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"

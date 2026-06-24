@@ -196,9 +196,9 @@ class HBTInferenceModel(HBTInferenceModelBase):
                 if not is_dynamic:
                     dataset_names = [dataset.name for dataset in get_all_datasets_from_process(config_inst, proc_name)]
                     if not dataset_names:
-                        logger.info(
-                            f"skipping process {proc_name} in inference model {self.cls_name}, no matching datasets "
-                            f"found in config {config_inst.name}",
+                        logger.warning(
+                            f"skipping process {proc_name} in inference model '{self.cls_name}', no matching datasets "
+                            f"found in config '{config_inst.name}'",
                         )
                         continue
 
