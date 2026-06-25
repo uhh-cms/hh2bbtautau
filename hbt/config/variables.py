@@ -944,6 +944,8 @@ class VarDiHHBJet(VarExp):
         events = attach_coffea_behavior(events, {"HHBJet": "Jet"})
         hhbjets = events.HHBJet[:, :2]
 
+        if attr == "raw":
+            return hhbjets
         if attr == "dr":
             return delta_r12(hhbjets)
 
@@ -974,6 +976,8 @@ class VarDiLepVis(VarExp):
     def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
         leps = stack_lvectors([events.Electron, events.Muon, events.Tau])[..., :2]
 
+        if attr == "raw":
+            return leps
         if attr == "dr":
             return delta_r12(leps)
 
@@ -1019,6 +1023,12 @@ class VarDiLepReg(VarExp):
         if attr == "nus":
             return nu1, nu2
 
+        if attr == "dr":
+            lepsvis = self.dilepvis(events, attr="raw")
+            l1_reg = stack_lvectors([nu1, lepsvis[:, 0]]).sum(axis=-1)
+            l2_reg = stack_lvectors([nu2, lepsvis[:, 1]]).sum(axis=-1)
+            return delta_r12(stack_lvectors([l1_reg, l2_reg]))
+
         # build the full system
         dilepreg = stack_lvectors([nu1, nu2, dilepvis]).sum(axis=-1)
 
@@ -1060,6 +1070,8 @@ class VarHHVis(VarExp):
         dilepvis = self.dilepvis(events)
         hs = stack_lvectors([dihhbjet, dilepvis])
 
+        if attr == "raw":
+            return hs
         if attr == "dr":
             return delta_r12(hs)
 
@@ -1092,6 +1104,8 @@ class VarHHReg(VarExp):
         dilepreg = self.dilepreg(events)
         hs = stack_lvectors([dihhbjet, dilepreg])
 
+        if attr == "raw":
+            return hs
         if attr == "dr":
             return delta_r12(hs)
 
@@ -1123,6 +1137,8 @@ class VarHHGen(VarExp):
         assert ak.all(ak.num(events.gen_higgs.h, axis=-1) == 2)
         hh = with_type("LorentzVector", events.gen_higgs.h)
 
+        if attr == "raw":
+            return hh
         if attr == "dr":
             return delta_r12(hh)
 

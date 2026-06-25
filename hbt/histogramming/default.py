@@ -96,3 +96,7 @@ for weight_name in [
     "top_pt_weight",
 ]:
     default.derive(f"no_{weight_name}", cls_dict={"drop_weights": {"normalization_weight_inclusive", weight_name}})
+
+default.derive("no_tau_and_trigger_weight", cls_dict={
+    "drop_weights": {"normalization_weight_inclusive", "tau_weight", "trigger_weight"},
+})
