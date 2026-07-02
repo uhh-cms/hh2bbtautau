@@ -27,7 +27,7 @@ ak = maybe_import("awkward")
 
 
 hbt_category_ids = category_ids.derive("hbt_category_ids", cls_dict={
-    "require_producers": ["reg_dnn_moe", "vbf_dnn_moe"],
+    "require_producers": ["run3_dnn_moe", "reg_dnn_moe", "vbf_dnn_moe"],
 })
 
 electron_id_weights = electron_weights.derive(
