@@ -248,22 +248,28 @@ def add_variables(config: od.Config) -> None:
         x_title="Normalized pileup weight",
     )
     add_variable(
-        name="btag_weight",
-        expression="btag_weight",
+        name="btag_weights_pnet",
+        expression="btag_weights_pnet",
         binning=(60, 0, 3),
-        x_title="b-tag weight",
+        x_title="b-tag weight (PNet)",
     )
     add_variable(
-        name="normalized_btag_weight",
+        name="normalized_btag_weight_pnet",
         expression="normalized_btag_weight",
         binning=(60, 0, 3),
-        x_title="Normalized b-tag weight",
+        x_title="Normalized b-tag weight (PNet)",
     )
     add_variable(
-        name="normalized_njet_btag_weight",
-        expression="normalized_njet_btag_weight",
+        name="normalized_njet_btag_weight_pnet",
+        expression="normalized_njet_btag_weight_pnet",
         binning=(60, 0, 3),
-        x_title="$N_{jet}$ normalized b-tag weight",
+        x_title="$N_{jet}$ normalized b-tag weight (PNet)",
+    )
+    add_variable(
+        name="btag_weights_upart",
+        expression="btag_weights_upart",
+        binning=(60, 0, 3),
+        x_title="b-tag weight (UParT)",
     )
 
     # cutflow variables

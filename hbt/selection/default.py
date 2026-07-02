@@ -229,7 +229,7 @@ def default(
 
     # combined event selection after all but the bjet step
     def event_sel_nob(btag_weight_cls):
-        tagger_name = btag_weights_deepjet.tagger_name
+        tagger_name = btag_weight_cls.tagger_name
         var_sel = results.steps[f"all_but_bjet_{tagger_name}"] = reduce(and_, [
             mask for step_name, mask in results.steps.items()
             if step_name != f"bjet_{tagger_name}"
@@ -247,7 +247,7 @@ def default(
         no_sel=no_sel,
         event_sel=event_sel,
         event_sel_variations={
-            "nob_deepjet": event_sel_nob(btag_weights_deepjet) if self.has_dep(btag_weights_deepjet) else None,
+            # "nob_deepjet": event_sel_nob(btag_weights_deepjet) if self.has_dep(btag_weights_deepjet) else None,
             "nob_pnet": event_sel_nob(btag_weights_pnet) if self.has_dep(btag_weights_pnet) else None,
         },
     )
@@ -460,7 +460,7 @@ def empty_call(
         no_sel=no_sel,
         event_sel=results.event,
         event_sel_variations={
-            "nob_deepjet": results.event if self.has_dep(btag_weights_deepjet) else None,
+            # "nob_deepjet": results.event if self.has_dep(btag_weights_deepjet) else None,
             "nob_pnet": results.event if self.has_dep(btag_weights_pnet) else None,
         },
     )
@@ -556,7 +556,7 @@ def increment_stats(
                 add(f"sum_fsr_weight{v}_selected", event_sel, events[f"fsr_weight{v}"])
 
         # btag weights
-        for prod in [btag_weights_deepjet, btag_weights_pnet]:
+        for prod in [btag_weights_pnet]:
             if not self.has_dep(prod):
                 continue
             for route in sorted(self[prod].produced_columns):
