@@ -922,6 +922,204 @@ def add_config(
     cfg.x.minbias_xs = Number(69.2, 0.046j)
 
     ################################################################################################
+    # b tagging
+    ################################################################################################
+
+    # b-tag working points
+    btag_key = f"{year}{campaign.x.postfix}"
+    if run == 2:
+        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16preVFP?rev=6
+        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16postVFP?rev=8
+        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
+        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL18?rev=18
+        cfg.x.btag_working_points = DotDict.wrap({
+            "deepjet": {
+                "loose": {"2016APV": 0.0508, "2016": 0.0480, "2017": 0.0532, "2018": 0.0490}[btag_key],
+                "medium": {"2016APV": 0.2598, "2016": 0.2489, "2017": 0.3040, "2018": 0.2783}[btag_key],
+                "tight": {"2016APV": 0.6502, "2016": 0.6377, "2017": 0.7476, "2018": 0.7100}[btag_key],
+            },
+            "deepcsv": {
+                "loose": {"2016APV": 0.2027, "2016": 0.1918, "2017": 0.1355, "2018": 0.1208}[btag_key],
+                "medium": {"2016APV": 0.6001, "2016": 0.5847, "2017": 0.4506, "2018": 0.4168}[btag_key],
+                "tight": {"2016APV": 0.8819, "2016": 0.8767, "2017": 0.7738, "2018": 0.7665}[btag_key],
+            },
+            # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005 chapter 4.5 in v12
+            "particleNetMD": {
+                "hp": {"2016APV": 0.9883, "2016": 0.9883, "2017": 0.9870, "2018": 0.9880}[btag_key],
+                "mp": {"2016APV": 0.9737, "2016": 0.9735, "2017": 0.9714, "2018": 0.9734}[btag_key],
+                "lp": {"2016APV": 0.9088, "2016": 0.9137, "2017": 0.9105, "2018": 0.9172}[btag_key],
+            },
+        })
+
+        # btag columns and working point values for easy use throughout the code
+        cfg.x.btag_deepjet = DotDict(
+            btv_name="DeepFlav",
+            jet_column="btagDeepFlavB",
+            wp=cfg.x.btag_working_points.deepjet.medium,
+            weight_column="normalized_njet_btag_weight_deepjet",
+        )
+        cfg.x.btag_default = cfg.x.btag_default
+    elif run == 3:
+        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22
+        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE
+        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23
+        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23BPix
+        cfg.x.btag_working_points = DotDict.wrap({
+            "deepjet": {
+                "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048, "2024": None}[btag_key],
+                "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.2431, "2023BPix": 0.2435, "2024": None}[btag_key],
+                "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.6553, "2023BPix": 0.6563, "2024": None}[btag_key],
+                "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.7667, "2023BPix": 0.7671, "2024": None}[btag_key],
+                "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.9459, "2023BPix": 0.9483, "2024": None}[btag_key],  # noqa: E501
+            },
+            "particleNet": {
+                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359, "2024": None}[btag_key],
+                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919, "2024": None}[btag_key],  # noqa: E501
+                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133, "2024": None}[btag_key],  # noqa: E501
+                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544, "2024": None}[btag_key],  # noqa: E501
+                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688, "2024": None}[btag_key],  # noqa: E501
+            },
+            # 2024 wps can be taken from "UParTAK4_wp_values" correction set in BTV correctionlib file
+            "upart": {
+                "loose": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.0246}[btag_key],
+                "medium": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.1272}[btag_key],
+                "tight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.4648}[btag_key],
+                "xtight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.6298}[btag_key],
+                "xxtight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.9739}[btag_key],
+            },
+            # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005 chapter 4.5 in v12
+            # performance studies for run 3 available and show improvements:
+            # https://cds.cern.ch/record/2904691/files/DP2024_055.pdf
+            # TODO: fallback to run2, due to missing wp values
+            "particleNetMD": {
+                "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880, "2024": 0.9880}[btag_key],
+                "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734, "2024": 0.9734}[btag_key],
+                "lp": {"2022": 0.9088, "2022EE": 0.9137, "2023": 0.9105, "2023BPix": 0.9172, "2024": 0.9172}[btag_key],
+            },
+        })
+
+        # btag columns and working point values for easy use throughout the code
+        cfg.x.btag_deepjet = DotDict(
+            btv_name="DeepFlav",
+            jet_column="btagDeepFlavB",
+            wp=cfg.x.btag_working_points.deepjet.medium,
+            weight_column="normalized_njet_btag_weight_deepjet",
+        )
+        cfg.x.btag_pnet = DotDict(
+            btv_name="PNet",
+            jet_column="btagPNetB",
+            wp=cfg.x.btag_working_points.particleNet.medium,
+            weight_column="normalized_njet_btag_weight_pnet",
+        )
+        cfg.x.btag_upart = DotDict(
+            btv_name="UParT",
+            jet_column="btagUParTAK4B",
+            wp=cfg.x.btag_working_points.upart.medium,
+            weight_column="btag_weight",  # no need for normalization in wp based method
+        )
+        cfg.x.btag_default = cfg.x.btag_upart if year == 2024 else cfg.x.btag_pnet
+    else:
+        assert False
+
+    # JEC uncertainty sources propagated to btag scale factors
+    # (names derived from contents in BTV correctionlib file)
+    cfg.x.btag_sf_jec_sources = [
+        "",  # same as "Total"
+        "Absolute",
+        "AbsoluteMPFBias",
+        "AbsoluteScale",
+        "AbsoluteStat",
+        f"Absolute_{year}",
+        "BBEC1",
+        f"BBEC1_{year}",
+        "EC2",
+        f"EC2_{year}",
+        "FlavorQCD",
+        "Fragmentation",
+        "HF",
+        f"HF_{year}",
+        "PileUpDataMC",
+        "PileUpPtBB",
+        "PileUpPtEC1",
+        "PileUpPtEC2",
+        "PileUpPtHF",
+        "PileUpPtRef",
+        "RelativeBal",
+        "RelativeFSR",
+        "RelativeJEREC1",
+        "RelativeJEREC2",
+        "RelativeJERHF",
+        "RelativePtBB",
+        "RelativePtEC1",
+        "RelativePtEC2",
+        "RelativePtHF",
+        "RelativeSample",
+        f"RelativeSample_{year}",
+        "RelativeStatEC",
+        "RelativeStatFSR",
+        "RelativeStatHF",
+        "SinglePionECAL",
+        "SinglePionHCAL",
+        "TimePtEta",
+    ]
+
+    from columnflow.production.cms.btag import BTagSFConfig
+    cfg.x.btag_sf_deepjet = BTagSFConfig(
+        correction_set="deepJet_shape",
+        jec_sources=cfg.x.btag_sf_jec_sources,
+        discriminator=cfg.x.btag_deepjet.jet_column,
+    )
+    if run == 3:
+        if year != 2024:
+            cfg.x.btag_sf_pnet = BTagSFConfig(
+                correction_set="particleNet_shape",
+                jec_sources=cfg.x.btag_sf_jec_sources,
+                discriminator=cfg.x.btag_default.jet_column,
+            )
+        else:
+            from columnflow.selection.cms.btag import BTagWPCountConfig
+            cfg.x.btag_wp_count_config = BTagWPCountConfig(
+                jet_name="Jet",
+                btag_column=cfg.x.btag_default.jet_column,
+                btag_wps=cfg.x.btag_working_points.upart.copy(),
+                pt_edges=(0, 20, 30, 50, 70, 100, 140, 200, 300, 600, 10_000),
+                abs_eta_edges=(0.0, 1.0, 1.5, 2.0, 5.0),
+            )
+
+            from columnflow.production.cms.btag import BTagWPSFConfig
+
+            def dataset_groups(dataset_inst: od.Dataset) -> list[od.Dataset]:
+                # check which group the dataset belongs to
+                for group_index in range(len(cfg.x.btag_wp_eff_groups)):
+                    group_tag = f"btag_wp_eff_group_{group_index}"
+                    if dataset_inst.has_tag(group_tag):
+                        return [
+                            _dataset_inst
+                            for _dataset_inst in cfg.datasets
+                            if _dataset_inst.has_tag(group_tag)
+                        ]
+                raise NotImplementedError(f"btag WP efficiency group not implemented for dataset {dataset_inst.name}")
+
+            cfg.x.btag_wp_sf_config = BTagWPSFConfig(
+                jet_name="Jet",
+                btag_column=cfg.x.btag_default.jet_column,
+                correction_set="UParTAK4_merged",
+                btag_wps={
+                    name: value for name, value in cfg.x.btag_working_points.upart.items()
+                    if name != "xxtight"
+                },
+                dataset_groups=dataset_groups,
+                # merge pt and eta bins w.r.t. btag_wp_count_config
+                # (dropped pt 600 and eta 2.0)
+                pt_edges=(0, 20, 30, 50, 70, 100, 140, 200, 300, 10_000),
+                abs_eta_edges=(0.0, 1.0, 1.5, 5.0),
+                # also merge xxtight with xtight
+                wp_merging={
+                    "xtight": ["xtight", "xxtight"],
+                },
+            )
+
+    ################################################################################################
     # met settings
     ################################################################################################
 
@@ -967,6 +1165,8 @@ def add_config(
     #       dependence, usage in calibrator, etc
     ################################################################################################
 
+    from columnflow.calibration.cms.jets import JECConfig, BJECConfig, JERConfig
+
     # common jec/jer settings configuration
     if run == 2:
         # https://cms-jerc.web.cern.ch/Recommendations/#run-2
@@ -988,11 +1188,11 @@ def add_config(
         }[(year, campaign.x.postfix)]
         jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         jec_version = {
-            (2022, ""): "V3",
-            (2022, "EE"): "V3",
-            (2023, ""): "V3",
-            (2023, "BPix"): "V3",
-            (2024, ""): "V2",
+            (2022, ""): "V4",
+            (2022, "EE"): "V4",
+            (2023, ""): "V4",
+            (2023, "BPix"): "V4",
+            (2024, ""): "V3",
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         if year == 2024:
@@ -1002,7 +1202,7 @@ def add_config(
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
         if year == 2024:
             jer_campaign += "_RunD"
-        jer_version = "JR" + {2022: "V1", 2023: "V1", 2024: "V1"}[year]
+        jer_version = "JR" + {2022: "V2", 2023: "V2", 2024: "V1"}[year]
         jet_type = "AK4PFPuppi"
     else:
         assert False
@@ -1079,25 +1279,52 @@ def add_config(
         "Regrouped_Total": True,
     }
 
+    # BJEC
+    use_bjec = False  # run == 3 # note: set to False to disable BJEC
+    bjec_config = None
+    if use_bjec:
+        # https://cms-jerc.web.cern.ch/ExpJEC/#jec-for-pnet-and-upart-regressed-jets
+        # https://cms-jerc.web.cern.ch/JES/#remarks-on-getting-rawpt-and-mass-for-regular-pnet-and-upart-jets
+        bjec_config = BJECConfig(
+            jet_types=(
+                # tagged jets
+                f"AK4PFPuppi{cfg.x.btag_default.btv_name}RegressionPlusNeutrino",
+                # untagged jets
+                f"AK4PFPuppi{cfg.x.btag_default.btv_name}Regression",
+            ),
+            regr_factors=(
+                # tagged jets
+                f"{cfg.x.btag_default.btv_name}{'AK4' if cfg.x.btag_default.btv_name == 'UParT' else ''}RegPtRawCorrNeutrino",  # noqa: E501
+                # untagged jets
+                f"{cfg.x.btag_default.btv_name}{'AK4' if cfg.x.btag_default.btv_name == 'UParT' else ''}RegPtRawCorr",
+            ),
+            bjet_selection=(lambda events: events.Jet[cfg.x.btag_default.jet_column] > cfg.x.btag_default.wp),
+            bjet_selection_columns={cfg.x.btag_default.jet_column},
+        )
+
+    # JEC
     cfg.x.jec = DotDict.wrap({
-        "Jet": {
-            "campaign": jec_campaign,
-            "version": jec_version,
-            "data_per_era": False,  # no more era-dependence in latest jec campaigns
-            "jet_type": jet_type,
-            "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
-            "levels_for_type1_met": ["L1FastJet"],
-            "uncertainty_sources": [src for src, flag in all_jec_sources.items() if flag],
-        },
+        "Jet": JECConfig(
+            jet_name="Jet",
+            jet_type=jet_type,
+            campaign=jec_campaign,
+            version=jec_version,
+            levels=["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
+            levels_for_type1_met=["L1FastJet"],
+            data_per_era=False,  # no more era-dependence in latest jec campaigns
+            uncertainty_sources=[src for src, flag in all_jec_sources.items() if flag],
+            bjec_config=bjec_config,
+        ),
     })
 
     # JER
     cfg.x.jer = DotDict.wrap({
-        "Jet": {
-            "campaign": jer_campaign,
-            "version": jer_version,
-            "jet_type": jet_type,
-        },
+        "Jet": JERConfig(
+            jet_name="Jet",
+            jet_type=jet_type,
+            campaign=jer_campaign,
+            version=jer_version,
+        ),
     })
 
     # updated jet id
@@ -1318,200 +1545,6 @@ def add_config(
         )
     else:
         assert False
-
-    ################################################################################################
-    # b tagging
-    ################################################################################################
-
-    # b-tag working points
-    btag_key = f"{year}{campaign.x.postfix}"
-    if run == 2:
-        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16preVFP?rev=6
-        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16postVFP?rev=8
-        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
-        # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL18?rev=18
-        cfg.x.btag_working_points = DotDict.wrap({
-            "deepjet": {
-                "loose": {"2016APV": 0.0508, "2016": 0.0480, "2017": 0.0532, "2018": 0.0490}[btag_key],
-                "medium": {"2016APV": 0.2598, "2016": 0.2489, "2017": 0.3040, "2018": 0.2783}[btag_key],
-                "tight": {"2016APV": 0.6502, "2016": 0.6377, "2017": 0.7476, "2018": 0.7100}[btag_key],
-            },
-            "deepcsv": {
-                "loose": {"2016APV": 0.2027, "2016": 0.1918, "2017": 0.1355, "2018": 0.1208}[btag_key],
-                "medium": {"2016APV": 0.6001, "2016": 0.5847, "2017": 0.4506, "2018": 0.4168}[btag_key],
-                "tight": {"2016APV": 0.8819, "2016": 0.8767, "2017": 0.7738, "2018": 0.7665}[btag_key],
-            },
-            # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005 chapter 4.5 in v12
-            "particleNetMD": {
-                "hp": {"2016APV": 0.9883, "2016": 0.9883, "2017": 0.9870, "2018": 0.9880}[btag_key],
-                "mp": {"2016APV": 0.9737, "2016": 0.9735, "2017": 0.9714, "2018": 0.9734}[btag_key],
-                "lp": {"2016APV": 0.9088, "2016": 0.9137, "2017": 0.9105, "2018": 0.9172}[btag_key],
-            },
-        })
-
-        # btag columns and working point values for easy use throughout the code
-        cfg.x.btag_deepjet = DotDict(
-            jet_column="btagDeepFlavB",
-            wp=cfg.x.btag_working_points.deepjet.medium,
-            weight_column="normalized_njet_btag_weight_deepjet",
-        )
-        cfg.x.btag_default = cfg.x.btag_default
-    elif run == 3:
-        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22
-        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE
-        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23
-        # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23BPix
-        cfg.x.btag_working_points = DotDict.wrap({
-            "deepjet": {
-                "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048, "2024": None}[btag_key],
-                "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.2431, "2023BPix": 0.2435, "2024": None}[btag_key],
-                "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.6553, "2023BPix": 0.6563, "2024": None}[btag_key],
-                "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.7667, "2023BPix": 0.7671, "2024": None}[btag_key],
-                "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.9459, "2023BPix": 0.9483, "2024": None}[btag_key],  # noqa: E501
-            },
-            "particleNet": {
-                "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0358, "2023BPix": 0.0359, "2024": None}[btag_key],
-                "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.1917, "2023BPix": 0.1919, "2024": None}[btag_key],  # noqa: E501
-                "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.6172, "2023BPix": 0.6133, "2024": None}[btag_key],  # noqa: E501
-                "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.7515, "2023BPix": 0.7544, "2024": None}[btag_key],  # noqa: E501
-                "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.9659, "2023BPix": 0.9688, "2024": None}[btag_key],  # noqa: E501
-            },
-            # 2024 wps can be taken from "UParTAK4_wp_values" correction set in BTV correctionlib file
-            "upart": {
-                "loose": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.0246}[btag_key],
-                "medium": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.1272}[btag_key],
-                "tight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.4648}[btag_key],
-                "xtight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.6298}[btag_key],
-                "xxtight": {"2022": None, "2022EE": None, "2023": None, "2023BPix": None, "2024": 0.9739}[btag_key],
-            },
-            # https://cms.cern.ch/iCMS/jsp/db_notes/noteInfo.jsp?cmsnoteid=CMS%20AN-2021/005 chapter 4.5 in v12
-            # performance studies for run 3 available and show improvements:
-            # https://cds.cern.ch/record/2904691/files/DP2024_055.pdf
-            # TODO: fallback to run2, due to missing wp values
-            "particleNetMD": {
-                "hp": {"2022": 0.9883, "2022EE": 0.9883, "2023": 0.9870, "2023BPix": 0.9880, "2024": 0.9880}[btag_key],
-                "mp": {"2022": 0.9737, "2022EE": 0.9735, "2023": 0.9714, "2023BPix": 0.9734, "2024": 0.9734}[btag_key],
-                "lp": {"2022": 0.9088, "2022EE": 0.9137, "2023": 0.9105, "2023BPix": 0.9172, "2024": 0.9172}[btag_key],
-            },
-        })
-
-        # btag columns and working point values for easy use throughout the code
-        cfg.x.btag_deepjet = DotDict(
-            jet_column="btagDeepFlavB",
-            wp=cfg.x.btag_working_points.deepjet.medium,
-            weight_column="normalized_njet_btag_weight_deepjet",
-        )
-        cfg.x.btag_pnet = DotDict(
-            jet_column="btagPNetB",
-            wp=cfg.x.btag_working_points.particleNet.medium,
-            weight_column="normalized_njet_btag_weight_pnet",
-        )
-        cfg.x.btag_upart = DotDict(
-            jet_column="btagUParTAK4B",
-            wp=cfg.x.btag_working_points.upart.medium,
-            weight_column="btag_weight",  # no need for normalization in wp based method
-        )
-        cfg.x.btag_default = cfg.x.btag_upart if year == 2024 else cfg.x.btag_pnet
-    else:
-        assert False
-
-    # JEC uncertainty sources propagated to btag scale factors
-    # (names derived from contents in BTV correctionlib file)
-    cfg.x.btag_sf_jec_sources = [
-        "",  # same as "Total"
-        "Absolute",
-        "AbsoluteMPFBias",
-        "AbsoluteScale",
-        "AbsoluteStat",
-        f"Absolute_{year}",
-        "BBEC1",
-        f"BBEC1_{year}",
-        "EC2",
-        f"EC2_{year}",
-        "FlavorQCD",
-        "Fragmentation",
-        "HF",
-        f"HF_{year}",
-        "PileUpDataMC",
-        "PileUpPtBB",
-        "PileUpPtEC1",
-        "PileUpPtEC2",
-        "PileUpPtHF",
-        "PileUpPtRef",
-        "RelativeBal",
-        "RelativeFSR",
-        "RelativeJEREC1",
-        "RelativeJEREC2",
-        "RelativeJERHF",
-        "RelativePtBB",
-        "RelativePtEC1",
-        "RelativePtEC2",
-        "RelativePtHF",
-        "RelativeSample",
-        f"RelativeSample_{year}",
-        "RelativeStatEC",
-        "RelativeStatFSR",
-        "RelativeStatHF",
-        "SinglePionECAL",
-        "SinglePionHCAL",
-        "TimePtEta",
-    ]
-
-    from columnflow.production.cms.btag import BTagSFConfig
-    cfg.x.btag_sf_deepjet = BTagSFConfig(
-        correction_set="deepJet_shape",
-        jec_sources=cfg.x.btag_sf_jec_sources,
-        discriminator=cfg.x.btag_deepjet.jet_column,
-    )
-    if run == 3:
-        if year != 2024:
-            cfg.x.btag_sf_pnet = BTagSFConfig(
-                correction_set="particleNet_shape",
-                jec_sources=cfg.x.btag_sf_jec_sources,
-                discriminator=cfg.x.btag_default.jet_column,
-            )
-        else:
-            from columnflow.selection.cms.btag import BTagWPCountConfig
-            cfg.x.btag_wp_count_config = BTagWPCountConfig(
-                jet_name="Jet",
-                btag_column=cfg.x.btag_default.jet_column,
-                btag_wps=cfg.x.btag_working_points.upart.copy(),
-                pt_edges=(0, 20, 30, 50, 70, 100, 140, 200, 300, 600, 10_000),
-                abs_eta_edges=(0.0, 1.0, 1.5, 2.0, 5.0),
-            )
-
-            from columnflow.production.cms.btag import BTagWPSFConfig
-
-            def dataset_groups(dataset_inst: od.Dataset) -> list[od.Dataset]:
-                # check which group the dataset belongs to
-                for group_index in range(len(cfg.x.btag_wp_eff_groups)):
-                    group_tag = f"btag_wp_eff_group_{group_index}"
-                    if dataset_inst.has_tag(group_tag):
-                        return [
-                            _dataset_inst
-                            for _dataset_inst in cfg.datasets
-                            if _dataset_inst.has_tag(group_tag)
-                        ]
-                raise NotImplementedError(f"btag WP efficiency group not implemented for dataset {dataset_inst.name}")
-
-            cfg.x.btag_wp_sf_config = BTagWPSFConfig(
-                jet_name="Jet",
-                btag_column=cfg.x.btag_default.jet_column,
-                correction_set="UParTAK4_merged",
-                btag_wps={
-                    name: value for name, value in cfg.x.btag_working_points.upart.items()
-                    if name != "xxtight"
-                },
-                dataset_groups=dataset_groups,
-                # merge pt and eta bins w.r.t. btag_wp_count_config
-                # (dropped pt 600 and eta 2.0)
-                pt_edges=(0, 20, 30, 50, 70, 100, 140, 200, 300, 10_000),
-                abs_eta_edges=(0.0, 1.0, 1.5, 5.0),
-                # also merge xxtight with xtight
-                wp_merging={
-                    "xtight": ["xtight", "xxtight"],
-                },
-            )
 
     ################################################################################################
     # dataset / process specific methods
@@ -1851,35 +1884,35 @@ def add_config(
                 vnano=12,
                 era="22CDSep23-Summer22",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2026-04-13", lum="2024-01-31", muo="2026-04-28", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-06-05", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
             ),
             (2022, "EE", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="22EFGSep23-Summer22EE",
                 pog_directories={"dc": "Collisions22"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2026-04-13", lum="2024-01-31", muo="2026-04-28", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-06-05", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23CSep23-Summer23",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2026-04-13", lum="2024-01-31", muo="2026-04-28", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-06-05", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23DSep23-Summer23BPix",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-02-26", egm="2025-12-15", jme="2026-04-13", lum="2024-01-31", muo="2026-04-28", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-06-05", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
                 run=3,
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-02-25", egm="2025-12-15", jme="2025-12-02", lum="2026-04-15", muo="2026-04-28", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-06-05", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -1917,8 +1950,11 @@ def add_config(
     })
     # pileup weight corrections
     add_external("pu_sf", (cat_info.get_file("lum", f"puWeights{'_BCDEFGHI' if year == 2024 else ''}.json.gz"), "v1"))
-    # jet energy correction
-    add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
+    # jet energy corrections
+    if use_bjec:
+        add_external("jet_jerc", (f"{central_hbt_dir}/central_jme_files/bjec_v4/json_files_Reg/Run{run}{jec_campaign}/latest/regJet_jerc.json.gz", "v4"))  # noqa: E501
+    else:
+        add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jet veto map
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
     # btag scale factor
@@ -2022,7 +2058,7 @@ def add_config(
         # muon energy (scale and resolution) corrections and helper tools
         add_external("muon_sr", (cat_info.get_file("muo", "muon_scalesmearing.json.gz"), "v1"))
         add_external("muon_sr_tools", Ext(
-            f"{central_hbt_dir}/muonscarekit-244739ce.tar.gz",
+            f"{central_hbt_dir}/muonscarekit-1c7426b5.tar.gz",
             subpaths="muonscarekit-master/scripts/MuonScaRe.py",
             version="v1",
         ))
