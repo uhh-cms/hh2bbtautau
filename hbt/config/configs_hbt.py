@@ -816,6 +816,9 @@ def add_config(
         "cc": [r"{e,mu,tau}tau__{res1b,res2b,vbf,boosted}_cc__os__iso"],
         # cclub categories with vbf category removed and events included in res categories
         "cc_novbf": [r"{e,mu,tau}tau__{res1b_inclvbf,res2b_inclvbf,boosted}_cc__os__iso"],
+        "trig_dnn": [
+            r"{e,mu,tau}tau__res1b_cc__dnn_{l,ge}0p75__{single_e,single_mu,cross_etau,cross_mutau,cross_tautau}__os__iso",
+        ]
     }
 
     # variable groups for conveniently looping over certain variables
@@ -831,6 +834,9 @@ def add_config(
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
         ],
         "dy_sf": ["dilep_vis_pt", "njets", "nbjets_upart_overflow" if year == 2024 else "nbjets_pnet_overflow"],
+        "low_level": [
+            "mu1_pt", "e1_pt", "mu1_eta", "e1_eta", "jet1_pt", "jet1_eta", "tau1_pt", "tau1_eta",
+        ]
     }
 
     # shift groups for conveniently looping over certain shifts
