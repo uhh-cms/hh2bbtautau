@@ -1501,6 +1501,7 @@ def add_config(
             scale_compound=True,
             smear_syst_correction_set="SmearAndSyst",
             systs=["scale_down", "scale_up", "smear_down", "smear_up"],
+            use_egm_tool=True,
         )
     else:
         assert False
@@ -2032,6 +2033,8 @@ def add_config(
         add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
         # electron energy correction and smearing
         add_external("electron_ss", (cat_info.get_file("egm", "electronSS_EtDependent.json.gz"), "v1"))
+        # EGM tool for simplified ss application
+        add_external("egm_tool", (f"{central_hbt_dir}/custom_egm_files/egm_tools.json.gz", "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
         hhb_postfix = "_2024" if year == 2024 else ""
         add_external("hh_btag_repo", Ext(

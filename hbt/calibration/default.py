@@ -14,40 +14,12 @@ from columnflow.calibration.cms.egamma import electron_scale_smear
 from columnflow.calibration.cms.muon import muon_sr
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.electron import electron_sceta
-from columnflow.production.cms.seeds import (
-    deterministic_event_seeds, deterministic_electron_seeds,
-)
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_3, IF_DATA, IF_MC
+from hbt.util import IF_RUN_3, IF_MC
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
-
-
-# custom seed producer skipping GenPart fields
-custom_deterministic_event_seeds_mc = deterministic_event_seeds.derive(
-    "custom_deterministic_event_seeds_mc",
-    cls_dict={
-        "object_count_columns": [
-            route for route in deterministic_event_seeds.object_count_columns
-            if not str(route).startswith(("GenPart.", "Photon."))
-        ],
-    },
-)
-custom_deterministic_event_seeds_data = custom_deterministic_event_seeds_mc.derive(
-    "custom_deterministic_event_seeds_data",
-    cls_dict={
-        "event_columns": [
-            route for route in custom_deterministic_event_seeds_mc.event_columns
-            if not str(route).startswith("Pileup.nPU")
-        ],
-        "object_count_columns": [
-            route for route in custom_deterministic_event_seeds_mc.object_count_columns
-            if not str(route).startswith("GenJet.")
-        ],
-    },
-)
 
 
 # pt clamping for the evaluation of the L2L3Residual jec corrections in 2024
@@ -70,30 +42,13 @@ def jec_clamp_2024_data_l2l3residual(calibrator, corrector, variable_map):
 
 
 @calibrator(
-    uses={
-        IF_MC(mc_weight, custom_deterministic_event_seeds_mc),
-        IF_DATA(custom_deterministic_event_seeds_data),
-        deterministic_electron_seeds, electron_sceta,
-    },
-    produces={
-        IF_MC(mc_weight, custom_deterministic_event_seeds_mc),
-        IF_DATA(custom_deterministic_event_seeds_data),
-        deterministic_electron_seeds,
-    },
+    uses={IF_MC(mc_weight), electron_sceta},
+    produces={IF_MC(mc_weight)},
 )
 def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
     task = kwargs["task"]
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
-
-    # seed producers
-    # !! as this is the first step, the object collections should still be pt-sorted,
-    # !! so no manual sorting needed here (but necessary if, e.g., jec is applied before)
-    if self.dataset_inst.is_mc:
-        events = self[custom_deterministic_event_seeds_mc](events, **kwargs)
-    else:
-        events = self[custom_deterministic_event_seeds_data](events, **kwargs)
-    events = self[deterministic_electron_seeds](events, **kwargs)
 
     # optional electron sceta production
     if "superclusterEta" not in events.Electron.fields:
@@ -188,11 +143,8 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "with_uncertainties": False,
         })
         # derive electron scale and resolution calibrators
-        add_calib_cls("ess_full", electron_scale_smear, cls_dict={
-            "deterministic_seed_index": 0,
-        })
+        add_calib_cls("ess_full", electron_scale_smear)
         add_calib_cls("ess_nominal", electron_scale_smear, cls_dict={
-            "deterministic_seed_index": 0,
             "with_uncertainties": False,
         })
         # derive muon scale and resolution calibrators
