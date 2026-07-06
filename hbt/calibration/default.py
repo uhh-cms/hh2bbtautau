@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from columnflow.calibration import Calibrator, calibrator
 from columnflow.calibration.cms.met import met_phi_run2, met_phi
-from columnflow.calibration.cms.jets import jec, jer
+from columnflow.calibration.cms.jets import jec, jer_horn_handling
 from columnflow.calibration.cms.tau import tec
 from columnflow.calibration.cms.egamma import electron_scale_smear
 from columnflow.calibration.cms.muon import muon_sr
@@ -125,10 +125,10 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "raw_met_name": raw_met_name,
             "update_corrector_variables": update_jec_corrector_variables,
         })
-        add_calib_cls("jer_jec_full", jer, cls_dict={
+        add_calib_cls("jer_jec_full", jer_horn_handling, cls_dict={
             "met_name": met_name,
         })
-        add_calib_cls("jer_jec_nominal", jer, cls_dict={
+        add_calib_cls("jer_jec_nominal", jer_horn_handling, cls_dict={
             "met_name": met_name,
             "jec_uncertainty_sources": [],
         })
