@@ -491,27 +491,23 @@ def add_config(
             # the following block assigns tags necessary for year-dependent stitiching
             is_inclusive = False
             if year in {2022, 2023}:
-                # tags for advanced, lepton based stitching in amcatnlo
+                # tags for advanced, lepton based stitching in amcatnlo with m50toinf
                 # (not adding the tags will result in the default selection and stitching behavior)
-                if dataset.name.endswith("_amcatnlo"):
-                    # dataset.add_tag("dy_amcatnlo_2223")  TODO: check what this does
+                if re.match(r"^dy(|[a-z]+)_m50toinf(|_.+)_amcatnlo$", dataset.name):
+                    is_inclusive = dataset.name == "dy_m50toinf_amcatnlo"
                     dataset.add_tag("dy_lep_amcatnlo_2223")  # trigges the lepton channel stitching in the default selector  # noqa
-                    if run == 3 and re.match(r"^dy_m50toinf_(|\dj_(|pt.+_))amcatnlo$", dataset.name):
+                    if not re.match(r"^dy_(tautau|ee|mumu)_.+$", dataset.name):
                         dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
-                    # check if inclusive (there is just one)
-                    if dataset.name == "dy_m50toinf_amcatnlo":
-                        is_inclusive = True
             elif year == 2024:
-                # check if inclusive
                 if re.match(r"^dy_(tautau|ee|mumu)_m50toinf_amcatnlo$", dataset.name):
                     is_inclusive = True
                 # tags for njet based stitching in amcatnlo
                 if re.match(r"^dy_tautau_m50toinf_(|\dj_)amcatnlo$", dataset.name):
                     dataset.add_tag("dy_tautau_amcatnlo_24")  # triggers the njet based stitching in the default selector  # noqa
                 if re.match(r"^dy_ee_m50toinf_(|\dj_)amcatnlo$", dataset.name):
-                    dataset.add_tag("dy_ee_amcatnlo_24")  # triggers the njet based stitching in the default selector  # noqa
+                    dataset.add_tag("dy_ee_amcatnlo_24")  # triggers the njet based stitching in the default selector
                 if re.match(r"^dy_mumu_m50toinf_(|\dj_)amcatnlo$", dataset.name):
-                    dataset.add_tag("dy_mumu_amcatnlo_24")  # triggers the njet based stitching in the default selector  # noqa
+                    dataset.add_tag("dy_mumu_amcatnlo_24")  # triggers the njet based stitching in the default selector
             # mark all datasets that could be dropped if not stitching
             if not is_inclusive:
                 dataset.add_tag("dy_stitched")
@@ -654,6 +650,7 @@ def add_config(
             "ewk",
         ]),
         "dy_split": [
+            "dy_m10to50",
             "dy_m50toinf_0j",
             "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
             "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",

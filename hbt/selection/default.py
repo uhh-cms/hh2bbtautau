@@ -82,6 +82,12 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, events.gen_dilepton_pdgid != 15
 
 
+@dy_drop_tautau.setup
+def dy_drop_tautau_setup(self: Selector, task: law.Task, **kwargs) -> None:
+    super(dy_drop_tautau, self).setup_func(task=task, **kwargs)
+    task.logger.info(f"drop tautau events in dataset '{task.dataset_inst.name}', branch {task.branch}")
+
+
 @selector(
     uses={
         jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
