@@ -22,8 +22,8 @@ from columnflow.production.cms.jet import jet_id, fatjet_id
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
-from columnflow.production.cms.pdf import pdf_weights
-from columnflow.production.cms.scale import murmuf_weights
+from columnflow.production.cms.pdf import pdf_weights, pdf_weights_raw
+from columnflow.production.cms.scale import murmuf_weights, murmuf_weights_raw
 from columnflow.production.cms.parton_shower import ps_weights
 from columnflow.production.cms.dy import gen_dilepton
 from columnflow.production.util import attach_coffea_behavior
@@ -87,13 +87,13 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
         jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
         jet_selection, mc_weight, pu_weight, ps_weights, IF_RUN_3_2022_2023(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
-        IF_RUN_3_2024(fill_btag_wp_count_hists),
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, pdf_weights_raw, murmuf_weights, murmuf_weights_raw),
+        IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau), IF_RUN_3_2024(fill_btag_wp_count_hists),
     },
     produces={
         jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
         process_ids, cutflow_features, IF_RUN_3_2022_2023(btag_weights_pnet),
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, pdf_weights_raw, murmuf_weights, murmuf_weights_raw),
     },
     exposed=True,
 )
@@ -170,17 +170,19 @@ def default(
         events = self[mc_weight](events, **kwargs)
 
         # pdf weights
-        if self.has_dep(pdf_weights):
-            events = self[pdf_weights](
-                events,
-                outlier_log_mode="debug",
-                invalid_weights_action="ignore" if self.dataset_inst.has_tag("partial_lhe_weights") else "raise",
-                **kwargs,
-            )
+        for pdf_cls in [pdf_weights, pdf_weights_raw]:
+            if self.has_dep(pdf_cls):
+                events = self[pdf_cls](
+                    events,
+                    outlier_log_mode="debug",
+                    invalid_weights_action="ignore" if self.dataset_inst.has_tag("partial_lhe_weights") else "raise",
+                    **kwargs,
+                )
 
         # renormalization/factorization scale weights
-        if self.has_dep(murmuf_weights):
-            events = self[murmuf_weights](events, **kwargs)
+        for murmuf_cls in [murmuf_weights, murmuf_weights_raw]:
+            if self.has_dep(murmuf_cls):
+                events = self[murmuf_cls](events, **kwargs)
 
         # parton shower weights
         events = self[ps_weights](events, invalid_weights_action="ignore_one", **kwargs)
@@ -326,33 +328,8 @@ def default_setup(self: Selector, task: law.Task, **kwargs) -> None:
     ]
 
 
-empty = default.derive("empty", cls_dict={})
-
-
-@empty.init
-def empty_init(self: Selector, **kwargs) -> None:
-    super(empty, self).init_func(**kwargs)
-
-    # remove unused dependencies
-    unused = {
-        json_filter,
-        met_filters,
-        cutflow_features,
-        patch_ecalBadCalibFilter,
-        jet_selection,
-        lepton_selection,
-        trigger_selection,
-    }
-    self.uses -= unused
-    self.produces -= unused
-
-    # add custom columns
-    self.uses.add("Jet.phi")  # needed by vector behavior for accessing pt in btag_weights
-    self.produces |= {"channel_id", "leptons_os", "tau2_isolated", "{single,cross}_triggered"}
-
-
-@empty.call
-def empty_call(
+@default.selector
+def empty(
     self: Selector,
     events: ak.Array,
     stats: defaultdict,
@@ -468,6 +445,30 @@ def empty_call(
     return events, results
 
 
+@empty.init
+def empty_init(self: Selector, **kwargs) -> None:
+    super(empty, self).init_func(**kwargs)
+
+    # remove unused dependencies
+    unused = {
+        json_filter,
+        met_filters,
+        cutflow_features,
+        pdf_weights_raw,
+        murmuf_weights_raw,
+        patch_ecalBadCalibFilter,
+        jet_selection,
+        lepton_selection,
+        trigger_selection,
+    }
+    self.uses -= unused
+    self.produces -= unused
+
+    # add custom columns
+    self.uses.add("Jet.phi")  # needed by vector behavior for accessing pt in btag_weights
+    self.produces |= {"channel_id", "leptons_os", "tau2_isolated", "{single,cross}_triggered"}
+
+
 def increment_stats(
     self: Selector,
     *,
@@ -540,12 +541,20 @@ def increment_stats(
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 add(f"sum_pdf_weight{v}", no_sel, events[f"pdf_weight{v}"])
                 add(f"sum_pdf_weight{v}_selected", event_sel, events[f"pdf_weight{v}"])
+        if self.has_dep(pdf_weights_raw):
+            for i in range(100):
+                add(f"sum_pdf_weight_{i}", no_sel, events.pdf_weights_hessian[:, i], for_stats=True, for_hists=False)
+            for i in range(2):
+                add(f"sum_alphas_weight_{i}", no_sel, events.pdf_weights_alphas[:, i], for_stats=True, for_hists=False)
 
         # mur/muf weights with variations
         if self.has_dep(murmuf_weights):
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 add(f"sum_murmuf_weight{v}", no_sel, events[f"murmuf_weight{v}"])
                 add(f"sum_murmuf_weight{v}_selected", event_sel, events[f"murmuf_weight{v}"])
+        if self.has_dep(murmuf_weights_raw):
+            for col in self[murmuf_weights_raw].weight_names:
+                add(f"sum_{col}", no_sel, events[col], for_stats=True, for_hists=False)
 
         # parton shower weights with variations
         if self.has_dep(ps_weights):

@@ -4,13 +4,22 @@
 Default histogram producers (mostly for event weight generation).
 """
 
+from __future__ import annotations
+
+import law
+import order as od
+
 from columnflow.histogramming import HistProducer
 from columnflow.histogramming.default import cf_default
 from columnflow.columnar_util import Route
-from columnflow.util import maybe_import, pattern_matcher
+from columnflow.util import maybe_import, pattern_matcher, safe_div
+from columnflow.hist_util import create_hist_from_variables
+from columnflow.types import TYPE_CHECKING, Any
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
+if TYPE_CHECKING:
+    hist = maybe_import("hist")
 
 
 @cf_default.hist_producer(
@@ -30,6 +39,34 @@ def default(self: HistProducer, events: ak.Array, **kwargs) -> ak.Array:
     return events, weight
 
 
+@default.fill_hist
+def default_fill_hist(self: HistProducer, h: hist.Hist, data: dict[str, Any], events: ak.Array, **kwargs) -> None:
+    if self.pdf_via_hist:
+        raise NotImplementedError(f"fill_hist for 'pdf_via_hist' is not yet implemented by {self.cls_name}")
+
+    elif self.murmuf_via_hist:
+        raise NotImplementedError(f"fill_hist for 'murmuf_via_hist' is not yet implemented by {self.cls_name}")
+
+    return super(default, self).fill_hist_func(h=h, data=data, events=events, **kwargs)
+
+
+@default.post_process_merged_hist
+def default_post_process_merged_hist(self: HistProducer, h: hist.Hist, task: law.Task, **kwargs) -> hist.Hist:
+    h = super(default, self).post_process_merged_hist_func(h=h, task=task, **kwargs)
+
+    if self.pdf_via_hist:
+        raise NotImplementedError(
+            f"post_process_merged_hist for 'pdf_via_hist' is not yet implemented by {self.cls_name}",
+        )
+
+    elif self.murmuf_via_hist:
+        raise NotImplementedError(
+            f"post_process_merged_hist for 'murmuf_via_hist' is not yet implemented by {self.cls_name}",
+        )
+
+    return h
+
+
 @default.init
 def default_init(self: HistProducer) -> None:
     # use the config's auxiliary event_weights, drop some of them based on drop_weights, and on this
@@ -38,6 +75,21 @@ def default_init(self: HistProducer) -> None:
 
     if self.dataset_inst.is_data:
         return
+
+    # update shifts
+    if self.config_inst.x.pdf_via_hist:
+        self.shifts |= {"pdf_up", "pdf_down"}
+    elif self.config_inst.x.murmuf_via_hist:
+        self.murmuf_weights = [
+            "mur_down_muf_down",
+            "mur_down_muf_nom",
+            "mur_nom_muf_down",
+            "mur_nom_muf_nom",
+            "mur_nom_muf_up",
+            "mur_up_muf_nom",
+            "mur_up_muf_up",
+        ]
+        self.shifts |= {"murmuf_up", "murmuf_down"}
 
     # helpers to match to kept or dropped weights
     do_keep = pattern_matcher(self.keep_weights) if self.keep_weights else (lambda _, /: True)
@@ -58,6 +110,95 @@ def default_init(self: HistProducer) -> None:
         self.weight_columns.add(weight_name)
         self.uses.add(weight_name)
         self.shifts |= {shift_inst.name for shift_inst in shift_insts}
+
+
+@default.post_init
+def default_post_init(self: HistProducer, task: law.Task, **kwargs) -> None:
+    super(default, self).post_init_func(task=task, **kwargs)
+
+    # store flags denoting whether pdf/murmuf handling is done via histogram methods
+    self.pdf_via_hist = task.local_shift_inst.source == "pdf" and self.config_inst.x.pdf_via_hist
+    self.murmuf_via_hist = task.local_shift_inst.source == "murmuf" and self.config_inst.x.murmuf_via_hist
+
+    # update used columns for histogram production
+    if task.task_family == "cf.CreateHistograms":
+        if self.pdf_via_hist:
+            self.uses.add("pdf_weights_{hessian,alphas}")
+        if self.murmuf_via_hist:
+            self.uses |= set(self.murmuf_weights)
+
+    # when using any histogram method, shift validation from to post-merge
+    if self.pdf_via_hist or self.murmuf_via_hist:
+        self.post_process_compatibility_check = False
+        self.post_process_merged_compatibility_check = True
+
+
+@default.requires
+def default_requires(self: HistProducer, task: law.Task, reqs: dict, **kwargs) -> None:
+    super(default, self).requires_func(task=task, reqs=reqs, **kwargs)
+
+    # TODO: this should only be done in post_init but this is not called yet at the right moment in cf
+    self.pdf_via_hist = task.local_shift_inst.source == "pdf" and self.config_inst.x.pdf_via_hist
+    self.murmuf_via_hist = task.local_shift_inst.source == "murmuf" and self.config_inst.x.murmuf_via_hist
+
+    # require selection stats in case the requested shift
+    if self.pdf_via_hist or self.murmuf_via_hist:
+        from columnflow.tasks.selection import MergeSelectionStats
+        reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
+            task,
+            branch=-1 if task.is_workflow() else 0,
+        )
+
+
+@default.setup
+def default_setup(self: HistProducer, task: law.Task, inputs: dict, **kwargs) -> None:
+    super(default, self).setup_func(task=task, inputs=inputs, **kwargs)
+
+    if self.pdf_via_hist or self.murmuf_via_hist:
+        # load the selection stats
+        stats = task.cached_value(
+            key="selection_stats",
+            func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
+        )
+
+        # save average weights
+        if self.pdf_via_hist:
+            self.average_pdf_weights = [
+                safe_div(stats[f"sum_pdf_weight_{i}"], stats["num_events"])
+                for i in range(100)
+            ]
+            self.average_alphas_weights = [
+                safe_div(stats[f"sum_alphas_weight_{i}"], stats["num_events"])
+                for i in range(2)
+            ]
+        elif self.murmuf_via_hist:
+            self.average_murmuf_weights = {
+                key: safe_div(stats[f"sum_{key}"], stats["num_events"])
+                for key in self.murmuf_weights
+            }
+
+
+@default.create_hist
+def default_create_hist(self: HistProducer, variables: list[od.Variable], task: law.Task, **kwargs) -> hist.Hist:
+    if not (self.pdf_via_hist or self.murmuf_via_hist):
+        return super(default, self).create_hist_func(variables=variables, task=task, **kwargs)
+
+    # add an additional axis for the weight variation
+    weight_axis = (
+        ("pdf", "intcat", list(range(len(self.average_pdf_weights) + len(self.average_alphas_weights))))
+        if self.pdf_via_hist else
+        ("murmuf", "strcat", list(self.average_murmuf_weights.keys()))
+    )
+    return create_hist_from_variables(
+        *variables,
+        categorical_axes=[
+            ("category", "intcat"),
+            ("process", "intcat"),
+            ("shift", "intcat", [0]),
+            weight_axis,
+        ],
+        weight=True,
+    )
 
 
 no_weight = default.derive("no_weight", cls_dict={

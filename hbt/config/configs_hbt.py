@@ -1615,6 +1615,10 @@ def add_config(
     # shifts
     ################################################################################################
 
+    # overall settings
+    cfg.x.pdf_via_hist = True  # True: propagate all pdf/alphas weights to hists, then merge; False: use event weights
+    cfg.x.murmuf_via_hist = True  # True: build envelope at histogram level; False: use event weights
+
     # register shifts
     cfg.add_shift(name="nominal", id=0)
 
@@ -1786,25 +1790,27 @@ def add_config(
 
     cfg.add_shift(name="pdf_up", id=130, type="shape", tags={"lhe_weight"})
     cfg.add_shift(name="pdf_down", id=131, type="shape", tags={"lhe_weight"})
-    add_shift_aliases(
-        cfg,
-        "pdf",
-        {
-            "pdf_weight": "pdf_weight_{direction}",
-            "normalized_pdf_weight": "normalized_pdf_weight_{direction}",
-        },
-    )
+    if not cfg.x.pdf_via_hist:
+        add_shift_aliases(
+            cfg,
+            "pdf",
+            {
+                "pdf_weight": "pdf_weight_{direction}",
+                "normalized_pdf_weight": "normalized_pdf_weight_{direction}",
+            },
+        )
 
     cfg.add_shift(name="murmuf_up", id=140, type="shape", tags={"lhe_weight"})
     cfg.add_shift(name="murmuf_down", id=141, type="shape", tags={"lhe_weight"})
-    add_shift_aliases(
-        cfg,
-        "murmuf",
-        {
-            "murmuf_weight": "murmuf_weight_{direction}",
-            "normalized_murmuf_weight": "normalized_murmuf_weight_{direction}",
-        },
-    )
+    if not cfg.x.murmuf_via_hist:
+        add_shift_aliases(
+            cfg,
+            "murmuf",
+            {
+                "murmuf_weight": "murmuf_weight_{direction}",
+                "normalized_murmuf_weight": "normalized_murmuf_weight_{direction}",
+            },
+        )
 
     cfg.add_shift(name="isr_up", id=150, type="shape")
     cfg.add_shift(name="isr_down", id=151, type="shape")
@@ -2253,8 +2259,6 @@ def add_config(
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
         "normalization_weight_inclusive": [],
-        "normalized_pdf_weight": get_shifts("pdf"),
-        "normalized_murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
@@ -2266,6 +2270,11 @@ def add_config(
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
         "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in cfg.x.trigger_legs)),
     })
+
+    if not cfg.x.pdf_via_hist:
+        cfg.x.event_weights["normalized_pdf_weight"] = get_shifts("pdf")
+    if not cfg.x.murmuf_via_hist:
+        cfg.x.event_weights["normalized_murmuf_weight"] = get_shifts("murmuf")
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
