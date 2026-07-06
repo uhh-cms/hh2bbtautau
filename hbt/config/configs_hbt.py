@@ -295,8 +295,8 @@ def add_config(
 
         # dy, amcatnlo
         # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
-        # "dy_m10to50_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
         *if_not_era(year=2024, values=[  # lepton inclusive samples were not produced for 2024
+            "dy_m10to50_amcatnlo",
             "dy_m50toinf_amcatnlo",
             "dy_m50toinf_0j_amcatnlo",
             "dy_m50toinf_1j_amcatnlo",
