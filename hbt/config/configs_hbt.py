@@ -1324,6 +1324,7 @@ def add_config(
             jet_type=jet_type,
             campaign=jer_campaign,
             version=jer_version,
+            use_jer_tool=True,
         ),
     })
 
@@ -1961,6 +1962,8 @@ def add_config(
         add_external("jet_jerc", (f"{central_hbt_dir}/central_jme_files/bjec_v4/json_files_Reg/Run{run}{jec_campaign}/latest/regJet_jerc.json.gz", "v4"))  # noqa: E501
     else:
         add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
+    # jer smearing tool
+    add_external("jer_tool", (f"{central_hbt_dir}/central_jme_files/jer_smear.json.gz", "v1"))
     # jet veto map
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
     # btag scale factor
