@@ -173,6 +173,9 @@ def add_config(
         "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
         "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
         "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
+        # hh -> bbVV ggf + vbf (bbWW signal contamination test)
+        "hh_ggf_hbb_hvv_kl1_kt1",
+        "hh_vbf_hbb_hvv_kv1_k2v1_kl1",
         # "radion_hh_ggf_hbb_htt_m450",
         # "radion_hh_ggf_hbb_htt_m1200",
         # "graviton_hh_ggf_hbb_htt_m450",
@@ -251,6 +254,10 @@ def add_config(
         #     "graviton_hh_ggf_hbb_htt_m450_madgraph",
         #     "graviton_hh_ggf_hbb_htt_m1200_madgraph",
         # ]),
+
+        # hh -> bbVV ggf + vbf (bbWW signal contamination test)
+        "hh_ggf_hbb_hvv_kl1_kt1_powheg",
+        "hh_vbf_hbb_hvv_kv1_k2v1_kl1_madgraph",
 
         # ttbar
         "tt_sl_powheg",
@@ -661,6 +668,7 @@ def add_config(
             "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
             "dy_m50toinf_ge3j",
         ],
+        "sm_bbvv": ["hh_ggf_hbb_hvv_kl1_kt1", "hh_vbf_hbb_hvv_kv1_k2v1_kl1"],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
@@ -780,6 +788,7 @@ def add_config(
                 not dataset.has_tag({"dy_stitched", "w_lnu_stitched"}, mode=any)
             )
         ]),
+        "sm_bbvv": ["hh_ggf_hbb_hvv_kl1_kt1_powheg", "hh_vbf_hbb_hvv_kv1_k2v1_kl1_madgraph"],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1_powheg", *backgrounds]),
         "sm": (sm_group := [
             "hh_ggf_hbb_htt_kl1_kt1_powheg",
