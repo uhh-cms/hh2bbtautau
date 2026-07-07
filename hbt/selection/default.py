@@ -56,19 +56,20 @@ logger = law.logger.get_logger(__name__)
 def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
     bad_mask = full_like(events.event, False, dtype=bool)
 
+    # note: currently not used; we use weights set to ones in these cases
     # drop events for which we expect lhe infos but that lack them
     # see https://cms-talk.web.cern.ch/t/lhe-weight-vector-empty-for-certain-events/97636/3
-    if (
-        self.dataset_inst.is_mc and
-        self.dataset_inst.has_tag("partial_lhe_weights") and
-        self.has_dep(pdf_weights)
-    ):
-        n_weights = ak.num(events.LHEPdfWeight, axis=1)
-        bad_lhe_mask = (n_weights != 101) & (n_weights != 103)
-        if ak.any(bad_lhe_mask):
-            bad_mask = bad_mask & bad_lhe_mask
-            frac = ak.mean(bad_lhe_mask)
-            logger.warning(f"found {ak.sum(bad_lhe_mask)} events ({frac * 100:.1f}%) with bad LHEPdfWeights")
+    # if (
+    #     self.dataset_inst.is_mc and
+    #     self.dataset_inst.has_tag("partial_lhe_weights") and
+    #     self.has_dep(pdf_weights)
+    # ):
+    #     n_weights = ak.num(events.LHEPdfWeight, axis=1)
+    #     bad_lhe_mask = (n_weights != 101) & (n_weights != 103)
+    #     if ak.any(bad_lhe_mask):
+    #         bad_mask = bad_mask & bad_lhe_mask
+    #         frac = ak.mean(bad_lhe_mask)
+    #         logger.warning(f"found {ak.sum(bad_lhe_mask)} events ({frac * 100:.1f}%) with bad LHEPdfWeights")
 
     return bad_mask
 
@@ -500,6 +501,8 @@ def increment_stats(
     :param event_sel_variations: Named variations of the event selection mask for additional stats.
     :return: The updated events and results objects in a tuple.
     """
+    ones = np.ones(len(events), dtype=np.float32)
+
     if event_sel_variations is None:
         event_sel_variations = {}
     event_sel_variations = {n: s for n, s in event_sel_variations.items() if s is not None}
@@ -518,6 +521,7 @@ def increment_stats(
     # helper to cast to float64
     f64 = lambda a: ak.values_astype(a, np.float64)
 
+    # helper to add an entry to the stats map or histograms
     def add(key, sel, weight=None, for_stats=False, for_hists=True):
         stats_map[key] = sel if weight is None else (weight, sel)
         if for_stats and key not in keys_for_stats:
@@ -547,18 +551,34 @@ def increment_stats(
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 add(f"sum_pdf_weight{v}", no_sel, events[f"pdf_weight{v}"])
                 add(f"sum_pdf_weight{v}_selected", event_sel, events[f"pdf_weight{v}"])
-        if self.has_dep(pdf_weights_raw):
+        if self.has_dep(pdf_weights_raw) and not skip_shifts:
+            # there must be 100 or 0 pdf weights
+            n_unique_pdf_weights = set(np.unique(ak.num(events.pdf_weights_hessian, axis=1)))
+            assert n_unique_pdf_weights.issubset({0, 100})
+            if n_unique_pdf_weights == {0}:
+                get_pdf_weight = lambda i: ones
+            else:
+                padded_pdf_weights = ak.fill_none(ak.pad_none(events.pdf_weights_hessian, 100, axis=1, clip=True), 1)
+                get_pdf_weight = lambda i: padded_pdf_weights[:, i]
             for i in range(100):
-                add(f"sum_pdf_weight_{i}", no_sel, events.pdf_weights_hessian[:, i], for_stats=True, for_hists=False)
+                add(f"sum_pdf_weight_{i}", no_sel, get_pdf_weight(i), for_stats=True, for_hists=False)
+            # there must be 2 or 0 alphas weights
+            n_unique_alphas_weights = set(np.unique(ak.num(events.pdf_weights_alphas, axis=1)))
+            assert n_unique_alphas_weights.issubset({0, 2})
+            if n_unique_alphas_weights == {0}:
+                get_alphas_weight = lambda i: ones
+            else:
+                padded_alphas_weights = ak.fill_none(ak.pad_none(events.pdf_weights_alphas, 2, axis=1, clip=True), 1)
+                get_alphas_weight = lambda i: padded_alphas_weights[:, i]
             for i in range(2):
-                add(f"sum_alphas_weight_{i}", no_sel, events.pdf_weights_alphas[:, i], for_stats=True, for_hists=False)
+                add(f"sum_alphas_weight_{i}", no_sel, get_alphas_weight(i), for_stats=True, for_hists=False)
 
         # mur/muf weights with variations
         if self.has_dep(murmuf_weights):
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 add(f"sum_murmuf_weight{v}", no_sel, events[f"murmuf_weight{v}"])
                 add(f"sum_murmuf_weight{v}_selected", event_sel, events[f"murmuf_weight{v}"])
-        if self.has_dep(murmuf_weights_raw):
+        if self.has_dep(murmuf_weights_raw) and not skip_shifts:
             for col in self[murmuf_weights_raw].weight_names:
                 add(f"sum_{col}", no_sel, events[col], for_stats=True, for_hists=False)
 
