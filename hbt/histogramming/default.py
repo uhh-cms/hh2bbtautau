@@ -141,6 +141,19 @@ def default_init(self: HistProducer) -> None:
     # weight producer instance, store weight_columns, used columns, and shifts
     self.weight_columns = set()
 
+    # add helpers to decide whether to apply weight methods
+    self.pdf_via_hist = lambda task: (
+        self.dataset_inst.is_mc and
+        self.config_inst.x.pdf_via_hist and
+        task.local_shift_inst.source == "pdf"
+    )
+    self.murmuf_via_hist = lambda task: (
+        self.dataset_inst.is_mc and
+        self.config_inst.x.murmuf_via_hist and
+        task.local_shift_inst.source == "murmuf"
+    )
+
+    # nothing else to be done for data
     if self.dataset_inst.is_data:
         return
 
@@ -158,16 +171,6 @@ def default_init(self: HistProducer) -> None:
             "mur_up_muf_up",
         ]
         self.shifts |= {"murmuf_up", "murmuf_down"}
-
-    # add helpers to decide whether to apply weight methods
-    self.pdf_via_hist = lambda task: (
-        self.config_inst.x.pdf_via_hist and
-        task.local_shift_inst.source == "pdf"
-    )
-    self.murmuf_via_hist = lambda task: (
-        self.config_inst.x.murmuf_via_hist and
-        task.local_shift_inst.source == "murmuf"
-    )
 
     # helpers to match to kept or dropped weights
     do_keep = pattern_matcher(self.keep_weights) if self.keep_weights else (lambda _, /: True)
