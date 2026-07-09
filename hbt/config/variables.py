@@ -271,6 +271,12 @@ def add_variables(config: od.Config) -> None:
         binning=(60, 0, 3),
         x_title="b-tag weight (UParT)",
     )
+    add_variable(
+        name="dy_weight",
+        expression="dy_weight",
+        binning=(60, 0, 3),
+        x_title="DY weight",
+    )
 
     # cutflow variables
     add_variable(
