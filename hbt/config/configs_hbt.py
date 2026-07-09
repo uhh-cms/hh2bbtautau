@@ -1788,27 +1788,25 @@ def add_config(
 
     cfg.add_shift(name="pdf_up", id=130, type="shape", tags={"lhe_weight"})
     cfg.add_shift(name="pdf_down", id=131, type="shape", tags={"lhe_weight"})
-    if not cfg.x.pdf_via_hist:
-        add_shift_aliases(
-            cfg,
-            "pdf",
-            {
-                "pdf_weight": "pdf_weight_{direction}",
-                "normalized_pdf_weight": "normalized_pdf_weight_{direction}",
-            },
-        )
+    add_shift_aliases(
+        cfg,
+        "pdf",
+        {
+            "pdf_weight": "pdf_weight_{direction}",
+            "normalized_pdf_weight": "normalized_pdf_weight_{direction}",
+        },
+    )
 
     cfg.add_shift(name="murmuf_up", id=140, type="shape", tags={"lhe_weight"})
     cfg.add_shift(name="murmuf_down", id=141, type="shape", tags={"lhe_weight"})
-    if not cfg.x.murmuf_via_hist:
-        add_shift_aliases(
-            cfg,
-            "murmuf",
-            {
-                "murmuf_weight": "murmuf_weight_{direction}",
-                "normalized_murmuf_weight": "normalized_murmuf_weight_{direction}",
-            },
-        )
+    add_shift_aliases(
+        cfg,
+        "murmuf",
+        {
+            "murmuf_weight": "murmuf_weight_{direction}",
+            "normalized_murmuf_weight": "normalized_murmuf_weight_{direction}",
+        },
+    )
 
     cfg.add_shift(name="isr_up", id=150, type="shape")
     cfg.add_shift(name="isr_down", id=151, type="shape")
