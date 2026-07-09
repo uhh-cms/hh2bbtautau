@@ -269,7 +269,8 @@ def default_init(self: Selector, **kwargs) -> None:
     super(default, self).init_func(**kwargs)
 
     # build and store derived process id producers
-    self.stitch_tags = [
+    self.stitch_tags = []
+    possible_stitch_tags = [
         "dy_amcatnlo_2223",
         "dy_lep_amcatnlo_2223",
         "dy_powheg_2223",
@@ -278,8 +279,7 @@ def default_init(self: Selector, **kwargs) -> None:
         "dy_tautau_amcatnlo_24",
         "w_lnu_amcatnlo_2223",
     ]
-
-    for tag in self.stitch_tags:
+    for tag in possible_stitch_tags:
         prod_name = f"process_ids_{tag}"
         setattr(self, prod_name, None)
         if not self.dataset_inst.has_tag(tag):
@@ -307,6 +307,8 @@ def default_init(self: Selector, **kwargs) -> None:
             self.produces.add(prod)
             # save it as an attribute
             setattr(self, prod_name, prod)
+            # store the stitch tag
+            self.stitch_tags.append(tag)
 
 
 @default.setup

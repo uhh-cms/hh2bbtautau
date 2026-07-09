@@ -156,8 +156,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                     qcd_groups[requested_group].setdefault(region_key, []).append(cat_inst)
 
         # get complete qcd groups, potentially only selecting the one corresponding to the requested category
-        if requested_group and len(qcd_groups[requested_group]) == 4:
-            complete_groups = [requested_group]
+        if requested_group:
+            complete_groups = [requested_group] if len(qcd_groups[requested_group]) == 4 else []
         else:
             complete_groups = [
                 name for name, cats in qcd_groups.items()
@@ -310,8 +310,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             # insert values into the qcd histogram
             cat_axis = qcd_hist.axes["category"]
             for cat_index in range(cat_axis.size):
-                target_qcd_bin = requested_category if requested_group else group.os_iso[0].name
-                if cat_axis.value(cat_index) == target_qcd_bin:
+                if cat_axis.value(cat_index) == group.os_iso[0].name:
                     qcd_hist.view().value[cat_index, ...] = qcd_values
                     qcd_hist.view().variance[cat_index, ...] = qcd_variances
                     break

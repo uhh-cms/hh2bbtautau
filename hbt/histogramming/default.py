@@ -49,11 +49,11 @@ def default_create_hist(self: HistProducer, variables: list[od.Variable], task: 
     ]
 
     # extend by index of pdf/alphas or murmuf weight if requested
-    if self.pdf_via_hist:
+    if self.pdf_via_hist(task):
         categorical_axes.append(
-            ("pdf", "intcat", list(range(len(self.average_pdf_weights) + len(self.average_alphas_weights)))),
+            ("pdf", "intcat", list(range(1 + len(self.average_pdf_weights) + len(self.average_alphas_weights)))),
         )
-    elif self.murmuf_via_hist:
+    elif self.murmuf_via_hist(task):
         categorical_axes.append(
             ("murmuf", "intcat", list(range(len(self.murmuf_weights)))),
         )
@@ -63,25 +63,34 @@ def default_create_hist(self: HistProducer, variables: list[od.Variable], task: 
 
 
 @default.fill_hist
-def default_fill_hist(self: HistProducer, h: hist.Hist, data: dict[str, Any], events: ak.Array, **kwargs) -> None:
+def default_fill_hist(
+    self: HistProducer,
+    h: hist.Hist,
+    data: dict[str, Any],
+    events: ak.Array,
+    task: law.Task,
+    **kwargs,
+) -> None:
     def fill(data, additional_weight=None):
         if additional_weight is not None:
             data = {**data, "weight": data["weight"] * additional_weight}
-        super(default, self).fill_hist_func(h=h, data=data, events=events, **kwargs)
+        super(default, self).fill_hist_func(h=h, data=data, events=events, task=task, **kwargs)
 
-    if self.pdf_via_hist:
+    if self.pdf_via_hist(task):
+        # fill nominal
+        fill({**data, "pdf": 0})
         # loop over weights and fill into each pdf bin separately with the corresponding weight
         # (cannot be vectorized since the actual fill weights change)
         pdf_weights_hessian = ak.fill_none(ak.pad_none(events.pdf_weights_hessian, 100, axis=1), 1)
         pdf_weights_alphas = ak.fill_none(ak.pad_none(events.pdf_weights_alphas, 2, axis=1), 1)
         for i in range(100):
             pdf_weight = pdf_weights_hessian[:, i] / self.average_pdf_weights[i]
-            fill({**data, "pdf": i}, additional_weight=pdf_weight)
+            fill({**data, "pdf": 1 + i}, additional_weight=pdf_weight)
         for i in range(2):
             alphas_weight = pdf_weights_alphas[:, i] / self.average_alphas_weights[i]
-            fill({**data, "pdf": 100 + i}, additional_weight=alphas_weight)
+            fill({**data, "pdf": 101 + i}, additional_weight=alphas_weight)
 
-    elif self.murmuf_via_hist:
+    elif self.murmuf_via_hist(task):
         for i, weight_name in enumerate(self.murmuf_weights):
             murmuf_weight = events[weight_name] / self.average_murmuf_weights[weight_name]
             fill({**data, "murmuf": i}, additional_weight=murmuf_weight)
@@ -91,22 +100,39 @@ def default_fill_hist(self: HistProducer, h: hist.Hist, data: dict[str, Any], ev
 
 
 @default.post_process_merged_hist
-def default_post_process_merged_hist(self: HistProducer, h: hist.Hist, **kwargs) -> hist.Hist:
-    h = super(default, self).post_process_merged_hist_func(h=h, **kwargs)
+def default_post_process_merged_hist(self: HistProducer, h: hist.Hist, task: law.Task, **kwargs) -> hist.Hist:
+    import hist
 
-    if self.pdf_via_hist:
-        from IPython import embed; embed(header="implement pdf+alphas merge")
-        raise NotImplementedError(
-            f"post_process_merged_hist for 'pdf_via_hist' is not yet implemented by {self.cls_name}",
-        )
+    if self.pdf_via_hist(task):
+        # https://indico.cern.ch/event/938672/contributions/3943718/attachments/2073936/3482265/MC_ContactReport_v3.pdf
+        # get original values
+        # (reminder: bin 0 is nominal, 1-100 are hessian entries, 101-102 are alphas entries)
+        orig_val = h.view(flow=True).value
+        orig_var = h.view(flow=True).variance
+        # create absolute, symmetric, squared pdf uncertainty
+        pdf_unc2 = ((orig_val[..., :1, :] - orig_val[..., 1:101, :])**2).sum(axis=-2)
+        # create symmetric alphas uncertainty
+        alphas_unc = 0.5 * (orig_val[..., 102, :] - orig_val[..., 101, :])
+        # combine them in quadrature
+        total_unc = (pdf_unc2 + alphas_unc**2)**0.5
+        # create histogram with pdf axis removed and inject min/max values, reusing the nominal variances
+        sign = {"up": 1, "down": -1}[task.local_shift_inst.direction]
+        h = h[{"pdf": hist.loc(0)}]
+        h.view(flow=True).value[...] = orig_val[..., 0, :] + sign * total_unc
+        h.view(flow=True).variance[...] = orig_var[..., 0, :]
 
-    elif self.murmuf_via_hist:
-        from IPython import embed; embed(header="implement murmuf merge")
-        raise NotImplementedError(
-            f"post_process_merged_hist for 'murmuf_via_hist' is not yet implemented by {self.cls_name}",
-        )
+    elif self.murmuf_via_hist(task):
+        # find the (multi-dim) indices that contain the min/max values across the murmuf axis (position -2)
+        orig_val = h.view(flow=True).value
+        orig_var = h.view(flow=True).variance
+        arg_op = {"up": "argmax", "down": "argmin"}[task.local_shift_inst.direction]
+        indices = getattr(orig_val, arg_op)(axis=-2, keepdims=True)
+        # create histogram with murmuf axis removed and inject min/max values
+        h = h[{"murmuf": hist.loc(0)}]
+        h.view(flow=True).value[...] = np.take_along_axis(orig_val, indices, axis=-2).squeeze(axis=-2)
+        h.view(flow=True).variance[...] = np.take_along_axis(orig_var, indices, axis=-2).squeeze(axis=-2)
 
-    return h
+    return super(default, self).post_process_merged_hist_func(h=h, task=task, **kwargs)
 
 
 @default.init
@@ -115,6 +141,19 @@ def default_init(self: HistProducer) -> None:
     # weight producer instance, store weight_columns, used columns, and shifts
     self.weight_columns = set()
 
+    # add helpers to decide whether to apply weight methods
+    self.pdf_via_hist = lambda task: (
+        self.dataset_inst.is_mc and
+        self.config_inst.x.pdf_via_hist and
+        task.local_shift_inst.source == "pdf"
+    )
+    self.murmuf_via_hist = lambda task: (
+        self.dataset_inst.is_mc and
+        self.config_inst.x.murmuf_via_hist and
+        task.local_shift_inst.source == "murmuf"
+    )
+
+    # nothing else to be done for data
     if self.dataset_inst.is_data:
         return
 
@@ -158,19 +197,15 @@ def default_init(self: HistProducer) -> None:
 def default_post_init(self: HistProducer, task: law.Task, **kwargs) -> None:
     super(default, self).post_init_func(task=task, **kwargs)
 
-    # store flags denoting whether pdf/murmuf handling is done via histogram methods
-    self.pdf_via_hist = task.local_shift_inst.source == "pdf" and self.config_inst.x.pdf_via_hist
-    self.murmuf_via_hist = task.local_shift_inst.source == "murmuf" and self.config_inst.x.murmuf_via_hist
-
     # update used columns for histogram production
     if task.task_family == "cf.CreateHistograms":
-        if self.pdf_via_hist:
+        if self.pdf_via_hist(task):
             self.uses.add("pdf_weights_{hessian,alphas}")
-        if self.murmuf_via_hist:
+        if self.murmuf_via_hist(task):
             self.uses |= set(self.murmuf_weights)
 
     # when using any histogram method, shift validation from to post-merge
-    if self.pdf_via_hist or self.murmuf_via_hist:
+    if self.pdf_via_hist(task) or self.murmuf_via_hist(task):
         self.post_process_compatibility_check = False
         self.post_process_merged_compatibility_check = True
 
@@ -179,12 +214,8 @@ def default_post_init(self: HistProducer, task: law.Task, **kwargs) -> None:
 def default_requires(self: HistProducer, task: law.Task, reqs: dict, **kwargs) -> None:
     super(default, self).requires_func(task=task, reqs=reqs, **kwargs)
 
-    # TODO: this should only be done in post_init but this is not called yet at the right moment in cf
-    self.pdf_via_hist = task.local_shift_inst.source == "pdf" and self.config_inst.x.pdf_via_hist
-    self.murmuf_via_hist = task.local_shift_inst.source == "murmuf" and self.config_inst.x.murmuf_via_hist
-
     # require selection stats in case the requested shift
-    if self.pdf_via_hist or self.murmuf_via_hist:
+    if self.pdf_via_hist(task) or self.murmuf_via_hist(task):
         from columnflow.tasks.selection import MergeSelectionStats
         reqs["selection_stats"] = MergeSelectionStats.req_different_branching(
             task,
@@ -196,15 +227,14 @@ def default_requires(self: HistProducer, task: law.Task, reqs: dict, **kwargs) -
 def default_setup(self: HistProducer, task: law.Task, inputs: dict, **kwargs) -> None:
     super(default, self).setup_func(task=task, inputs=inputs, **kwargs)
 
-    if self.pdf_via_hist or self.murmuf_via_hist:
+    if self.pdf_via_hist(task) or self.murmuf_via_hist(task):
         # load the selection stats
         stats = task.cached_value(
             key="selection_stats",
             func=lambda: inputs["selection_stats"]["stats"].load(formatter="json"),
         )
-
         # save average weights
-        if self.pdf_via_hist:
+        if self.pdf_via_hist(task):
             self.average_pdf_weights = [
                 safe_div(stats[f"sum_pdf_weight_{i}"], stats["num_events"])
                 for i in range(100)
@@ -213,7 +243,7 @@ def default_setup(self: HistProducer, task: law.Task, inputs: dict, **kwargs) ->
                 safe_div(stats[f"sum_alphas_weight_{i}"], stats["num_events"])
                 for i in range(2)
             ]
-        elif self.murmuf_via_hist:
+        elif self.murmuf_via_hist(task):
             self.average_murmuf_weights = {
                 key: safe_div(stats[f"sum_{key}"], stats["num_events"])
                 for key in self.murmuf_weights

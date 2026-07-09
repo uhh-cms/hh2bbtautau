@@ -138,21 +138,7 @@ class LoadDYData(DYBaseTask):
             "Tau.pt",
             "gen_dilepton_pt",
         ]
-        self.event_weight_columns = [
-            "normalization_weight",
-            "normalized_pdf_weight",
-            "normalized_murmuf_weight",
-            "normalized_pu_weight",
-            "normalized_isr_weight",
-            "normalized_fsr_weight",
-            self.config_inst.x.btag_default.weight_column,
-            "electron_id_weight",
-            "electron_reco_weight",
-            "muon_id_weight",
-            "muon_iso_weight",
-            "tau_weight",
-            "trigger_weight",
-        ]
+        self.event_weight_columns = list(self.config_inst.x.event_weights.keys())
         self.dataset_event_weight_columns = {
             "tt_*": ["top_pt_weight"],
         }
