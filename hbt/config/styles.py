@@ -44,20 +44,24 @@ def setup_plot_styles(config: od.Config) -> None:
     # - 3 columns, backgrounds in first 2 columns
     # - shortened process labels
     # - changed annotation (channel) position to fit right under legend
-    wide_legend = legend | {
+    wide_legend = {
+        **legend,
         "ncols": 3, "loc": "upper left", "cf_entries_per_column": legend_entries_per_column, "cf_short_labels": True,
     }
-    annotate_wide = annotate | {
+    annotate_wide = {
+        **annotate,
         "xy": (0.035, 0.765),
     }
 
     # wide extended legend, same as wide legend except
     # - process labels are not shortened
     # - annotation (channel) moved slightly down to fut under (now taller) legend
-    wide_ext_legend = wide_legend | {
+    wide_ext_legend = {
+        **wide_legend,
         "cf_short_labels": False,
     }
-    annotate_wide_ext = annotate_wide | {
+    annotate_wide_ext = {
+        **annotate_wide,
         "xy": (0.035, 0.750),
     }
 
@@ -81,8 +85,8 @@ def setup_plot_styles(config: od.Config) -> None:
         },
     }
 
-    config.x.default_custom_style_config = "wide_legend"
-    config.x.default_blinding_threshold = 0
+    config.x.default_custom_style_config = "wide_legend"  # also via --custom-style-config
+    config.x.default_blinding_threshold = 0  # also via --blinding-threshold
 
 
 def stylize_processes(config: od.Config) -> None:
@@ -208,6 +212,7 @@ def stylize_processes(config: od.Config) -> None:
     seed_orig = random.seed()
     random.seed(1)
     for i, n in enumerate([
+        "dy_m10to50",
         "dy_m50toinf_0j",
         "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
         "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
