@@ -488,28 +488,27 @@ def add_config(
                 dataset.add_tag("dy_amcatnlo")
             elif dataset.name.endswith("_powheg"):
                 dataset.add_tag("dy_powheg")
+            # check if tautau events should be dropped due to the pythia bug in 2022/23 (done in the default selector)
+            if year in {2022, 2023} and not re.match(r"^dy_(tautau|ee|mumu)_.+$", dataset.name):
+                dataset.add_tag("dy_drop_tautau")
             # the following block assigns tags necessary for year-dependent stitiching
-            is_inclusive = False
+            is_dy_inclusive = False
             if year in {2022, 2023}:
+                is_dy_inclusive = dataset.name == "dy_m50toinf_amcatnlo"
                 # tags for advanced, lepton based stitching in amcatnlo with m50toinf
-                # (not adding the tags will result in the default selection and stitching behavior)
-                if re.match(r"^dy(|[a-z]+)_m50toinf(|_.+)_amcatnlo$", dataset.name):
-                    is_inclusive = dataset.name == "dy_m50toinf_amcatnlo"
-                    dataset.add_tag("dy_lep_amcatnlo_2223")  # trigges the lepton channel stitching in the default selector  # noqa
-                    if not re.match(r"^dy_(tautau|ee|mumu)_.+$", dataset.name):
-                        dataset.add_tag("dy_drop_tautau")  # drops tautau events in the default selector
+                if re.match(r"^dy(_.+)?_m50toinf(_.+)?_amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_lep_amcatnlo_2223")  # lepton channel stitching in the default selector
             elif year == 2024:
-                if re.match(r"^dy_(tautau|ee|mumu)_m50toinf_amcatnlo$", dataset.name):
-                    is_inclusive = True
+                is_dy_inclusive = re.match(r"^dy_(tautau|ee|mumu)_m50toinf_amcatnlo$", dataset.name)
                 # tags for njet based stitching in amcatnlo
-                if re.match(r"^dy_tautau_m50toinf_(|\dj_)amcatnlo$", dataset.name):
-                    dataset.add_tag("dy_tautau_amcatnlo_24")  # triggers the njet based stitching in the default selector  # noqa
-                if re.match(r"^dy_ee_m50toinf_(|\dj_)amcatnlo$", dataset.name):
-                    dataset.add_tag("dy_ee_amcatnlo_24")  # triggers the njet based stitching in the default selector
-                if re.match(r"^dy_mumu_m50toinf_(|\dj_)amcatnlo$", dataset.name):
-                    dataset.add_tag("dy_mumu_amcatnlo_24")  # triggers the njet based stitching in the default selector
+                if re.match(r"^dy_tautau_m50toinf_(\dj_)?amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_tautau_amcatnlo_24")  # njet based stitching in the default selector
+                if re.match(r"^dy_ee_m50toinf_(\dj_)?amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_ee_amcatnlo_24")  # njet based stitching in the default selector
+                if re.match(r"^dy_mumu_m50toinf_(\dj_)?amcatnlo$", dataset.name):
+                    dataset.add_tag("dy_mumu_amcatnlo_24")  # njet based stitching in the default selector
             # mark all datasets that could be dropped if not stitching
-            if not is_inclusive:
+            if not is_dy_inclusive:
                 dataset.add_tag("dy_stitched")
         # w_lnu
         if dataset.name.startswith("w_lnu_"):
@@ -517,7 +516,7 @@ def add_config(
             # the following block assigns tags necessary for year-dependent stitiching
             if year in {2022, 2023}:
                 dataset.add_tag("w_lnu_amcatnlo_2223")
-                if re.match(r"^w_lnu_\dj_(|pt.+_)amcatnlo$", dataset.name):
+                if re.match(r"^w_lnu_\dj_(pt.+_)?amcatnlo$", dataset.name):
                     dataset.add_tag("w_lnu_stitched")
             elif year == 2024:
                 # no stitching needed, cmsdb has cross sections defined for nj - pt binning processes
