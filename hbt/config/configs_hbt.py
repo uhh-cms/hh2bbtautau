@@ -296,7 +296,7 @@ def add_config(
         # dy, amcatnlo
         # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
         *if_not_era(year=2024, values=[  # lepton inclusive samples were not produced for 2024
-            "dy_m10to50_amcatnlo",
+            # "dy_m10to50_amcatnlo",
             "dy_m50toinf_amcatnlo",
             "dy_m50toinf_0j_amcatnlo",
             "dy_m50toinf_1j_amcatnlo",
@@ -812,8 +812,13 @@ def add_config(
         "cc": [r"{e,mu,tau}tau__{res1b,res2b,vbf,boosted}_cc__os__iso"],
         # cclub categories with vbf category removed and events included in res categories
         "cc_novbf": [r"{e,mu,tau}tau__{res1b_inclvbf,res2b_inclvbf,boosted}_cc__os__iso"],
-        "trig_dnn": [
-            r"{e,mu,tau}tau__res1b_cc__dnn_{l,ge}0p75__{single_e,single_mu,cross_etau,cross_mutau,cross_tautau}__os__iso",
+        # for disagreement tests
+        "trig_dnn_tautau": ["tautau__res1b__cross_tautau__os__iso"],
+        "trig_dnn_etau": [
+            r"etau__res1b__{single_e,cross_etau}__os__iso",
+        ],
+        "trig_dnn_mutau": [
+            r"mutau__res1b__{single_mu,cross_mutau}__os__iso",
         ]
     }
 
@@ -830,8 +835,15 @@ def add_config(
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
         ],
         "dy_sf": ["dilep_vis_pt", "njets", "nbjets_upart_overflow" if year == 2024 else "nbjets_pnet_overflow"],
-        "low_level": [
-            "mu1_pt", "e1_pt", "mu1_eta", "e1_eta", "jet1_pt", "jet1_eta", "tau1_pt", "tau1_eta",
+        # for disagreement tests
+        "low_level_tautau": [
+            "tau1_pt", "tau1_eta","tau2_pt", "tau2_eta","jet1_pt", "jet1_eta",
+        ],
+        "low_level_etau": [
+            "e1_pt", "e1_eta","e2_pt", "e2_eta","tau1_pt", "tau1_eta", "jet1_pt", "jet1_eta",
+        ],
+        "low_level_mutau": [
+            "mu1_pt", "mu1_eta","mu2_pt", "mu2_eta","tau1_pt", "tau1_eta", "jet1_pt", "jet1_eta",
         ]
     }
 
