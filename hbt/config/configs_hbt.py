@@ -527,10 +527,7 @@ def add_config(
         if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
             dataset.add_tag("partial_lhe_weights")
         # datasets that are known to have no lhe info at all
-        if law.util.multi_match(dataset.name, [
-            r"^(ww|wz|zz)_.*pythia$",
-            r"^tt(w|z)_.*amcatnlo$",
-        ]):
+        if law.util.multi_match(dataset.name, [r"^(ww|wz|zz)_.*pythia$"]):
             dataset.add_tag("no_lhe_weights")
             dataset.remove_tag("partial_lhe_weights")
         # single higgs
