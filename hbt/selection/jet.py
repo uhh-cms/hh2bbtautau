@@ -984,7 +984,7 @@ def jet_selection(
 def jet_selection_init(self: Selector, **kwargs) -> None:
     super(jet_selection, self).init_func(**kwargs)
 
-    # register shifts
+    # register all jec/jer shifts
     self.shifts |= {
         shift_inst.name
         for shift_inst in self.config_inst.shifts

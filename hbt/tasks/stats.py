@@ -382,14 +382,17 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             # check if the source stems from a dataset variation or affects the selection otherwise
             disjoint_flags = [info.shift_up.has_tag("disjoint_from_nominal") for info in config_info.values()]
             selection_flags = [info.affects_selection for info in config_info.values()]
+            flag_str = lambda flags: ", ".join(map("{0[0]}:{0[1]}".format, zip(self.configs, flags)))
             if any(disjoint_flags):
                 label_styles.add("dataset_variation")
                 if not all(disjoint_flags):
                     remarks[source].append("disjointness varies")
+                    self.logger.warning(f"source '{source}': dataset usage varies: {flag_str(disjoint_flags)}")
             elif any(selection_flags):
                 label_styles.add("selection")
                 if not all(selection_flags):
                     remarks[source].append("selection effect varies")
+                    self.logger.warning(f"source '{source}': selection effect varies: {flag_str(selection_flags)}")
 
             # add remark if type differs across configs
             if len({info.shift_type for info in config_info.values()}) != 1:
