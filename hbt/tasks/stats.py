@@ -414,7 +414,7 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             rows[source] = [stylize(label_styles, label), *entries]
 
         # add additional model parameters
-        if self.add_model_parameters:
+        if self.inference_model_inst and self.add_model_parameters:
             additional_parameters = collections.defaultdict(dict)
             for config_inst in self.config_insts:
                 for param, consistent_type in iter_additional_parameters(config_inst).items():
