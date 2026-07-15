@@ -28,7 +28,7 @@ class default(HBTInferenceModel):
     """
 
     # settings defined by HBTInferenceModel
-    fake_data = True
+    fake_data = False
     add_qcd = True
 
     # the default variable to use in all categories
