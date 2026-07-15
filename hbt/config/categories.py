@@ -146,7 +146,7 @@ def add_categories(config: od.Config) -> None:
         # split events per trigger
         "trigger": CategoryGroup(
             [
-                "single_e", "single_mu","cross_etau", "cross_mutau", "cross_tautau",
+                "single_e", "single_mu", "cross_etau", "cross_mutau", "cross_tautau",
             ],
             is_complete=False,
             has_overlap=False,
@@ -199,7 +199,6 @@ def add_categories(config: od.Config) -> None:
         skip_existing=False,
         skip_fn=skip_fn_ctrl,
     )
-
 
     # # additional combined categories
     # _add_category(
