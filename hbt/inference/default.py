@@ -95,11 +95,16 @@ class default(HBTInferenceModel):
             "W": "w",
             "VV": "vv",
             "VVV": "vvv",
-            "WH_htt": "wh",
-            "ZH_hbb": "zh",
-            "ggH_htt": "h_ggf",
-            "qqH_htt": "h_vbf",
-            "ttH_hbb": "tth",
+            "WH_13p6TeV_hbb": "wh_hbb",
+            "WH_13p6TeV_htt": "wh_htt",
+            "ZH_13p6TeV_hbb": "zh_hbb",
+            "ZH_13p6TeV_htt": "zh_htt",
+            "ggH_13p6TeV_hbb": "h_ggf_hbb",
+            "ggH_13p6TeV_htt": "h_ggf_htt",
+            "qqH_13p6TeV_hbb": "h_vbf_hbb",
+            "qqH_13p6TeV_htt": "h_vbf_htt",
+            "ttH_13p6TeV_hbb": "tth_hbb",
+            "ttH_13p6TeV_htt": "tth_hnonbb",
         }
 
         if self.add_qcd:
@@ -139,75 +144,263 @@ class default(HBTInferenceModel):
         self.add_parameter(
             "BR_htt",
             type=ParameterType.rate_gauss,
-            process=["*_htt", "*_hbbhtt"],
+            process=["*_htt", "*_hbbhtt", "*_hnonbb"],
             effect=(0.9837, 1.0165),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
-            "pdf_gg",  # contains alpha_s
+            "QCDscale_qqHH",
             type=ParameterType.rate_gauss,
-            process=self.inject_all_eras("ttbar"),
-            effect=1.042,
-            group=["theory", "rate_nuisances"],
-        )
-        self.add_parameter(
-            "pdf_Higgs_ggHH",  # contains alpha_s
-            type=ParameterType.rate_gauss,
-            process="ggHH_*",
-            effect=1.023,
-            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
-        )
-        self.add_parameter(
-            "pdf_Higgs_qqHH",  # contains alpha_s
-            type=ParameterType.rate_gauss,
-            process="qqHH_*",
-            effect=1.027,
+            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
+            effect=(0.9997, 1.0005),
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_ttbar",
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("ttbar"),
-            effect=(0.965, 1.024),
+            effect=(0.964, 1.024),
             group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
-            "QCDscale_qqHH",
+            "QCDscale_ttbar",
             type=ParameterType.rate_gauss,
-            process="qqHH_*",
-            effect=(0.9997, 1.0005),
+            process=self.inject_all_eras("ttbarV"),
+            effect=(0.981, 1.020),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ttbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("singlet"),
+            effect=(0.981, 1.026),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_V",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("W"),
+            effect=(0.986, 1.013),
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("WH_*"),
+            effect=(0.993, 1.004),
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ZH_*"),
+            effect=(0.968, 1.038),
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VV",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("VV"),
+            effect=1.050,
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VVV",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("VVV"),
+            effect=1.050,
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ggH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ggH_*"),
+            effect=1.039,
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_qqH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("qqH_*"),
+            effect=(0.997, 1.005),
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ttH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttH_*"),
+            effect=(0.907, 1.06),
+            group=["theory","rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_ggHH",  # contains alpha_s
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
+            effect=1.023,
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_qqHH",  # contains alpha_s
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
+            effect=1.027,
+            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttbar"),
+            effect=1.025,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("W"),
+            effect=1.008,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("singlet"),
+            effect=(0.978, 1.034),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("VV"),
+            effect=1.050,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_qg",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttbarV"),
+            effect=1.024,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_gg",  # contains alpha_s
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttbar"),
+            effect=1.024,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_gg",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ggH_*"),
+            effect=1.019,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("qqH_*"),
+            effect=1.021,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("WH_*"),
+            effect=1.016,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ZH_*"),
+            effect=1.013,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_ttH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttH_*"),
+            effect=1.030,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ggH_*"),
+            effect=1.026,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("qqH_*"),
+            effect=1.005,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("WH_*"),
+            effect=1.009,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ZH_*"),
+            effect=1.009,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttH_*"),
+            effect=1.020,
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "bbH_norm_ggH",
             type=ParameterType.rate_gauss,
-            process="ggH_*",
+            process=self.inject_all_eras("ggH_*"),
             effect=(0.5, 1.5),
             group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "bbH_norm_qqH",
             type=ParameterType.rate_gauss,
-            process="qqH_*",
+            process=self.inject_all_eras("qqH_*"),
             effect=(0.5, 1.5),
             group=["theory", "rate_nuisances"],
         )
-        # TODO: additional theory uncertainties, especially on background processes!
 
         # lumi
-        # TODO: 2024: choose which uncertainty scheme to use here, lumi uncertainties contain values of multiple schemes
+        correlated_lumi = True  # switch between (un)correlated lumi scheme
         for config_inst in self.config_insts:
             lumi = config_inst.x.luminosity
             for unc_name in lumi.uncertainties:
-                self.add_parameter(
-                    unc_name,
-                    type=ParameterType.rate_gauss,
-                    effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
-                    process=self.process_matches(configs=config_inst, skip_qcd=True),
-                    process_match_mode=all,
-                    group=["experiment", "rate_nuisances"],
-                )
-
+                # uncorrelated unc
+                if not correlated_lumi and str(config_inst.campaign.get_aux("year")) in unc_name:
+                    self.add_parameter(
+                        unc_name,
+                        type=ParameterType.rate_gauss,
+                        effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
+                        process=self.process_matches(configs=config_inst, skip_qcd=True),
+                        process_match_mode=all,
+                        group=["experiment", "rate_nuisances"],
+                    )
+                # correlated unc
+                elif correlated_lumi and str(config_inst.campaign.get_aux("year")) not in unc_name:
+                    self.add_parameter(
+                        unc_name,
+                        type=ParameterType.rate_gauss,
+                        effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
+                        process=self.process_matches(configs=config_inst, skip_qcd=True),
+                        process_match_mode=all,
+                        group=["experiment", "rate_nuisances"],
+                    )
+                else:
+                    logger.warning_once(f"lumi correlation: {correlated_lumi}. skipping unc {unc_name} in {config_inst.name}")
+                    continue
         #
         # shape parameters from shifts acting on ProduceColumns or CreateHistograms (mostly weight variations)
         #
@@ -402,14 +595,15 @@ class default(HBTInferenceModel):
         # dy shifts
         for i, dy_name in enumerate(["syst", "stat"]):
             self.add_parameter(
-                f"CMS_bbtt_dy_{dy_name}",
+                f"CMS_DY_{dy_name}_{config_inst.campaign.get_aux('year')}",
                 type=ParameterType.shape,
                 config_data={
                     config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}")
                     for config_inst in self.config_insts
                 },
-                process="DY*",
-                group=["shape_nuisances"],
+                process=self.process_matches(processes=["DY"], configs=config_inst, skip_qcd=True),
+                process_match_mode=all,
+                group=["experiment", "shape_nuisances"],
             )
 
         #
