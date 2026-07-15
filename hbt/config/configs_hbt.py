@@ -2187,12 +2187,12 @@ def add_config(
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,
             # event info
-            "deterministic_seed",
+            # none
             # object info
-            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed,chHEF,neHEF,chEmEF,neEmEF,muEF,chMultiplicity,neMultiplicity}",  # noqa: E501
-            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
-            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
-            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
+            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,chHEF,neHEF,chEmEF,neEmEF,muEF,chMultiplicity,neMultiplicity}",  # noqa: E501
+            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*}",
+            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*}",
+            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*}",
             "FatJet.*",
             "SubJet{1,2}.*",
             "Electron.*", *skip_column("Electron.{track_cov,gsf}*"),
