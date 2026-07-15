@@ -1213,7 +1213,7 @@ def add_config(
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
         if year == 2024:
             jer_campaign += "_RunD"
-        jer_version = "JR" + {2022: "V2", 2023: "V2", 2024: "V1"}[year]
+        jer_version = "JR" + {2022: "V2", 2023: "V3", 2024: "V2"}[year]
         jet_type = "AK4PFPuppi"
     else:
         assert False
@@ -1915,21 +1915,21 @@ def add_config(
                 vnano=12,
                 era="23CSep23-Summer23",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-06-05", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-07-15", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23DSep23-Summer23BPix",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-06-05", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-07-15", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
                 run=3,
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-06-05", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-07-14", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -2085,7 +2085,9 @@ def add_config(
         ))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
+        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
+        # test for prod25
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod25_23post.json.gz", "v5"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
@@ -2205,12 +2207,12 @@ def add_config(
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,
             # event info
-            "deterministic_seed",
+            # none
             # object info
-            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed,chHEF,neHEF,chEmEF,neEmEF,muEF,chMultiplicity,neMultiplicity}",  # noqa: E501
-            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
-            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
-            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,deterministic_seed}",
+            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*,chHEF,neHEF,chEmEF,neEmEF,muEF,chMultiplicity,neMultiplicity}",  # noqa: E501
+            "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*}",
+            "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*}",
+            "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btag*}",
             "FatJet.*",
             "SubJet{1,2}.*",
             "Electron.*", *skip_column("Electron.{track_cov,gsf}*"),
