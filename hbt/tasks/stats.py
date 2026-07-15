@@ -294,7 +294,8 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             # check if at least one parameter of one process needs the shift source
             for _, _, param_obj in model_inst.iter_parameters(category=categories):
                 sources = {
-                    d.shift_source for config_name, d in param_obj.config_data.items()
+                    d.shift_source
+                    for config_name, d in param_obj.config_data.items()
                     if config_name == config_inst.name
                 }
                 if source in sources:
@@ -449,8 +450,9 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             for config_inst in self.config_insts:
                 for param, consistent_type in iter_additional_parameters(config_inst).items():
                     additional_parameters[param][config_inst.name] = consistent_type
-            for param, config_info in additional_parameters.items():
+            for param in sorted(additional_parameters):
                 assert param not in rows
+                config_info = additional_parameters[param]
                 label_styles = {"model"}
                 entries = []
                 for config_inst in self.config_insts:
