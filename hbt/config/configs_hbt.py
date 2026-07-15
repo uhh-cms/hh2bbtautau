@@ -816,7 +816,7 @@ def add_config(
         ],
         "trig_dnn_mutau": [
             r"mutau__res1b__{single_mu,cross_mutau}__os__iso",
-        ]
+        ],
     }
 
     # variable groups for conveniently looping over certain variables
@@ -834,14 +834,14 @@ def add_config(
         "dy_sf": ["dilep_vis_pt", "njets", "nbjets_upart_overflow" if year == 2024 else "nbjets_pnet_overflow"],
         # for disagreement tests
         "low_level_tautau": [
-            "tau1_pt", "tau1_eta","tau2_pt", "tau2_eta","jet1_pt", "jet1_eta",
+            "tau1_pt", "tau1_eta", "tau2_pt", "tau2_eta", "jet1_pt", "jet1_eta",
         ],
         "low_level_etau": [
-            "e1_pt", "e1_eta","e2_pt", "e2_eta","tau1_pt", "tau1_eta", "jet1_pt", "jet1_eta",
+            "e1_pt", "e1_eta", "e2_pt", "e2_eta", "tau1_pt", "tau1_eta", "jet1_pt", "jet1_eta",
         ],
         "low_level_mutau": [
-            "mu1_pt", "mu1_eta","mu2_pt", "mu2_eta","tau1_pt", "tau1_eta", "jet1_pt", "jet1_eta",
-        ]
+            "mu1_pt", "mu1_eta", "mu2_pt", "mu2_eta", "tau1_pt", "tau1_eta", "jet1_pt", "jet1_eta",
+        ],
     }
 
     # shift groups for conveniently looping over certain shifts

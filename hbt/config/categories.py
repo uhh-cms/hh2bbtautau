@@ -86,7 +86,6 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="res1b_inclvbf_cc", selection="cat_res1b_inclvbf_cc", label="Resolved, ggF, 1 b-tag", tags={"skip_cutflow"})  # noqa: E501
     _add_category(name="res2b_inclvbf_cc", selection="cat_res2b_inclvbf_cc", label=r"Resolved, ggF, $\geq$2 b-tags", tags={"skip_cutflow"})  # noqa: E501
 
-
     # for testing DNN>0p75
     _add_category(name="dnn_ge0p75", selection="cat_dnn_ge0p75", label="dnn_ge0p75")
     _add_category(name="dnn_l0p75", selection="cat_dnn_l0p75", label="dnn_l0p75")
@@ -201,17 +200,17 @@ def add_categories(config: od.Config) -> None:
         skip_fn=skip_fn_ctrl,
     )
 
-    """
-    # additional combined categories
-    _add_category(
-        name="incl__os__iso",
-        label=r"$e\tau/\mu\tau/\tau\tau$, inclusive",
-        categories=[
-            config.get_category("etau__incl__os__iso"),
-            config.get_category("mutau__incl__os__iso"),
-            config.get_category("tautau__incl__os__iso"),
-        ],
-    )
-    """
+
+    # # additional combined categories
+    # _add_category(
+    #     name="incl__os__iso",
+    #     label=r"$e\tau/\mu\tau/\tau\tau$, inclusive",
+    #     categories=[
+    #         config.get_category("etau__incl__os__iso"),
+    #         config.get_category("mutau__incl__os__iso"),
+    #         config.get_category("tautau__incl__os__iso"),
+    #     ],
+    # )
+
     track_category_changes(config)
     id_cache.close()

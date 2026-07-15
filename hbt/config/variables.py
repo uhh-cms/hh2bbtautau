@@ -795,24 +795,14 @@ def add_variables(config: od.Config) -> None:
             aux={"x_transformations": "equal_distance_with_indices"},
         )
 
-        # DNN HH node with cut at 0.75 (with fine bining)
+        # DNN with cut at 0.8
         add_variable(
-            name=f"run3_dnn_moe_0p75_{proc}_fine",
-            expression=f"run3_dnn_moe_{proc}",
-            selection=lambda events, proc=proc: events[f"run3_dnn_moe_{proc}"] >= 0.75,
+            name=f"run3_dnn_moe_{proc}_fine_0p8",
+            expression=f"run3_dnn_moe_{proc}_0p8",
+            selection=lambda events, proc=proc: events[f"run3_dnn_moe_{proc}"] <= 0.8,
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
-            x_title=rf"DNN > 0.75 HH output",
+            x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
-        )
-
-        # DNN HH node with cut at 0.75
-        add_variable(
-            name=f"run3_dnn_moe_0p75_{proc}",
-            expression=f"run3_dnn_moe_{proc}",
-            selection=lambda events, proc=proc: events[f"run3_dnn_moe_{proc}"] >= 0.75,
-            binning=(5, 0.75, 1.0),
-            x_title=rf"DNN > 0.75 HH output",
-            # aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(

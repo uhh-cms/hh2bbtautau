@@ -158,8 +158,8 @@ class HBTInferenceModel(HBTInferenceModelBase):
                     {
                         combine_name
                         for config_inst, proc_name in proc_map.items()
-                        if not config_inst.get_process(proc_name).has_tag(self.signal_process_tag)
-                        or proc_name in {"hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1"}
+                        if (not config_inst.get_process(proc_name).has_tag(self.signal_process_tag)
+                        or proc_name in {"hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1"})
                     }
                     for combine_name, proc_map in self.proc_map.items()
                 )))

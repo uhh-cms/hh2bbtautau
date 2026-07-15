@@ -465,33 +465,40 @@ def cat_tt_init(self: Categorizer, **kwargs) -> None:
     super(cat_tt, self).init_func(**kwargs)
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
 
+
 @categorizer(uses={"run3_dnn_moe_hh"})
 def cat_dnn_ge0p75(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, (events.run3_dnn_moe_hh >= 0.75)
 
+
 @categorizer(uses={"run3_dnn_moe_hh"})
 def cat_dnn_l0p75(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, (events.run3_dnn_moe_hh < 0.75)
+
 
 @categorizer(uses={"matched_trigger_ids"})
 def cat_single_e(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     mask = ak.any(events.matched_trigger_ids == 205, axis=1)
     return events, mask
 
+
 @categorizer(uses={"matched_trigger_ids"})
 def cat_single_mu(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     mask = ak.any(events.matched_trigger_ids == 105, axis=1)
     return events, mask
+
 
 @categorizer(uses={"matched_trigger_ids"})
 def cat_cross_etau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     mask = ak.any(events.matched_trigger_ids == 405, axis=1)
     return events, mask
 
+
 @categorizer(uses={"matched_trigger_ids"})
 def cat_cross_mutau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     mask = ak.any(events.matched_trigger_ids == 304, axis=1)
     return events, mask
+
 
 @categorizer(uses={"matched_trigger_ids"})
 def cat_cross_tautau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
