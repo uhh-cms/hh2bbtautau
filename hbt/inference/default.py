@@ -181,56 +181,56 @@ class default(HBTInferenceModel):
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("W"),
             effect=(0.986, 1.013),
-            group=["theory","rate_nuisances"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_VH",
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("WH_*"),
             effect=(0.993, 1.004),
-            group=["theory","rate_nuisances"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_VH",
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("ZH_*"),
             effect=(0.968, 1.038),
-            group=["theory","rate_nuisances"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_VV",
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("VV"),
             effect=1.050,
-            group=["theory","rate_nuisances"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_VVV",
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("VVV"),
             effect=1.050,
-            group=["theory","rate_nuisances"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_ggH",
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("ggH_*"),
             effect=1.039,
-            group=["theory","rate_nuisances"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_qqH",
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("qqH_*"),
             effect=(0.997, 1.005),
-            group=["theory","rate_nuisances"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "QCDscale_ttH",
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("ttH_*"),
             effect=(0.907, 1.06),
-            group=["theory","rate_nuisances"],
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "pdf_Higgs_ggHH",  # contains alpha_s
@@ -398,9 +398,7 @@ class default(HBTInferenceModel):
                         process_match_mode=all,
                         group=["experiment", "rate_nuisances"],
                     )
-                else:
-                    logger.warning_once(f"lumi correlation: {correlated_lumi}. skipping unc {unc_name} in {config_inst.name}")
-                    continue
+
         #
         # shape parameters from shifts acting on ProduceColumns or CreateHistograms (mostly weight variations)
         #
