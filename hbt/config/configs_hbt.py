@@ -527,10 +527,7 @@ def add_config(
         if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
             dataset.add_tag("partial_lhe_weights")
         # datasets that are known to have no lhe info at all
-        if law.util.multi_match(dataset.name, [
-            r"^(ww|wz|zz)_.*pythia$",
-            r"^tt(w|z)_.*amcatnlo$",
-        ]):
+        if law.util.multi_match(dataset.name, [r"^(ww|wz|zz)_.*pythia$"]):
             dataset.add_tag("no_lhe_weights")
             dataset.remove_tag("partial_lhe_weights")
         # single higgs
@@ -1669,14 +1666,14 @@ def add_config(
             continue
         cfg.add_shift(
             name=f"jec_{jec_source}_up",
-            id=5000 + 2 * i,
+            id=5001 + 2 * i,
             type="shape",
             tags={"jec"},
             aux={"jec_source": jec_source},
         )
         cfg.add_shift(
             name=f"jec_{jec_source}_down",
-            id=5001 + 2 * i,
+            id=5002 + 2 * i,
             type="shape",
             tags={"jec"},
             aux={"jec_source": jec_source},
@@ -1702,8 +1699,8 @@ def add_config(
                 },
             )
 
-    cfg.add_shift(name="jer_up", id=6000, type="shape", tags={"jer"})
-    cfg.add_shift(name="jer_down", id=6001, type="shape", tags={"jer"})
+    cfg.add_shift(name="jer_up", id=6001, type="shape", tags={"jer"})
+    cfg.add_shift(name="jer_down", id=6002, type="shape", tags={"jer"})
     add_shift_aliases(
         cfg,
         "jer",
@@ -1716,8 +1713,8 @@ def add_config(
     )
 
     for i, (match, dm) in enumerate(itertools.product(["tau", "e", "mu"], [0, 1, 10, 11])):
-        cfg.add_shift(name=f"tec_{match}_dm{dm}_up", id=20 + 2 * i, type="shape", tags={"tec"})
-        cfg.add_shift(name=f"tec_{match}_dm{dm}_down", id=21 + 2 * i, type="shape", tags={"tec"})
+        cfg.add_shift(name=f"tec_{match}_dm{dm}_up", id=21 + 2 * i, type="shape", tags={"tec"})
+        cfg.add_shift(name=f"tec_{match}_dm{dm}_down", id=22 + 2 * i, type="shape", tags={"tec"})
         add_shift_aliases(
             cfg,
             f"tec_{match}_dm{dm}",
@@ -1745,43 +1742,43 @@ def add_config(
             "e": ["etau"],
             "mu": ["mutau"],
         }[unc.split("_", 1)[0]]
-        cfg.add_shift(name=f"tau_{unc}_up", id=50 + 2 * i, type="shape", aux={"applies_to_channels": chs})
-        cfg.add_shift(name=f"tau_{unc}_down", id=51 + 2 * i, type="shape", aux={"applies_to_channels": chs})
+        cfg.add_shift(name=f"tau_{unc}_up", id=51 + 2 * i, type="shape", aux={"applies_to_channels": chs})
+        cfg.add_shift(name=f"tau_{unc}_down", id=52 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         add_shift_aliases(cfg, f"tau_{unc}", {"tau_weight": f"tau_weight_{unc}_{{direction}}"})
 
     # electron weights
-    cfg.add_shift(name="e_id_up", id=90, type="shape")
-    cfg.add_shift(name="e_id_down", id=91, type="shape")
+    cfg.add_shift(name="e_id_up", id=91, type="shape")
+    cfg.add_shift(name="e_id_down", id=92, type="shape")
     add_shift_aliases(cfg, "e_id", {"electron_id_weight": "electron_id_weight_{direction}"})
 
-    cfg.add_shift(name="e_reco_up", id=92, type="shape")
-    cfg.add_shift(name="e_reco_down", id=93, type="shape")
+    cfg.add_shift(name="e_reco_up", id=93, type="shape")
+    cfg.add_shift(name="e_reco_down", id=94, type="shape")
     add_shift_aliases(cfg, "e_reco", {"electron_reco_weight": "electron_reco_weight_{direction}"})
 
     # electron scale and smearing
-    cfg.add_shift(name="ees_up", id=94, type="shape", tags={"eec"})
-    cfg.add_shift(name="ees_down", id=95, type="shape", tags={"eec"})
-    add_shift_aliases(cfg, "ees", {"Electron.pt": "Electron.pt_scale_{direction}"})
+    cfg.add_shift(name="eec_up", id=95, type="shape", tags={"eec"})
+    cfg.add_shift(name="eec_down", id=96, type="shape", tags={"eec"})
+    add_shift_aliases(cfg, "eec", {"Electron.pt": "Electron.pt_scale_{direction}"})
 
-    cfg.add_shift(name="eer_up", id=96, type="shape", tags={"eer"})
-    cfg.add_shift(name="eer_down", id=97, type="shape", tags={"eer"})
+    cfg.add_shift(name="eer_up", id=97, type="shape", tags={"eer"})
+    cfg.add_shift(name="eer_down", id=98, type="shape", tags={"eer"})
     add_shift_aliases(cfg, "eer", {"Electron.pt": "Electron.pt_smear_{direction}"})
 
     # muon weights
-    cfg.add_shift(name="mu_id_up", id=100, type="shape")
-    cfg.add_shift(name="mu_id_down", id=101, type="shape")
+    cfg.add_shift(name="mu_id_up", id=101, type="shape")
+    cfg.add_shift(name="mu_id_down", id=102, type="shape")
     add_shift_aliases(cfg, "mu_id", {"muon_id_weight": "muon_id_weight_{direction}"})
 
-    cfg.add_shift(name="mu_iso_up", id=102, type="shape")
-    cfg.add_shift(name="mu_iso_down", id=103, type="shape")
+    cfg.add_shift(name="mu_iso_up", id=103, type="shape")
+    cfg.add_shift(name="mu_iso_down", id=104, type="shape")
     add_shift_aliases(cfg, "mu_iso", {"muon_iso_weight": "muon_iso_weight_{direction}"})
 
     # muon scale and resolution
-    cfg.add_shift(name="mec_up", id=104, type="shape", tags={"mec"})
-    cfg.add_shift(name="mec_down", id=105, type="shape", tags={"mec"})
+    cfg.add_shift(name="mec_up", id=105, type="shape", tags={"mec"})
+    cfg.add_shift(name="mec_down", id=106, type="shape", tags={"mec"})
     add_shift_aliases(cfg, "mec", {"Muon.pt": "Muon.pt_scale_{direction}"})
-    cfg.add_shift(name="mer_up", id=106, type="shape", tags={"mer"})
-    cfg.add_shift(name="mer_down", id=107, type="shape", tags={"mer"})
+    cfg.add_shift(name="mer_up", id=107, type="shape", tags={"mer"})
+    cfg.add_shift(name="mer_down", id=108, type="shape", tags={"mer"})
     add_shift_aliases(cfg, "mer", {"Muon.pt": "Muon.pt_res_{direction}"})
 
     # btagging shifts
@@ -1792,8 +1789,8 @@ def add_config(
         "cferr1", "cferr2",
     ]
     for i, unc in enumerate(cfg.x.btag_unc_names):
-        cfg.add_shift(name=f"btag_{unc}_up", id=110 + 2 * i, type="shape")
-        cfg.add_shift(name=f"btag_{unc}_down", id=111 + 2 * i, type="shape")
+        cfg.add_shift(name=f"btag_{unc}_up", id=111 + 2 * i, type="shape")
+        cfg.add_shift(name=f"btag_{unc}_down", id=112 + 2 * i, type="shape")
         unc_no_suffix = unc.replace(f"_{year}{cfg.x.full_postfix}", "")
         add_shift_aliases(
             cfg,
@@ -1804,8 +1801,8 @@ def add_config(
             },
         )
 
-    cfg.add_shift(name="pdf_up", id=130, type="shape", tags={"lhe_weight"})
-    cfg.add_shift(name="pdf_down", id=131, type="shape", tags={"lhe_weight"})
+    cfg.add_shift(name="pdf_up", id=131, type="shape", tags={"lhe_weight"})
+    cfg.add_shift(name="pdf_down", id=132, type="shape", tags={"lhe_weight"})
     add_shift_aliases(
         cfg,
         "pdf",
@@ -1815,8 +1812,8 @@ def add_config(
         },
     )
 
-    cfg.add_shift(name="murmuf_up", id=140, type="shape", tags={"lhe_weight"})
-    cfg.add_shift(name="murmuf_down", id=141, type="shape", tags={"lhe_weight"})
+    cfg.add_shift(name="murmuf_up", id=141, type="shape", tags={"lhe_weight"})
+    cfg.add_shift(name="murmuf_down", id=142, type="shape", tags={"lhe_weight"})
     add_shift_aliases(
         cfg,
         "murmuf",
@@ -1826,8 +1823,8 @@ def add_config(
         },
     )
 
-    cfg.add_shift(name="isr_up", id=150, type="shape")
-    cfg.add_shift(name="isr_down", id=151, type="shape")
+    cfg.add_shift(name="isr_up", id=151, type="shape")
+    cfg.add_shift(name="isr_down", id=152, type="shape")
     add_shift_aliases(
         cfg,
         "isr",
@@ -1856,14 +1853,14 @@ def add_config(
             "mu": ["mutau"],
             "jet": ["tautau"],
         }.get(leg, ["etau", "mutau", "tautau"])
-        cfg.add_shift(name=f"trigger_{leg}_up", id=180 + 2 * i, type="shape", aux={"applies_to_channels": chs})
-        cfg.add_shift(name=f"trigger_{leg}_down", id=181 + 2 * i, type="shape", aux={"applies_to_channels": chs})
+        cfg.add_shift(name=f"trigger_{leg}_up", id=181 + 2 * i, type="shape", aux={"applies_to_channels": chs})
+        cfg.add_shift(name=f"trigger_{leg}_down", id=182 + 2 * i, type="shape", aux={"applies_to_channels": chs})
         add_shift_aliases(cfg, f"trigger_{leg}", {"trigger_weight": f"trigger_weight_{leg}_{{direction}}"})
 
     # dy scale factors
     for i, dy_name in enumerate(["syst", "syst_gauss", "syst_linear", "stat", "stat_btag0", "stat_btag1", "stat_btag2"]):
-        cfg.add_shift(name=f"dy_{dy_name}_up", id=210 + 2 * i, type="shape")
-        cfg.add_shift(name=f"dy_{dy_name}_down", id=211 + 2 * i, type="shape")
+        cfg.add_shift(name=f"dy_{dy_name}_up", id=211 + 2 * i, type="shape")
+        cfg.add_shift(name=f"dy_{dy_name}_down", id=212 + 2 * i, type="shape")
         add_shift_aliases(cfg, f"dy_{dy_name}", {"dy_weight": f"dy_weight_{dy_name}_{{direction}}"})
 
     ################################################################################################
@@ -2304,7 +2301,7 @@ def add_config(
     cfg.x.shift_groups = {
         "jec": [
             shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag(("jec", "jer"))
+            if shift_inst.has_tag("jec")
         ],
         "lepton_sf": [
             shift_inst.name for shift_inst in get_shifts("e_id", "e_reco", "mu_id", "mu_iso")
@@ -2315,11 +2312,7 @@ def add_config(
         ],
         "eec": [
             shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag(("ees", "eer"))
-        ],
-        "ees": [
-            shift_inst.name for shift_inst in cfg.shifts
-            if shift_inst.has_tag("ees")
+            if shift_inst.has_tag("eec")
         ],
         "eer": [
             shift_inst.name for shift_inst in cfg.shifts

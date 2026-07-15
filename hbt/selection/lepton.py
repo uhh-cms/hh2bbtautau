@@ -215,11 +215,12 @@ def electron_selection(
 def electron_selection_init(self: Selector, **kwargs) -> None:
     super(electron_selection, self).init_func(**kwargs)
 
-    if self.config_inst.campaign.x.run == 3 and self.config_inst.campaign.x.year == 2022:
-        self.shifts |= {
-            shift_inst.name for shift_inst in self.config_inst.shifts
-            if shift_inst.has_tag(("ees", "eer"))
-        }
+    # register all eec/eer shifts
+    self.shifts |= {
+        shift_inst.name
+        for shift_inst in self.config_inst.shifts
+        if shift_inst.has_tag(("eec", "eer"))
+    }
 
 
 @selector(
@@ -319,6 +320,18 @@ def muon_selection(
     )
 
     return analysis_mask, control_mask, veto_mask
+
+
+@muon_selection.init
+def muon_selection_init(self: Selector, **kwargs) -> None:
+    super(muon_selection, self).init_func(**kwargs)
+
+    # register all mec/mer shifts
+    self.shifts |= {
+        shift_inst.name
+        for shift_inst in self.config_inst.shifts
+        if shift_inst.has_tag(("mec", "mer"))
+    }
 
 
 @selector(
