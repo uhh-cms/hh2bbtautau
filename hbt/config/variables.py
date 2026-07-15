@@ -797,12 +797,11 @@ def add_variables(config: od.Config) -> None:
 
         # DNN with cut at 0.8
         add_variable(
-            name=f"run3_dnn_moe_{proc}_fine_0p8",
+            name=f"run3_dnn_moe_{proc}_0p8",
             expression=f"run3_dnn_moe_{proc}_0p8",
             selection=lambda events, proc=proc: events[f"run3_dnn_moe_{proc}"] <= 0.8,
-            binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
+            binning=(50, 0.0, 1.0),
             x_title=rf"DNN {proc.upper()} output",
-            aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(
