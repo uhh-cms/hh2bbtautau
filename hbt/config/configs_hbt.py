@@ -1195,7 +1195,7 @@ def add_config(
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
         if year == 2024:
             jer_campaign += "_RunD"
-        jer_version = "JR" + {2022: "V2", 2023: "V2", 2024: "V1"}[year]
+        jer_version = "JR" + {2022: "V2", 2023: "V3", 2024: "V2"}[year]
         jet_type = "AK4PFPuppi"
     else:
         assert False
@@ -1897,21 +1897,21 @@ def add_config(
                 vnano=12,
                 era="23CSep23-Summer23",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-06-05", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-07-15", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
             ),
             (2023, "BPix", 14): CATInfo(
                 run=3,
                 vnano=12,
                 era="23DSep23-Summer23BPix",
                 pog_directories={"dc": "Collisions23"},
-                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-06-05", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2025-08-20", dc="2026-05-28", egm="2025-12-15", jme="2026-07-15", lum="2024-01-31", muo="2026-06-18", tau="2025-12-25"),  # noqa: E501
             ),
             (2024, "", 15): CATInfo(
                 run=3,
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-06-05", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-07-14", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
