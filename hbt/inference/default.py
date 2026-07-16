@@ -31,6 +31,10 @@ class default(HBTInferenceModel):
     fake_data = False
     add_qcd = True
 
+    # whether this model is used across run 3 campaigns or if it is meant for a single campaign only
+    # (e.g. this influences the lumi uncertainty treatment)
+    run3_multi_campaign = True
+
     # the default variable to use in all categories
     # (see get_category_variable for more details)
     variable = "run3_dnn_moe_0p75_hh_fine"
@@ -109,7 +113,7 @@ class default(HBTInferenceModel):
         }
 
         if self.add_qcd:
-            proc_name_map["QCD"] = "qcd"
+            proc_name_map["QCD_datadriven"] = "qcd"
 
         return proc_name_map
 
@@ -152,7 +156,7 @@ class default(HBTInferenceModel):
         self.add_parameter(
             "QCDscale_qqHH",
             type=ParameterType.rate_gauss,
-            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
+            process=self.inject_all_eras("qqHH_*"),
             effect=(0.9997, 1.0005),
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
@@ -375,30 +379,24 @@ class default(HBTInferenceModel):
         )
 
         # lumi
-        correlated_lumi = True  # switch between (un)correlated lumi scheme
         for config_inst in self.config_insts:
             lumi = config_inst.x.luminosity
             for unc_name in lumi.uncertainties:
-                # uncorrelated unc
-                if not correlated_lumi and str(config_inst.campaign.get_aux("year")) in unc_name:
-                    self.add_parameter(
-                        unc_name,
-                        type=ParameterType.rate_gauss,
-                        effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
-                        process=self.process_matches(configs=config_inst, skip_qcd=True),
-                        process_match_mode=all,
-                        group=["experiment", "rate_nuisances"],
-                    )
-                # correlated unc
-                elif correlated_lumi and str(config_inst.campaign.get_aux("year")) not in unc_name:
-                    self.add_parameter(
-                        unc_name,
-                        type=ParameterType.rate_gauss,
-                        effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
-                        process=self.process_matches(configs=config_inst, skip_qcd=True),
-                        process_match_mode=all,
-                        group=["experiment", "rate_nuisances"],
-                    )
+                # depending on the run3_multi_campaign setting, either the single, year specific uncertainty is used,
+                # or the correlated uncertainty scheme across all campaigns is used
+                is_year_specific = str(config_inst.campaign.x.year) in unc_name
+                if self.run3_multi_campaign == is_year_specific:
+                    continue
+                # add it
+                self.add_parameter(
+                    unc_name,
+                    type=ParameterType.rate_gauss,
+                    effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
+                    process_match_mode=all,
+                    group=["experiment", "rate_nuisances"],
+                )
+
         #
         # shape parameters from shifts acting on ProduceColumns or CreateHistograms (mostly weight variations)
         #
@@ -411,7 +409,7 @@ class default(HBTInferenceModel):
                 config_data={
                     config_inst.name: self.parameter_config_spec(shift_source="minbias_xs"),
                 },
-                process=self.process_matches(configs=config_inst, skip_qcd=True),
+                process=self.process_matches(configs=config_inst, skip_datadriven=True),
                 process_match_mode=all,
                 group=["experiment", "shape_nuisances"],
             )
@@ -461,7 +459,7 @@ class default(HBTInferenceModel):
                     config_inst.name: self.parameter_config_spec(shift_source=source)
                     for config_inst in self.config_insts
                 },
-                process=self.process_matches(skip_qcd=True),
+                process=self.process_matches(skip_datadriven=True),
                 group=["theory", "shape_nuisances"],
             )
 
@@ -480,7 +478,7 @@ class default(HBTInferenceModel):
                         config_data={
                             config_inst.name: self.parameter_config_spec(shift_source=f"btag_{name}"),
                         },
-                        process=self.process_matches(configs=config_inst, skip_qcd=True),
+                        process=self.process_matches(configs=config_inst, skip_datadriven=True),
                         process_match_mode=all,
                         group=["experiment", "shape_nuisances"],
                     )
@@ -492,7 +490,7 @@ class default(HBTInferenceModel):
                         config_inst.name: self.parameter_config_spec(shift_source=f"btag_{name}")
                         for config_inst in config_insts
                     },
-                    process=self.process_matches(configs=config_insts, skip_qcd=True),
+                    process=self.process_matches(configs=config_insts, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
@@ -508,7 +506,7 @@ class default(HBTInferenceModel):
                         config_inst.name: self.parameter_config_spec(shift_source=e_source),
                     },
                     category=["*_etau_*"],
-                    process=self.process_matches(configs=config_inst, skip_qcd=True),
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
@@ -526,7 +524,7 @@ class default(HBTInferenceModel):
                         config_inst.name: self.parameter_config_spec(shift_source=mu_source),
                     },
                     category=["*_mutau_*"],
-                    process=self.process_matches(configs=config_inst, skip_qcd=True),
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
@@ -543,7 +541,7 @@ class default(HBTInferenceModel):
                         config_inst.name: self.parameter_config_spec(shift_source=f"tau_{name}"),
                     },
                     category=[f"*_{ch}_*" for ch in unc_channels],
-                    process=self.process_matches(configs=config_inst, skip_qcd=True),
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
@@ -560,7 +558,7 @@ class default(HBTInferenceModel):
                         config_inst.name: self.parameter_config_spec(shift_source=f"trigger_{name}"),
                     },
                     category=[f"*_{ch}_*" for ch in unc_channels],
-                    process=self.process_matches(configs=config_inst, skip_qcd=True),
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
@@ -600,7 +598,7 @@ class default(HBTInferenceModel):
                     config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}")
                     for config_inst in self.config_insts
                 },
-                process=self.process_matches(processes=["DY"], configs=config_inst, skip_qcd=True),
+                process=self.process_matches(processes=["DY"], configs=config_inst),
                 process_match_mode=all,
                 group=["experiment", "shape_nuisances"],
             )
@@ -610,43 +608,43 @@ class default(HBTInferenceModel):
         #
 
         # hdamp
-        # self.add_parameter(
-        #     "hdamp",
-        #     type=ParameterType.shape,
-        #     config_data={
-        #         config_inst.name: self.parameter_config_spec(shift_source="hdamp")
-        #         for config_inst in self.config_insts
-        #     },
-        #     process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
-        #     process_match_mode=all,
-        #     group=["experiment", "shape_nuisances"],
-        # )
+        self.add_parameter(
+            "hdamp",
+            type=ParameterType.shape,
+            config_data={
+                config_inst.name: self.parameter_config_spec(shift_source="hdamp")
+                for config_inst in self.config_insts
+            },
+            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
+            process_match_mode=all,
+            group=["experiment", "shape_nuisances"],
+        )
 
         # tune
-        # self.add_parameter(
-        #     "underlying_event",
-        #     type=ParameterType.shape,
-        #     config_data={
-        #         config_inst.name: self.parameter_config_spec(shift_source="tune")
-        #         for config_inst in self.config_insts
-        #     },
-        #     process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
-        #     process_match_mode=all,
-        #     group=["experiment", "shape_nuisances"],
-        # )
+        self.add_parameter(
+            "underlying_event",
+            type=ParameterType.shape,
+            config_data={
+                config_inst.name: self.parameter_config_spec(shift_source="tune")
+                for config_inst in self.config_insts
+            },
+            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
+            process_match_mode=all,
+            group=["experiment", "shape_nuisances"],
+        )
 
         # mtop
-        # self.add_parameter(
-        #     "mtop",
-        #     type=ParameterType.shape,
-        #     config_data={
-        #         config_inst.name: self.parameter_config_spec(shift_source="mtop")
-        #         for config_inst in self.config_insts
-        #     },
-        #     process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
-        #     process_match_mode=all,
-        #     group=["experiment", "shape_nuisances"],
-        # )
+        self.add_parameter(
+            "mtop",
+            type=ParameterType.shape,
+            config_data={
+                config_inst.name: self.parameter_config_spec(shift_source="mtop")
+                for config_inst in self.config_insts
+            },
+            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
+            process_match_mode=all,
+            group=["experiment", "shape_nuisances"],
+        )
 
 
 # helper to remove all parameters that require shifted inputs from a model instance
@@ -667,6 +665,11 @@ def default_no_shifts(self):
     remove_shift_parameters(self)
     self.init_cleanup()
 
+
+default_no_shifts_jet1_pt = default_no_shifts.derive(
+    "default_no_shifts_jet1_pt",
+    cls_dict={"variable": "jet1_pt"},
+)
 
 default_no_shifts_no_vbf = default_no_shifts.derive(
     "default_no_shifts_no_vbf",

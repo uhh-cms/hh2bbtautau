@@ -180,14 +180,18 @@ class CalculateLumi(HBTTask, ConfigTask, law.tasks.RunOnceTask):
 
 class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
     """
-    Default command:
+    1. Default command:
         law run hbt.ListShifts --configs "22{per,post}_v14"
 
-    Add rate parameters from inference model and filter to used shifts:
+    2. Add rate parameters from inference model and filter to used shifts:
         law run hbt.ListShifts --configs "22{per,post}_v14" --inference-model "default"
 
-    Same as above, but do not filter (i.e, show all shifts regardless):
+    3. Same as 2, but do not filter (i.e, show all shifts regardless):
         law run hbt.ListShifts --configs "22{per,post}_v14" --inference-model "default" --filter-model-sources False
+
+    4. Same as 2, but create a single inference model that contains both configs, e.g. for (stacking)
+        law run hbt.ListShifts --configs "22{per,post}_v14" --inference-model "default" --model-config-groups "0,1"
+      (note that the default for the MultiCSVParameter would be "0:1")
     """
 
     selector = luigi.Parameter(
@@ -207,6 +211,14 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
         default=law.NO_STR,
         description="the name of the inference model whose parameters should be used to validate, compare and extend "
         "the list of shifts; not used when empty; default: empty",
+    )
+    model_config_groups = law.MultiCSVParameter(
+        cls=luigi.IntParameter,
+        default=(),
+        description="colon-separated sequences of comma-separated values denoting which configs (by index, in order of "
+        "values in --configs) should be grouped together to create a single inference model instance; e.g. for 4 "
+        "configs passed, '0,1:2,3' would create two inference models, each containing the first/last to configs; when "
+        "empty, each config is assigned its own inference model; default: empty",
     )
     filter_model_sources = luigi.BoolParameter(
         default=False,
@@ -228,10 +240,25 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
 
         if self.inference_model not in {law.NO_STR, "", None}:
             inference_model_cls = InferenceModel.get_cls(self.inference_model)
-            self.inference_model_inst = inference_model_cls(self.config_insts)
+            if self.model_config_groups:
+                indices = law.util.flatten(self.model_config_groups)
+                if sorted(indices) != sorted(range(len(self.configs))):
+                    raise ValueError(
+                        f"indices in model config groups {self.model_config_groups} do not fully entail given configs "
+                        f"(indices {indices})",
+                    )
+            else:
+                self.model_config_groups = tuple((i,) for i in range(len(self.configs)))
+            # build models and store per config
+            self.inference_model_insts = {}
+            for indices in self.model_config_groups:
+                config_insts = [self.config_insts[i] for i in indices]
+                model_inst = inference_model_cls(config_insts)
+                for config_inst in config_insts:
+                    self.inference_model_insts[config_inst] = model_inst
         else:
             self.inference_model = law.NO_STR
-            self.inference_model_inst = None
+            self.inference_model_insts = {}
 
     def run(self):
         import tabulate
@@ -258,16 +285,17 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
 
         # inference model helpers
         def model_needs_shift(source, config_inst):
-            assert self.inference_model_inst is not None
+            model_inst = self.inference_model_insts[config_inst]
             # find categories that require any of the selected configs
             categories = [
-                cat_obj.name for cat_obj in self.inference_model_inst.categories
+                cat_obj.name for cat_obj in model_inst.categories
                 if config_inst.name in cat_obj.config_data
             ]
             # check if at least one parameter of one process needs the shift source
-            for _, _, param_obj in self.inference_model_inst.iter_parameters(category=categories):
+            for _, _, param_obj in model_inst.iter_parameters(category=categories):
                 sources = {
-                    d.shift_source for config_name, d in param_obj.config_data.items()
+                    d.shift_source
+                    for config_name, d in param_obj.config_data.items()
                     if config_name == config_inst.name
                 }
                 if source in sources:
@@ -275,15 +303,15 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             return False
 
         def iter_additional_parameters(config_inst):
-            assert self.inference_model_inst is not None
+            model_inst = self.inference_model_insts[config_inst]
             # find categories that require any of the selected configs
             categories = [
-                cat_obj.name for cat_obj in self.inference_model_inst.categories
+                cat_obj.name for cat_obj in model_inst.categories
                 if config_inst.name in cat_obj.config_data
             ]
             # loop through parameters
             params = {}
-            for _, _, param_obj in self.inference_model_inst.iter_parameters(category=categories):
+            for _, _, param_obj in model_inst.iter_parameters(category=categories):
                 if not param_obj.config_data:
                     if param_obj.name not in params:
                         params[param_obj.name] = param_obj.type
@@ -324,7 +352,7 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
                 shift_down = config_inst.get_shift(f"{source}_down")
                 # check if the model contains / needs the shift
                 in_model = None
-                if self.inference_model_inst:
+                if config_inst in self.inference_model_insts:
                     in_model = model_needs_shift(source, config_inst)
                 # validation
                 if shift_up.id % 2 != 1:
@@ -372,7 +400,7 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             label_styles = set()
 
             # add a remark if the source is not needed by the inference model or skip entirely
-            if self.inference_model_inst and not any([info.in_model for info in config_info.values()]):
+            if self.inference_model_insts and not any([info.in_model for info in config_info.values()]):
                 if self.filter_model_sources:
                     self.publish_message(f"source '{source}' not needed by inference model, dropped")
                     continue
@@ -417,13 +445,14 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             rows[source] = [stylize(label_styles, label), *entries]
 
         # add additional model parameters
-        if self.inference_model_inst and self.add_model_parameters:
+        if self.inference_model_insts and self.add_model_parameters:
             additional_parameters = collections.defaultdict(dict)
             for config_inst in self.config_insts:
                 for param, consistent_type in iter_additional_parameters(config_inst).items():
                     additional_parameters[param][config_inst.name] = consistent_type
-            for param, config_info in additional_parameters.items():
+            for param in sorted(additional_parameters):
                 assert param not in rows
+                config_info = additional_parameters[param]
                 label_styles = {"model"}
                 entries = []
                 for config_inst in self.config_insts:
@@ -453,18 +482,28 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
         source_legend_parts = [
             stylize("dataset_variation", "dataset variation"),
             stylize("selection", "affects selection"),
-            stylize("model", "from model") if self.inference_model_inst else None,
-            (stylize("inhomogeneous", "inhomogeneous across configs") + " (stacks)") if len(self.configs) > 1 else None,
         ]
+        if self.inference_model_insts:
+            source_legend_parts.append(stylize("model", "from model"))
+        if len(self.configs) > 1:
+            source_legend_parts.append(stylize("inhomogeneous", "inhomogeneous across configs"))
         type_legend_parts = [
             stylize("rate", "rate"),
             stylize("shape", "shape"),
         ]
         legend = (
-            f"Source legend : {' | '.join(filter(None, source_legend_parts))}\n"
-            f"Type   legend : {' | '.join(filter(None, type_legend_parts))}\n"
+            f"Source legend : {' | '.join(source_legend_parts)}\n"
+            f"Type   legend : {' | '.join(type_legend_parts)}\n"
         )
 
         # print table and legend
         table = tabulate.tabulate(rows.values(), headers=headers, tablefmt=self.table_format)
         self.publish_message(f"\n{table}\n\n{legend}")
+
+        # print model -> config mapping
+        if self.inference_model_insts:
+            model_lines = collections.defaultdict(list)
+            for config_inst, model_inst in self.inference_model_insts.items():
+                model_lines[model_inst].append(config_inst.name)
+            lines = "\n  - ".join(" & ".join(config_names) for model_inst, config_names in model_lines.items())
+            self.publish_message(f"using {len(self.inference_model_insts)} inference model instances:\n  - {lines}\n")

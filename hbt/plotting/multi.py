@@ -5,6 +5,7 @@ from __future__ import annotations
 import law
 import order as od
 
+from columnflow.plotting import supports_multi_variable, supports_multi_category
 from columnflow.plotting.plot_all import plot_all
 from columnflow.plotting.plot_util import prepare_style_config, remove_residual_axis, use_flow_bins
 from columnflow.util import maybe_import
@@ -15,7 +16,8 @@ if TYPE_CHECKING:
     plt = maybe_import("matplotlib.pyplot")
 
 
-def multi_hist_plot(
+@supports_multi_variable
+def multi_var_plot(
     hists: dict[od.Process, hist.Hist] | dict[str, dict[od.Process, hist.Hist]],
     config_inst: od.Config,
     category_inst: od.Category,
@@ -48,18 +50,10 @@ def multi_hist_plot(
     def create_legend_label(proc_inst: od.Process, var_inst: od.Variable) -> str:
         return var_inst.x_title_short if len(unique_proc_insts) == 1 else f"{proc_inst.label}: {var_inst.x_title_short}"
 
-    # helper to move flow bins into first/last ones
-    def move_flow(h: hist.Hist, variable_inst: od.Variable) -> hist.Hist:
-        overflow = variable_inst.x("overflow", False)
-        underflow = variable_inst.x("underflow", False)
-        if overflow or underflow:
-            h = use_flow_bins(h, variable_inst.name, underflow=underflow, overflow=overflow)
-        return h
-
     # create plot instructions for plot_all
     plot_config = {
         **{
-            f"calib__{proc_inst.name}__{var_name}": {
+            f"multi_var_plot__{proc_inst.name}__{var_name}": {
                 "method": "draw_hist",
                 "hist": move_flow(h, variable_insts[var_name]),
                 "kwargs": dict(
@@ -102,3 +96,92 @@ def multi_hist_plot(
     }
 
     return plot_all(plot_config, style_config, **kwargs)
+
+
+@supports_multi_category
+def multi_cat_plot(
+    hists: dict[od.Process, hist.Hist] | dict[str, dict[od.Process, hist.Hist]],
+    config_inst: od.Config,
+    category_inst: od.Category | list[od.Category],
+    variable_insts: list[od.Variable],
+    shift_insts: list[od.Shift],
+    style_config: dict | None = None,
+    variable_settings: dict[str, Any] | None = None,
+    **kwargs,
+) -> tuple[plt.Figure, tuple[plt.Axes, ...]]:
+    # emulate multi-category input
+    if isinstance(list(hists)[0], od.Process):
+        assert isinstance(category_inst, list)
+        assert len(category_inst) == 1
+        hists = {category_inst[0].name: hists}
+        category_inst = [category_inst]
+
+    # prepare objects
+    category_insts = {cat_inst.name: cat_inst for cat_inst in law.util.make_list(category_inst)}
+    assert all(cat_name in hists for cat_name in category_insts)
+    assert len(variable_insts) == 1
+    variable_inst = variable_insts[0]
+
+    # remove shift axis
+    hists = {cat_name: remove_residual_axis(proc_hists, "shift") for cat_name, proc_hists in hists.items()}
+
+    # unique process instances
+    unique_proc_insts = set(sum((list(v.keys()) for v in hists.values()), []))
+
+    # helper to create legend labels
+    def create_legend_label(proc_inst: od.Process, cat_inst: od.Category) -> str:
+        return cat_inst.label_short if len(unique_proc_insts) == 1 else f"{proc_inst.label}: {cat_inst.label_short}"
+
+    # create plot instructions for plot_all
+    plot_config = {
+        **{
+            f"multi_cat_plot__{proc_inst.name}__{cat_name}": {
+                "method": "draw_hist",
+                "hist": move_flow(h, variable_inst),
+                "kwargs": dict(
+                    label=create_legend_label(proc_inst, category_insts[cat_name]),
+                    color=config_inst.x.get_color_from_sequence(i),
+                    linestyle=config_inst.x.get_line_style_from_sequence(j),
+                    error_type="variance",
+                    linewidth=1.5,
+                ),
+            }
+            for i, (cat_name, proc_hists) in enumerate(hists.items())
+            for j, (proc_inst, h) in enumerate(proc_hists.items())
+        },
+    }
+
+    # combine the style config
+    style_config = law.util.merge_dicts(
+        # inferred from config, category, variable
+        prepare_style_config(
+            config_inst=config_inst,
+            variable_inst=variable_inst,
+        ),
+        # passed styles
+        style_config,
+        (variable_settings or {}),
+        # overwrite with hardcoded settings
+        {
+            "cms_label_cfg": {"loc": 0},
+            "legend_cfg": {"loc": "upper right", "fontsize": 18},
+        },
+        deep=True,
+    )
+
+    # update kwargs for plot_all
+    kwargs = kwargs | {
+        "skip_ratio": True,
+        "skip_legend": False,
+    }
+
+    return plot_all(plot_config, style_config, **kwargs)
+
+
+# helper to move flow bins into first/last ones
+def move_flow(h: hist.Hist, variable_inst: od.Variable) -> hist.Hist:
+    overflow = variable_inst.x("overflow", False)
+    underflow = variable_inst.x("underflow", False)
+    if overflow or underflow:
+        h = use_flow_bins(h, variable_inst.name, underflow=underflow, overflow=overflow)
+    return h
