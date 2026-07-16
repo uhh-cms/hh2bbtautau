@@ -10,7 +10,9 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, DotDict
-from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array, set_ak_column, full_like, flat_np_view
+from columnflow.columnar_util import (
+    EMPTY_FLOAT, layout_ak_array, set_ak_column, full_like, flat_np_view, ak_concatenate_safe,
+)
 from columnflow.types import Any
 
 from hbt.util import MET_COLUMN
@@ -76,7 +78,7 @@ def hhbtag(
         jets.mass / jets.pt,
         jets.energy / jets.pt,
         abs(jets.eta - htt.eta),
-        (jets.btagDeepFlavB if self.hhbtag_version == "v2" else jets.btagPNetB),
+        jets[self.btag_col],
         jets.delta_phi(htt),
         jet_shape * (self.hhbtag_campaign),
         jet_shape * self.hhbtag_channel_map[events[event_mask].channel_id],
@@ -90,7 +92,7 @@ def hhbtag(
     # helper to split events, cast to float32, concatenate across new axis,
     # then pad with zeros for up to n_jets_max jets
     def split(where):
-        features = ak.concatenate(
+        features = ak_concatenate_safe(
             [
                 ak.values_astype(f[where][..., None], np.float32)
                 for f in input_features
@@ -133,14 +135,15 @@ def hhbtag(
         scores_ext = layout_ext
     else:
         scores_ext = layout_ak_array(np.zeros(len(ak.flatten(layout_ext)), dtype=np.int32), layout_ext)
-    scores = ak.concatenate([scores, scores_ext], axis=1)
+    scores = ak_concatenate_safe([scores, scores_ext], axis=1)
 
     # prevent Memory Corruption Error
     jet_mask = ak.fill_none(jet_mask, False, axis=-1)
 
     # insert scores into an array with same shape as input jets (without jet_mask and event_mask)
-    all_scores = ak.fill_none(full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1)
-    flat_np_view(all_scores, axis=1)[ak.flatten(jet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)  # noqa: E501
+    all_scores_flat = flat_np_view(ak.fill_none(full_like(events.Jet.pt, EMPTY_FLOAT), EMPTY_FLOAT, axis=-1))
+    all_scores_flat[ak.flatten(jet_mask[jet_sorting_indices] & event_mask, axis=1)] = flat_np_view(scores)
+    all_scores = layout_ak_array(all_scores_flat, events.Jet)
 
     # bring the scores back to the original ordering
     all_scores = all_scores[jet_unsorting_indices]
@@ -165,7 +168,7 @@ def hhbtag(
             value_placeholder = ak.fill_none(
                 ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32), EMPTY_FLOAT, axis=-1,
             )
-            values = ak.concatenate([values, scores_ext], axis=1)[jet_unsorting_indices]
+            values = ak_concatenate_safe([values, scores_ext], axis=1)[jet_unsorting_indices]
 
             # fill placeholder
             np.asarray(ak.flatten(value_placeholder))[ak.flatten(jet_mask & event_mask, axis=1)] = (
@@ -178,16 +181,18 @@ def hhbtag(
 
 @hhbtag.init
 def hhbtag_init(self: Producer, **kwargs) -> None:
+    super(hhbtag, self).init_func(**kwargs)
+
     # get the model version (coincides with the external file version)
     self.hhbtag_version = self.config_inst.x.external_files.hh_btag_repo.version
 
-    # produce input columns
+    # define btag column to be read and used
+    self.btag_col = self.config_inst.x.btag_default.jet_column
+    self.uses.add(f"Jet.{self.btag_col}")
+
+    # columns produced for sync
     if self.config_inst.x.sync:
         self.produces.add("sync_*")
-    if self.hhbtag_version == "v2":
-        self.uses.add("Jet.btagDeepFlavB")
-    if self.hhbtag_version == "v3":
-        self.uses.add("Jet.btagPNetB")
 
 
 @hhbtag.requires
@@ -195,6 +200,8 @@ def hhbtag_requires(self: Producer, task: law.Task, reqs: dict, **kwargs) -> Non
     """
     Add the external files bundle to requirements.
     """
+    super(hhbtag, self).requires_func(task=task, reqs=reqs, **kwargs)
+
     if "external_files" in reqs:
         return
 
@@ -212,6 +219,8 @@ def hhbtag_setup(
     """
     Sets up the two HHBtag TF models.
     """
+    super(hhbtag, self).setup_func(task=task, reqs=reqs, **kwargs)
+
     from hbt.ml.evaluators import TFEvaluator
 
     if not getattr(task, "taf_tf_evaluator", None):
@@ -255,6 +264,7 @@ def hhbtag_setup(
         (2022, "EE"): 1,
         (2023, ""): 2,
         (2023, "BPix"): 3,
+        (2024, ""): 4,
     }[campaign_key]
 
     # validate the met name
@@ -271,6 +281,8 @@ def hhbtag_teardown(self: Producer, task: law.Task, **kwargs) -> None:
     """
     Stops the TF evaluator.
     """
+    super(hhbtag, self).teardown_func(task=task, **kwargs)
+
     if (evaluator := getattr(task, "taf_tf_evaluator", None)):
         evaluator.stop()
     task.taf_tf_evaluator = None

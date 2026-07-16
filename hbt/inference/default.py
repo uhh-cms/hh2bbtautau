@@ -7,45 +7,76 @@ Default inference model.
 from __future__ import annotations
 
 import re
-import functools
+import itertools
 import collections
 
 import law
 import order as od
 
-from columnflow.inference import ParameterType, FlowStrategy
-from columnflow.config_util import get_datasets_from_process
+from columnflow.inference import ParameterType  # , ParameterTransformation
+from columnflow.util import DotDict
 
-from hbt.inference.base import HBTInferenceModelBase
+from hbt.inference.base import HBTInferenceModel
 
 
 logger = law.logger.get_logger(__name__)
 
-get_all_datasets_from_process = functools.partial(
-    get_datasets_from_process,
-    strategy="all",
-    only_first=False,
-)
 
-
-class default(HBTInferenceModelBase):
+class default(HBTInferenceModel):
     """
     Default statistical model for the HH -> bbtautau analysis.
     """
 
-    add_qcd = True
+    # settings defined by HBTInferenceModel
     fake_data = True
+    add_qcd = True
+
+    # whether this model is used across run 3 campaigns or if it is meant for a single campaign only
+    # (e.g. this influences the lumi uncertainty treatment)
+    run3_multi_campaign = True
+
+    # the default variable to use in all categories
+    # (see get_category_variable for more details)
     variable = "run3_dnn_moe_hh_fine"
 
+    # channels and phasespaces for category combinations
+    channels = ["etau", "mutau", "tautau"]
+    phasespaces = ["res1b", "res2b", "boosted"]
+
+    def create_category_combinations(self) -> list[DotDict[str, str]]:
+        return [
+            DotDict(zip(["channel", "phasespace"], comb))
+            for comb in itertools.product(self.channels, self.phasespaces)
+        ]
+
+    def create_category_info(self, *, channel: str, phasespace: str) -> HBTInferenceModel.CategoryInfo:
+        return self.CategoryInfo(
+            combine_category=f"cat_{self.campaign_key}_{channel}_{phasespace}",
+            config_category=f"{channel}__{phasespace}__os__iso",
+            config_variable=self.get_category_variable(channel=channel, phasespace=phasespace),
+            config_data_datasets=["data_*"],
+        )
+
+    def get_category_variable(self, **kwargs) -> str:
+        # return variable attribute if set
+        if getattr(self, "variable", None):
+            return self.variable
+
+        raise NotImplementedError("get_category_variable not implemented in case of empty 'variable' attribute")
+
     def init_proc_map(self) -> None:
+        name_map = self.create_proc_name_map()
+        self.fill_proc_map(name_map)
+
+    def create_proc_name_map(self) -> None:
         # mapping of process names in the datacard ("combine name") to configs and process names in a dict
-        name_map = dict([
-            *[
-                (f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt", f"hh_ggf_hbb_htt_kl{kl}_kt1")
-                for kl in ["0", "1", "2p45", "5"]
-            ],
-            *[
-                (f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbhtt", f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}")
+        proc_name_map = {
+            **{
+                f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt": f"hh_ggf_hbb_htt_kl{kl}_kt1"
+                for kl in ["1", "0", "2p45", "5"]
+            },
+            **{
+                f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbhtt": f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}"
                 for kv, k2v, kl in [
                     ("1", "1", "1"),
                     ("1", "0", "1"),
@@ -58,100 +89,32 @@ class default(HBTInferenceModelBase):
                     ("m1p6", "2p72", "m1p36"),
                     ("m1p83", "3p57", "m3p39"),
                 ]
-            ],
-            ("ttbar", "tt"),
-            ("ttbarV", "ttv"),
-            ("ttbarVV", "ttvv"),
-            ("singlet", "st"),
-            ("DY", "dy"),
-            # ("EWK", "z"),  # currently not used
-            ("W", "w"),
-            ("VV", "vv"),
-            ("VVV", "vvv"),
-            ("WH_htt", "wh"),
-            ("ZH_hbb", "zh"),
-            ("ggH_htt", "h_ggf"),
-            ("qqH_htt", "h_vbf"),
-            ("ttH_hbb", "tth"),
-        ])
+            },
+            "ttbar": "tt",
+            "ttbarV": "ttv",
+            "ttbarVV": "ttvv",
+            "singlet": "st",
+            "DY": "dy",
+            # "EWK": "z",  # currently not used
+            "W": "w",
+            "VV": "vv",
+            "VVV": "vvv",
+            "WH_13p6TeV_hbb": "wh_hbb",
+            "WH_13p6TeV_htt": "wh_htt",
+            "ZH_13p6TeV_hbb": "zh_hbb",
+            "ZH_13p6TeV_htt": "zh_htt",
+            "ggH_13p6TeV_hbb": "h_ggf_hbb",
+            "ggH_13p6TeV_htt": "h_ggf_htt",
+            "qqH_13p6TeV_hbb": "h_vbf_hbb",
+            "qqH_13p6TeV_htt": "h_vbf_htt",
+            "ttH_13p6TeV_hbb": "tth_hbb",
+            "ttH_13p6TeV_htt": "tth_hnonbb",
+        }
+
         if self.add_qcd:
-            name_map["QCD"] = "qcd"
+            proc_name_map["QCD_datadriven"] = "qcd"
 
-        # insert into proc_map
-        # (same process name for all configs for now)
-        for combine_name, proc_name in name_map.items():
-            # same process name for all configs for now
-            for config_inst in self.config_insts:
-                _combine_name = self.inject_era(config_inst, combine_name)
-                self.proc_map.setdefault(_combine_name, {})[config_inst] = proc_name
-
-    def init_categories(self) -> None:
-        for ch in ["etau", "mutau", "tautau"]:
-            for cat in ["res1b", "res2b", "boosted"]:
-                # gather fake processes to model data when needed
-                fake_processes = []
-                if self.fake_data:
-                    fake_processes = list(set.union(*(
-                        {
-                            combine_name
-                            for config_inst, proc_name in proc_map.items()
-                            if (
-                                not config_inst.get_process(proc_name).has_tag("nonresonant_signal") and
-                                proc_name != "qcd"
-                            )
-                        }
-                        for combine_name, proc_map in self.proc_map.items()
-                    )))
-                # add the category
-                self.add_category(
-                    f"cat_{self.campaign_key}_{ch}_{cat}",
-                    config_data={
-                        config_inst.name: self.category_config_spec(
-                            category=f"{ch}__{cat}__os__iso",
-                            variable=self.variable,
-                            data_datasets=["data_*"],
-                        )
-                        for config_inst in self.config_insts
-                    },
-                    data_from_processes=fake_processes,
-                    mc_stats=10.0,
-                    empty_bin_value=1e-5,  # setting this to 0 disables empty bin filling
-                    flow_strategy=FlowStrategy.move,
-                )
-
-    def init_processes(self) -> None:
-        # loop through process map and add process objects
-        self.processes_with_lhe_weights = set()
-        for combine_name, proc_map in self.proc_map.items():
-            for config_inst, proc_name in proc_map.items():
-                proc_inst = config_inst.get_process(proc_name)
-                is_dynamic = proc_name == "qcd"
-                dataset_names = []
-                if not is_dynamic:
-                    dataset_names = [
-                        dataset.name
-                        for dataset in get_all_datasets_from_process(config_inst, proc_name)
-                    ]
-                    if not dataset_names:
-                        logger.debug(
-                            f"skipping process {proc_name} in inference model {self.cls_name}, no matching datasets "
-                            f"found in config {config_inst.name}",
-                        )
-                        continue
-                self.add_process(
-                    name=combine_name,
-                    config_data={
-                        config_inst.name: self.process_config_spec(
-                            process=proc_name,
-                            mc_datasets=dataset_names,
-                        ),
-                    },
-                    is_signal=proc_inst.has_tag("nonresonant_signal"),
-                    is_dynamic=is_dynamic,
-                )
-                # store whether there is at least one dataset contributing to this process with lhe weights
-                if not all(config_inst.get_dataset(d).has_tag("no_lhe_weights") for d in dataset_names):
-                    self.processes_with_lhe_weights.add(combine_name)
+        return proc_name_map
 
     def init_parameters(self) -> None:
         # general groups
@@ -170,35 +133,6 @@ class default(HBTInferenceModelBase):
         self.add_parameter_to_group("THU_HH", "signal_norm_xs")
         self.add_parameter_to_group("THU_HH", "signal_norm_xsbr")
 
-        # helper to select processes across multiple configs
-        def inject_all_eras(*names: str) -> list[str]:
-            gen = (
-                {self.inject_era(config_inst, name) for config_inst in self.config_insts}
-                for name in names
-            )
-            return list(set.union(*gen))
-
-        # helper to create process patterns to match specific rules
-        def process_matches(
-            *,
-            processes: str | list[str] | None = None,
-            configs: od.Config | list[od.Config] | None = None,
-            skip_qcd: bool = False,
-        ) -> list[str] | None:
-            patterns = []
-            # build a single regexp that matches processes and configs
-            name_parts = []
-            if processes:
-                name_parts.append(law.util.make_list(processes))
-            if configs:
-                name_parts.append([self.campaign_keys[c] for c in law.util.make_list(configs)])
-            if name_parts:
-                re_parts = [f"({'|'.join(n)})" for n in name_parts]
-                patterns.append(rf"^.*{'.*'.join(re_parts)}.*$")
-            if skip_qcd:
-                patterns.append("!QCD*")
-            return patterns or None
-
         #
         # simple rate parameters
         #
@@ -214,70 +148,250 @@ class default(HBTInferenceModelBase):
         self.add_parameter(
             "BR_htt",
             type=ParameterType.rate_gauss,
-            process=["*_htt", "*_hbbhtt"],
+            process=["*_htt", "*_hbbhtt", "*_hnonbb"],
             effect=(0.9837, 1.0165),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
-            "pdf_gg",  # contains alpha_s
+            "QCDscale_qqHH",
             type=ParameterType.rate_gauss,
-            process=inject_all_eras("ttbar"),
-            effect=1.042,
+            process=self.inject_all_eras("qqHH_*"),
+            effect=(0.9997, 1.0005),
+            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ttbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttbar"),
+            effect=(0.964, 1.024),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ttbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttbarV"),
+            effect=(0.981, 1.020),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ttbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("singlet"),
+            effect=(0.981, 1.026),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_V",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("W"),
+            effect=(0.986, 1.013),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("WH_*"),
+            effect=(0.993, 1.004),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ZH_*"),
+            effect=(0.968, 1.038),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VV",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("VV"),
+            effect=1.050,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_VVV",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("VVV"),
+            effect=1.050,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ggH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ggH_*"),
+            effect=1.039,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_qqH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("qqH_*"),
+            effect=(0.997, 1.005),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "QCDscale_ttH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttH_*"),
+            effect=(0.907, 1.06),
             group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "pdf_Higgs_ggHH",  # contains alpha_s
             type=ParameterType.rate_gauss,
-            process="ggHH_*",
+            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
             effect=1.023,
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "pdf_Higgs_qqHH",  # contains alpha_s
             type=ParameterType.rate_gauss,
-            process="qqHH_*",
+            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
             effect=1.027,
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
-            "QCDscale_ttbar",
+            "pdf_qqbar",
             type=ParameterType.rate_gauss,
-            process=inject_all_eras("ttbar"),
-            effect=(0.965, 1.024),
+            process=self.inject_all_eras("ttbar"),
+            effect=1.025,
             group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
-            "QCDscale_qqHH",
+            "pdf_qqbar",
             type=ParameterType.rate_gauss,
-            process="qqHH_*",
-            effect=(0.9997, 1.0005),
-            group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
+            process=self.inject_all_eras("W"),
+            effect=1.008,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("singlet"),
+            effect=(0.978, 1.034),
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("VV"),
+            effect=1.050,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_qg",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttbarV"),
+            effect=1.024,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_gg",  # contains alpha_s
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttbar"),
+            effect=1.024,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_gg",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ggH_*"),
+            effect=1.019,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("qqH_*"),
+            effect=1.021,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("WH_*"),
+            effect=1.016,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_qqbar",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ZH_*"),
+            effect=1.013,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "pdf_Higgs_ttH",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttH_*"),
+            effect=1.030,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ggH_*"),
+            effect=1.026,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("qqH_*"),
+            effect=1.005,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("WH_*"),
+            effect=1.009,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ZH_*"),
+            effect=1.009,
+            group=["theory", "rate_nuisances"],
+        )
+        self.add_parameter(
+            "alpha_s",
+            type=ParameterType.rate_gauss,
+            process=self.inject_all_eras("ttH_*"),
+            effect=1.020,
+            group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "bbH_norm_ggH",
             type=ParameterType.rate_gauss,
-            process="ggH_*",
+            process=self.inject_all_eras("ggH_*"),
             effect=(0.5, 1.5),
             group=["theory", "rate_nuisances"],
         )
         self.add_parameter(
             "bbH_norm_qqH",
             type=ParameterType.rate_gauss,
-            process="qqH_*",
+            process=self.inject_all_eras("qqH_*"),
             effect=(0.5, 1.5),
             group=["theory", "rate_nuisances"],
         )
-        # TODO: additional theory uncertainties, especially on background processes!
 
         # lumi
         for config_inst in self.config_insts:
             lumi = config_inst.x.luminosity
             for unc_name in lumi.uncertainties:
+                # depending on the run3_multi_campaign setting, either the single, year specific uncertainty is used,
+                # or the correlated uncertainty scheme across all campaigns is used
+                is_year_specific = str(config_inst.campaign.x.year) in unc_name
+                if self.run3_multi_campaign == is_year_specific:
+                    continue
+                # add it
                 self.add_parameter(
                     unc_name,
                     type=ParameterType.rate_gauss,
                     effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
-                    process=process_matches(configs=config_inst, skip_qcd=True),
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "rate_nuisances"],
                 )
@@ -294,7 +408,7 @@ class default(HBTInferenceModelBase):
                 config_data={
                     config_inst.name: self.parameter_config_spec(shift_source="minbias_xs"),
                 },
-                process=process_matches(configs=config_inst, skip_qcd=True),
+                process=self.process_matches(configs=config_inst, skip_datadriven=True),
                 process_match_mode=all,
                 group=["experiment", "shape_nuisances"],
             )
@@ -307,7 +421,7 @@ class default(HBTInferenceModelBase):
                 config_inst.name: self.parameter_config_spec(shift_source="top_pt")
                 for config_inst in self.config_insts
             },
-            process=inject_all_eras("ttbar"),
+            process=self.inject_all_eras("ttbar"),
             group=["experiment", "shape_nuisances"],
         )
 
@@ -344,7 +458,7 @@ class default(HBTInferenceModelBase):
                     config_inst.name: self.parameter_config_spec(shift_source=source)
                     for config_inst in self.config_insts
                 },
-                process=process_matches(skip_qcd=True),
+                process=self.process_matches(skip_datadriven=True),
                 group=["theory", "shape_nuisances"],
             )
 
@@ -363,7 +477,7 @@ class default(HBTInferenceModelBase):
                         config_data={
                             config_inst.name: self.parameter_config_spec(shift_source=f"btag_{name}"),
                         },
-                        process=process_matches(configs=config_inst, skip_qcd=True),
+                        process=self.process_matches(configs=config_inst, skip_datadriven=True),
                         process_match_mode=all,
                         group=["experiment", "shape_nuisances"],
                     )
@@ -375,38 +489,44 @@ class default(HBTInferenceModelBase):
                         config_inst.name: self.parameter_config_spec(shift_source=f"btag_{name}")
                         for config_inst in config_insts
                     },
-                    process=process_matches(configs=config_insts, skip_qcd=True),
+                    process=self.process_matches(configs=config_insts, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
 
-        # electron weight
-        for config_inst in self.config_insts:
-            self.add_parameter(
-                f"CMS_eff_e_{self.campaign_keys[config_inst]}",
-                type=ParameterType.shape,
-                config_data={
-                    config_inst.name: self.parameter_config_spec(shift_source="e"),
-                },
-                category=["*_etau_*"],
-                process=process_matches(configs=config_inst, skip_qcd=True),
-                process_match_mode=all,
-                group=["experiment", "shape_nuisances"],
-            )
+        # electron weights
+        # TODO: possibly correlate?
+        for e_source in ["e_id", "e_reco"]:
+            for config_inst in self.config_insts:
+                self.add_parameter(
+                    f"CMS_eff_{e_source}_{self.campaign_keys[config_inst]}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=e_source),
+                    },
+                    category=["*_etau_*"],
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
 
-        # muon weight
-        for config_inst in self.config_insts:
-            self.add_parameter(
-                f"CMS_eff_m_{self.campaign_keys[config_inst]}",
-                type=ParameterType.shape,
-                config_data={
-                    config_inst.name: self.parameter_config_spec(shift_source="mu"),
-                },
-                category=["*_mutau_*"],
-                process=process_matches(configs=config_inst, skip_qcd=True),
-                process_match_mode=all,
-                group=["experiment", "shape_nuisances"],
-            )
+        # muon weights
+        # TODO: possibly correlate?
+        # TODO: 2024: MUO recommendations on de/correlating id/iso systematics across years should be implemented
+        # see https://muon-wiki.docs.cern.ch/guidelines/corrections/#note-on-correlations
+        for mu_source in ["mu_id", "mu_iso"]:
+            for config_inst in self.config_insts:
+                self.add_parameter(
+                    f"CMS_eff_{mu_source}_{self.campaign_keys[config_inst]}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=mu_source),
+                    },
+                    category=["*_mutau_*"],
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
 
         # tau weights
         for config_inst in self.config_insts:
@@ -420,7 +540,7 @@ class default(HBTInferenceModelBase):
                         config_inst.name: self.parameter_config_spec(shift_source=f"tau_{name}"),
                     },
                     category=[f"*_{ch}_*" for ch in unc_channels],
-                    process=process_matches(configs=config_inst, skip_qcd=True),
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
@@ -437,7 +557,7 @@ class default(HBTInferenceModelBase):
                         config_inst.name: self.parameter_config_spec(shift_source=f"trigger_{name}"),
                     },
                     category=[f"*_{ch}_*" for ch in unc_channels],
-                    process=process_matches(configs=config_inst, skip_qcd=True),
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
                 )
@@ -461,62 +581,98 @@ class default(HBTInferenceModelBase):
         # eer
         pass  # TODO
 
+        # mec
+        pass  # TODO
+
+        # mer
+        pass  # TODO
+
+        # dy shifts
+        for i, dy_name in enumerate(["syst", "stat"]):
+            self.add_parameter(
+                f"CMS_DY_{dy_name}_{config_inst.campaign.get_aux('year')}",
+                type=ParameterType.shape,
+                config_data={
+                    config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}")
+                    for config_inst in self.config_insts
+                },
+                process=self.process_matches(processes=["DY"], configs=config_inst),
+                process_match_mode=all,
+                group=["experiment", "shape_nuisances"],
+            )
+
         #
         # shape parameters based on entire dataset variations
         #
 
         # hdamp
-        # self.add_parameter(
-        #     "hdamp",
-        #     type=ParameterType.shape,
-        #     config_data={
-        #         config_inst.name: self.parameter_config_spec(shift_source="hdamp")
-        #         for config_inst in self.config_insts
-        #     },
-        #     process=process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
-        #     process_match_mode=all,
-        #     group=["experiment", "shape_nuisances"],
-        # )
+        self.add_parameter(
+            "hdamp",
+            type=ParameterType.shape,
+            config_data={
+                config_inst.name: self.parameter_config_spec(shift_source="hdamp")
+                for config_inst in self.config_insts
+            },
+            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
+            process_match_mode=all,
+            group=["experiment", "shape_nuisances"],
+        )
 
         # tune
-        # self.add_parameter(
-        #     "underlying_event",
-        #     type=ParameterType.shape,
-        #     config_data={
-        #         config_inst.name: self.parameter_config_spec(shift_source="tune")
-        #         for config_inst in self.config_insts
-        #     },
-        #     process=process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
-        #     process_match_mode=all,
-        #     group=["experiment", "shape_nuisances"],
-        # )
+        self.add_parameter(
+            "underlying_event",
+            type=ParameterType.shape,
+            config_data={
+                config_inst.name: self.parameter_config_spec(shift_source="tune")
+                for config_inst in self.config_insts
+            },
+            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
+            process_match_mode=all,
+            group=["experiment", "shape_nuisances"],
+        )
 
         # mtop
-        # self.add_parameter(
-        #     "mtop",
-        #     type=ParameterType.shape,
-        #     config_data={
-        #         config_inst.name: self.parameter_config_spec(shift_source="mtop")
-        #         for config_inst in self.config_insts
-        #     },
-        #     process=process_matches(processes=["ttbar", "singlet"], configs=self.config_insts, skip_qcd=True),
-        #     process_match_mode=all,
-        #     group=["experiment", "shape_nuisances"],
-        # )
+        self.add_parameter(
+            "mtop",
+            type=ParameterType.shape,
+            config_data={
+                config_inst.name: self.parameter_config_spec(shift_source="mtop")
+                for config_inst in self.config_insts
+            },
+            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
+            process_match_mode=all,
+            group=["experiment", "shape_nuisances"],
+        )
+
+
+# helper to remove all parameters that require shifted inputs from a model instance
+def remove_shift_parameters(model: default) -> None:
+    # remove all parameters that require a shift source other than nominal
+    for category_name, process_name, parameter in model.iter_parameters():
+        remove = (
+            (parameter.type.is_shape and not parameter.transformations.any_from_rate) or
+            (parameter.type.is_rate and parameter.transformations.any_from_shape)
+        )
+        if remove:
+            model.remove_parameter(parameter.name, process=process_name, category=category_name)
 
 
 @default.inference_model
 def default_no_shifts(self):
     super(default_no_shifts, self).init_func()
-
-    # remove all parameters that require a shift source other than nominal
-    for category_name, process_name, parameter in self.iter_parameters():
-        if parameter.type.is_shape or parameter.transformations.any_from_shape:
-            self.remove_parameter(parameter.name, process=process_name, category=category_name)
-
-    # repeat the cleanup
+    remove_shift_parameters(self)
     self.init_cleanup()
 
+
+default_no_shifts_jet1_pt = default_no_shifts.derive(
+    "default_no_shifts_jet1_pt",
+    cls_dict={"variable": "jet1_pt"},
+)
+
+default_no_shifts_no_vbf = default_no_shifts.derive(
+    "default_no_shifts_no_vbf",
+    cls_dict={"phasespaces": ["res1b_novbf", "res2b_novbf", "boosted_novbf"]},
+)
 
 default_no_shifts_simple = default_no_shifts.derive(
     "default_no_shifts_simple",
@@ -534,4 +690,66 @@ for kl in ["kl1", "kl0", "allkl"]:
 default_no_shifts_simple_5k = default_no_shifts.derive(
     "default_no_shifts_simple_5k",
     cls_dict={"variable": "run3_dnn_moe_hh_fine_5k"},
+)
+
+
+@default.inference_model(variable="run3_dnn_moe_hh_fine_5k", empty_bin_value=0)
+def default_bin_opt(self):
+    # set everything up as in the default model
+    super(default_bin_opt, self).init_func()
+
+    # only keep certain parameters
+    keep_parameters = {
+        "BR_*",
+        "QCDscale_*",
+        "bbH_norm_*",
+        "lumi_*",
+        "CMS_bbtt_eff_trig_*",
+        "CMS_btag_*",
+        "CMS_eff_e_*",
+        "CMS_eff_mu_*",
+        "CMS_eff_t_*",
+        "CMS_top_pT_reweighting",
+        "pdf_*",
+        "ps_*",
+        "scale_*",
+    }
+    for category_name, process_name, parameter in self.iter_parameters():
+        if not law.util.multi_match(parameter.name, keep_parameters):
+            self.remove_parameter(parameter.name, process=process_name, category=category_name)
+
+    # repeat the cleanup
+    self.init_cleanup()
+
+
+class default_cc(default):
+    """
+    Model that uses the full phase space (typically res1b, res2b, vbf, boosted) and also uses different variables.
+    """
+
+    phasespaces = ["res1b_cc", "res2b_cc", "boosted_cc", "vbf_cc"]
+    use_logit = False
+
+    def get_category_variable(self, *, channel: str, phasespace: str) -> str:
+        # vbf dnn in vbf phasespace, otherwise default dnn
+        if re.match(r"^vbf.*$", phasespace):
+            return f"vbf_dnn_moe_hh_vbf_{'logit_' if self.use_logit else ''}fine"
+        return f"run3_dnn_moe_hh_{'logit_' if self.use_logit else ''}fine"
+
+
+@default_cc.inference_model
+def default_cc_no_shifts(self):
+    super(default_cc_no_shifts, self).init_func()
+    remove_shift_parameters(self)
+    self.init_cleanup()
+
+
+default_cc_logit_no_shifts = default_cc_no_shifts.derive(
+    "default_cc_logit_no_shifts",
+    cls_dict={"use_logit": True},
+)
+
+default_cc_no_vbf_no_shifts = default_cc_no_shifts.derive(
+    "default_cc_no_vbf_no_shifts",
+    cls_dict={"phasespaces": ["res1b_inclvbf_cc", "res2b_inclvbf_cc", "boosted_cc"]},
 )

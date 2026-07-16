@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from order import UniqueObject, TagMixin
+from order import UniqueObject, TagMixin, AuxDataMixin
 from order.util import typed
 
 from columnflow.types import Callable, Any, Sequence, Hashable, ClassVar
@@ -24,7 +24,7 @@ class TriggerLeg(object):
         - *trigger_bits*: Integer bit mask or masks describing whether the last filter of a trigger fired.
           See https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
           Per mask, any of the bits should match (*OR*). When multiple masks are configured, each of
-          them should match (*AND*).
+          them should fully match all bits (*AND*).
 
     For accepted types and conversions, see the *typed* setters implemented in this class.
     """
@@ -98,7 +98,7 @@ class TriggerLeg(object):
         return trigger_bits
 
 
-class Trigger(UniqueObject, TagMixin):
+class Trigger(UniqueObject, TagMixin, AuxDataMixin):
     """
     Container class storing information about triggers:
 
@@ -127,9 +127,11 @@ class Trigger(UniqueObject, TagMixin):
         legs: dict[Hashable, TriggerLeg] | Sequence[TriggerLeg] | None = None,
         applies_to_dataset: Callable | bool | Any = True,
         tags: Any = None,
+        aux: dict[str, Any] | None = None,
     ):
         UniqueObject.__init__(self, name, id)
         TagMixin.__init__(self, tags=tags)
+        AuxDataMixin.__init__(self, aux=aux)
 
         # force the id to be positive
         if self.id < 0:
@@ -237,8 +239,9 @@ class TriggerBits:
 
     v12: int | None = None
     v14: int | None = None
+    v15: int | None = None
 
-    supported_versions: ClassVar[set[int]] = {12, 14}
+    supported_versions: ClassVar[set[int]] = {12, 14, 15}
 
     def __post_init__(self) -> None:
         # versions might be strings such as "v12" that act as references

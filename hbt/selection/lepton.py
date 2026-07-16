@@ -12,7 +12,10 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.columnar_util import set_ak_column, sorted_indices_from_mask, flat_np_view, full_like
+from columnflow.columnar_util import (
+    set_ak_column, sorted_indices_from_mask, flat_np_view, full_like, mask_from_indices, layout_ak_array,
+    ak_concatenate_safe,
+)
 from columnflow.util import maybe_import
 
 from hbt.util import IF_NANO_V9, IF_NANO_GE_V10
@@ -56,7 +59,7 @@ def trigger_object_matching(
         full_any_match = full_like(vectors1.pt, False, dtype=bool)
         flat_full_any_match = flat_np_view(full_any_match)
         flat_full_any_match[flat_np_view(full_any_match | event_mask)] = flat_np_view(any_match)
-        any_match = full_any_match
+        any_match = layout_ak_array(flat_full_any_match, full_any_match)
 
     return any_match
 
@@ -105,8 +108,21 @@ def electron_selection(
         self.config_inst.campaign.x.year == 2022 and
         self.config_inst.campaign.has_tag("postEE")
     )
+    is_2023_pre = (
+        self.config_inst.campaign.x.year == 2023 and
+        self.config_inst.campaign.has_tag("preBPix")
+    )
+    is_2023_post = (
+        self.config_inst.campaign.x.year == 2023 and
+        self.config_inst.campaign.has_tag("postBPix")
+    )
+    is_2024 = self.config_inst.campaign.x.year == 2024
     is_single = trigger.has_tag("single_e")
     is_cross = trigger.has_tag("cross_e_tau")
+    is_cross_vbf = trigger.has_tag("cross_e_vbf")
+    is_vbf = trigger.has_tag("cross_vbf")
+    if (is_vbf or is_cross_vbf) and not (is_2023_pre or is_2023_post or is_2024):
+        raise ValueError("Invalid trigger configuration, no vbf trigger should be available before 2023")
 
     # obtain mva flags, which might be located at different routes, depending on the nano version
     if "mvaIso_WP80" in events.Electron.fields:
@@ -127,19 +143,33 @@ def electron_selection(
     # default electron mask
     analysis_mask = None
     control_mask = None
-    if is_single or is_cross:
-        min_pt = 26.0 if is_2016 else (31.0 if is_single else 25.0)
-        max_eta = 2.5 if is_single else 2.1
+    if is_single or is_cross or is_cross_vbf or is_vbf:
+        if is_single:
+            min_pt = 26.0 if is_2016 else 31.0
+        elif is_cross:
+            min_pt = 26.0 if is_2016 else 25.0
+        elif is_vbf:
+            min_pt = 12.0
+        elif is_cross_vbf:
+            if is_2023_pre:
+                min_pt = 13.0
+            elif is_2023_post:
+                min_pt = 18.0
+            elif is_2024:
+                min_pt = 23.0
+            else:
+                raise ValueError("Invalid configuration for cross_e_vbf trigger, should only exist in 2023 and 2024")
+        max_eta_base = 2.5
         default_mask = (
             (mva_iso_wp80 == 1) &
-            (abs(events.Electron.eta) < max_eta) &
+            (abs(events.Electron.eta) < max_eta_base) &
             (abs(events.Electron.dxy) < 0.045) &
             (abs(events.Electron.dz) < 0.2) &
             ~in_ecal_overlap
         )
 
-        # additional cut in 2022 post-EE
-        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=162#From_ECAL_and_EGM
+        # additional cut in 2022 postEE
+        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=185#From_ECAL_and_EGM
         if is_2022_post:
             default_mask = default_mask & ~(
                 (events.Electron.eta > 1.556) &
@@ -147,9 +177,26 @@ def electron_selection(
                 (events.Electron.seediPhiOriY > 72)
             )
 
+        # additional eb noise veto in 2022 postEE for data only (decision handled by dataset tag through config)
+        # see https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis?rev=185#From_ECAL_and_EGM
+        if self.dataset_inst.is_data and self.dataset_inst.has_tag("needs_eb_noise_electron_veto"):
+            noisy_runs = [362430, 362433, 362434, 362435, 362436, 362437, 362438, 362439]
+            default_mask = default_mask & ~(
+                (events.Electron.pt > 700.0) &
+                (events.Electron.pt < 900.0) &
+                (events.Electron.seediEtaOriX == -21) &
+                (events.Electron.seediPhiOriY == 260) &
+                np.isin(events.run, noisy_runs)
+            )
+
         # control mask for the electron selection
-        control_mask = default_mask & (events.Electron.pt > 24.0)
-        analysis_mask = default_mask & (events.Electron.pt > min_pt)
+        # updated to 12 GeV for VBF strategy in 2023, but applied for all channels and eras
+        control_mask = default_mask & (events.Electron.pt > 12.0)
+        # control_mask = default_mask & (events.Electron.pt > 24.0)  # this would disable the VBF phase space
+        # additional eta cut for the cross triggers, should not influence the delta r vetoing for taus
+        # as it is a trigger specific cut and thus applied after the base tau selection
+        max_eta_trigger = 2.1 if is_cross else 2.5
+        analysis_mask = default_mask & (events.Electron.pt > min_pt) & (abs(events.Electron.eta) < max_eta_trigger)
 
     # veto electron mask (must be trigger independent!)
     veto_mask = (
@@ -165,12 +212,15 @@ def electron_selection(
 
 
 @electron_selection.init
-def electron_selection_init(self) -> None:
-    if self.config_inst.campaign.x.run == 3 and self.config_inst.campaign.x.year == 2022:
-        self.shifts |= {
-            shift_inst.name for shift_inst in self.config_inst.shifts
-            if shift_inst.has_tag(("ees", "eer"))
-        }
+def electron_selection_init(self: Selector, **kwargs) -> None:
+    super(electron_selection, self).init_func(**kwargs)
+
+    # register all eec/eer shifts
+    self.shifts |= {
+        shift_inst.name
+        for shift_inst in self.config_inst.shifts
+        if shift_inst.has_tag(("eec", "eer"))
+    }
 
 
 @selector(
@@ -190,10 +240,11 @@ def electron_trigger_matching(
     """
     is_single = trigger.has_tag("single_e")
     is_cross = trigger.has_tag("cross_e_tau")
+    is_cross_vbf = trigger.has_tag("cross_e_vbf")
 
     # catch config errors
-    assert is_single or is_cross
-    assert trigger.n_legs == len(leg_masks) == (1 if is_single else 2)
+    assert is_single or is_cross or is_cross_vbf
+    assert trigger.n_legs == len(leg_masks) == (1 if is_single else (2 if is_cross else 3))
     assert abs(trigger.legs["e"].pdg_id) == 11
 
     return trigger_object_matching(
@@ -222,27 +273,40 @@ def muon_selection(
     - ID und ISO : https://twiki.cern.ch/twiki/bin/view/CMS/MuonUL2017?rev=15
     """
     is_2016 = self.config_inst.campaign.x.year == 2016
+    is_2023 = self.config_inst.campaign.x.year == 2023
+    is_2024 = self.config_inst.campaign.x.year == 2024
     is_single = trigger.has_tag("single_mu")
     is_cross = trigger.has_tag("cross_mu_tau")
+    is_cross_vbf = trigger.has_tag("cross_mu_vbf")
+    if is_cross_vbf and not (is_2023 or is_2024):
+        raise ValueError("Invalid trigger configuration, no mu-vbf trigger should be available before 2023")
 
     # default muon mask
     analysis_mask = None
     control_mask = None
-    if is_single or is_cross:
-        if is_2016:
-            min_pt = 23.0 if is_single else 20.0
-        else:
-            min_pt = 26.0 if is_single else 22.0
-        eta_cut = 2.4 if is_single else 2.1
+    if is_single or is_cross or is_cross_vbf:
+        if is_single:
+            min_pt = 23.0 if is_2016 else 26.0
+        elif is_cross:
+            min_pt = 20.0 if is_2016 else 22.0
+        elif is_cross_vbf:
+            min_pt = 6.0
+        eta_cut_base = 2.4
         default_mask = (
             (events.Muon.tightId == 1) &
-            (abs(events.Muon.eta) < eta_cut) &
+            (abs(events.Muon.eta) < eta_cut_base) &
             (abs(events.Muon.dxy) < 0.045) &
             (abs(events.Muon.dz) < 0.2) &
-            (events.Muon.pfRelIso04_all < 0.15)
+            (events.Muon.pfRelIso04_all < 0.15)  # tight iso working point
         )
-        control_mask = default_mask & (events.Muon.pt > 20.0)
-        analysis_mask = default_mask & (events.Muon.pt > min_pt)
+        # pt control mask cut updated to 6 GeV for VBF strategy in 2023,
+        # but applied for all channels and eras
+        control_mask = default_mask & (events.Muon.pt > 6.0)
+        # control_mask = default_mask & (events.Muon.pt > 20.0)  # this would disable the VBF phase space
+        # additional eta cut for the cross triggers, should not influence the delta r vetoing for taus
+        # as it is a trigger specific cut and thus applied after the base tau selection
+        eta_cut_trigger = 2.1 if is_cross else 2.4
+        analysis_mask = default_mask & (events.Muon.pt > min_pt) & (abs(events.Muon.eta) < eta_cut_trigger)
 
     # veto muon mask (must be trigger independent!)
     veto_mask = (
@@ -251,10 +315,23 @@ def muon_selection(
         (abs(events.Muon.dxy) < 0.045) &
         (abs(events.Muon.dz) < 0.2) &
         (events.Muon.pfRelIso04_all < 0.3) &
-        (events.Muon.pt > 10.0)
+        (events.Muon.pt > 6.0)
+        #  (events.Muon.pt > 10.0)  # this would disable the VBF phase space
     )
 
     return analysis_mask, control_mask, veto_mask
+
+
+@muon_selection.init
+def muon_selection_init(self: Selector, **kwargs) -> None:
+    super(muon_selection, self).init_func(**kwargs)
+
+    # register all mec/mer shifts
+    self.shifts |= {
+        shift_inst.name
+        for shift_inst in self.config_inst.shifts
+        if shift_inst.has_tag(("mec", "mer"))
+    }
 
 
 @selector(
@@ -274,10 +351,11 @@ def muon_trigger_matching(
     """
     is_single = trigger.has_tag("single_mu")
     is_cross = trigger.has_tag("cross_mu_tau")
+    is_cross_vbf = trigger.has_tag("cross_mu_vbf")
 
     # catch config errors
-    assert is_single or is_cross
-    assert trigger.n_legs == len(leg_masks) == (1 if is_single else 2)
+    assert is_single or is_cross or is_cross_vbf
+    assert trigger.n_legs == len(leg_masks) == (1 if is_single else (2 if is_cross else 3))
     assert abs(trigger.legs["mu"].pdg_id) == 13
 
     return trigger_object_matching(
@@ -321,14 +399,25 @@ def tau_selection(
     is_cross_tau = trigger.has_tag("cross_tau_tau")
     is_cross_tau_vbf = trigger.has_tag("cross_tau_tau_vbf")
     is_cross_tau_jet = trigger.has_tag("cross_tau_tau_jet")
+    is_cross_vbf = trigger.has_tag("cross_tau_vbf")
+    is_quadjet = trigger.has_tag("cross_quadjet")
+    is_vbf = trigger.has_tag({"cross_vbf", "cross_mu_vbf", "cross_e_vbf"})
     is_2016 = self.config_inst.campaign.x.year == 2016
     is_run3 = self.config_inst.campaign.x.run == 3
+    is_2023 = self.config_inst.campaign.x.year == 2023
+    is_2024 = self.config_inst.campaign.x.year == 2024
     get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
+    if (is_vbf or is_cross_vbf) and not (is_2023 or is_2024):
+        raise ValueError("Invalid trigger configuration, no vbf trigger should be available before 2023")
+    if is_cross_tau_jet and not is_run3:
+        raise ValueError("Invalid trigger configuration, no tau-jet trigger should be available before run 3")
+    if is_quadjet and not (is_2024):
+        raise ValueError("Invalid trigger configuration, no quadjet trigger should be available before 2024")
 
     # determine minimum pt and maximum eta
     max_eta = 2.5
     base_pt = 20.0
-    if is_single_e or is_single_mu:
+    if is_single_e or is_single_mu or is_vbf:
         min_pt = 20.0
     elif is_cross_e:
         # only existing after 2016
@@ -336,12 +425,16 @@ def tau_selection(
     elif is_cross_mu:
         min_pt = 25.0 if is_2016 else 32.0
     elif is_cross_tau:
-        min_pt = 40.0
+        min_pt = 35.0 if is_2024 else 40.0
     elif is_cross_tau_vbf:
         # only existing after 2016
         min_pt = 0.0 if is_2016 else 25.0
+    elif is_cross_vbf:
+        min_pt = 50.0
     elif is_cross_tau_jet:
-        min_pt = None if not is_run3 else 35.0
+        min_pt = 31.0 if is_2024 else 35.0
+    elif is_quadjet:
+        min_pt = 25.0
 
     # base tau mask for default and qcd sideband tau
     base_mask = (
@@ -369,7 +462,9 @@ def tau_selection(
 
 
 @tau_selection.init
-def tau_selection_init(self: Selector) -> None:
+def tau_selection_init(self: Selector, **kwargs) -> None:
+    super(tau_selection, self).init_func(**kwargs)
+
     # register tec shifts
     self.shifts |= {
         shift_inst.name
@@ -395,6 +490,7 @@ def tau_trigger_matching(
     trigger: Trigger,
     trigger_fired: ak.Array,
     leg_masks: dict[str, ak.Array],
+    tau_object_mask: ak.Array | None = None,
     **kwargs,
 ) -> tuple[ak.Array]:
     """
@@ -409,35 +505,53 @@ def tau_trigger_matching(
     is_cross_tau = trigger.has_tag("cross_tau_tau")
     is_cross_tau_vbf = trigger.has_tag("cross_tau_tau_vbf")
     is_cross_tau_jet = trigger.has_tag("cross_tau_tau_jet")
-    is_any_cross_tau = is_cross_tau or is_cross_tau_vbf or is_cross_tau_jet
-    assert is_cross_e or is_cross_mu or is_any_cross_tau
+    is_cross_vbf = trigger.has_tag("cross_tau_vbf")
+    is_any_cross_ditau = is_cross_tau or is_cross_tau_vbf or is_cross_tau_jet
+    assert is_cross_e or is_cross_mu or is_any_cross_ditau or is_cross_vbf
+
+    # define the tau objects to be considered for matching
+    if tau_object_mask is not None:
+        masked_taus = events.Tau[tau_object_mask]
+    else:
+        masked_taus = events.Tau
+
+    # define the back mapping to the original tau collection
+    def map_to_full_tau_array(matched_mask: ak.Array) -> ak.Array:
+        if tau_object_mask is None:
+            return matched_mask
+        flat_full_mask = flat_np_view(full_like(events.Tau.pt, False, dtype=bool))
+        flat_full_mask[flat_np_view(tau_object_mask)] = flat_np_view(matched_mask)
+        return layout_ak_array(flat_full_mask, events.Tau)
 
     # start per-tau mask with trigger object matching per leg
-    if is_cross_e or is_cross_mu:
+    if is_cross_e or is_cross_mu or is_cross_vbf:
         # catch config errors
-        assert trigger.n_legs == len(leg_masks) == 2
+        assert trigger.n_legs == len(leg_masks) == (3 if is_cross_vbf else 2)
         assert abs(trigger.legs["tau"].pdg_id) == 15
-        # match leg 1
-        return trigger_object_matching(
-            events.Tau,
+        # match leg
+        match_leg = trigger_object_matching(
+            masked_taus,
             events.TrigObj[leg_masks["tau"]],
             event_mask=trigger_fired,
         )
+        return map_to_full_tau_array(match_leg)
 
-    # is_any_cross_tau
+    # is_any_cross_ditau
     # catch config errors
     assert trigger.n_legs == len(leg_masks) >= 2
     assert abs(trigger.legs["tau1"].pdg_id) == 15
     assert abs(trigger.legs["tau2"].pdg_id) == 15
 
+    assert tau_object_mask is not None, "For ditau triggers, tau_object_mask must be defined to match only the 2 candidate taus"  # noqa: E501
+
     # match both legs
     matches_leg0 = trigger_object_matching(
-        events.Tau,
+        masked_taus,
         events.TrigObj[leg_masks["tau1"]],
         event_mask=trigger_fired,
     )
     matches_leg1 = trigger_object_matching(
-        events.Tau,
+        masked_taus,
         events.TrigObj[leg_masks["tau2"]],
         event_mask=trigger_fired,
     )
@@ -450,13 +564,134 @@ def tau_trigger_matching(
         ak.any(matches_leg1, axis=1)
     )
 
+    # additional condition: there must be at least two matched trigger objects
+    # since the same trigger object could fulfill both legs trigger bits and
+    # thus both reconstructed taus could match to the same trigger object
+
+    mask_leg_1 = mask_from_indices(leg_masks["tau1"], events.TrigObj.pt)
+    mask_leg_2 = mask_from_indices(leg_masks["tau2"], events.TrigObj.pt)
+    mask_all_legs = mask_leg_1 | mask_leg_2
+    matched_trig_objs = trigger_object_matching(
+        events.TrigObj[mask_all_legs],
+        masked_taus,
+        event_mask=trigger_fired,
+    )
+
+    matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
+
+    # bring the mask back to the full tau collection
+    matches = map_to_full_tau_array(matches)
+
     return matches
+
+
+@selector(
+    uses={"{Tau,TrigObj}.{pt,eta,phi}"},
+    # shifts are declared dynamically below in tau_selection_init
+    exposed=False,
+)
+def quadjet_tau_trigger_matching(
+    self: Selector,
+    events: ak.Array,
+    trigger: Trigger,
+    trigger_fired: ak.Array,
+    leg_masks: dict[str, ak.Array],
+    tau_object_mask: ak.Array,
+    **kwargs,
+) -> tuple[ak.Array]:
+    """
+    Quadjet tau trigger matching, also returns index of matched trigger objects.
+    """
+    if ak.all(ak.num(events.Tau) == 0):
+        logger.info("no taus found in event chunk")
+        return full_like(events.Tau.pt, False, dtype=bool), None
+
+    is_quadjet = trigger.has_tag("cross_quadjet")
+    assert is_quadjet
+    assert tau_object_mask is not None, "For quadjet triggers, tau_object_mask must be defined to match only the 2 candidate taus"  # noqa: E501
+
+    # catch config errors
+    assert trigger.n_legs == 4
+
+    # define the tau objects to be considered for matching
+    masked_taus = events.Tau[tau_object_mask]
+
+    # define the back mapping to the original tau collection
+    def map_to_full_tau_array(matched_mask: ak.Array) -> ak.Array:
+        if tau_object_mask is None:
+            return matched_mask
+        flat_full_mask = flat_np_view(full_like(events.Tau.pt, False, dtype=bool))
+        flat_full_mask[flat_np_view(tau_object_mask)] = flat_np_view(matched_mask)
+        return layout_ak_array(flat_full_mask, events.Tau)
+
+    # catch config errors
+    assert abs(trigger.legs["jet_tau"].pdg_id) == 1
+    assert abs(trigger.legs["jet3"].pdg_id) == 1
+    # jet 3 and 4 legs have same trigger bits, so unnecessary to check both,
+    # might change for different SF handling
+    # assert abs(trigger.legs["jet4"].pdg_id) == 1
+
+    # match both legs
+    matches_leg_jet_tau = trigger_object_matching(
+        masked_taus,
+        events.TrigObj[leg_masks["jet_tau"]],
+        event_mask=trigger_fired,
+    )
+    matches_leg_jet = trigger_object_matching(
+        masked_taus,
+        events.TrigObj[leg_masks["jet3"]],
+        event_mask=trigger_fired,
+    )
+
+    # taus need to be matched to at least one leg, but as a side condition
+    # each leg has to have at least one match to a tau
+    matches = (
+        (matches_leg_jet_tau | matches_leg_jet) &
+        ak.any(matches_leg_jet_tau, axis=1) &
+        ak.any(matches_leg_jet, axis=1)
+    )
+
+    # additional condition: there must be at least two matched trigger objects
+    # since the same trigger object could fulfill both legs trigger bits and
+    # thus both reconstructed taus could match to the same trigger object
+
+    # since the last two jet legs will have a similar issue and there can even be double matching
+    # of trigger objects between the tau legs and the jet legs, we store the trigger object indices
+    # for the tau legs and will check in the jet selection that the union of sets of matched trigger
+    # objects for the tau legs and the jet legs contain at least 4 distinct trigger objects
+
+    # this works because the jet3 and jet4 legs have the same trigger bits and their trigger objects
+    # are a superset of the ones matching the jet_tau and jet_btag legs. Else e.g. jet_tau could
+    # match 3 different jets and jet3 could match the same jet as jet_bjet and jet4 and we would still
+    # have 4 matches without having 1 independent trigger object per leg. So: to check if this is
+    # still accurate in further iterations.
+
+    mask_leg_jet_tau = mask_from_indices(leg_masks["jet_tau"], events.TrigObj.pt)
+    mask_leg_jet3 = mask_from_indices(leg_masks["jet3"], events.TrigObj.pt)
+
+    mask_all_legs = mask_leg_jet_tau | mask_leg_jet3
+    matched_trig_objs = trigger_object_matching(
+        events.TrigObj[mask_all_legs],
+        masked_taus,
+        event_mask=trigger_fired,
+    )
+
+    # already remove events that do not have at least 2 matched trigger objects
+    matches = matches & (ak.sum(matched_trig_objs, axis=1) >= 2)
+
+    matched_trig_objs = matched_trig_objs & (ak.sum(matched_trig_objs, axis=1) >= 2)
+    index_trig_objs = ak.local_index(events.TrigObj)[mask_all_legs][matched_trig_objs]
+
+    # bring the mask back to the full tau collection
+    matches = map_to_full_tau_array(matches)
+
+    return matches, index_trig_objs
 
 
 @selector(
     uses={
         electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching, tau_selection,
-        tau_trigger_matching,
+        tau_trigger_matching, quadjet_tau_trigger_matching,
         "event", "{Electron,Muon,Tau}.{charge,mass}",
     },
     produces={
@@ -485,6 +720,43 @@ def lepton_selection(
     ch_mumu = self.config_inst.get_channel("mumu")
     ch_emu = self.config_inst.get_channel("emu")
 
+    # store which events pass the base selection for which trigger
+    # later on, remove all events that do pass the base selections but not the full selection
+    # for some triggers and categories to include trigger priority in the selection
+    # e.g. an event passing the single e base selection should not be selected if it does not pass the
+    # full single e selection and the full cross e tau selection, even if it would pass the
+    # cross_e_vbf selection, as the vbf selections have lower priority than the other selections
+
+    # order of trigger priority (from highest to lowest):
+    # - single e/mu, cross e/mu tau, cross tau tau, cross tau tau jet,
+    # - cross quadjet (only tautau channel)
+    # - cross tau tau vbf (only tautau channel)
+    # - cross vbf, cross vbf triple jet(???)
+    # # TODO: check what is the deal with vbf triple jet, never heard of it, seems to be used for 2023???
+    # https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/data/HHtriggers_Run3.yaml?ref_type=heads#L192 -> would be extremely annoying for the trigger sfs calculation  # noqa: E501
+    # - cross e/mu/tau vbf
+    # as the full lepton triggers are all in the first priority group, the orthogonalization
+    # is done in the jet selection
+
+    passed_base_selection = {
+        "single_e": ak.full_like(events.event, False, dtype=bool),
+        "cross_e_tau": ak.full_like(events.event, False, dtype=bool),
+        "single_mu": ak.full_like(events.event, False, dtype=bool),
+        "cross_mu_tau": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau": ak.full_like(events.event, False, dtype=bool),
+    }
+    partially_passed_base_selection = {
+        "cross_e_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_mu_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_tau_jet": ak.full_like(events.event, False, dtype=bool),
+        "cross_tau_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_vbf": ak.full_like(events.event, False, dtype=bool),
+        "cross_quadjet": ak.full_like(events.event, False, dtype=bool),
+    }
+
+    tau_trig_objects_matched_quadjet = {}
+
     # prepare vectors for output vectors
     false_mask = (abs(events.event) < 0)
     channel_id = np.uint8(1) * false_mask
@@ -506,6 +778,40 @@ def lepton_selection(
     f = 10**(np.ceil(np.log10(ak.max(events.Tau.pt) or 0.0)) + 2)
     tau_sorting_key = events.Tau[f"raw{self.config_inst.x.tau_tagger}VSjet"] * f + events.Tau.pt
     tau_sorting_indices = ak.argsort(tau_sorting_key, axis=-1, ascending=False)
+
+    def update_passed_selection_dict(
+        selection_dict: dict[str, ak.Array],
+        tau_trigger_mask: ak.Array,
+        ch_base_tau_mask: ak.Array,
+        relevant_triggers: set[str],
+        channel_type: str,
+        additional_object_mask: ak.Array | None = None,
+    ) -> dict[str, ak.Array]:
+
+        # store whether the base offline selections cuts are passed for the different triggers
+        # Warning: whether the trigger has fired or not is not relevant!
+        for trig in relevant_triggers:
+            if trigger.has_tag(trig):
+                if channel_type == "etau" or channel_type == "mutau":
+                    # order the tau trigger mask according to the isolation of the base selected taus
+                    ordered_trig_tau_selected = tau_trigger_mask[tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]]]  # noqa: E501
+                    selection_dict[trig] = selection_dict[trig] | ak.fill_none((
+                        (ak.sum(additional_object_mask, axis=1) == 1) & (ak.firsts(ordered_trig_tau_selected, axis=1))
+                    ), False)
+                if channel_type == "tautau":
+                    # define the mask containing the 2 most isolated taus among the base selected ones
+                    most_isolated_tau_mask = tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]][:, :2]
+                    most_isolated_tau_mask = mask_from_indices(most_isolated_tau_mask, events.Tau.pt)
+                    selection_dict[trig] = selection_dict[trig] | ak.fill_none((
+                        ak.sum(most_isolated_tau_mask & tau_trigger_specific_mask, axis=1) == 2
+                    ), False)
+                    # Note: due to the fact that only one tau gets matched in the vbf+tau case, this
+                    # method does not work for this trigger as it does not allow the second tau to have
+                    # a lower pt requirement. This should be changed in the future but is irrelevant
+                    # for the current analysis as the vbf+tau trigger is in the lowest priority
+                    # group and thus does not lead to any orthogonalization with other triggers,
+                    # so it can be safely ignored for now.
+        return selection_dict
 
     # perform each lepton election step separately per trigger, avoid caching
     sel_kwargs = {**kwargs, "call_force": True}
@@ -531,15 +837,16 @@ def lepton_selection(
         tau_base_mask, tau_trigger_specific_mask, tau_iso_mask = self[tau_selection](
             events,
             trigger,
-            electron_mask,
-            muon_mask,
+            electron_control_mask,
+            muon_control_mask,
             **sel_kwargs,
         )
 
         # conditions potentially leading to etau channel
-        if trigger.has_tag({"single_e", "cross_e_tau"}) and (
+        if trigger.has_tag({"single_e", "cross_e_tau", "cross_vbf", "cross_e_vbf"}) and (
             self.dataset_inst.is_mc or
-            self.dataset_inst.has_tag("etau")
+            self.dataset_inst.has_tag("etau") or
+            self.dataset_inst.has_tag("parking_vbf")
         ):
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
@@ -548,11 +855,45 @@ def lepton_selection(
                 (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.etau])  # noqa: E501
             )
 
-            # fold trigger matching into the selection
-            trig_electron_mask = (
-                electron_mask &
-                self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
+            # store whether the base offline selections cuts are passed for the different triggers
+            # Warning: whether the trigger has fired or not is not relevant!
+            relevant_full_triggers = {"single_e", "cross_e_tau"}
+            passed_base_selection = update_passed_selection_dict(
+                passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_full_triggers,
+                channel_type="etau",
+                additional_object_mask=(
+                    electron_mask &  # to consider only selected electrons
+                    (ak.sum(electron_veto_mask, axis=1) == 1) &  # to ensure etau channel
+                    (ak.sum(muon_veto_mask, axis=1) == 0)  # to ensure etau channel
+                ),
             )
+            relevant_part_triggers = {"cross_e_vbf", "cross_vbf"}
+            partially_passed_base_selection = update_passed_selection_dict(
+                partially_passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_part_triggers,
+                channel_type="etau",
+                additional_object_mask=(
+                    electron_mask &
+                    (ak.sum(electron_veto_mask, axis=1) == 1) &
+                    (ak.sum(muon_veto_mask, axis=1) == 0)
+                ),
+            )
+
+            # fold trigger matching into the selection if needed
+            trig_electron_mask = electron_mask
+
+            if not trigger.has_tag("cross_vbf"):
+                trig_electron_mask = (
+                    trig_electron_mask &
+                    self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
+                )
+
+            # trigger matching for the tau
             trig_tau_mask = ch_base_tau_mask
             if trigger.has_tag("cross_e_tau"):
                 trig_tau_mask = (
@@ -563,7 +904,7 @@ def lepton_selection(
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
 
-            # check if the most isolated tau among the base selected ones is matched
+            # check if the most isolated tau among the base selected ones is matched (if needed)
             # and fulfils the additional trigger requirements
             # for that: take the most isolated tau among the base selected ones and check its entry
             # in the tau mask considering the matching and the additional trigger requirements
@@ -603,12 +944,19 @@ def lepton_selection(
 
             # store the matched trigger id
             ids = ak.where(is_etau, np.float32(trigger.id), np.float32(np.nan))
-            matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+            ids = ak.singletons(ak.nan_to_none(ids))
+            # we need to store the trigger id for the cross_e_vbf and cross_vbf triggers separately, as
+            # we are not sure yet whether the matching is correct for the jet legs of the trigger
+            if trigger.has_tag({"cross_e_vbf", "cross_vbf"}):
+                lepton_part_trigger_ids.append(ids)
+            else:
+                matched_trigger_ids.append(ids)
 
         # mutau channel
-        if trigger.has_tag({"single_mu", "cross_mu_tau"}) and (
+        if trigger.has_tag({"single_mu", "cross_mu_tau", "cross_mu_vbf"}) and (
             self.dataset_inst.is_mc or
-            self.dataset_inst.has_tag("mutau")
+            self.dataset_inst.has_tag("mutau") or
+            self.dataset_inst.has_tag("parking_vbf")
         ):
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
@@ -617,11 +965,41 @@ def lepton_selection(
                 (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.mutau])  # noqa: E501
             )
 
+            # store whether the base offline selections cuts are passed for the different triggers
+            # Warning: whether the trigger has fired or not is not relevant!
+            relevant_full_triggers = {"single_mu", "cross_mu_tau"}
+            passed_base_selection = update_passed_selection_dict(
+                passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_full_triggers,
+                channel_type="mutau",
+                additional_object_mask=(
+                    muon_mask &
+                    (ak.sum(muon_veto_mask, axis=1) == 1) &
+                    (ak.sum(electron_veto_mask, axis=1) == 0)
+                ),
+            )
+            relevant_part_triggers = {"cross_mu_vbf"}
+            partially_passed_base_selection = update_passed_selection_dict(
+                partially_passed_base_selection,
+                tau_trigger_specific_mask,
+                ch_base_tau_mask,
+                relevant_part_triggers,
+                channel_type="mutau",
+                additional_object_mask=(
+                    muon_mask &
+                    (ak.sum(muon_veto_mask, axis=1) == 1) &
+                    (ak.sum(electron_veto_mask, axis=1) == 0)
+                ),
+            )
+
             # fold trigger matching into the selection
             trig_muon_mask = (
                 muon_mask &
                 self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
             )
+
             trig_tau_mask = ch_base_tau_mask
             if trigger.has_tag("cross_mu_tau"):
                 trig_tau_mask = (
@@ -632,7 +1010,7 @@ def lepton_selection(
             # check if the taus fulfil the offline requirements for the trigger (pt cut)
             trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
 
-            # check if the most isolated tau among the base selected ones is matched
+            # check if the most isolated tau among the base selected ones is matched (if needed)
             # and fulfils the additional trigger requirements
             # for that: take the most isolated tau among the base selected ones and check its entry
             # in the tau mask considering the matching and the additional trigger requirements
@@ -672,12 +1050,24 @@ def lepton_selection(
 
             # store the matched trigger id
             ids = ak.where(is_mutau, np.float32(trigger.id), np.float32(np.nan))
-            matched_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
+            ids = ak.singletons(ak.nan_to_none(ids))
+            # we need to store the trigger id for the cross_mu_vbf separately, as
+            # we are not sure yet whether the matching is correct for the jet legs of the trigger
+            if trigger.has_tag("cross_mu_vbf"):
+                lepton_part_trigger_ids.append(ids)
+            else:
+                matched_trigger_ids.append(ids)
 
         # tautau channel
         if (
-            trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}) and
-            (self.dataset_inst.is_mc or self.dataset_inst.has_tag("tautau"))
+            trigger.has_tag({
+                "cross_tau_tau",
+                "cross_tau_tau_vbf",
+                "cross_tau_tau_jet",
+                "cross_tau_vbf",
+                "cross_vbf",
+                "cross_quadjet"}) and
+            (self.dataset_inst.is_mc or self.dataset_inst.has_tag({"tautau", "parking_vbf", "parking_hh"}, mode=any))
         ):
             # channel dependent deeptau cuts vs e and mu
             ch_base_tau_mask = (
@@ -686,16 +1076,71 @@ def lepton_selection(
                 (events.Tau[get_tau_tagger("mu")] >= self.config_inst.x.deeptau_ids.vs_mu[self.config_inst.x.deeptau_wps.vs_mu.tautau])  # noqa: E501
             )
 
-            # fold trigger matching into the selection
-            trig_tau_mask = (
-                ch_base_tau_mask &
-                self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
+            # store whether the base offline selections cuts are passed for the different triggers
+            # Warning: whether the trigger has fired or not is not relevant!
+            relevant_full_triggers = {"cross_tau_tau"}
+            passed_base_selection = update_passed_selection_dict(
+                passed_base_selection,
+                tau_trigger_specific_mask,
+                (ch_base_tau_mask & (ak.sum(electron_veto_mask, axis=1) == 0) & (ak.sum(muon_veto_mask, axis=1) == 0)),
+                relevant_full_triggers,
+                channel_type="tautau",
+            )
+            relevant_part_triggers = {
+                "cross_tau_tau_jet", "cross_tau_tau_vbf", "cross_tau_vbf", "cross_vbf", "cross_quadjet",
+            }
+            partially_passed_base_selection = update_passed_selection_dict(
+                partially_passed_base_selection,
+                tau_trigger_specific_mask,
+                (ch_base_tau_mask & (ak.sum(electron_veto_mask, axis=1) == 0) & (ak.sum(muon_veto_mask, axis=1) == 0)),
+                relevant_part_triggers,
+                channel_type="tautau",
             )
 
-            # check if the taus fulfil the offline requirements for the trigger (pt cut)
-            trig_tau_mask = trig_tau_mask & tau_trigger_specific_mask
+            # fold trigger matching into the selection if needed
+            trig_tau_mask = ch_base_tau_mask
+            if not trigger.has_tag("cross_vbf"):
+                # create a mask selecting only the two most isolated taus among the base selected ones
+                # and with the layout of the original tau collection
+                most_isolated_tau_mask = tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]][:, :2]
+                most_isolated_tau_mask = mask_from_indices(most_isolated_tau_mask, events.Tau.pt)
 
-            # check if the two leading (most isolated) taus are matched
+                # quadjet specific handling: one tau must match the tau leg and
+                # the second must match a jet leg out of 3/4, need to save which trigger objects
+                # were matched for later use in the jet selection
+                if trigger.has_tag("cross_quadjet"):
+                    matching_mask, tau_trig_objects_matched_quadjet[trigger.id] = self[quadjet_tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
+                elif trigger.has_tag("cross_tau_vbf"):
+                    # for the cross tau vbf trigger highest pt tau should match the tau leg
+                    # so keep the trig_tau_mask as ch_base_tau_mask, but remove the events for which
+                    # the highest pt tau does not match the tau leg of the trigger
+                    pt_tau_sorting_indices = ak.argsort(events.Tau.pt, axis=-1, ascending=False)
+                    highest_pt_tau_mask = pt_tau_sorting_indices[ch_base_tau_mask[pt_tau_sorting_indices]][:, :1]
+                    highest_pt_tau_mask = mask_from_indices(highest_pt_tau_mask, events.Tau.pt)
+                    matching_mask_obj = self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=highest_pt_tau_mask, **sel_kwargs)  # noqa: E501
+                    matching_mask = ak.sum(matching_mask_obj[highest_pt_tau_mask], axis=1) >= 1
+                else:
+                    # trigger matching for the taus
+                    matching_mask = self[tau_trigger_matching](events, trigger, trigger_fired, leg_masks, tau_object_mask=most_isolated_tau_mask, **sel_kwargs)  # noqa: E501
+
+                trig_tau_mask = trig_tau_mask & matching_mask
+
+            # check if the taus fulfil the offline requirements for the trigger (pt cut)
+
+            if trigger.has_tag("cross_tau_vbf"):
+                # for the cross tau vbf trigger, the pt cut is only applied to the tau that needs
+                # to match the tau leg, so apply the tau_trigger_specific_mask and remove the events
+                # for which the highest pt tau does not fulfil the offline trigger requirements
+                # Note: Overall we are negating the AND between trigger matching and trigger offline
+                # requirements with an OR of the negation of the two conditions
+                offline_cut_mask = ak.sum(
+                    tau_trigger_specific_mask[highest_pt_tau_mask], axis=1,
+                ) >= 1
+            else:
+                offline_cut_mask = tau_trigger_specific_mask
+            trig_tau_mask = trig_tau_mask & offline_cut_mask
+
+            # check if the two leading (most isolated) taus are matched (if needed, else at least selected)
             leading_taus_matched = ak.fill_none(
                 ak.firsts(trig_tau_mask[tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]]], axis=1) &
                 ak.firsts(trig_tau_mask[tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]]][:, 1:], axis=1),
@@ -737,9 +1182,11 @@ def lepton_selection(
             # store the matched trigger id
             ids = ak.where(is_tautau, np.float32(trigger.id), np.float32(np.nan))
             ids = ak.singletons(ak.nan_to_none(ids))
-            # we need to store the trigger id for the ttv and ttj triggers separately, as
+            # we need to store the trigger id for the ttv, ttj, tv and v triggers separately, as
             # we are not sure yet whether the matching is correct for the jet legs of the trigger
-            if trigger.has_tag({"cross_tau_tau_vbf", "cross_tau_tau_jet"}):
+            if trigger.has_tag({
+                "cross_tau_tau_vbf", "cross_tau_tau_jet", "cross_tau_vbf", "cross_vbf", "cross_quadjet",
+            }):
                 lepton_part_trigger_ids.append(ids)
             else:
                 matched_trigger_ids.append(ids)
@@ -853,6 +1300,7 @@ def lepton_selection(
                     electron_mask &
                     self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
                 )
+
                 # for muons, loop over triggers, find single triggers and make sure none of them
                 # fired in order to avoid double counting
                 emu_muon_mask = False
@@ -932,7 +1380,7 @@ def lepton_selection(
                     ids = ak.where(matched_events, np.float32(_trigger.id), np.float32(np.nan))
                     e_match_trigger_ids.append(ak.singletons(ak.nan_to_none(ids)))
 
-                e_match_trigger_ids = ak.concatenate(e_match_trigger_ids, axis=1)
+                e_match_trigger_ids = ak_concatenate_safe(e_match_trigger_ids, axis=1)
 
                 # the correct electron mask for the selection is the control electron mask
                 emu_electron_mask = emu_electron_control_mask
@@ -978,12 +1426,12 @@ def lepton_selection(
                 matched_trigger_ids.append(ak.drop_none(ak.nan_to_none(ids)))
 
     # some final type conversions
-    channel_id = ak.values_astype(channel_id, np.uint8)
+    channel_id = ak.values_astype(channel_id, np.int8)
     leptons_os = ak.fill_none(leptons_os, False)
 
     # concatenate matched trigger ids
     empty_ids = ak.singletons(full_like(events.event, 0, dtype=np.int32), axis=0)[:, :0]
-    merge_ids = lambda ids: ak.values_astype(ak.concatenate(ids, axis=1), np.int32) if ids else empty_ids
+    merge_ids = lambda ids: ak.values_astype(ak_concatenate_safe(ids, axis=1), np.int32) if ids else empty_ids
     matched_trigger_ids = merge_ids(matched_trigger_ids)
     lepton_part_trigger_ids = merge_ids(lepton_part_trigger_ids)
 
@@ -1023,7 +1471,7 @@ def lepton_selection(
         aux={
             # save the selected lepton pair for the duration of the selection
             # multiplication of a coffea particle with 1 yields the lorentz vector
-            "lepton_pair": ak.concatenate(
+            "lepton_pair": ak_concatenate_safe(
                 [
                     events.Electron[sel_electron_indices] * 1,
                     events.Muon[sel_muon_indices] * 1,
@@ -1041,18 +1489,29 @@ def lepton_selection(
             "leading_taus": leading_taus,
 
             # save the leading e/mu's for the duration of the selection
-            "leading_e_mu": ak.concatenate(
+            "leading_e_mu": ak_concatenate_safe(
                 [
                     events.Electron[sel_electron_indices] * 1,
                     events.Muon[sel_muon_indices] * 1,
                 ],
                 axis=1,
             )[:, :2],
+
+            # save the full and partial offline selection decisions for the different triggers
+            # for the duration of the selection
+            "passed_base_selection": passed_base_selection,
+            "partially_passed_base_selection": partially_passed_base_selection,
+
+            # save the trigger objects indices matched to the taus for the quadjet triggers
+            # for the duration of the selection
+            "tau_trig_objects_idx_matched_quadjet": tau_trig_objects_matched_quadjet,
         },
     )
 
 
 @lepton_selection.init
 def lepton_selection_init(self: Selector, **kwargs) -> None:
+    super(lepton_selection, self).init_func(**kwargs)
+
     # add column to load the raw tau tagger score
     self.uses.add(f"Tau.raw{self.config_inst.x.tau_tagger}VSjet")

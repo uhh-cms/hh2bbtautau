@@ -17,11 +17,13 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
 from columnflow.selection.cms.jets import jet_veto_map
+from columnflow.selection.cms.btag import fill_btag_wp_count_hists
+from columnflow.production.cms.jet import jet_id, fatjet_id
 from columnflow.production.processes import process_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
-from columnflow.production.cms.pdf import pdf_weights
-from columnflow.production.cms.scale import murmuf_weights
+from columnflow.production.cms.pdf import pdf_weights, pdf_weights_raw
+from columnflow.production.cms.scale import murmuf_weights, murmuf_weights_raw
 from columnflow.production.cms.parton_shower import ps_weights
 from columnflow.production.cms.dy import gen_dilepton
 from columnflow.production.util import attach_coffea_behavior
@@ -37,7 +39,9 @@ import hbt.production.processes as process_producers
 from hbt.production.weights import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_DATA, IF_DATASET_HAS_TAG
+from hbt.util import (
+    IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2022_2023, IF_RUN_3_2024, IF_DATA, IF_DATASET_HAS_TAG,
+)
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -52,19 +56,20 @@ logger = law.logger.get_logger(__name__)
 def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
     bad_mask = full_like(events.event, False, dtype=bool)
 
+    # note: currently not used; we use weights set to ones in these cases
     # drop events for which we expect lhe infos but that lack them
     # see https://cms-talk.web.cern.ch/t/lhe-weight-vector-empty-for-certain-events/97636/3
-    if (
-        self.dataset_inst.is_mc and
-        self.dataset_inst.has_tag("partial_lhe_weights") and
-        self.has_dep(pdf_weights)
-    ):
-        n_weights = ak.num(events.LHEPdfWeight, axis=1)
-        bad_lhe_mask = (n_weights != 101) & (n_weights != 103)
-        if ak.any(bad_lhe_mask):
-            bad_mask = bad_mask & bad_lhe_mask
-            frac = ak.mean(bad_lhe_mask)
-            logger.warning(f"found {ak.sum(bad_lhe_mask)} events ({frac * 100:.1f}%) with bad LHEPdfWeights")
+    # if (
+    #     self.dataset_inst.is_mc and
+    #     self.dataset_inst.has_tag("partial_lhe_weights") and
+    #     self.has_dep(pdf_weights)
+    # ):
+    #     n_weights = ak.num(events.LHEPdfWeight, axis=1)
+    #     bad_lhe_mask = (n_weights != 101) & (n_weights != 103)
+    #     if ak.any(bad_lhe_mask):
+    #         bad_mask = bad_mask & bad_lhe_mask
+    #         frac = ak.mean(bad_lhe_mask)
+    #         logger.warning(f"found {ak.sum(bad_lhe_mask)} events ({frac * 100:.1f}%) with bad LHEPdfWeights")
 
     return bad_mask
 
@@ -78,17 +83,24 @@ def dy_drop_tautau(self: Selector, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, events.gen_dilepton_pdgid != 15
 
 
+@dy_drop_tautau.setup
+def dy_drop_tautau_setup(self: Selector, task: law.Task, **kwargs) -> None:
+    super(dy_drop_tautau, self).setup_func(task=task, **kwargs)
+    task.logger.info(f"drop tautau events in dataset '{task.dataset_inst.name}', branch {task.branch}")
+
+
 @selector(
     uses={
-        json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
-        mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
+        jet_id, fatjet_id, json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
+        jet_selection, mc_weight, pu_weight, ps_weights, IF_RUN_3_2022_2023(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights), IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau),
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, pdf_weights_raw, murmuf_weights, murmuf_weights_raw),
+        IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau), IF_RUN_3_2024(fill_btag_wp_count_hists),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
-        process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
-        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
+        process_ids, cutflow_features, IF_RUN_3_2022_2023(btag_weights_pnet),
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, pdf_weights_raw, murmuf_weights, murmuf_weights_raw),
     },
     exposed=True,
 )
@@ -139,6 +151,10 @@ def default(
         )
     results += met_filter_results
 
+    # recompute jet ids for selections
+    events = self[jet_id](events, **kwargs)
+    events = self[fatjet_id](events, **kwargs)
+
     # jet veto map
     if self.has_dep(jet_veto_map):
         events, veto_result = self[jet_veto_map](events, **kwargs)
@@ -161,32 +177,34 @@ def default(
         events = self[mc_weight](events, **kwargs)
 
         # pdf weights
-        if self.has_dep(pdf_weights):
-            events = self[pdf_weights](
-                events,
-                outlier_log_mode="debug",
-                invalid_weights_action="ignore" if self.dataset_inst.has_tag("partial_lhe_weights") else "raise",
-                **kwargs,
-            )
+        for pdf_cls in [pdf_weights, pdf_weights_raw]:
+            if self.has_dep(pdf_cls):
+                events = self[pdf_cls](
+                    events,
+                    outlier_log_mode="debug",
+                    invalid_weights_action="ignore" if self.dataset_inst.has_tag("partial_lhe_weights") else "raise",
+                    **kwargs,
+                )
 
         # renormalization/factorization scale weights
-        if self.has_dep(murmuf_weights):
-            events = self[murmuf_weights](events, **kwargs)
+        for murmuf_cls in [murmuf_weights, murmuf_weights_raw]:
+            if self.has_dep(murmuf_cls):
+                events = self[murmuf_cls](events, **kwargs)
 
         # parton shower weights
         events = self[ps_weights](events, invalid_weights_action="ignore_one", **kwargs)
 
         # pileup weights
         events = self[pu_weight](events, **kwargs)
-
         # btag weights
         btag_weight_jet_mask = ak.fill_none(results.x.jet_mask, False, axis=-1)
-        events = self[btag_weights_deepjet](
-            events,
-            jet_mask=btag_weight_jet_mask,
-            negative_b_score_log_mode="none",
-            **kwargs,
-        )
+        if self.has_dep(btag_weights_deepjet):
+            events = self[btag_weights_deepjet](
+                events,
+                jet_mask=btag_weight_jet_mask,
+                negative_b_score_log_mode="none",
+                **kwargs,
+            )
         if self.has_dep(btag_weights_pnet):
             events = self[btag_weights_pnet](
                 events,
@@ -194,7 +212,6 @@ def default(
                 negative_b_score_log_mode="none",
                 **kwargs,
             )
-
     # create process ids
     for tag in self.stitch_tags:
         if (prod_cls := getattr(self, f"process_ids_{tag}", None)) is not None:
@@ -202,10 +219,6 @@ def default(
             break
     else:
         events = self[process_ids](events, **kwargs)
-
-    # create jet collections for categorization
-    events["HHBJet"] = events.Jet[results.objects.Jet.HHBJet]
-    events["FatJet"] = events.FatJet[results.objects.FatJet.FatJet]
 
     # store number of jets for stats and histograms
     events = set_ak_column(events, "n_jets_stats", results.x.n_central_jets, value_type=np.int32)
@@ -217,9 +230,15 @@ def default(
     event_sel = reduce(and_, results.steps.values())
     results.event = event_sel
 
+    # fill btagging efficiency histograms (in-place, so no return value)
+    # ! note that this uses selected jets only of selected events with the full "event_sel", so selecting a subset
+    # of selection-steps later on will not affect these histograms
+    if self.dataset_inst.is_mc and self.has_dep(fill_btag_wp_count_hists):
+        self[fill_btag_wp_count_hists](events, results.event, results.objects.Jet.Jet, hists, **kwargs)
+
     # combined event selection after all but the bjet step
     def event_sel_nob(btag_weight_cls):
-        tagger_name = btag_weights_deepjet.tagger_name
+        tagger_name = btag_weight_cls.tagger_name
         var_sel = results.steps[f"all_but_bjet_{tagger_name}"] = reduce(and_, [
             mask for step_name, mask in results.steps.items()
             if step_name != f"bjet_{tagger_name}"
@@ -237,7 +256,7 @@ def default(
         no_sel=no_sel,
         event_sel=event_sel,
         event_sel_variations={
-            "nob_deepjet": event_sel_nob(btag_weights_deepjet),
+            # "nob_deepjet": event_sel_nob(btag_weights_deepjet) if self.has_dep(btag_weights_deepjet) else None,
             "nob_pnet": event_sel_nob(btag_weights_pnet) if self.has_dep(btag_weights_pnet) else None,
         },
     )
@@ -247,9 +266,20 @@ def default(
 
 @default.init
 def default_init(self: Selector, **kwargs) -> None:
+    super(default, self).init_func(**kwargs)
+
     # build and store derived process id producers
-    self.stitch_tags = ["dy_amcatnlo", "dy_lep_amcatnlo", "dy_powheg", "w_lnu"]
-    for tag in self.stitch_tags:
+    self.stitch_tags = []
+    possible_stitch_tags = [
+        "dy_amcatnlo_2223",
+        "dy_lep_amcatnlo_2223",
+        "dy_powheg_2223",
+        "dy_ee_amcatnlo_24",
+        "dy_mumu_amcatnlo_24",
+        "dy_tautau_amcatnlo_24",
+        "w_lnu_amcatnlo_2223",
+    ]
+    for tag in possible_stitch_tags:
         prod_name = f"process_ids_{tag}"
         setattr(self, prod_name, None)
         if not self.dataset_inst.has_tag(tag):
@@ -261,7 +291,7 @@ def default_init(self: Selector, **kwargs) -> None:
             # check if this dataset is covered by any dy id producer
             for stitch_name, cfg in stitching_cfg.items():
                 incl_dataset_inst = cfg["inclusive_dataset"]
-                # the dataset is "covered" if its process is a subprocess of that of the dy dataset
+                # the dataset is "covered" if its process is a subprocess of that of the inclusive dataset
                 if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
                     base_prod = getattr(process_producers, prod_name)
                     prod = base_prod.derive(f"{prod_name}_{stitch_name}", cls_dict={
@@ -277,10 +307,14 @@ def default_init(self: Selector, **kwargs) -> None:
             self.produces.add(prod)
             # save it as an attribute
             setattr(self, prod_name, prod)
+            # store the stitch tag
+            self.stitch_tags.append(tag)
 
 
 @default.setup
 def default_setup(self: Selector, task: law.Task, **kwargs) -> None:
+    super(default, self).setup_func(task=task, **kwargs)
+
     # pre-define variable objects for creating stats histograms
     self.hist_vars = [
         od.Variable(
@@ -303,33 +337,8 @@ def default_setup(self: Selector, task: law.Task, **kwargs) -> None:
     ]
 
 
-empty = default.derive("empty", cls_dict={})
-
-
-@empty.init
-def empty_init(self: Selector, **kwargs) -> None:
-    super(empty, self).init_func(**kwargs)
-
-    # remove unused dependencies
-    unused = {
-        json_filter,
-        met_filters,
-        cutflow_features,
-        patch_ecalBadCalibFilter,
-        jet_selection,
-        lepton_selection,
-        trigger_selection,
-    }
-    self.uses -= unused
-    self.produces -= unused
-
-    # add custom columns
-    self.uses.add("Jet.phi")  # needed by vector behavior for accessing pt in btag_weights
-    self.produces |= {"channel_id", "leptons_os", "tau2_isolated", "{single,cross}_triggered"}
-
-
-@empty.call
-def empty_call(
+@default.selector
+def empty(
     self: Selector,
     events: ak.Array,
     stats: defaultdict,
@@ -390,12 +399,13 @@ def empty_call(
 
         # btag weights
         btag_weight_jet_mask = abs(events.Jet["eta"]) < 2.5
-        events = self[btag_weights_deepjet](
-            events,
-            jet_mask=btag_weight_jet_mask,
-            negative_b_score_log_mode="none",
-            **kwargs,
-        )
+        if self.has_dep(btag_weights_deepjet):
+            events = self[btag_weights_deepjet](
+                events,
+                jet_mask=btag_weight_jet_mask,
+                negative_b_score_log_mode="none",
+                **kwargs,
+            )
         if self.has_dep(btag_weights_pnet):
             events = self[btag_weights_pnet](
                 events,
@@ -436,12 +446,36 @@ def empty_call(
         no_sel=no_sel,
         event_sel=results.event,
         event_sel_variations={
-            "nob_deepjet": results.event,
+            # "nob_deepjet": results.event if self.has_dep(btag_weights_deepjet) else None,
             "nob_pnet": results.event if self.has_dep(btag_weights_pnet) else None,
         },
     )
 
     return events, results
+
+
+@empty.init
+def empty_init(self: Selector, **kwargs) -> None:
+    super(empty, self).init_func(**kwargs)
+
+    # remove unused dependencies
+    unused = {
+        json_filter,
+        met_filters,
+        cutflow_features,
+        pdf_weights_raw,
+        murmuf_weights_raw,
+        patch_ecalBadCalibFilter,
+        jet_selection,
+        lepton_selection,
+        trigger_selection,
+    }
+    self.uses -= unused
+    self.produces -= unused
+
+    # add custom columns
+    self.uses.add("Jet.phi")  # needed by vector behavior for accessing pt in btag_weights
+    self.produces |= {"channel_id", "leptons_os", "tau2_isolated", "{single,cross}_triggered"}
 
 
 def increment_stats(
@@ -469,6 +503,8 @@ def increment_stats(
     :param event_sel_variations: Named variations of the event selection mask for additional stats.
     :return: The updated events and results objects in a tuple.
     """
+    ones = np.ones(len(events), dtype=np.float32)
+
     if event_sel_variations is None:
         event_sel_variations = {}
     event_sel_variations = {n: s for n, s in event_sel_variations.items() if s is not None}
@@ -487,6 +523,7 @@ def increment_stats(
     # helper to cast to float64
     f64 = lambda a: ak.values_astype(a, np.float64)
 
+    # helper to add an entry to the stats map or histograms
     def add(key, sel, weight=None, for_stats=False, for_hists=True):
         stats_map[key] = sel if weight is None else (weight, sel)
         if for_stats and key not in keys_for_stats:
@@ -516,12 +553,36 @@ def increment_stats(
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 add(f"sum_pdf_weight{v}", no_sel, events[f"pdf_weight{v}"])
                 add(f"sum_pdf_weight{v}_selected", event_sel, events[f"pdf_weight{v}"])
+        if self.has_dep(pdf_weights_raw) and not skip_shifts:
+            # there must be 100 or 0 pdf weights
+            n_unique_pdf_weights = set(np.unique(ak.num(events.pdf_weights_hessian, axis=1)))
+            assert n_unique_pdf_weights.issubset({0, 100})
+            if n_unique_pdf_weights == {0}:
+                get_pdf_weight = lambda i: ones
+            else:
+                padded_pdf_weights = ak.fill_none(ak.pad_none(events.pdf_weights_hessian, 100, axis=1, clip=True), 1)
+                get_pdf_weight = lambda i: padded_pdf_weights[:, i]
+            for i in range(100):
+                add(f"sum_pdf_weight_{i}", no_sel, get_pdf_weight(i), for_stats=True, for_hists=False)
+            # there must be 2 or 0 alphas weights
+            n_unique_alphas_weights = set(np.unique(ak.num(events.pdf_weights_alphas, axis=1)))
+            assert n_unique_alphas_weights.issubset({0, 2})
+            if n_unique_alphas_weights == {0}:
+                get_alphas_weight = lambda i: ones
+            else:
+                padded_alphas_weights = ak.fill_none(ak.pad_none(events.pdf_weights_alphas, 2, axis=1, clip=True), 1)
+                get_alphas_weight = lambda i: padded_alphas_weights[:, i]
+            for i in range(2):
+                add(f"sum_alphas_weight_{i}", no_sel, get_alphas_weight(i), for_stats=True, for_hists=False)
 
         # mur/muf weights with variations
         if self.has_dep(murmuf_weights):
             for v in (("",) if skip_shifts else ("", "_up", "_down")):
                 add(f"sum_murmuf_weight{v}", no_sel, events[f"murmuf_weight{v}"])
                 add(f"sum_murmuf_weight{v}_selected", event_sel, events[f"murmuf_weight{v}"])
+        if self.has_dep(murmuf_weights_raw) and not skip_shifts:
+            for col in self[murmuf_weights_raw].weight_names:
+                add(f"sum_{col}", no_sel, events[col], for_stats=True, for_hists=False)
 
         # parton shower weights with variations
         if self.has_dep(ps_weights):
@@ -532,7 +593,7 @@ def increment_stats(
                 add(f"sum_fsr_weight{v}_selected", event_sel, events[f"fsr_weight{v}"])
 
         # btag weights
-        for prod in [btag_weights_deepjet, btag_weights_pnet]:
+        for prod in [btag_weights_pnet]:
             if not self.has_dep(prod):
                 continue
             for route in sorted(self[prod].produced_columns):

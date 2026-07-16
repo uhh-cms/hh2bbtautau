@@ -37,6 +37,26 @@ setup_hbt() {
     local cf_base="${this_dir}/modules/columnflow"
     CF_SKIP_SETUP="true" source "${cf_base}/setup.sh" "" || return "$?"
 
+
+    #
+    # opinionated host specific checks
+    #
+
+    # on maxwell, check that the user's primary group is af-cms
+    local on_maxwell="$( [[ "$( hostname )" = max-*.desy.de ]] && echo "true" || echo "false" )"
+    if ${on_maxwell}; then
+        local primary_group="$( id -gn )"
+        if [ "${primary_group}" != "af-cms" ]; then
+            cf_color red_bright "detected maxwell node but primary group is '${primary_group}' and not 'af-cms', so first run"
+            echo
+            cf_color bright "> newgrp af-cms"
+            echo
+            cf_color red_bright "which starts a new subshell with your primary group changed, then re-source the setup"
+            return "1"
+        fi
+    fi
+
+
     #
     # prevent repeated setups
     #
@@ -74,10 +94,6 @@ setup_hbt() {
     export CF_REPO_BASE="${HBT_BASE}"
     export CF_REPO_BASE_ALIAS="HBT_BASE"
     export CF_SETUP_NAME="${setup_name}"
-    export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-naf-cms14.desy.de}"
-    export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8088}"
-    export CF_INTERACTIVE_VENV_FILE="${CF_INTERACTIVE_VENV_FILE:-${HBT_BASE}/sandboxes/venv_hbt_dev.sh}"
-    [ ! -z "${CF_INTERACTIVE_VENV_FILE}" ] && export CF_INSPECT_SANDBOX="$( basename "${CF_INTERACTIVE_VENV_FILE%.*}" )"
 
     # interactive setup
     if ! ${CF_REMOTE_ENV}; then
@@ -88,7 +104,16 @@ setup_hbt() {
             # query common variables
             cf_setup_interactive_common_variables
 
-            # specific variables would go here
+            # hbt specific variables
+            if [[ "$( hostname )" == *.desy.de ]]; then
+                query HBT_USE_CVMFS_SOFTWARE "Use centrally provided software on /cvmfs" "true"
+                if [ "${HBT_USE_CVMFS_SOFTWARE}" = "true" ]; then
+                    export_and_save CF_CONDA_BASE "/cvmfs/cms.desy.de/columnflow/software/conda_py39"
+                    export_and_save CF_VENV_BASE "/cvmfs/cms.desy.de/columnflow/software_hbt/venvs_py39"
+                fi
+            else
+                export_and_save HBT_USE_CVMFS_SOFTWARE "false"
+            fi
         }
         cf_setup_interactive "${CF_SETUP_NAME}" "${HBT_BASE}/.setups/${CF_SETUP_NAME}.sh" || return "$?"
     fi
@@ -97,6 +122,13 @@ setup_hbt() {
     export CF_CONDA_BASE="${CF_CONDA_BASE:-${CF_SOFTWARE_BASE}/conda}"
     export CF_VENV_BASE="${CF_VENV_BASE:-${CF_SOFTWARE_BASE}/venvs}"
     export CF_CMSSW_BASE="${CF_CMSSW_BASE:-${CF_SOFTWARE_BASE}/cmssw}"
+    export CF_SCHEDULER_HOST="${CF_SCHEDULER_HOST:-naf-cms14.desy.de}"
+    export CF_SCHEDULER_PORT="${CF_SCHEDULER_PORT:-8088}"
+    export CF_INTERACTIVE_VENV_FILE="${CF_INTERACTIVE_VENV_FILE:-${HBT_BASE}/sandboxes/venv_hbt_dev.sh}"
+    if [ -z "${CF_INSPECT_SANDBOX}" ] && [ ! -z "${CF_INTERACTIVE_VENV_FILE}" ]; then
+        export CF_INSPECT_SANDBOX="$( basename "${CF_INTERACTIVE_VENV_FILE%.*}" )"
+    fi
+    export HBT_WLCG_RETRIES="${HBT_WLCG_RETRIES:-3}"
 
     #
     # common variables

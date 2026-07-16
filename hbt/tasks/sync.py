@@ -194,7 +194,7 @@ class CreateSyncFiles(
     def run(self):
         import awkward as ak
         import numpy as np
-        from columnflow.columnar_util import EMPTY_FLOAT, EMPTY_INT, update_ak_array, set_ak_column
+        from columnflow.columnar_util import EMPTY_FLOAT, EMPTY_INT, update_ak_array, set_ak_column, ak_concatenate_safe
 
         # prepare inputs and outputs
         inputs = self.input()
@@ -243,7 +243,7 @@ class CreateSyncFiles(
                         lepton = set_ak_column(lepton, field, default)
                 leptons[i] = lepton
             # concatenate (first event any lepton, second alsways tau) and add to events
-            return set_ak_column(events, "Lepton", ak.concatenate(leptons, axis=1))
+            return set_ak_column(events, "Lepton", ak_concatenate_safe(leptons, axis=1))
 
         def uint64_to_str(array: ak.Array) -> ak.Array:
             # -99999 casted to uint64
