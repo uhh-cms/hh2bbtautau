@@ -199,14 +199,6 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
         description="name of a selector to identify whether a shift influences the selection; uses the config's "
         "'default_selector' field when empty; default: empty",
     )
-    show_ids = luigi.BoolParameter(
-        default=False,
-        description="whether to show the shift ids in the table; default: False",
-    )
-    show_remarks = luigi.BoolParameter(
-        default=True,
-        description="whether to show remarks in the table; default: True",
-    )
     inference_model = luigi.Parameter(
         default=law.NO_STR,
         description="the name of the inference model whose parameters should be used to validate, compare and extend "
@@ -229,6 +221,14 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
         default=True,
         description="whether to add parameters from the inference model that need no shifts (usually rate parameters) "
         "to the list of shifts; only used when inference_model is set; default: True",
+    )
+    show_ids = luigi.BoolParameter(
+        default=False,
+        description="whether to show the shift ids in the table; default: False",
+    )
+    show_remarks = luigi.BoolParameter(
+        default=True,
+        description="whether to show remarks in the table; default: True",
     )
     table_format = table_format_param
 
