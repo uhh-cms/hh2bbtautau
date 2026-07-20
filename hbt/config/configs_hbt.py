@@ -1856,6 +1856,7 @@ def add_config(
         if isinstance(value, dict):
             value = DotDict.wrap(value)
         cfg.x.external_files[name] = wrap_ext(value)
+        return cfg.x.external_files[name]
 
     def wrap_ext(obj):
         if isinstance(obj, Ext):
@@ -1978,8 +1979,6 @@ def add_config(
         # for 2024, use version with btag for now, but we could also drop it since we have no full shape correction
         basename = f"model_2024_v2_fold{fold}_btag_moe.tgz" if year == 2024 else f"model_fold{fold}_moe.tgz"
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/{basename}", "v1"))
-    # simple version of same model for quick comparisons
-    add_external("run3_dnn_simple", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_fixedweights_kl01/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     # and again with different kl setups (disabled since they were still run with the broken dy frequencies)
     # add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     # add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
