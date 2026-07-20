@@ -2066,9 +2066,9 @@ def add_config(
         ))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
+        add_external("dy_weight_sf", ("/data/dust/user/alvesand/hh2bbtautau/hbt_store/analysis_hbt/hbt.ExportDYWeights/23post_v14/prod25/hbt_corrections.json.gz", "v7"))  # noqa: E501
         # test for prod25
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod25_23post.json.gz", "v5"))  # noqa: E501
+        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod25_23post.json.gz", "v5"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
@@ -2256,7 +2256,7 @@ def add_config(
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
-        "normalization_weight_inclusive": [],
+        # "normalization_weight_inclusive": [],
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
