@@ -211,7 +211,8 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
         Helper function to check if a column does not exceed a maximum value.
         """
         digits = len(str(arr[field].to_numpy().max()))
-        assert digits <= max_value, f"{field} digit count is {digits} and exceed max value {max_value}"
+        if digits > max_value:
+            raise ValueError(f"{field} digit count is {digits} and exceed max value {max_value}")
 
     max_digits_run = 6
     max_digits_luminosityBlock = 6
@@ -221,7 +222,8 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
     assert_value(arr, "event", max_digits_event)
 
     max_digits_hash = max_digits_event + max_digits_luminosityBlock + max_digits_run
-    assert max_digits_hash <= 20, "sum of digits exceeds uint64"
+    if max_digits_hash > 20:
+        raise ValueError(f"sum of digits exceeds uint64: {max_digits_hash}")
 
     # upcast to uint64 to avoid overflow
     return (
