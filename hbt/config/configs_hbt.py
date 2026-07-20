@@ -1187,16 +1187,12 @@ def add_config(
             (2022, "EE"): "V4",
             (2023, ""): "V4",
             (2023, "BPix"): "V4",
-            (2024, ""): "V3",
+            (2024, ""): "V5",
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
-        if year == 2024:
-            jer_campaign = "Summer23BPixPrompt23"  # https://cms-jerc.web.cern.ch/Recommendations/#2024_1
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
-        if year == 2024:
-            jer_campaign += "_RunD"
         jer_version = "JR" + {2022: "V2", 2023: "V3", 2024: "V2"}[year]
         jet_type = "AK4PFPuppi"
     else:
@@ -1914,7 +1910,7 @@ def add_config(
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-07-14", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-07-16", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
