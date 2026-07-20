@@ -516,7 +516,7 @@ def cat_cross_tautau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.
 
 @categorizer(uses={
     cat_single_e, cat_single_mu, cat_cross_etau, cat_cross_mutau, cat_cross_tautau,
-    }
+}
 )
 def cat_trig_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     mask = (
