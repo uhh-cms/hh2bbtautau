@@ -23,6 +23,7 @@ from columnflow.config_util import (
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 from columnflow.cms_util import CATInfo, CATSnapshot, CMSDatasetInfo
+from columnflow.types import Any
 
 from hbt import env_is_cern, force_desy_resources
 
@@ -37,6 +38,7 @@ def add_config(
     campaign: od.Campaign,
     config_name: str | None = None,
     config_id: int | None = None,
+    split_2024_mc: bool = False,
     limit_dataset_files: int | None = None,
     sync_mode: bool = False,
 ) -> od.Config:
@@ -2431,5 +2433,53 @@ def add_config(
             f"local_fs_{cfg.campaign.x.custom['name']}{fs_postfix}",
             f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}",
         ]
+
+    ################################################################################################
+    # MC splitting settings
+    ################################################################################################
+
+    if split_2024_mc:
+        if year not in {2024, 2025, 2026}:
+            raise ValueError(f"MC splitting is not supported in {year}")
+
+        from columnflow.tasks.framework.mixins import ChunkedIOMixin
+
+        # range section between 0 and 1000 that reflect the recorded luminosity of the year
+        lumi_ranges = {
+            2024: (0, 437),
+            2025: (437, 882),
+            2026: (882, 1000),
+        }
+
+        def _patch_uproot_uint64() -> None:
+            try:
+                import numpy as np
+                import uproot
+            except ImportError:
+                return
+
+            # add "uint64" conversion
+            py_lang_functions = uproot.language.python.PythonLanguage.default_functions
+            if "uint64" not in py_lang_functions:
+                py_lang_functions["uint64"] = np.uint64
+
+        def nano_read_options(task: ChunkedIOMixin, target: law.FileSystemFileTarget) -> dict[str, Any] | None:
+            if task.dataset_inst.is_data:
+                return None
+
+            # for details see https://gist.github.com/riga/f9476f3b1477f1609683bea68ae64897
+            _patch_uproot_uint64()
+            return {
+                "aliases": {
+                    "split_mix_hash_1": "event + uint64(11400714819323198485)",
+                    "split_mix_hash_2": "(split_mix_hash_1 ^ (split_mix_hash_1 >> 30)) * uint64(13787848793156543929)",
+                    "split_mix_hash_3": "(split_mix_hash_2 ^ (split_mix_hash_2 >> 27)) * uint64(10723151780598845931)",
+                    "split_mix_hash": "split_mix_hash_3 ^ (split_mix_hash_3 >> 31)",
+                    "event_split_id": "split_mix_hash % 1000",
+                },
+                "cut": f"(event_split_id >= {lumi_ranges[year][0]}) & (event_split_id < {lumi_ranges[year][1]})",
+            }
+
+        cfg.x.get_nano_read_options = nano_read_options
 
     return cfg
