@@ -16,6 +16,11 @@ from hbt.columnflow_patches import patch_all
 law.contrib.load("pandas")
 
 
+# the analysis is not intended to run in optimized mode, so that assert's remain active
+if not __debug__:
+    raise RuntimeError("analysis should not run in optimized mode")
+
+
 #: Boolean denoting whether the environment is on DESY resources.
 _hostname = socket.gethostname()
 env_is_desy = _hostname.endswith(".desy.de")

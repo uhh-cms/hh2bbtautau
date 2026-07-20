@@ -1856,6 +1856,7 @@ def add_config(
         if isinstance(value, dict):
             value = DotDict.wrap(value)
         cfg.x.external_files[name] = wrap_ext(value)
+        return cfg.x.external_files[name]
 
     def wrap_ext(obj):
         if isinstance(obj, Ext):
