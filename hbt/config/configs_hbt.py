@@ -23,6 +23,7 @@ from columnflow.config_util import (
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 from columnflow.cms_util import CATInfo, CATSnapshot, CMSDatasetInfo
+from columnflow.types import Any
 
 from hbt import env_is_cern, force_desy_resources
 
@@ -37,6 +38,7 @@ def add_config(
     campaign: od.Campaign,
     config_name: str | None = None,
     config_id: int | None = None,
+    split_2024_mc: bool = False,
     limit_dataset_files: int | None = None,
     sync_mode: bool = False,
 ) -> od.Config:
@@ -1185,16 +1187,12 @@ def add_config(
             (2022, "EE"): "V4",
             (2023, ""): "V4",
             (2023, "BPix"): "V4",
-            (2024, ""): "V3",
+            (2024, ""): "V5",
         }[(year, campaign.x.postfix)]
         jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
-        if year == 2024:
-            jer_campaign = "Summer23BPixPrompt23"  # https://cms-jerc.web.cern.ch/Recommendations/#2024_1
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
-        if year == 2024:
-            jer_campaign += "_RunD"
         jer_version = "JR" + {2022: "V2", 2023: "V3", 2024: "V2"}[year]
         jet_type = "AK4PFPuppi"
     else:
@@ -1912,7 +1910,7 @@ def add_config(
                 vnano=15,
                 era="24CDEReprocessingFGHIPrompt-Summer24",
                 pog_directories={"dc": "Collisions24"},
-                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-07-14", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
+                snapshot=CATSnapshot(btv="2026-03-10", dc="2026-05-27", egm="2025-12-15", jme="2026-07-16", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
             ),
         }[(year, campaign.x.postfix, vnano)]
     else:
@@ -2066,9 +2064,8 @@ def add_config(
         ))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        add_external("dy_weight_sf", ("/data/dust/user/alvesand/hh2bbtautau/hbt_store/analysis_hbt/hbt.ExportDYWeights/23post_v14/prod25/hbt_corrections.json.gz", "v7"))  # noqa: E501
         # test for prod25
-        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod25_23post.json.gz", "v5"))  # noqa: E501
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod25_23post.json.gz", "v6"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
@@ -2256,7 +2253,6 @@ def add_config(
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
-        # "normalization_weight_inclusive": [],
         "normalized_pu_weight": get_shifts("minbias_xs"),
         "normalized_isr_weight": get_shifts("isr"),
         "normalized_fsr_weight": get_shifts("fsr"),
@@ -2433,5 +2429,53 @@ def add_config(
             f"local_fs_{cfg.campaign.x.custom['name']}{fs_postfix}",
             f"wlcg_fs_{cfg.campaign.x.custom['name']}{fs_postfix}",
         ]
+
+    ################################################################################################
+    # MC splitting settings
+    ################################################################################################
+
+    if split_2024_mc:
+        if year not in {2024, 2025, 2026}:
+            raise ValueError(f"MC splitting is not supported in {year}")
+
+        from columnflow.tasks.framework.mixins import ChunkedIOMixin
+
+        # range section between 0 and 1000 that reflect the recorded luminosity of the year
+        lumi_ranges = {
+            2024: (0, 437),
+            2025: (437, 882),
+            2026: (882, 1000),
+        }
+
+        def _patch_uproot_uint64() -> None:
+            try:
+                import numpy as np
+                import uproot
+            except ImportError:
+                return
+
+            # add "uint64" conversion
+            py_lang_functions = uproot.language.python.PythonLanguage.default_functions
+            if "uint64" not in py_lang_functions:
+                py_lang_functions["uint64"] = np.uint64
+
+        def nano_read_options(task: ChunkedIOMixin, target: law.FileSystemFileTarget) -> dict[str, Any] | None:
+            if task.dataset_inst.is_data:
+                return None
+
+            # for details see https://gist.github.com/riga/f9476f3b1477f1609683bea68ae64897
+            _patch_uproot_uint64()
+            return {
+                "aliases": {
+                    "split_mix_hash_1": "event + uint64(11400714819323198485)",
+                    "split_mix_hash_2": "(split_mix_hash_1 ^ (split_mix_hash_1 >> 30)) * uint64(13787848793156543929)",
+                    "split_mix_hash_3": "(split_mix_hash_2 ^ (split_mix_hash_2 >> 27)) * uint64(10723151780598845931)",
+                    "split_mix_hash": "split_mix_hash_3 ^ (split_mix_hash_3 >> 31)",
+                    "event_split_id": "split_mix_hash % 1000",
+                },
+                "cut": f"(event_split_id >= {lumi_ranges[year][0]}) & (event_split_id < {lumi_ranges[year][1]})",
+            }
+
+        cfg.x.get_nano_read_options = nano_read_options
 
     return cfg

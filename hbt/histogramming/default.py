@@ -26,7 +26,8 @@ if TYPE_CHECKING:
     # both produced columns and dependent shifts are defined in init below
     # options to keep or drop specific weights
     keep_weights=None,
-    drop_weights={"normalization_weight_inclusive"},
+    drop_weights=None,
+    custom_weights=None,
 )
 def default(self: HistProducer, events: ak.Array, **kwargs) -> ak.Array:
     weight = ak.Array(np.ones(len(events), dtype=np.float32))
@@ -177,8 +178,11 @@ def default_init(self: HistProducer) -> None:
     do_drop = pattern_matcher(self.drop_weights) if self.drop_weights else (lambda _, /: False)
 
     # collect all possible weight columns and affected shifts
-    all_weights = self.config_inst.x.event_weights.copy()
-    all_weights.update(self.dataset_inst.x("event_weights", {}))
+    all_weights = {
+        **self.config_inst.x.event_weights.copy(),
+        **self.dataset_inst.x("event_weights", {}),
+        **(self.custom_weights or {}),
+    }
     for weight_name, shift_insts in all_weights.items():
         if not do_keep(weight_name) or do_drop(weight_name):
             continue
@@ -254,18 +258,18 @@ no_weight = default.derive("no_weight", cls_dict={
     "drop_weights": {"*"},
 })
 
-# weight producer for cross checking histograms without stitching
-normalization_inclusive = default.derive("normalization_inclusive", cls_dict={
-    "drop_weights": {"normalization_weight"},
-})
-
 normalization_only = default.derive("normalization_only", cls_dict={
     "keep_weights": {"normalization_weight"},
 })
 
+normalization_inclusive = default.derive("normalization_inclusive", cls_dict={
+    "custom_weights": {"normalization_weight_inclusive": []},
+    "drop_weights": {"normalization_weight"},
+})
+
 normalization_inclusive_only = default.derive("normalization_inclusive_only", cls_dict={
+    "custom_weights": {"normalization_weight_inclusive": []},
     "keep_weights": {"normalization_weight_inclusive"},
-    "drop_weights": None,
 })
 
 for weight_name in [
@@ -285,8 +289,8 @@ for weight_name in [
     "dy_weight",
     "top_pt_weight",
 ]:
-    default.derive(f"no_{weight_name}", cls_dict={"drop_weights": {"normalization_weight_inclusive", weight_name}})
+    default.derive(f"no_{weight_name}", cls_dict={"drop_weights": {weight_name}})
 
 default.derive("no_tau_and_trigger_weight", cls_dict={
-    "drop_weights": {"normalization_weight_inclusive", "tau_weight", "trigger_weight"},
+    "drop_weights": {"tau_weight", "trigger_weight"},
 })
