@@ -335,6 +335,12 @@ def delta_r12(vectors: ak.Array) -> ak.Array:
     return ak.fill_none(dr, EMPTY_FLOAT)
 
 
+def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarray:
+    # eps confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
+    x = events[col]
+    return np.log((x + eps) / (1 - x + eps))
+
+
 _uppercase_wps = {
     "vvvvloose": "VVVVLoose",
     "vvvloose": "VVVLoose",
