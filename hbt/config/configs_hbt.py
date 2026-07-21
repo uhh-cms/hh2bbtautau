@@ -1271,8 +1271,7 @@ def add_config(
     }
 
     # BJEC
-    use_bjec = False  # run == 3 # note: set to False to disable BJEC
-    bjec_config = None
+    use_bjec = run == 3  # note: set to False to disable BJEC and use plain JEC
     if use_bjec:
         # https://cms-jerc.web.cern.ch/ExpJEC/#jec-for-pnet-and-upart-regressed-jets
         # https://cms-jerc.web.cern.ch/JES/#remarks-on-getting-rawpt-and-mass-for-regular-pnet-and-upart-jets
@@ -1292,6 +1291,8 @@ def add_config(
             bjet_selection=(lambda events: events.Jet[cfg.x.btag_default.jet_column] > cfg.x.btag_default.wp),
             bjet_selection_columns={cfg.x.btag_default.jet_column},
         )
+    else:
+        bjec_config = None
 
     # JEC
     cfg.x.jec = DotDict.wrap({
