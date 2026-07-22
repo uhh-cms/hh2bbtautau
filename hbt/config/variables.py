@@ -14,7 +14,7 @@ from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
 
-from hbt.util import create_lvector_xyz, stack_lvectors, rotate_px_py, delta_r12, with_type
+from hbt.util import create_lvector_xyz, stack_lvectors, rotate_px_py, delta_r12, with_type, logit
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -732,13 +732,6 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Subleading muon $\phi$",
     )
 
-    # helper for logit-conversion of (e.g.) dnn outputs into a less-compressed target space
-    def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarray:
-        # eps confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
-        import numpy as np
-        x = events[col]
-        return np.log((x + eps) / (1 - x + eps))
-
     # DNN outputs
     for proc in ["hh", "tt", "dy"]:
         # outputs of the resonant pDNN at SM-like mass and spin values
@@ -784,7 +777,6 @@ def add_variables(config: od.Config) -> None:
             expression=f"run3_dnn_simple_{proc}",
             binning=(25, 0.0, 1.0),
             x_title=rf"DNN {proc.upper()} output",
-            aux={"x_transformations": "equal_distance_with_indices"},
         )
 
         add_variable(

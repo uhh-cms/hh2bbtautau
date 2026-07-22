@@ -12,7 +12,7 @@ import law
 import order as od
 
 from columnflow.config_util import (
-    add_category, create_category_combinations, CategoryGroup, track_category_changes, CategoryIDCache,
+    add_category, create_category_combinations, CategoryGroup, CategoryIDCache,
 )
 from columnflow.types import Any
 
@@ -209,5 +209,4 @@ def add_categories(config: od.Config) -> None:
     #     ],
     # )
 
-    track_category_changes(config)
     id_cache.close()

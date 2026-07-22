@@ -90,6 +90,11 @@ class _external_dnn(Producer):
         # name of the model bundle in the external files
         return self.cls_name
 
+    @property
+    def local_model_path(self) -> str | law.LocalFileTarget | None:
+        # when set to an existing location, the model is loaded from there instead of the external files
+        return None
+
     def init_func(self, **kwargs) -> None:
         super().init_func(**kwargs)
 
@@ -126,11 +131,9 @@ class _external_dnn(Producer):
     def requires_func(self, task: law.Task, reqs: dict, **kwargs) -> None:
         super().requires_func(task=task, reqs=reqs, **kwargs)
 
-        if "external_files" in reqs:
-            return
-
-        from columnflow.tasks.external import BundleExternalFiles
-        reqs["external_files"] = BundleExternalFiles.req(task)
+        if self.local_model_path is None and "external_files" not in reqs:
+            from columnflow.tasks.external import BundleExternalFiles
+            reqs["external_files"] = BundleExternalFiles.req(task)
 
     def setup_func(self, task: law.Task, reqs: dict[str, DotDict[str, Any]], **kwargs) -> None:
         super().setup_func(task=task, reqs=reqs, **kwargs)
@@ -141,10 +144,13 @@ class _external_dnn(Producer):
             task.taf_torch_evaluator = TorchEvaluator()
         self.evaluator = task.taf_torch_evaluator
 
-        bundle = reqs["external_files"]
-        bundle.files
-        model_path = getattr(bundle.files, self.external_name)
-        self.evaluator.add_model(self.cls_name, model_path.abspath)
+        if (local_model_path := self.local_model_path) is None:
+            bundle = reqs["external_files"]
+            bundle.files
+            model_path = getattr(bundle.files, self.external_name)
+            self.evaluator.add_model(self.cls_name, model_path.abspath)
+        else:
+            self.evaluator.add_model(self.cls_name, law.target.file.get_path(local_model_path))
 
         # categorical values handled by the network
         # (names and values from training code that was aligned to KLUB notation)
