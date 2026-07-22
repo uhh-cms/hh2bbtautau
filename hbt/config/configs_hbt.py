@@ -1162,6 +1162,9 @@ def add_config(
 
     from columnflow.calibration.cms.jets import JECConfig, BJECConfig, JERConfig
 
+    # bjec toggle
+    cfg.x.use_bjec = run == 3  # note: set to False to disable BJEC and use plain JEC
+
     # common jec/jer settings configuration
     if run == 2:
         # https://cms-jerc.web.cern.ch/Recommendations/#run-2
@@ -1193,7 +1196,11 @@ def add_config(
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
-        jer_version = "JR" + {2022: "V2", 2023: "V3", 2024: "V2"}[year]
+        jer_version = "JR" + {
+            2022: "V2",
+            2023: "V3",
+            2024: "V2",
+        }[year]
         jet_type = "AK4PFPuppi"
     else:
         assert False
@@ -1271,8 +1278,8 @@ def add_config(
     }
 
     # BJEC
-    use_bjec = run == 3  # note: set to False to disable BJEC and use plain JEC
-    if use_bjec:
+    bjec_config = None
+    if cfg.x.use_bjec:
         # https://cms-jerc.web.cern.ch/ExpJEC/#jec-for-pnet-and-upart-regressed-jets
         # https://cms-jerc.web.cern.ch/JES/#remarks-on-getting-rawpt-and-mass-for-regular-pnet-and-upart-jets
         bjec_config = BJECConfig(
@@ -1291,8 +1298,6 @@ def add_config(
             bjet_selection=(lambda events: events.Jet[cfg.x.btag_default.jet_column] > cfg.x.btag_default.wp),
             bjet_selection_columns={cfg.x.btag_default.jet_column},
         )
-    else:
-        bjec_config = None
 
     # JEC
     cfg.x.jec = DotDict.wrap({
@@ -1950,8 +1955,8 @@ def add_config(
     # pileup weight corrections
     add_external("pu_sf", (cat_info.get_file("lum", f"puWeights{'_BCDEFGHI' if year == 2024 else ''}.json.gz"), "v1"))
     # jet energy corrections
-    if use_bjec:
-        add_external("jet_jerc", (f"{central_hbt_dir}/central_jme_files/bjec_v4/json_files_Reg/Run{run}{jec_campaign}/latest/regJet_jerc.json.gz", "v4"))  # noqa: E501
+    if cfg.x.use_bjec:
+        add_external("jet_jerc", (f"{central_hbt_dir}/central_jme_files/bjec/Run{run}{jec_campaign}/{cat_info.snapshot.jme}/regJet_jerc.json.gz", "v1"))  # noqa: E501
     else:
         add_external("jet_jerc", (cat_info.get_file("jme", "jet_jerc.json.gz"), "v1"))
     # jer smearing tool
@@ -2067,7 +2072,7 @@ def add_config(
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
         # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
         # test for prod25
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod25_23post.json.gz", "v6"))  # noqa: E501
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod26_23post.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
