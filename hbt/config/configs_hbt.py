@@ -645,7 +645,6 @@ def add_config(
             "multiboson",
             "v",
             "h",
-            "ewk",
         ]),
         "dy_split": [
             "dy_m10to50",
