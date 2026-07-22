@@ -614,7 +614,7 @@ def add_config(
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("all",)
-    cfg.x.default_variables = ("njet", "nbtag", "jet1_pt")
+    cfg.x.default_variables = ("jet1_pt",)
     cfg.x.default_hist_producer = "default"
 
     # groups
@@ -662,6 +662,7 @@ def add_config(
         "sm_data": ["data"] + sm_group,
         "bkg_data": ["data"] + backgrounds,
     }
+    cfg.x.default_process_group = "sm_data"
 
     # define inclusive datasets for the stitched process identification with corresponding leaf processes
     if run == 3 and not sync_mode:
