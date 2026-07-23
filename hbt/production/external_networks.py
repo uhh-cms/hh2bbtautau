@@ -242,10 +242,13 @@ class _external_dnn(Producer):
         # apply to all arrays needed until now
         _events = events[event_mask]
         pair_type = pair_type[event_mask]
-        vis_tau1, vis_tau2 = vis_tau1[event_mask], vis_tau2[event_mask]
+        vis_tau1 = vis_tau1[event_mask]
+        vis_tau2 = vis_tau2[event_mask]
         tautau_mask = tautau_mask[event_mask]
-        dm1, dm2 = dm1[event_mask], dm2[event_mask]
-        has_jet_pair, has_fatjet = has_jet_pair[event_mask], has_fatjet[event_mask]
+        dm1 = dm1[event_mask]
+        dm2 = dm2[event_mask]
+        has_jet_pair = has_jet_pair[event_mask]
+        has_fatjet = has_fatjet[event_mask]
 
         # prepare network inputs
         f = DotDict()
@@ -429,10 +432,20 @@ class _external_dnn(Producer):
         # so issue a warning and set them to a default value
         nan_mask = ~np.isfinite(scores)
         if np.any(nan_mask):
-            logger.warning(
-                f"{nan_mask.sum() // scores.shape[1]} out of {scores.shape[0]} events have NaN scores; "
-                f"setting them to {self.empty_value}",
-            )
+            nan_mask_event = nan_mask.any(axis=1)
+            msg = f"{nan_mask_event.sum()} / {len(scores)} events ({100 * nan_mask_event.mean():.2f}%) have NaN scores"
+            # raise when this happens too often
+            if nan_mask_event.mean() >= 0.005:
+                raise Exception(f"{msg}; this should not happen, so please debug")
+            # raise when only some columns in events are nan, but not all
+            uneven_nan_mask = nan_mask_event & ~nan_mask.all(axis=1)
+            if uneven_nan_mask.any():
+                raise Exception(
+                    f"{msg}, of which {uneven_nan_mask.sum()} only have them in some output nodes; this should not "
+                    "happen, so please debug",
+                )
+            # warn for the remainder of cases
+            logger.warning(f"{msg}; setting them to {self.empty_value}")
             scores[nan_mask] = self.empty_value
 
         return scores
