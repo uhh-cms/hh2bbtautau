@@ -13,11 +13,12 @@ import order as od
 
 from columnflow.production import Producer
 from columnflow.production.cms.dy import gen_dilepton
+from columnflow.production.cms.gen_particles import gen_higgs_lookup
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
 from columnflow.types import TYPE_CHECKING, Callable
 
-from hbt.util import IF_DATASET_IS_DY_AMCATNLO, IF_DATASET_IS_DY_POWHEG, IF_DATASET_IS_W_LNU
+from hbt.util import IF_DATASET_IS_DY_AMCATNLO, IF_DATASET_IS_DY_POWHEG, IF_DATASET_IS_W_LNU, IF_DATASET_IS_BBVV
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -606,3 +607,90 @@ process_ids_w_lnu_amcatnlo_2223 = stitched_process_ids_nj_pt.derive("process_ids
     "include_condition": IF_DATASET_IS_W_LNU,
     # still misses leaf_processes, must be set dynamically
 })
+
+
+class process_ids_bbvv(stitched_process_ids):
+    """
+    Process identifier for subprocesses of bbvv samples, spanned by decays of the two vector bosons.
+    """
+
+    # only run in bbvv datasets
+    include_condition = IF_DATASET_IS_BBVV
+
+    uses = {gen_higgs_lookup}
+    stitching_columns = ["gen_higgs"]
+
+    # vv decay names, mapped to number of charged leptons, neutrinos and quarks
+    vv_decays = {
+        "qqlnu": (1, 1, 2),
+        "2l2nu": (2, 2, 0),
+        "4q": (0, 0, 4),
+        "2q2nu": (0, 2, 2),
+        "4nu": (0, 4, 0),
+        "4l": (4, 0, 0),
+        "2l2q": (2, 0, 2),
+    }
+
+    # id table is set during setup, create a non-abstract class member in the meantime
+    id_lut = None
+
+    # disable stitching value cross check
+    stitching_values_cross_check = None
+    cross_check_translation_dict = None
+    uses_for_stitching = None
+
+    @abc.abstractproperty
+    def leaf_processes(self) -> list[od.Process]:
+        # must be overwritten by inheriting classes
+        ...
+
+    def setup_func(self, task: law.Task, **kwargs) -> None:
+        super().setup_func(task=task, **kwargs)
+
+        import scipy.sparse
+
+        # check that each vv decay is covered by exactly one leaf process
+        vv_matches = {
+            vv: {proc for proc in self.leaf_processes if f"hvv{vv}" in proc.name}
+            for vv in self.vv_decays
+        }
+        if not all(len(matches) == 1 for matches in vv_matches.values()):
+            raise ValueError(f"not all vv decays are covered by leaf processes, matches: {vv_matches}")
+        if set.union(*vv_matches.values()) != set(self.leaf_processes):
+            raise ValueError(f"not all leaf processes are covered by vv decays, matches: {vv_matches}")
+        self.vv_map: dict[str, od.Process] = {vv: next(iter(matches)) for vv, matches in vv_matches.items()}
+
+        # define the lookup table
+        self.id_lut = scipy.sparse.dok_matrix((len(self.vv_decays), 1), dtype=np.int64)
+
+        # fill it
+        for i, (_, proc) in enumerate(self.vv_map.items()):
+            self.id_lut[i, 0] = proc.id
+
+    def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
+        events = self[gen_higgs_lookup](events, **kwargs)
+        return super().call_func(events, **kwargs)
+
+    def compute_lut_index(self, gen_higgs: ak.Array) -> ak.Array:
+        # create pdg id sequences of all w/z children per event
+        v_ids = ak.concatenate(
+            [
+                abs(ak.flatten(gen_higgs[:, 1].w_children.pdgId, axis=-1)),
+                abs(ak.flatten(gen_higgs[:, 1].z_children.pdgId, axis=-1)),
+            ],
+            axis=1,
+        )
+
+        # count charged leptons
+        lep_mask = (v_ids >= 11) & (v_ids <= 16)
+        nl = np.asarray(ak.sum(lep_mask & (v_ids % 2 == 1), axis=1))
+        nn = np.asarray(ak.sum(lep_mask & (v_ids % 2 == 0), axis=1))
+        nq = np.asarray(ak.sum(v_ids <= 6, axis=1))
+
+        # assign indices
+        indices = -np.ones(len(gen_higgs), dtype=np.int32)
+        for i, (_nl, _nn, _nq) in enumerate(self.vv_decays.values()):
+            mask = (nl == _nl) & (nn == _nn) & (nq == _nq)
+            indices[mask] = i
+
+        return indices

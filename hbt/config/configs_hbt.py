@@ -149,6 +149,31 @@ def add_config(
             processes=[procs.n.ttv, procs.n.ttvv],
         )
 
+    cfg.x.hh_points = DotDict.wrap({
+        "ggf_keys": ["kl"],
+        "ggf": [
+            # kl
+            ("0",),
+            ("1",),
+            ("2p45",),
+            ("5",),
+        ],
+        "vbf_keys": ["kv", "k2v", "kl"],
+        "vbf": [
+            # kv, k2v, kl
+            ("1", "1", "1"),
+            ("1", "0", "1"),
+            ("1p74", "1p37", "14p4"),
+            ("2p12", "3p87", "m5p96"),
+            ("m0p012", "0p03", "10p2"),
+            ("m0p758", "1p44", "m19p3"),
+            ("m0p962", "0p959", "m1p43"),
+            ("m1p21", "1p94", "m0p94"),
+            ("m1p6", "2p72", "m1p36"),
+            ("m1p83", "3p57", "m3p39"),
+        ],
+    })
+
     # processes we are interested in
     process_names = [
         "data",
@@ -159,26 +184,14 @@ def add_config(
         "all_v",
         "qcd",
         "h",
-        "hh_ggf_hbb_htt_kl1_kt1",
-        "hh_ggf_hbb_htt_kl0_kt1",
-        "hh_ggf_hbb_htt_kl2p45_kt1",
-        "hh_ggf_hbb_htt_kl5_kt1",
-        "hh_ggf_hbb_htt_kl0_kt1_c21",
-        "hh_ggf_hbb_htt_kl1_kt1_c23",
-        "hh_vbf_hbb_htt_kv1_k2v1_kl1",
-        "hh_vbf_hbb_htt_kv1_k2v0_kl1",
-        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4",
-        "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96",
-        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2",
-        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3",
-        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43",
-        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94",
-        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36",
-        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39",
-        # "radion_hh_ggf_hbb_htt_m450",
-        # "radion_hh_ggf_hbb_htt_m1200",
-        # "graviton_hh_ggf_hbb_htt_m450",
-        # "graviton_hh_ggf_hbb_htt_m1200",
+        *law.util.flatten(
+            law.util.brace_expand(f"hh_ggf_hbb_h{{tt,vv,vv2l2nu}}_kl{kl}_kt1")
+            for kl, in cfg.x.hh_points.ggf
+        ),
+        *law.util.flatten(
+            law.util.brace_expand(f"hh_vbf_hbb_h{{tt,vv,vv2l2nu}}_kv{kv}_k2v{k2v}_kl{kl}")
+            for kv, k2v, kl in cfg.x.hh_points.vbf
+        ),
     ]
     for process_name in process_names:
         if process_name in procs:
@@ -222,37 +235,17 @@ def add_config(
     # add datasets we need to study
     dataset_names = [
         # hh ggf
-        "hh_ggf_hbb_htt_kl1_kt1_powheg",
-        "hh_ggf_hbb_htt_kl0_kt1_powheg",
-        "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
-        "hh_ggf_hbb_htt_kl5_kt1_powheg",
+        *law.util.flatten(
+            law.util.brace_expand(f"hh_ggf_hbb_h{{tt,vv,vv2l2nu}}_kl{kl}_kt1_powheg")
+            for kl, in cfg.x.hh_points.ggf
+        ),
+
 
         # hh vbf
-        "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
-        "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-        "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-        "hh_vbf_hbb_htt_kv2p12_k2v3p87_klm5p96_madgraph",
-        "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
-        "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
-        "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
-        "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
-        "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
-        "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
-        # privately produced datasets for 2022 and 2023
-        # "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
-        # "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
-        # "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
-        # "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
-        # "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
-        # "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
-
-        # x -> hh resonances
-        # *if_era(year=2022, values=[
-        #     "radion_hh_ggf_hbb_htt_m450_madgraph",
-        #     "radion_hh_ggf_hbb_htt_m1200_madgraph",
-        #     "graviton_hh_ggf_hbb_htt_m450_madgraph",
-        #     "graviton_hh_ggf_hbb_htt_m1200_madgraph",
-        # ]),
+        *law.util.flatten(
+            law.util.brace_expand(f"hh_vbf_hbb_h{{tt,vv,vv2l2nu}}_kv{kv}_k2v{k2v}_kl{kl}_madgraph")
+            for kv, k2v, kl in cfg.x.hh_points.vbf
+        ),
 
         # ttbar
         "tt_sl_powheg",
@@ -541,10 +534,9 @@ def add_config(
         # HH, non-res
         if dataset.name.startswith("hh_"):
             dataset.add_tag({"signal", "nonresonant_signal", "has_higgs"})
-            if dataset.name.startswith("hh_ggf_"):
-                dataset.add_tag("ggf")
-            elif dataset.name.startswith("hh_vbf_"):
-                dataset.add_tag("vbf")
+            if (m := re.match(r"^hh_(ggf|vbf)_(hbb_htt|hbb_hvv).+$", dataset.name)):
+                dataset.add_tag(m.group(1))  # ggf/vbf
+                dataset.add_tag("bbtt" if m.group(2) == "hbb_htt" else "bbvv")  # bbtt/bbvv
         # HH, res
         if dataset.name.startswith(("graviton_hh_", "radion_hh_")):
             dataset.add_tag({"signal", "resonant_signal", "has_higgs"})
@@ -631,10 +623,16 @@ def add_config(
             "hh_vbf_hbb_htt_kv1_k2v1_kl1",
         ],
         "signals_ggf": [
-            "hh_ggf_hbb_htt_kl0_kt1",
-            "hh_ggf_hbb_htt_kl1_kt1",
-            "hh_ggf_hbb_htt_kl2p45_kt1",
-            "hh_ggf_hbb_htt_kl5_kt1",
+            f"hh_ggf_hbb_htt_kl{kl}_kt1"
+            for kl, in cfg.x.hh_points.ggf
+        ],
+        "signals_bbvv": [
+            "hh_ggf_hbb_hvv_kl1_kt1",
+            "hh_vbf_hbb_hvv_kv1_k2v1_kl1",
+        ],
+        "signals_bbvv_ggf": [
+            f"hh_ggf_hbb_hvv_kl{kl}_kt1"
+            for kl, in cfg.x.hh_points.ggf
         ],
         "backgrounds": (backgrounds := [
             "dy",
@@ -757,6 +755,28 @@ def add_config(
                         ],
                     },
                 }
+        # bbvv
+        vv_decays = ["qqlnu", "2l2nu", "4q", "2q2nu", "4nu", "4l", "2l2q"]
+        cfg.x.bbvv_stitching = {
+            f"ggf_kl{kl}": {
+                "inclusive_dataset": cfg.get_dataset(f"hh_ggf_hbb_hvv_kl{kl}_kt1_powheg"),
+                "leaf_processes": [
+                    cfg.get_process(f"hh_ggf_hbb_hvv{vv}_kl{kl}_kt1")
+                    for vv in vv_decays
+                ],
+            }
+            for kl, in cfg.x.hh_points.ggf
+        } | {
+            f"vbf_kv{kv}_k2v{k2v}_kl{kl}": {
+                "inclusive_dataset": cfg.get_dataset(f"hh_vbf_hbb_hvv_kv{kv}_k2v{k2v}_kl{kl}_madgraph"),
+                "leaf_processes": [
+                    cfg.get_process(f"hh_vbf_hbb_hvv{vv}_kv{kv}_k2v{k2v}_kl{kl}")
+                    for vv in vv_decays
+                ],
+            }
+            for kv, k2v, kl in cfg.x.hh_points.vbf
+
+        }
 
     # dataset groups for conveniently looping over certain datasets
     # (used in wrapper_factory and during plotting)
