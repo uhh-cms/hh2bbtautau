@@ -148,7 +148,7 @@ class default(HBTInferenceModel):
         self.add_parameter(
             "BR_htt",
             type=ParameterType.rate_gauss,
-            process=["*_htt", "*_hbbhtt", "*_hnonbb"],
+            process=["*_htt", "*_hbbhtt"],
             effect=(0.9837, 1.0165),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
@@ -239,7 +239,7 @@ class default(HBTInferenceModel):
         self.add_parameter(
             "pdf_Higgs_ggHH",  # contains alpha_s
             type=ParameterType.rate_gauss,
-            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
+            process=self.inject_all_eras("ggHH_*_13p6TeV_hbbhtt"),
             effect=1.023,
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )

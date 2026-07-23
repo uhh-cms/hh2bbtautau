@@ -1283,18 +1283,16 @@ def add_config(
         # https://cms-jerc.web.cern.ch/ExpJEC/#jec-for-pnet-and-upart-regressed-jets
         # https://cms-jerc.web.cern.ch/JES/#remarks-on-getting-rawpt-and-mass-for-regular-pnet-and-upart-jets
         bjec_config = BJECConfig(
-            jet_types=(
-                # tagged jets
-                f"AK4PFPuppi{cfg.x.btag_default.btv_name}RegressionPlusNeutrino",
-                # untagged jets
-                f"AK4PFPuppi{cfg.x.btag_default.btv_name}Regression",
-            ),
-            regr_factors=(
-                # tagged jets
-                f"{cfg.x.btag_default.btv_name}{'AK4' if cfg.x.btag_default.btv_name == 'UParT' else ''}RegPtRawCorrNeutrino",  # noqa: E501
-                # untagged jets
-                f"{cfg.x.btag_default.btv_name}{'AK4' if cfg.x.btag_default.btv_name == 'UParT' else ''}RegPtRawCorr",
-            ),
+            jet_types={
+                # tagged / untagged jets
+                "PNet": ("AK4PFPuppiPNetRegressionPlusNeutrino", "AK4PFPuppiPNetRegression"),
+                "UParT": ("AK4PFPuppiUParTRegressionPlusNeutrino", "AK4PFPuppiUParTRegression"),
+            }[cfg.x.btag_default.btv_name],
+            regr_factors={
+                # tagged / untagged jets
+                "PNet": (["PNetRegPtRawCorr", "PNetRegPtRawCorrNeutrino"], "PNetRegPtRawCorr"),
+                "UParT": ("UParTAK4RegPtRawCorrNeutrino", "UParTAK4RegPtRawCorr"),
+            }[cfg.x.btag_default.btv_name],
             bjet_selection=(lambda events: events.Jet[cfg.x.btag_default.jet_column] > cfg.x.btag_default.wp),
             bjet_selection_columns={cfg.x.btag_default.jet_column},
         )

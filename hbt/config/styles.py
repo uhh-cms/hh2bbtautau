@@ -122,7 +122,7 @@ def stylize_processes(config: od.Config) -> None:
     cfg.x.line_styles = ["solid", "dotted", "dashed", "dashdot"]
     cfg.x.get_line_style_from_sequence = lambda i: cfg.x.line_styles[i % len(cfg.x.line_styles)]
 
-    for kl, *opts in [
+    for kl, *opts in [  # TODO: use hh_points.ggf from config
         ("0", cfg.x.colors.bright_orange),
         ("1", cfg.x.colors.dark_blue),
         ("2p45", cfg.x.colors.red),
@@ -135,7 +135,7 @@ def stylize_processes(config: od.Config) -> None:
             kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"}, group=False)
             p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
-    for kv, k2v, kl, *opts in [
+    for kv, k2v, kl, *opts in [  # TODO: use hh_points.vbf from config
         ("1", "1", "1", cfg.x.colors.bright_orange),
         ("1", "0", "1", cfg.x.colors.dark_blue),
         ("1", "2", "1"),

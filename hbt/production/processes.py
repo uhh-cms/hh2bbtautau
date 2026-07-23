@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Process ID producer relevant for the stitching of the DY samples.
+Process ID producers relevant for stitching of various datasets.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 
 import law
-import order
+import order as od
 
 from columnflow.production import Producer
 from columnflow.production.cms.dy import gen_dilepton
@@ -102,7 +102,7 @@ class stitched_process_ids(Producer):
         process_inst = self.dataset_inst.processes.get_first()
 
         # get stitching observables
-        stitching_values = [Route(obs).apply(events) for obs in self.stitching_columns]
+        stitching_values = [Route(c).apply(events) for c in self.stitching_columns]
 
         # run the cross check function if defined
         if callable(self.stitching_values_cross_check):
@@ -150,7 +150,7 @@ class stitched_process_ids(Producer):
 
     def stitching_values_cross_check(
         self,
-        process_inst: order.Process,
+        process_inst: od.Process,
         stitching_values: list[ak.Array],
     ) -> None:
         # define lookup for stitching observable -> process auxiliary values to compare with
@@ -237,7 +237,7 @@ class stitched_process_ids_nj_pt(stitched_process_ids):
                 raise ValueError(f"field {field} must be present in cross_check_translation_dict")
 
     @abc.abstractproperty
-    def leaf_processes(self) -> list[order.Process]:
+    def leaf_processes(self) -> list[od.Process]:
         # must be overwritten by inheriting classes
         ...
 
@@ -317,7 +317,7 @@ class stitched_process_ids_nj(stitched_process_ids):
             raise ValueError(f"field {self.njets_aux} must be present in cross_check_translation_dict")
 
     @abc.abstractproperty
-    def leaf_processes(self) -> list[order.Process]:
+    def leaf_processes(self) -> list[od.Process]:
         # must be overwritten by inheriting classes
         ...
 
@@ -395,7 +395,7 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
                 raise ValueError(f"field {field} must be present in cross_check_translation_dict")
 
     @abc.abstractproperty
-    def leaf_processes(self) -> list[order.Process]:
+    def leaf_processes(self) -> list[od.Process]:
         # must be overwritten by inheriting classes
         ...
 
@@ -494,7 +494,7 @@ class stitched_process_ids_m(stitched_process_ids):
                 raise ValueError(f"field {field} must be present in cross_check_translation_dict")
 
     @abc.abstractproperty
-    def leaf_processes(self) -> list[order.Process]:
+    def leaf_processes(self) -> list[od.Process]:
         # must be overwritten by inheriting classes
         ...
 
