@@ -16,7 +16,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.electron import electron_sceta
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_3, IF_MC
+from hbt.util import IF_RUN_3, IF_RUN_3_2024, IF_MC
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -85,11 +85,10 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
             events = self[self.ess_nominal_cls](events, **kwargs)
             # nominal muon scale and resolution
             events = self[self.muon_sr_nominal_cls](events, **kwargs)
-    # TODO: remove if statement when met phi corrections are made available
-    if self.config_inst.campaign.x.year != 2024:
-        # apply met phi correction
-        if self.has_dep(self.met_phi_cls):
-            events = self[self.met_phi_cls](events, **kwargs)
+
+    # apply met phi correction
+    if self.has_dep(self.met_phi_cls):
+        events = self[self.met_phi_cls](events, **kwargs)
 
     return events
 
@@ -155,10 +154,8 @@ def default_init(self: Calibrator, **kwargs) -> None:
             "store_original": True,
             "with_uncertainties": False,
         })
-        # TODO: 2024: remove if statement when met phi corrections are made available
-        if self.config_inst.campaign.x.year != 2024:
-            # derive met_phi calibrator
-            add_calib_cls("met_phi", met_phi_run2 if self.config_inst.campaign.x.run == 2 else met_phi)
+        # derive met_phi calibrator
+        add_calib_cls("met_phi", met_phi_run2 if self.config_inst.campaign.x.run == 2 else met_phi)
 
         # change the flag
         self.config_inst.set_aux(flag, True)
@@ -174,38 +171,23 @@ def default_init(self: Calibrator, **kwargs) -> None:
     self.ess_nominal_cls = self.config_inst.x.calib_ess_nominal_cls
     self.muon_sr_full_cls = self.config_inst.x.calib_muon_sr_full_cls
     self.muon_sr_nominal_cls = self.config_inst.x.calib_muon_sr_nominal_cls
-    # TODO: 2024: remove if statement when met phi corrections are made available
-    if self.config_inst.campaign.x.year != 2024:
-        self.met_phi_cls = self.config_inst.x.calib_met_phi_cls
+    self.met_phi_cls = self.config_inst.x.calib_met_phi_cls
 
-    # TODO: 2024: remove if else statement when met phi corrections are made available
-    if self.config_inst.campaign.x.year != 2024:
-        # collect derived calibrators and add them to the calibrator uses and produces
-        derived_calibrators = {
-            self.jec_full_cls,
-            self.jec_nominal_cls,
-            self.jer_jec_full_cls,
-            self.jer_jec_nominal_cls,
-            self.tec_full_cls,
-            self.tec_nominal_cls,
-            IF_RUN_3(self.ess_full_cls),
-            IF_RUN_3(self.ess_nominal_cls),
-            IF_RUN_3(self.muon_sr_full_cls),
-            IF_RUN_3(self.muon_sr_nominal_cls),
-            self.met_phi_cls,
-        }
-    else:
-        derived_calibrators = {
-            self.jec_full_cls,
-            self.jec_nominal_cls,
-            self.jer_jec_full_cls,
-            self.jer_jec_nominal_cls,
-            self.tec_full_cls,
-            self.tec_nominal_cls,
-            IF_RUN_3(self.ess_full_cls),
-            IF_RUN_3(self.ess_nominal_cls),
-            IF_RUN_3(self.muon_sr_full_cls),
-            IF_RUN_3(self.muon_sr_nominal_cls),
-        }
+    # collect derived calibrators and add them to the calibrator uses and produces
+    derived_calibrators = {
+        self.jec_full_cls,
+        self.jec_nominal_cls,
+        self.jer_jec_full_cls,
+        self.jer_jec_nominal_cls,
+        self.tec_full_cls,
+        self.tec_nominal_cls,
+        IF_RUN_3(self.ess_full_cls),
+        IF_RUN_3(self.ess_nominal_cls),
+        IF_RUN_3(self.muon_sr_full_cls),
+        IF_RUN_3(self.muon_sr_nominal_cls),
+        # TODO: 2024: remove condition when met phi corrections are made available
+        ~IF_RUN_3_2024(self.met_phi_cls),
+    }
+
     self.uses |= derived_calibrators
     self.produces |= derived_calibrators

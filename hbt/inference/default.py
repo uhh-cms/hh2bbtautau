@@ -35,6 +35,9 @@ class default(HBTInferenceModel):
     # (e.g. this influences the lumi uncertainty treatment)
     run3_multi_campaign = True
 
+    # whether to include bbvv as an additional signal process
+    add_bbvv = True
+
     # the default variable to use in all categories
     # (see get_category_variable for more details)
     variable = "run3_dnn_moe_hh_fine"
@@ -70,25 +73,19 @@ class default(HBTInferenceModel):
 
     def create_proc_name_map(self) -> None:
         # mapping of process names in the datacard ("combine name") to configs and process names in a dict
+        hh_nonbb_decays = [("tt", "tt")]  # maps postfix used in analysis to that used for combine name
+        if self.add_bbvv:
+            hh_nonbb_decays.append(("vv", "ww"))
         proc_name_map = {
             **{
-                f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt": f"hh_ggf_hbb_htt_kl{kl}_kt1"
-                for kl in ["1", "0", "2p45", "5"]
+                f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbh{d_comb}": f"hh_ggf_hbb_h{d}_kl{kl}_kt1"
+                for kl, in self.config_insts[0].x.hh_points.ggf
+                for d, d_comb in hh_nonbb_decays
             },
             **{
-                f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbhtt": f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}"
-                for kv, k2v, kl in [
-                    ("1", "1", "1"),
-                    ("1", "0", "1"),
-                    ("1p74", "1p37", "14p4"),
-                    ("2p12", "3p87", "m5p96"),
-                    ("m0p012", "0p03", "10p2"),
-                    ("m0p758", "1p44", "m19p3"),
-                    ("m0p962", "0p959", "m1p43"),
-                    ("m1p21", "1p94", "m0p94"),
-                    ("m1p6", "2p72", "m1p36"),
-                    ("m1p83", "3p57", "m3p39"),
-                ]
+                f"qqHH_CV_{kv}_C2V_{k2v}_kl_{kl}_13p6TeV_hbbh{d_comb}": f"hh_vbf_hbb_h{d}_kv{kv}_k2v{k2v}_kl{kl}"
+                for kv, k2v, kl in self.config_insts[0].x.hh_points.vbf
+                for d, d_comb in hh_nonbb_decays
             },
             "ttbar": "tt",
             "ttbarV": "ttv",
@@ -141,14 +138,14 @@ class default(HBTInferenceModel):
         self.add_parameter(
             "BR_hbb",
             type=ParameterType.rate_gauss,
-            process=["*_hbb", "*_hbbhtt"],
+            process=["*_hbb", "*_hbbhtt", "*_hbbhww"],
             effect=(0.9874, 1.0124),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "BR_htt",
             type=ParameterType.rate_gauss,
-            process=["*_htt", "*_hbbhtt", "*_hnonbb"],
+            process=["*_htt", "*_hbbhtt"],
             effect=(0.9837, 1.0165),
             group=["theory", "signal_norm_xsbr", "rate_nuisances"],
         )
@@ -239,14 +236,14 @@ class default(HBTInferenceModel):
         self.add_parameter(
             "pdf_Higgs_ggHH",  # contains alpha_s
             type=ParameterType.rate_gauss,
-            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
+            process=self.inject_all_eras("ggHH_*_13p6TeV_hbbhtt", "ggHH_*_13p6TeV_hbbhww"),
             effect=1.023,
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
         self.add_parameter(
             "pdf_Higgs_qqHH",  # contains alpha_s
             type=ParameterType.rate_gauss,
-            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt"),
+            process=self.inject_all_eras("qqHH_*_13p6TeV_hbbhtt", "qqHH_*_13p6TeV_hbbhww"),
             effect=1.027,
             group=["theory", "signal_norm_xs", "signal_norm_xsbr", "rate_nuisances"],
         )
