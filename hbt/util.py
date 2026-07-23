@@ -285,8 +285,8 @@ def rotate_px_py(
     px: ak.Array | np.ndarray,
     py: ak.Array | np.ndarray,
     ref_phi: ak.Array | np.ndarray,
-) -> ak.Array | np.ndarray:
-    new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
+) -> tuple[ak.Array | np.ndarray, ak.Array | np.ndarray]:
+    new_phi = np.arctan2(py, px, dtype=np.float64) + ref_phi  # mind the "+"
     pt = (px**2 + py**2)**0.5
     return pt * np.cos(new_phi), pt * np.sin(new_phi)
 

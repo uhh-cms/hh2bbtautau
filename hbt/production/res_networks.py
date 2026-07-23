@@ -14,14 +14,13 @@ import law
 from columnflow.production import Producer
 from columnflow.production.util import attach_coffea_behavior
 from columnflow.columnar_util import (
-    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, default_coffea_collections, ak_concatenate_safe,
-    layout_ak_array,
+    set_ak_column, attach_behavior, flat_np_view, EMPTY_FLOAT, ak_concatenate_safe, layout_ak_array,
 )
 from columnflow.tasks.external import BundleExternalFiles
 from columnflow.util import maybe_import, dev_sandbox, DotDict
 from columnflow.types import Any, Literal
 
-from hbt.util import MET_COLUMN
+from hbt.util import MET_COLUMN, rotate_px_py
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -34,16 +33,6 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
 
 BTagType = Literal["deepjet", "pnet", "upart", "none"]
-
-
-def rotate_to_phi(ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Array, ak.Array]:
-    """
-    Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
-    angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
-    """
-    new_phi = np.arctan2(py, px, dtype=np.float64) - ref_phi
-    pt = (px**2 + py**2)**0.5
-    return pt * np.cos(new_phi), pt * np.sin(new_phi)
 
 
 class _res_dnn_evaluation(Producer):
@@ -276,7 +265,8 @@ class _res_dnn_evaluation(Producer):
 
         # build continuous inputs
         continuous_inputs = [
-            np.asarray(t[..., None], dtype=np.float32) for t in [
+            np.asarray(t[..., None], dtype=np.float32)
+            for t in [
                 *cont.values(),
                 (self.mass * np.ones(n_mask, dtype=np.float32)) if self.parametrized else None,
             ]
@@ -286,11 +276,13 @@ class _res_dnn_evaluation(Producer):
 
         # build categorical inputs
         categorical_inputs = [
-            np.asarray(t[..., None], dtype=np.int32) for t in [
+            np.asarray(t[..., None], dtype=np.int32)
+            for t in [
                 *cat.values(),
                 (self.year_flag * np.ones(n_mask, dtype=np.int32)) if self.parametrized else None,
                 (self.spin * np.ones(n_mask, dtype=np.int32)) if self.parametrized else None,
-            ] if t is not None
+            ]
+            if t is not None
         ]
         categorical_inputs = np.concatenate(categorical_inputs, axis=1)
 
@@ -311,32 +303,11 @@ class _res_dnn_evaluation(Producer):
         if scores.ndim == 3:
             scores = self.aggregate_ensemble_output(scores)
 
-        # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
-        # so issue a warning and set them to a default value
-        nan_mask = ~np.isfinite(scores)
-        if np.any(nan_mask):
-            nan_mask_event = nan_mask.any(axis=1)
-            msg = f"{nan_mask_event.sum()} / {len(scores)} events ({100 * nan_mask_event.mean():.2f}%) have NaN scores"
-            # raise when this happens too often
-            if nan_mask_event.mean() >= 0.005:
-                raise Exception(f"{msg}; this should not happen, so please debug")
-            # raise when only some columns in events are nan, but not all
-            uneven_nan_mask = nan_mask_event & ~nan_mask.all(axis=1)
-            if uneven_nan_mask.any():
-                raise Exception(
-                    f"{msg}, of which {uneven_nan_mask.sum()} only have them in some output nodes; this should not "
-                    "happen, so please debug",
-                )
-            # warn for the remainder of cases
-            logger.warning(f"{msg}; setting them to {self.empty_value}")
-            scores[nan_mask] = self.empty_value
+        # validate scores (probably replacing nans)
+        scores = self.validate_scores(scores)
 
-        # prepare output columns with the shape of the original events and assign values into them
-        assert scores.shape[1] == len(self.output_columns)
-        for i, column in enumerate(self.output_columns):
-            values = self.empty_value * np.ones(len(events), dtype=np.float32)
-            values[event_mask] = scores[:, i]
-            events = set_ak_column_f32(events, column, values)
+        # store scores in events
+        events = self.store_scores(events, scores, event_mask)
 
         # optionally store input features
         if self.produce_features:
@@ -351,21 +322,9 @@ class _res_dnn_evaluation(Producer):
 
         return events
 
-    def aggregate_ensemble_output(self, scores: np.ndarray) -> np.ndarray:
-        if self.ensemble_aggregation == "mean":
-            return np.mean(scores, axis=1)
-
-        if not self.ensemble_aggregation:
-            return scores
-
-        raise ValueError(f"invalid ensemble aggregation method: {self.ensemble_aggregation}")
-
     def update_events(self, events: ak.Array) -> ak.Array:
         # ensure coffea behavior for HHBJets
-        events = self[attach_coffea_behavior](
-            events,
-            collections={"HHBJet": default_coffea_collections["Jet"]},
-        )
+        events = self[attach_coffea_behavior](events, collections={"HHBJet": "Jet"})
 
         # store visible tau decay products, consider them all as tau types
         vis_tau = attach_behavior(
@@ -420,7 +379,7 @@ class _res_dnn_evaluation(Producer):
         cat.has_fatjet = np.asarray(ak.num(events.FatJet) >= 1, dtype=np.int32)
 
     def define_continuous_inputs(self, events: ak.Array, cont: DotDict, cat: DotDict) -> None:
-        rot = functools.partial(rotate_to_phi, events.feat_dilep_phi)
+        rot = functools.partial(rotate_px_py, ref_phi=-events.feat_dilep_phi)
         has_jet_pair = np.asarray(cat.has_jet_pair, dtype=bool)
         has_fatjet = np.asarray(cat.has_fatjet, dtype=bool)
 
@@ -529,6 +488,47 @@ class _res_dnn_evaluation(Producer):
             ((cat.has_jet_pair == 1) | (cat.has_fatjet == 1)) &
             (not self.parametrized or self.year_flag in self.embedding_expected_inputs["year"])
         )
+
+    def aggregate_ensemble_output(self, scores: np.ndarray) -> np.ndarray:
+        if self.ensemble_aggregation == "mean":
+            return np.mean(scores, axis=1)
+
+        if not self.ensemble_aggregation:
+            return scores
+
+        raise ValueError(f"invalid ensemble aggregation method: {self.ensemble_aggregation}")
+
+    def validate_scores(self, scores: np.ndarray) -> np.ndarray:
+        # in very rare cases (1 in 25k), the network output can be none, likely for numerical reasons,
+        # so issue a warning and set them to a default value
+        nan_mask = ~np.isfinite(scores)
+        if np.any(nan_mask):
+            nan_mask_event = nan_mask.any(axis=1)
+            msg = f"{nan_mask_event.sum()} / {len(scores)} events ({100 * nan_mask_event.mean():.2f}%) have NaN scores"
+            # raise when this happens too often
+            if nan_mask_event.mean() >= 0.005:
+                raise Exception(f"{msg}; this should not happen, so please debug")
+            # raise when only some columns in events are nan, but not all
+            uneven_nan_mask = nan_mask_event & ~nan_mask.all(axis=1)
+            if uneven_nan_mask.any():
+                raise Exception(
+                    f"{msg}, of which {uneven_nan_mask.sum()} only have them in some output nodes; this should not "
+                    "happen, so please debug",
+                )
+            # warn for the remainder of cases
+            logger.warning(f"{msg}; setting them to {self.empty_value}")
+            scores[nan_mask] = self.empty_value
+
+        return scores
+
+    def store_scores(self, events: ak.Array, scores: Any, event_mask: ak.Array) -> ak.Array:
+        # prepare output columns with the shape of the original events and assign values into them
+        assert scores.shape[1] == len(self.output_columns)
+        for i, column in enumerate(self.output_columns):
+            values = self.empty_value * np.ones(len(events), dtype=np.float32)
+            values[event_mask] = scores[:, i]
+            events = set_ak_column_f32(events, column, values)
+        return events
 
 
 #
@@ -847,10 +847,7 @@ class _vbf_dnn(_res_dnn_evaluation):
         events = super().update_events(events)
 
         # ensure coffea behavior for VBFJets
-        events = self[attach_coffea_behavior](
-            events,
-            collections={"VBFJet": default_coffea_collections["Jet"]},
-        )
+        events = self[attach_coffea_behavior](events, collections={"VBFJet": "Jet"})
 
         padded_vbf_jets = ak.pad_none(events.VBFJet, 2, axis=1)
         events = set_ak_column(events, "padded_vbf_jets", padded_vbf_jets)
