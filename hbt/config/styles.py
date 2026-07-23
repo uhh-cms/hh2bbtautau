@@ -159,7 +159,7 @@ def stylize_processes(config: od.Config) -> None:
             p.label = rf"$HH_{{vbf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
     if (p := config.get_process("h", default=None)):
-        p.color1 = cfg.x.colors.brown
+        p.color1 = cfg.x.colors.teal
 
     if (p := config.get_process("tt", default=None)):
         p.color1 = cfg.x.colors.yellow
@@ -198,15 +198,15 @@ def stylize_processes(config: od.Config) -> None:
         p.color1 = cfg.x.colors.dark_green
 
     if (p := config.get_process("ttv", default=None)):
-        p.color1 = cfg.x.colors.teal
+        p.color1 = cfg.x.colors.brown
         p.label = r"$t\bar{t} + V$"
 
     if (p := config.get_process("ttvv", default=None)):
-        p.color1 = cfg.x.colors.teal
+        p.color1 = cfg.x.colors.brown
         p.label = r"$t\bar{t} + VV$"
 
     if (p := config.get_process("tt_multiboson", default=None)):
-        p.color1 = cfg.x.colors.teal
+        p.color1 = cfg.x.colors.brown
 
     if (p := config.get_process("qcd", default=None)):
         p.color1 = cfg.x.colors.red
