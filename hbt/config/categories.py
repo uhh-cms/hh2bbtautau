@@ -133,22 +133,21 @@ def add_categories(config: od.Config) -> None:
         # kinematic regions in the middle (to be extended)
         "kin": CategoryGroup(
             [
-                "incl", "res1b", "res2b", "boosted", "res1b_novbf", "res2b_novbf", "boosted_novbf",
-                "res1b_cc", "res2b_cc", "vbf_cc", "boosted_cc", "res1b_inclvbf_cc", "res2b_inclvbf_cc",
+                "incl", "res1b", "res1b_cc", "res2b", "res2b_cc",
             ],
-            is_complete=True,
+            is_complete=False,
             has_overlap=True,
         ),
-        # # DY enriched region
-        # "dy": CategoryGroup(["dyc", "not_dyc"], is_complete=True, has_overlap=False),
-        # # split events per trigger
-        # "trigger": CategoryGroup(
-        #     [
-        #         "single_e", "single_mu", "cross_etau", "cross_mutau", "cross_tautau", "trig_incl"
-        #     ],
-        #     is_complete=False,
-        #     has_overlap=True,
-        # ),
+        # DY enriched region
+        "dy": CategoryGroup(["dyc", "not_dyc"], is_complete=True, has_overlap=False),
+        # split events per trigger
+        "trigger": CategoryGroup(
+            [
+                "single_e", "single_mu", "cross_etau", "cross_mutau", "cross_tautau", "trig_incl"
+            ],
+            is_complete=False,
+            has_overlap=True,
+        ),
         # qcd regions last
         "sign": CategoryGroup(["os", "ss"], is_complete=True, has_overlap=False),
         "tau2": CategoryGroup(["iso", "noniso"], is_complete=True, has_overlap=False),
@@ -168,9 +167,25 @@ def add_categories(config: od.Config) -> None:
         # channels
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions
-        "kin": CategoryGroup(["incl", "dy", "dyc", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
-        "jets": CategoryGroup(["eq2j", "eq3j", "eq4j", "ge2j", "ge4j", "eq5j", "ge6j"], is_complete=True, has_overlap=True),  # noqa: E501
-        "tags": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge0b", "ge2b"], is_complete=True, has_overlap=True),
+        "kin_dy": CategoryGroup(["dyc", "not_dyc"], is_complete=True, has_overlap=False),
+        # kinematic regions in the middle (to be extended)
+        "kin": CategoryGroup(
+            [
+                "incl", "res1b", "res1b_cc", "res2b", "res2b_cc",
+            ],
+            is_complete=False,
+            has_overlap=True,
+        ),
+        # split events per trigger
+        "trigger": CategoryGroup(
+            [
+                "single_e", "single_mu", "trig_incl"
+            ],
+            is_complete=False,
+            has_overlap=True,
+        ),
+        # "jets": CategoryGroup(["eq2j", "eq3j", "eq4j", "ge2j", "ge4j", "eq5j", "ge6j"], is_complete=True, has_overlap=True),  # noqa: E501
+        # "tags": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge0b", "ge2b"], is_complete=True, has_overlap=True),
         # relative sign
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }
