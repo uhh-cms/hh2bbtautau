@@ -642,7 +642,6 @@ def add_config(
             "multiboson",
             "tt_multiboson",
             "h",
-            "ewk",
             "qcd",
         ]),
         "dy_split": [
