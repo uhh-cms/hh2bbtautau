@@ -637,12 +637,12 @@ def add_config(
         "backgrounds": (backgrounds := [
             "dy",
             "tt",
-            "qcd",
-            "st",
-            "tt_multiboson",
-            "multiboson",
             "v",
+            "st",
+            "multiboson",
+            "tt_multiboson",
             "h",
+            "qcd",
         ]),
         "dy_split": [
             "dy_m10to50",

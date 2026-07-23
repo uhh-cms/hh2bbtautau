@@ -95,38 +95,40 @@ def stylize_processes(config: od.Config) -> None:
     """
     cfg = config
 
-    # recommended cms colors
-    # see https://cms-analysis.docs.cern.ch/guidelines/plotting/colors
+    # color scheme, see https://cms-analysis.docs.cern.ch/guidelines/plotting/colors
     cfg.x.colors = DotDict(
-        bright_blue="#3f90da",
-        dark_blue="#011c87",
-        purple="#832db6",
-        aubergine="#964a8b",
-        yellow="#f7c331",
-        bright_orange="#ffa90e",
-        dark_orange="#e76300",
+        # cms recommended 10-color scheme
+        blue="#3f90da",
+        yellow="#ffa90e",
         red="#bd1f01",
-        teal="#92dadd",
         grey="#94a4a2",
+        purple="#832db6",
         brown="#a96b59",
-        green="#30c300",
-        dark_green="#269c00",
+        orange="#e76300",
+        olive="#b9ac70",
+        dark_grey="#717581",
+        teal="#92dadd",
+        # additional colors
+        green="#4aed00",
+        dark_blue="#011c87",
+        dark_green="#206700",
+        dark_red="#491307",
     )
 
     cfg.x.color_names = [
-        "dark_orange", "bright_blue", "dark_green", "red", "purple", "bright_orange", "dark_blue", "teal", "grey",
-        "brown", "green",
+        "blue", "yellow", "red", "grey", "purple", "brown", "orange", "olive", "dark_grey", "teal",
+        "green", "dark_blue", "dark_green", "dark_red",
     ]
     cfg.x.get_color_from_sequence = lambda i: cfg.x.colors[cfg.x.color_names[i % len(cfg.x.color_names)]]
 
     cfg.x.line_styles = ["solid", "dotted", "dashed", "dashdot"]
     cfg.x.get_line_style_from_sequence = lambda i: cfg.x.line_styles[i % len(cfg.x.line_styles)]
 
-    for kl, *opts in [  # TODO: use hh_points.ggf from config
-        ("0", cfg.x.colors.bright_orange),
+    for kl, *opts in [
+        ("0", cfg.x.colors.green),
         ("1", cfg.x.colors.dark_blue),
-        ("2p45", cfg.x.colors.red),
-        ("5", cfg.x.colors.green),
+        ("2p45", cfg.x.colors.dark_red),
+        ("5", cfg.x.colors.purple),
     ]:
         # unpack additional options with defaults
         color, *_ = (opts + [cfg.x.colors.dark_blue])[:1]
@@ -135,8 +137,8 @@ def stylize_processes(config: od.Config) -> None:
             kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"}, group=False)
             p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
-    for kv, k2v, kl, *opts in [  # TODO: use hh_points.vbf from config
-        ("1", "1", "1", cfg.x.colors.bright_orange),
+    for kv, k2v, kl, *opts in [
+        ("1", "1", "1", cfg.x.colors.green),
         ("1", "0", "1", cfg.x.colors.dark_blue),
         ("1", "2", "1"),
         ("1", "1", "2"),
@@ -150,7 +152,7 @@ def stylize_processes(config: od.Config) -> None:
         ("m1p83", "3p57", "m3p39"),
     ]:
         # unpack additional options with defaults
-        color, *_ = (opts + [cfg.x.colors.brown])[:1]
+        color, *_ = (opts + [cfg.x.colors.dark_red])[:1]
         if (p := config.get_process(f"hh_vbf_hbb_htt_kv{kv}_k2v{k2v}_kl{kl}", default=None)):
             p.color1 = color
             kappa_label = create_kappa_label(**{"2V": k2v, r"\lambda": kl, "V": kv})
@@ -160,51 +162,51 @@ def stylize_processes(config: od.Config) -> None:
         p.color1 = cfg.x.colors.teal
 
     if (p := config.get_process("tt", default=None)):
-        p.color1 = cfg.x.colors.bright_orange
+        p.color1 = cfg.x.colors.yellow
         p.label = r"$t\bar{t}$"
 
     if (p := config.get_process("st", default=None)):
         p.color1 = cfg.x.colors.purple
 
     if (p := config.get_process("dy", default=None)):
-        p.color1 = cfg.x.colors.bright_blue
+        p.color1 = cfg.x.colors.blue
 
     if (p := config.get_process("vv", default=None)):
-        p.color1 = cfg.x.colors.yellow
+        p.color1 = cfg.x.colors.grey
 
     if (p := config.get_process("vvv", default=None)):
-        p.color1 = cfg.x.colors.yellow
+        p.color1 = cfg.x.colors.grey
 
     if (p := config.get_process("multiboson", default=None)):
-        p.color1 = cfg.x.colors.yellow
+        p.color1 = cfg.x.colors.grey
 
     if (p := config.get_process("w", default=None)):
-        p.color1 = cfg.x.colors.aubergine
+        p.color1 = cfg.x.colors.olive
         p.label = "W"
 
     if (p := config.get_process("z", default=None)):
-        p.color1 = cfg.x.colors.aubergine
+        p.color1 = cfg.x.colors.olive
         p.label = "Z"
 
     if (p := config.get_process("v", default=None)):
-        p.color1 = cfg.x.colors.aubergine
+        p.color1 = cfg.x.colors.orange
 
     if (p := config.get_process("all_v", default=None)):
-        p.color1 = cfg.x.colors.aubergine
+        p.color1 = cfg.x.colors.orange
 
     if (p := config.get_process("ewk", default=None)):
-        p.color1 = cfg.x.colors.dark_orange
+        p.color1 = cfg.x.colors.dark_green
 
     if (p := config.get_process("ttv", default=None)):
-        p.color1 = cfg.x.colors.grey
+        p.color1 = cfg.x.colors.brown
         p.label = r"$t\bar{t} + V$"
 
     if (p := config.get_process("ttvv", default=None)):
-        p.color1 = cfg.x.colors.grey
+        p.color1 = cfg.x.colors.brown
         p.label = r"$t\bar{t} + VV$"
 
     if (p := config.get_process("tt_multiboson", default=None)):
-        p.color1 = cfg.x.colors.grey
+        p.color1 = cfg.x.colors.brown
 
     if (p := config.get_process("qcd", default=None)):
         p.color1 = cfg.x.colors.red
