@@ -461,6 +461,11 @@ def cat_not_dyc(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, mask
 
 
+@categorizer(uses={"event"})
+def cat_dyc_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, all_true(events)
+
+
 @categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_tt(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # tt region: met > 30 (due to neutrino presence in leptonic w decays)

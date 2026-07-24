@@ -93,7 +93,8 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="cross_mutau", selection="cat_cross_mutau", label=r"cross-\mu\tau")
     _add_category(name="cross_tautau", selection="cat_cross_tautau", label=r"cross-\tau\tau")
     _add_category(name="trig_incl", selection="cat_trig_incl", label="")
-    _add_category(name="not_dyc", selection="cat_not_dyc", label="")
+    _add_category(name="not_dyc", selection="cat_not_dyc", label="not DY region")
+    _add_category(name="dyc_incl", selection="cat_dyc_incl", label="")
 
     #
     # build groups
@@ -139,7 +140,7 @@ def add_categories(config: od.Config) -> None:
             has_overlap=True,
         ),
         # DY enriched region
-        "dy": CategoryGroup(["dyc", "not_dyc"], is_complete=True, has_overlap=False),
+        "dy": CategoryGroup(["dyc", "not_dyc", "dyc_incl"], is_complete=True, has_overlap=True),
         # split events per trigger
         "trigger": CategoryGroup(
             [
