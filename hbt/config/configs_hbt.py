@@ -23,7 +23,7 @@ from columnflow.config_util import (
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 from columnflow.cms_util import CATInfo, CATSnapshot, CMSDatasetInfo
-from columnflow.types import Any
+from columnflow.types import Any, Callable
 
 from hbt import env_is_cern, force_desy_resources
 
@@ -118,6 +118,10 @@ def add_config(
     def if_not_era(*, values: list[str | None] | None = None, **kwargs) -> list[str]:
         return list(filter(bool, values or [])) if not _match_era(**kwargs) else []
 
+    def apply_sub_procs(proc: od.Process, func: Callable[[od.Process], None]):
+        for _proc, _, _ in proc.walk_processes(include_self=True):
+            func(_proc)
+
     ################################################################################################
     # processes
     ################################################################################################
@@ -202,20 +206,15 @@ def add_config(
 
         # add tags to processes
         if re.match(r"^hh(|_.+)$", process_name):
-            proc.add_tag("signal")
-            proc.add_tag("nonresonant_signal")
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"signal", "nonresonant_signal"}))
         if re.match(r"^(graviton|radion)_hh(|_.+)$", process_name):
-            proc.add_tag("signal")
-            proc.add_tag("resonant_signal")
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"signal", "resonant_signal"}))
         if re.match(r"^tt(|_.+)$", process_name):
-            for _proc, _, _ in proc.walk_processes(include_self=True):
-                _proc.add_tag({"ttbar", "tt"})
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"ttbar", "tt"}))
         if re.match(r"^dy(|_.+)$", process_name):
-            for _proc, _, _ in proc.walk_processes(include_self=True):
-                _proc.add_tag("dy")
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"dy"}))
         if re.match(r"^w_lnu(|_.+)$", process_name):
-            for _proc, _, _ in proc.walk_processes(include_self=True):
-                _proc.add_tag("w_lnu")
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"w_lnu"}))
 
         # add the process
         cfg.add_process(proc)
