@@ -184,14 +184,10 @@ def add_config(
         "all_v",
         "qcd",
         "h",
-        *law.util.flatten(
-            law.util.brace_expand(f"hh_ggf_hbb_h{{tt,vv,vv2l2nu}}_kl{kl}_kt1")
-            for kl, in cfg.x.hh_points.ggf
-        ),
-        *law.util.flatten(
-            law.util.brace_expand(f"hh_vbf_hbb_h{{tt,vv,vv2l2nu}}_kv{kv}_k2v{k2v}_kl{kl}")
-            for kv, k2v, kl in cfg.x.hh_points.vbf
-        ),
+        "hh_ggf_hbb_htt",
+        "hh_vbf_hbb_htt",
+        "hh_ggf_hbb_hvv",
+        "hh_vbf_hbb_hvv",
     ]
     for process_name in process_names:
         if process_name in procs:
@@ -205,10 +201,10 @@ def add_config(
             continue
 
         # add tags to processes
-        if process_name.startswith("hh_"):
+        if re.match(r"^hh(|_.+)$", process_name):
             proc.add_tag("signal")
             proc.add_tag("nonresonant_signal")
-        if process_name.startswith(("graviton_hh_", "radion_hh_")):
+        if re.match(r"^(graviton|radion)_hh(|_.+)$", process_name):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
         if re.match(r"^tt(|_.+)$", process_name):
