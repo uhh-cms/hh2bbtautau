@@ -936,10 +936,11 @@ class _vbf_dnn(_res_dnn_evaluation):
         # mass chi
         # HH_mass - (Hbb_mass - 125.0) - (Htt_mass - 125.0);
         # definition from https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/cclub_cmssw15010/src/HHRun3DNNInterface.cc?ref_type=heads#L517  # noqa: E501
+        calc_m = lambda e, px, py, pz: (np.maximum(e**2 - px**2 - py**2 - pz**2, 0.0))**0.5
         cont.m_chi = (
-            (cont.htthbb_regr_e**2 - cont.htthbb_regr_px**2 - cont.htthbb_regr_py**2 - cont.htthbb_regr_pz**2)**0.5 -
-            ((cont.hbb_e**2 - cont.hbb_px**2 - cont.hbb_py**2 - cont.hbb_pz**2)**0.5 - 125.0) -
-            ((cont.htt_regr_e**2 - cont.htt_regr_px**2 - cont.htt_regr_py**2 - cont.htt_regr_pz**2)**0.5 - 125.0)
+            calc_m(cont.htthbb_regr_e, cont.htthbb_regr_px, cont.htthbb_regr_py, cont.htthbb_regr_pz) -
+            (calc_m(cont.hbb_e, cont.hbb_px, cont.hbb_py, cont.hbb_pz) - 125.0) -
+            (calc_m(cont.htt_regr_e, cont.htt_regr_px, cont.htt_regr_py, cont.htt_regr_pz) - 125.0)
         )
 
         # vbf pair variables
