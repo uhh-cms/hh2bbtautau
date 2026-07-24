@@ -184,14 +184,10 @@ def add_config(
         "all_v",
         "qcd",
         "h",
-        *law.util.flatten(
-            law.util.brace_expand(f"hh_ggf_hbb_h{{tt,vv,vv2l2nu}}_kl{kl}_kt1")
-            for kl, in cfg.x.hh_points.ggf
-        ),
-        *law.util.flatten(
-            law.util.brace_expand(f"hh_vbf_hbb_h{{tt,vv,vv2l2nu}}_kv{kv}_k2v{k2v}_kl{kl}")
-            for kv, k2v, kl in cfg.x.hh_points.vbf
-        ),
+        "hh_ggf_hbb_htt",
+        "hh_vbf_hbb_htt",
+        "hh_ggf_hbb_hvv",
+        "hh_vbf_hbb_hvv",
     ]
     for process_name in process_names:
         if process_name in procs:
@@ -205,10 +201,10 @@ def add_config(
             continue
 
         # add tags to processes
-        if process_name.startswith("hh_"):
+        if re.match(r"^hh(|_.+)$", process_name):
             proc.add_tag("signal")
             proc.add_tag("nonresonant_signal")
-        if process_name.startswith(("graviton_hh_", "radion_hh_")):
+        if re.match(r"^(graviton|radion)_hh(|_.+)$", process_name):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
         if re.match(r"^tt(|_.+)$", process_name):
@@ -2090,7 +2086,7 @@ def add_config(
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
         # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
         # test for prod25
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod26_23post.json.gz", "v1"))  # noqa: E501
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod27_23post.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
