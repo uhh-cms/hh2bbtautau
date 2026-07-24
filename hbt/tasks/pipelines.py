@@ -157,7 +157,7 @@ class TorchModelToDatacards(HBTTask, ConfigTask, law.WrapperTask):
         base_cls = default_inference_model.get_cls(self.base_inference_model)
         base_cls.derive(self.inference_model_name, cls_dict={
             "variable": self.variable_name,
-            "add_qcd": "qcd" in self.hist_hooks,
+            "add_qcd": any(hook.startswith("qcd") for hook in self.hist_hooks),
         })
 
     def requires(self):

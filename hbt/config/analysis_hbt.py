@@ -98,7 +98,7 @@ def add_lazy_config(
             mod = importlib.import_module(campaign_module)
             campaign = getattr(mod, campaign_attr)
 
-            return add_config(
+            config = add_config(
                 analysis_hbt,
                 campaign.copy(),
                 config_name=config_name + config_name_postfix,
@@ -106,6 +106,8 @@ def add_lazy_config(
                 limit_dataset_files=limit_dataset_files,
                 **kwargs,
             )
+            config.analysis = analysis_hbt
+            return config
         return factory
 
     analysis_hbt.configs.add_lazy_factory(config_name, create_factory(config_id))

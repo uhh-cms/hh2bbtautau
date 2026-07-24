@@ -166,6 +166,16 @@ setup_hbt() {
         sed -i -r 's/(.+\: ?)wlcg_mirrored, local_.+, ?(wlcg_[^\s]+)/\1wlcg, \2/g' "${LAW_CONFIG_FILE}"
     fi
 
+    # proxy validity check
+    if ! $( cf_cast_bool "${HBT_SKIP_PROXY_CHECK}" ); then
+        local voms_timeleft="$( 2>/dev/null voms-proxy-info -timeleft )"
+        if [ "$?" != "0" ] || [ -z "${voms_timeleft}" ]; then
+            cf_color red_bright "no valid coms-proxy found"
+        elif [[ "${voms_timeleft}" -lt "7200" ]]; then
+            cf_color red "voms-proxy expires in ${voms_timeleft} seconds"
+        fi
+    fi
+
     #
     # finalize
     #

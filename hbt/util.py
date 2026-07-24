@@ -9,7 +9,7 @@ from __future__ import annotations
 __all__ = []
 
 from columnflow.columnar_util import (  # noqa: F401
-    IF_DATA, IF_MC, IF_DATASET_HAS_TAG, IF_DATASET_NOT_HAS_TAG, EMPTY_FLOAT, ArrayFunction, deferred_column,
+    IF_DATA, IF_MC, IF_DATASET_HAS_TAG, EMPTY_FLOAT, ArrayFunction, deferred_column, conditional_column,
     ak_concatenate_safe,
 )
 from columnflow.util import maybe_import
@@ -19,78 +19,58 @@ np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
 
-@deferred_column
-def IF_NANO_V9(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.version == 9:
-        return self.get()
-    return None
+@conditional_column
+def IF_NANO_V9(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.version == 9
 
 
-@deferred_column
-def IF_NANO_V11(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.version == 11:
-        return self.get()
-    return None
+@conditional_column
+def IF_NANO_V11(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.version == 11
 
 
-@deferred_column
-def IF_NANO_V12(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.version == 12:
-        return self.get()
-    return None
+@conditional_column
+def IF_NANO_V12(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.version == 12
 
 
-@deferred_column
-def IF_NANO_V14(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.version == 14:
-        return self.get()
-    return None
+@conditional_column
+def IF_NANO_V14(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.version == 14
 
 
-@deferred_column
-def IF_NANO_V15(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.version == 15:
-        return self.get()
-    return None
+@conditional_column
+def IF_NANO_V15(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.version == 15
 
 
-@deferred_column
-def IF_NANO_GE_V10(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.version >= 10:
-        return self.get()
-    return None
+@conditional_column
+def IF_NANO_GE_V10(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.version >= 10
 
 
-@deferred_column
-def IF_NANO_GE_V14(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.version >= 14:
-        return self.get()
-    return None
+@conditional_column
+def IF_NANO_GE_V14(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.version >= 14
 
 
-@deferred_column
-def IF_RUN_2(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.run == 2:
-        return self.get()
-    return None
+@conditional_column
+def IF_RUN_2(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 2
 
 
-@deferred_column
-def IF_RUN_3(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.run == 3:
-        return self.get()
-    return None
+@conditional_column
+def IF_RUN_3(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3
 
 
-@deferred_column
-def IF_RUN_3_2022(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2022:
-        return self.get()
-    return None
+@conditional_column
+def IF_RUN_3_2022(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2022
 
 
-@deferred_column
-def IF_RUN_3_2022_PRE(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+@conditional_column
+def IF_RUN_3_2022_PRE(self, func: ArrayFunction) -> bool:
     if (
         func.config_inst.campaign.x.run == 3 and
         func.config_inst.campaign.x.year == 2022 and
@@ -100,70 +80,58 @@ def IF_RUN_3_2022_PRE(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -
     return None
 
 
-@deferred_column
-def IF_RUN_3_2022_POST(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if (
+@conditional_column
+def IF_RUN_3_2022_POST(self, func: ArrayFunction) -> bool:
+    return (
         func.config_inst.campaign.x.run == 3 and
         func.config_inst.campaign.x.year == 2022 and
         func.config_inst.campaign.has_tag("postEE")
-    ):
-        return self.get()
-    return None
+    )
 
 
-@deferred_column
-def IF_RUN_3_2023(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2023:
-        return self.get()
-    return None
+@conditional_column
+def IF_RUN_3_2023(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2023
 
 
-@deferred_column
-def IF_RUN_3_2023_PRE(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if (
+@conditional_column
+def IF_RUN_3_2023_PRE(self, func: ArrayFunction) -> bool:
+    return (
         func.config_inst.campaign.x.run == 3 and
         func.config_inst.campaign.x.year == 2023 and
         func.config_inst.campaign.has_tag("preBPix")
-    ):
-        return self.get()
-    return None
+    )
 
 
-@deferred_column
-def IF_RUN_3_2023_POST(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if (
+@conditional_column
+def IF_RUN_3_2023_POST(self, func: ArrayFunction) -> bool:
+    return (
         func.config_inst.campaign.x.run == 3 and
         func.config_inst.campaign.x.year == 2023 and
         func.config_inst.campaign.has_tag("postBPix")
-    ):
-        return self.get()
-    return None
+    )
 
 
-@deferred_column
-def IF_RUN_3_2024(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2024:
-        return self.get()
-    return None
+@conditional_column
+def IF_RUN_3_2024(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2024
 
 
-@deferred_column
-def IF_RUN_3_2022_2023(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2022, 2023}:
-        return self.get()
-    return None
+@conditional_column
+def IF_RUN_3_2022_2023(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2022, 2023}
 
 
-@deferred_column
-def IF_RUN_3_2023_2024(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2023, 2024}:
-        return self.get()
-    return None
+@conditional_column
+def IF_RUN_3_2023_2024(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2023, 2024}
 
 
-IF_DATASET_HAS_LHE_WEIGHTS = IF_DATASET_NOT_HAS_TAG("no_lhe_weights")
+IF_DATASET_HAS_LHE_WEIGHTS = IF_DATASET_HAS_TAG("no_lhe_weights", negate=True)
 IF_DATASET_HAS_TOP = IF_DATASET_HAS_TAG("has_top")
 IF_DATASET_HAS_HIGGS = IF_DATASET_HAS_TAG("has_higgs")
+IF_DATASET_IS_BBTT = IF_DATASET_HAS_TAG("bbtt")
+IF_DATASET_IS_BBVV = IF_DATASET_HAS_TAG("bbvv")
 IF_DATASET_IS_TT = IF_DATASET_HAS_TAG("ttbar")
 IF_DATASET_IS_DY = IF_DATASET_HAS_TAG("dy")
 IF_DATASET_IS_DY_MADGRAPH = IF_DATASET_HAS_TAG("dy_madgraph")
@@ -172,29 +140,25 @@ IF_DATASET_IS_DY_POWHEG = IF_DATASET_HAS_TAG("dy_powheg")
 IF_DATASET_IS_W_LNU = IF_DATASET_HAS_TAG("w_lnu")
 
 
-@deferred_column
-def IF_QUADJET_APPLIES_TO_DATASET(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if any(
+@conditional_column
+def IF_QUADJET_APPLIES_TO_DATASET(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> bool:
+    return any(
         trigger_inst.applies_to_dataset(func.dataset_inst)
         for trigger_inst in func.config_inst.x.triggers
         if trigger_inst.has_tag("cross_quadjet")
-    ):
-        return self.get()
-    return None
+    )
 
 
 @deferred_column
 def MET_COLUMN(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    met_name = func.config_inst.x("met_name", None)
-    if not met_name:
+    if not (met_name := func.config_inst.x("met_name", None)):
         raise Exception("'met_name' has not been configured")
     return f"{met_name}.{self.get()}"
 
 
 @deferred_column
 def RAW_MET_COLUMN(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    raw_met_name = func.config_inst.x("raw_met_name", None)
-    if not raw_met_name:
+    if not (raw_met_name := func.config_inst.x("raw_met_name", None)):
         raise Exception("'raw_met_name' has not been configured")
     return f"{raw_met_name}.{self.get()}"
 
@@ -204,8 +168,6 @@ def hash_events(arr: np.ndarray) -> np.ndarray:
     Helper function to create a hash value from the event, run and luminosityBlock columns.
     The values are padded to specific lengths and concatenated to a single integer.
     """
-    import awkward as ak
-
     def assert_value(arr: np.ndarray, field: str, max_value: int) -> None:
         """
         Helper function to check if a column does not exceed a maximum value.
@@ -323,8 +285,8 @@ def rotate_px_py(
     px: ak.Array | np.ndarray,
     py: ak.Array | np.ndarray,
     ref_phi: ak.Array | np.ndarray,
-) -> ak.Array | np.ndarray:
-    new_phi = np.arctan2(py, px) + ref_phi  # mind the "+"
+) -> tuple[ak.Array | np.ndarray, ak.Array | np.ndarray]:
+    new_phi = np.arctan2(py, px, dtype=np.float64) + ref_phi  # mind the "+"
     pt = (px**2 + py**2)**0.5
     return pt * np.cos(new_phi), pt * np.sin(new_phi)
 

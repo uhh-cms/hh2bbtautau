@@ -278,6 +278,7 @@ def default_init(self: Selector, **kwargs) -> None:
         "dy_mumu_amcatnlo_24",
         "dy_tautau_amcatnlo_24",
         "w_lnu_amcatnlo_2223",
+        "bbvv",
     ]
     for tag in possible_stitch_tags:
         prod_name = f"process_ids_{tag}"

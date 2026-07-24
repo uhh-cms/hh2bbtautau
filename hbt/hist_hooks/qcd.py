@@ -62,7 +62,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         config_inst: od.Config,
         hists: dict[od.Process, Any],
         requested_category: str | None = None,
-        empty_bin_value: float = 1e-5,
+        empty_bin_value: float = 0.0,
         # set the variance to zero in bins where the relative data stat. error exceeds that of MC (see code for details)
         fill_empty_larger_data_unc: bool = True,
         # fill *empty_bin_value* (zero) into values (variances) in case one of the two integrals for the transfer factor
@@ -342,6 +342,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
     # add different hook variations
     analysis_inst.x.hist_hooks.qcd = qcd_estimation
+    analysis_inst.x.hist_hooks.qcd_zerofill = functools.partial(qcd_estimation, empty_bin_value=1e-5)
     analysis_inst.x.hist_hooks.qcd_from_ss_iso = functools.partial(qcd_estimation, shape_transfer="from_ss_iso")
     analysis_inst.x.hist_hooks.qcd_raw = functools.partial(
         qcd_estimation,

@@ -117,7 +117,7 @@ def stylize_processes(config: od.Config) -> None:
 
     cfg.x.color_names = [
         "blue", "yellow", "red", "grey", "purple", "brown", "orange", "olive", "dark_grey", "teal",
-        "green", "dark_blue", "dark_green", "dark_red"
+        "green", "dark_blue", "dark_green", "dark_red",
     ]
     cfg.x.get_color_from_sequence = lambda i: cfg.x.colors[cfg.x.color_names[i % len(cfg.x.color_names)]]
 
@@ -198,15 +198,15 @@ def stylize_processes(config: od.Config) -> None:
         p.color1 = cfg.x.colors.dark_green
 
     if (p := config.get_process("ttv", default=None)):
-        p.color1 = cfg.x.colors.teal
+        p.color1 = cfg.x.colors.brown
         p.label = r"$t\bar{t} + V$"
 
     if (p := config.get_process("ttvv", default=None)):
-        p.color1 = cfg.x.colors.teal
+        p.color1 = cfg.x.colors.brown
         p.label = r"$t\bar{t} + VV$"
 
     if (p := config.get_process("tt_multiboson", default=None)):
-        p.color1 = cfg.x.colors.teal
+        p.color1 = cfg.x.colors.brown
 
     if (p := config.get_process("qcd", default=None)):
         p.color1 = cfg.x.colors.red
