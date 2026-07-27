@@ -205,6 +205,11 @@ def cat_ge2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     return events, self[bjet_multiplicity](events, **kwargs) >= 2
 
 
+@categorizer(uses={bjet_multiplicity})
+def cat_ge3b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, self[bjet_multiplicity](events, **kwargs) >= 3
+
+
 @categorizer(uses={"HHBJet.{mass,pt,eta,phi}"})
 def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     events = attach_coffea_behavior(events, {"HHBJet": "Jet"})

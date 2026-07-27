@@ -750,3 +750,13 @@ default_cc_no_vbf_no_shifts = default_cc_no_shifts.derive(
     "default_cc_no_vbf_no_shifts",
     cls_dict={"phasespaces": ["res1b_inclvbf_cc", "res2b_inclvbf_cc", "boosted_cc"]},
 )
+
+default_bmult_no_shifts = default_no_shifts.derive(
+    "default_bmult_no_shifts",
+    cls_dict={"phasespaces": ["eq1b", "ge2b"]},
+)
+
+default_bmult2_no_shifts = default_no_shifts.derive(
+    "default_bmult2_no_shifts",
+    cls_dict={"phasespaces": ["eq1b", "eq2b", "ge3b"]},
+)
