@@ -7,7 +7,6 @@ Different pipelines and triggers.
 from __future__ import annotations
 
 import os
-import re
 import hashlib
 
 import luigi
@@ -34,14 +33,18 @@ class TorchModelToDatacards(HBTTask, ConfigTask, law.WrapperTask):
 
         law run hbt.TorchModelToDatacards \
             --configs 22pre_v14 \
-            --torch-model model_name:/path/to/model.pt2 \
+            --torch-model-name model_name \
+            --torch-model-path /path/to/model.pt2 \
             --version dev_model_name
     """
 
     single_config = False
 
-    torch_model = luigi.Parameter(
-        description="name and path to the torch model file to load in the format 'name:path'; no default",
+    torch_model_name = luigi.Parameter(
+        description="name of torch model, to be used in dynamically created producer and variables names; mandatory",
+    )
+    torch_model_path = luigi.Parameter(
+        description="path to the torch model file to load; mandatory",
     )
     custom_torch_model_hash = luigi.Parameter(
         default=law.NO_STR,
@@ -70,10 +73,7 @@ class TorchModelToDatacards(HBTTask, ConfigTask, law.WrapperTask):
         super().__init__(*args, **kwargs)
 
         # check torch model
-        if not (m := re.match(r"^([^:]+):(.+)$", self.torch_model)):
-            raise ValueError(f"invalid torch model format: {self.torch_model}")
-        self.torch_model_name = m.group(1)
-        self.torch_model_path = expand_path(m.group(2))
+        self.torch_model_path = expand_path(self.torch_model_path)
         if not os.path.exists(self.torch_model_path):
             raise FileNotFoundError(f"torch model file does not exist: {self.torch_model_path}")
         self.torch_model_hash = (

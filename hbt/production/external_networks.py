@@ -159,6 +159,18 @@ class _external_dnn(Producer):
             "has_jet_pair": [0, 1],  # whether two or more jets are present
         }
 
+        # our channel ids mapped to KLUB "pair_type"
+        self.channel_id_to_pair_type = {
+            # known during training
+            self.config_inst.channels.n.mutau.id: 0,
+            self.config_inst.channels.n.etau.id: 1,
+            self.config_inst.channels.n.tautau.id: 2,
+            # unknown during training
+            self.config_inst.channels.n.ee.id: 1,  # like etau
+            self.config_inst.channels.n.mumu.id: 0,  # like mutau
+            self.config_inst.channels.n.emu.id: 1,  # like etau
+        }
+
     def teardown_func(self, task: law.Task, **kwargs) -> None:
         """
         Stops the Torch evaluator.
