@@ -253,9 +253,9 @@ def tau_weights_setup(
     self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
 
     # check versions
-    assert self.id_vs_jet_corrector.version in {1, 2, 3}
-    assert self.id_vs_e_corrector.version in {1}
-    assert self.id_vs_mu_corrector.version in {1}
+    assert self.id_vs_jet_corrector.version in {1, 2, 3, 4}, f"unsupported vs_jet: {self.id_vs_jet_corrector.version}"
+    assert self.id_vs_e_corrector.version in {1}, f"unsupported vs_e: {self.id_vs_e_corrector.version}"
+    assert self.id_vs_mu_corrector.version in {1}, f"unsupported vs_mu: {self.id_vs_mu_corrector.version}"
 
 
 @producer(

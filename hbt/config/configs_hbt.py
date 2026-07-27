@@ -23,7 +23,7 @@ from columnflow.config_util import (
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 from columnflow.cms_util import CATInfo, CATSnapshot, CMSDatasetInfo
-from columnflow.types import Any
+from columnflow.types import Any, Callable
 
 from hbt import env_is_cern, force_desy_resources
 
@@ -118,6 +118,10 @@ def add_config(
     def if_not_era(*, values: list[str | None] | None = None, **kwargs) -> list[str]:
         return list(filter(bool, values or [])) if not _match_era(**kwargs) else []
 
+    def apply_sub_procs(proc: od.Process, func: Callable[[od.Process], None]):
+        for _proc, _, _ in proc.walk_processes(include_self=True):
+            func(_proc)
+
     ################################################################################################
     # processes
     ################################################################################################
@@ -202,20 +206,15 @@ def add_config(
 
         # add tags to processes
         if re.match(r"^hh(|_.+)$", process_name):
-            proc.add_tag("signal")
-            proc.add_tag("nonresonant_signal")
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"signal", "nonresonant_signal"}))
         if re.match(r"^(graviton|radion)_hh(|_.+)$", process_name):
-            proc.add_tag("signal")
-            proc.add_tag("resonant_signal")
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"signal", "resonant_signal"}))
         if re.match(r"^tt(|_.+)$", process_name):
-            for _proc, _, _ in proc.walk_processes(include_self=True):
-                _proc.add_tag({"ttbar", "tt"})
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"ttbar", "tt"}))
         if re.match(r"^dy(|_.+)$", process_name):
-            for _proc, _, _ in proc.walk_processes(include_self=True):
-                _proc.add_tag("dy")
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"dy"}))
         if re.match(r"^w_lnu(|_.+)$", process_name):
-            for _proc, _, _ in proc.walk_processes(include_self=True):
-                _proc.add_tag("w_lnu")
+            apply_sub_procs(proc, lambda subproc: subproc.add_tag({"w_lnu"}))
 
         # add the process
         cfg.add_process(proc)
@@ -2082,28 +2081,24 @@ def add_config(
             subpaths="muonscarekit-master/scripts/MuonScaRe.py",
             version="v1",
         ))
+        add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
         # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
-        # test for prod25
+        # test for prod27
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod27_23post.json.gz", "v1"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
         if year in {2022, 2023}:
-            # tau energy correction and scale factors
-            if year == 2022:
-                tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
-            else:  # 2023
-                tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
-            # add_external("tau_sf", (f"{json_mirror}/POG/TAU/{json_pog_era}/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
-            # custom corrections from Lucas Russel, blessed by TAU
-            add_external("tau_sf", (f"{central_hbt_dir}/custom_tau_files/tau_DeepTau2018v2p5_{tau_pog_era}.json.gz", "v1"))  # noqa: E501
-
             # trigger scale factors
             add_external("trigger_sf_single_e", (cat_info.get_file("egm", "electronHlt.json.gz"), "v2"))
             add_external("trigger_sf_tau", (cat_info.get_file("tau", "tau.json.gz"), "v2"))
 
+            # if year == 2022:
+            #     tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preEE') else 'post'}EE"
+            # else:  # 2023
+            #     tau_pog_era = f"{year}_{'pre' if campaign.has_tag('preBPix') else 'post'}BPix"
             tau_pog_era_cclub = f"{year}{cfg.x.full_postfix}"
             cclub_postfix = cfg.x.full_postfix
             if year == 2022:

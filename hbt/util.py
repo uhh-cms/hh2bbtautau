@@ -140,6 +140,20 @@ IF_DATASET_IS_DY_POWHEG = IF_DATASET_HAS_TAG("dy_powheg")
 IF_DATASET_IS_W_LNU = IF_DATASET_HAS_TAG("w_lnu")
 
 
+@deferred_column
+def IF_DATASET_IS_FASTSIM(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    if func.dataset_inst.has_tag("fastsim"):
+        return self.get()
+    return None
+
+
+@deferred_column
+def IF_DATASET_IS_NOT_FASTSIM(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
+    if not func.dataset_inst.has_tag("fastsim"):
+        return self.get()
+    return None
+
+
 @conditional_column
 def IF_QUADJET_APPLIES_TO_DATASET(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> bool:
     return any(
