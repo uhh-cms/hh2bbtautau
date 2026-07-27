@@ -63,8 +63,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         hists: dict[od.Process, Any],
         requested_category: str | None = None,
         empty_bin_value: float = 0.0,
-        # set the variance to zero in bins where the relative data stat. error exceeds that of MC (see code for details)
-        fill_empty_larger_data_unc: bool = True,
+        # which source(s) of variance to keep
+        variance_strategy: Literal["mc_data", "mc", "data", "none"] = "mc_data",
         # fill *empty_bin_value* (zero) into values (variances) in case one of the two integrals for the transfer factor
         # calculation is negative
         fill_empty_negative_norms: bool = True,
@@ -80,10 +80,15 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         import numpy as np
         import hist
 
-        known_shape_transfers = {"from_os_noniso", "from_ss_iso"}
-        if shape_transfer not in known_shape_transfers:
+        if variance_strategy not in (known_variance_strategies := {"mc_data", "mc", "data", "none"}):
             raise ValueError(
-                f"unknown shape transfer strategy {shape_transfer}, known strategies are: "
+                f"unknown variance strategy '{variance_strategy}', known strategies are: "
+                f"{', '.join(known_variance_strategies)}",
+            )
+
+        if shape_transfer not in (known_shape_transfers := {"from_os_noniso", "from_ss_iso"}):
+            raise ValueError(
+                f"unknown shape transfer strategy '{shape_transfer}', known strategies are: "
                 f"{', '.join(known_shape_transfers)}",
             )
 
@@ -268,25 +273,24 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             qcd_values = qcd()
             qcd_variances = qcd(sn.UP, sn.ALL, unc=True)**2
 
-            # define uncertainties
+            # control variance values based on the requested strategy
             unc_mc = qcd(sn.UP, ["os_noniso_mc", "ss_iso_mc", "ss_noniso_mc"], unc=True)
-            unc_mc_rel = abs(unc_mc / qcd_values)
             unc_data = qcd(sn.UP, ["os_noniso_data", "ss_iso_data", "ss_noniso_data"], unc=True)
-            unc_data_rel = abs(unc_data / qcd_values)
 
-            # only keep the MC uncertainty if it is larger than the data uncertainty
-            # reason: the per-bin variance of all MC shapes (data-driven or not) is used by the autoMCstats feature to
-            # determine how to treat the stat. uncertainty in each bin: either with a Poisson nuisance per bin *and* per
-            # process ("Barlow-Beeston"), or, if the total, approx. number of true MC events across all processes is
-            # larger than 10, with a single Gaussian nuisance per bin ("Barlow-Beeston-lite"); now, we do *not* want to
-            # include the data uncertainty into this treatment, and therefore, we do not "combine" the data and MC stat.
-            # uncertainties (e.g. in quadrature) into a single per-bin variance, but we rather make sure that we only
-            # keep the MC-only-based variance in case it is larger
-            keep_variance_mask = np.isfinite(unc_mc_rel)
-            if fill_empty_larger_data_unc:
-                keep_variance_mask &= unc_mc_rel > unc_data_rel
-            qcd_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
-            qcd_variances[~keep_variance_mask] = 0.0
+            def finite(arr, val=0.0):
+                arr = arr.copy()
+                arr[~np.isfinite(arr)] = val
+                return arr
+
+            if variance_strategy == "mc":
+                qcd_variances[...] = finite(unc_mc)**2
+            elif variance_strategy == "data":
+                qcd_variances[...] = finite(unc_data)**2
+            elif variance_strategy == "none":
+                qcd_variances[...] = 0.0
+            else:  # mc_data
+                # nothing to do
+                qcd_variances[...] = finite(qcd_variances)
 
             # retro-actively set values to zero for shifts that had negative integrals
             neg_int_mask = c_neg_mask | d_neg_mask
@@ -346,7 +350,6 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     analysis_inst.x.hist_hooks.qcd_from_ss_iso = functools.partial(qcd_estimation, shape_transfer="from_ss_iso")
     analysis_inst.x.hist_hooks.qcd_raw = functools.partial(
         qcd_estimation,
-        fill_empty_larger_data_unc=False,
         fill_empty_negative_norms=False,
         fill_empty_residual=False,
     )
