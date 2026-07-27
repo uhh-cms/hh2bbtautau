@@ -17,15 +17,18 @@ import order as od
 from scinum import Number
 
 from columnflow.tasks.external import ExternalFile as Ext
-from columnflow.util import DotDict, dev_sandbox
+from columnflow.util import DotDict, dev_sandbox, maybe_import
 from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources, verify_config_processes,
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 from columnflow.cms_util import CATInfo, CATSnapshot, CMSDatasetInfo
-from columnflow.types import Any, Callable
+from columnflow.types import Callable
 
 from hbt import env_is_cern, force_desy_resources
+
+np = maybe_import("numpy")
+ak = maybe_import("awkward")
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -2453,47 +2456,22 @@ def add_config(
     ################################################################################################
 
     if split_2024_mc:
+        # for detauls see https://gist.github.com/riga/5aad795980919d23ea6b7df0502a999b
         if year not in {2024, 2025, 2026}:
             raise ValueError(f"MC splitting is not supported in {year}")
 
-        from columnflow.tasks.framework.mixins import ChunkedIOMixin
+        _splitter = None
 
-        # range section between 0 and 1000 that reflect the recorded luminosity of the year
-        lumi_ranges = {
-            2024: (0, 437),
-            2025: (437, 882),
-            2026: (882, 1000),
-        }
+        def adjust_nano_chunks(task, chunks):
+            nonlocal _splitter
+            if _splitter is None:
+                from columnflow.util import load_correction_set
+                splitter_path = law.util.rel_path(__file__, "data", "mc_event_splitter.json.gz")
+                _splitter = load_correction_set(splitter_path)["mc_event_splitter"]
+            nano_events = chunks[0]
+            year_mask = _splitter.evaluate(nano_events.event) == year
+            return [chunk[year_mask] for chunk in chunks]
 
-        def _patch_uproot_uint64() -> None:
-            try:
-                import numpy as np
-                import uproot
-            except ImportError:
-                return
-
-            # add "uint64" conversion
-            py_lang_functions = uproot.language.python.PythonLanguage.default_functions
-            if "uint64" not in py_lang_functions:
-                py_lang_functions["uint64"] = np.uint64
-
-        def nano_read_options(task: ChunkedIOMixin, target: law.FileSystemFileTarget) -> dict[str, Any] | None:
-            if task.dataset_inst.is_data:
-                return None
-
-            # for details see https://gist.github.com/riga/f9476f3b1477f1609683bea68ae64897
-            _patch_uproot_uint64()
-            return {
-                "aliases": {
-                    "split_mix_hash_1": "event + uint64(11400714819323198485)",
-                    "split_mix_hash_2": "(split_mix_hash_1 ^ (split_mix_hash_1 >> 30)) * uint64(13787848793156543929)",
-                    "split_mix_hash_3": "(split_mix_hash_2 ^ (split_mix_hash_2 >> 27)) * uint64(10723151780598845931)",
-                    "split_mix_hash": "split_mix_hash_3 ^ (split_mix_hash_3 >> 31)",
-                    "event_split_id": "split_mix_hash % 1000",
-                },
-                "cut": f"(event_split_id >= {lumi_ranges[year][0]}) & (event_split_id < {lumi_ranges[year][1]})",
-            }
-
-        cfg.x.get_nano_read_options = nano_read_options
+        cfg.x.adjust_nano_chunks = adjust_nano_chunks
 
     return cfg
