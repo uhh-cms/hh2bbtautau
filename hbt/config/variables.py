@@ -56,6 +56,12 @@ def add_variables(config: od.Config) -> None:
         x_title="Luminosity block",
     )
     add_variable(
+        name="npvs",
+        expression="PV.npvs",
+        binning=(50, 0.0, 100.0),
+        x_title="N PVs",
+    )
+    add_variable(
         name="ht",
         expression=(var_ht := VarHt()),
         aux={"inputs": var_ht.uses},
