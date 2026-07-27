@@ -341,7 +341,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
     # add hooks
     analysis_inst.x.hist_hooks.flats = flat_s
-    for n_bins in [10, 15, 20, 30, 40]:
+    for n_bins in [10, 15, 20, 25, 30, 35, 40, 45, 50]:
         # hooks flattening specific kl signals
         for kl in ["0", "1", "2p45", "5"]:
             analysis_inst.x.hist_hooks[f"flats_kl{kl}_n{n_bins}"] = functools.partial(

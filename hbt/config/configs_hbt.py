@@ -2084,9 +2084,11 @@ def add_config(
         add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        # add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
-        # test for prod27
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod27_23post.json.gz", "v1"))  # noqa: E501
+        if year == 2023:
+            # test for prod27
+            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_prod27_23all.json.gz", "v1"))  # noqa: E501
+        else:
+            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v4.json.gz", "v4"))
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
