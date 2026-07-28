@@ -2462,16 +2462,15 @@ def add_config(
 
         _splitter = None
 
-        def adjust_nano_chunks(task, chunks):
+        def nano_filter_func(events: ak.Array) -> ak.Array | np.ndarray:
             nonlocal _splitter
             if _splitter is None:
                 from columnflow.util import load_correction_set
                 splitter_path = law.util.rel_path(__file__, "data", "mc_event_splitter.json.gz")
                 _splitter = load_correction_set(splitter_path)["mc_event_splitter"]
-            nano_events, *chunks = chunks
-            year_mask = _splitter.evaluate(nano_events.event) == year
-            return nano_events[year_mask], *chunks
+            return _splitter.evaluate(events.event) == year
 
-        cfg.x.adjust_nano_chunks = adjust_nano_chunks
+        # filter function and columns to be loaded to evaluate it
+        cfg.x.nano_filter_config = (nano_filter_func, {"event"})
 
     return cfg
