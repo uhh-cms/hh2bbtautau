@@ -2456,7 +2456,7 @@ def add_config(
     ################################################################################################
 
     if split_2024_mc:
-        # for detauls see https://gist.github.com/riga/5aad795980919d23ea6b7df0502a999b
+        # for details see https://gist.github.com/riga/5aad795980919d23ea6b7df0502a999b
         if year not in {2024, 2025, 2026}:
             raise ValueError(f"MC splitting is not supported in {year}")
 
@@ -2468,9 +2468,9 @@ def add_config(
                 from columnflow.util import load_correction_set
                 splitter_path = law.util.rel_path(__file__, "data", "mc_event_splitter.json.gz")
                 _splitter = load_correction_set(splitter_path)["mc_event_splitter"]
-            nano_events = chunks[0]
+            nano_events, *chunks = chunks
             year_mask = _splitter.evaluate(nano_events.event) == year
-            return [chunk[year_mask] for chunk in chunks]
+            return nano_events[year_mask], *chunks
 
         cfg.x.adjust_nano_chunks = adjust_nano_chunks
 
