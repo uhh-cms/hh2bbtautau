@@ -14,7 +14,8 @@ import law
 import order as od
 
 from columnflow.inference import ParameterType  # , ParameterTransformation
-from columnflow.util import DotDict
+from columnflow.util import DotDict, pattern_matcher
+from columnflow.types import Sequence
 
 from hbt.inference.base import HBTInferenceModel
 
@@ -643,14 +644,16 @@ class default(HBTInferenceModel):
 
 
 # helper to remove all parameters that require shifted inputs from a model instance
-def remove_shift_parameters(model: default) -> None:
-    # remove all parameters that require a shift source other than nominal
+def remove_shift_parameters(model: default, keep: str | Sequence[str] | None = None) -> None:
+    keep_fn = pattern_matcher(keep) if keep else (lambda name: False)
+
+    # remove all parameters that require a shift source other than nominal and that are not kept
     for category_name, process_name, parameter in model.iter_parameters():
-        remove = (
+        needs_shift = (
             (parameter.type.is_shape and not parameter.transformations.any_from_rate) or
             (parameter.type.is_rate and parameter.transformations.any_from_shape)
         )
-        if remove:
+        if needs_shift and not keep_fn(parameter.name):
             model.remove_parameter(parameter.name, process=process_name, category=category_name)
 
 
@@ -658,6 +661,13 @@ def remove_shift_parameters(model: default) -> None:
 def default_no_shifts(self):
     super(default_no_shifts, self).init_func()
     remove_shift_parameters(self)
+    self.init_cleanup()
+
+
+@default.inference_model
+def default_shape_test(self):
+    super(default_shape_test, self).init_func()
+    remove_shift_parameters(self, keep="CMS_btag_lf")
     self.init_cleanup()
 
 
