@@ -65,6 +65,7 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="eq1b", selection="cat_eq1b", label="1 b-tag")
     _add_category(name="eq2b", selection="cat_eq2b", label="2 b-tags")
     _add_category(name="ge2b", selection="cat_ge2b", label=r"$\geq$2 b-tags")
+    _add_category(name="ge3b", selection="cat_ge3b", label=r"$\geq$3 b-tags")
     _add_category(name="dy", selection="cat_dy", label="DY enriched")
     _add_category(name="dyc", selection="cat_dyc", label="DY region")
     _add_category(name="dy_st", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")

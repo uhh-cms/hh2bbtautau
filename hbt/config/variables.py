@@ -10,7 +10,7 @@ import functools
 
 import order as od
 
-from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior
+from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior  # optional_column
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
 

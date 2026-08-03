@@ -65,6 +65,12 @@ def setup_plot_styles(config: od.Config) -> None:
         "xy": (0.035, 0.750),
     }
 
+    # extended y-range on ratio pad
+    extended_ratio = {
+        **ratio,
+        "ylim": (0.42, 1.58),
+    }
+
     # construct named style configs
     config.x.custom_style_config_groups = {
         "default": (default_cfg := {
@@ -82,6 +88,9 @@ def setup_plot_styles(config: od.Config) -> None:
             **wide_legend_cfg,
             "legend_cfg": wide_ext_legend,
             "annotate_cfg": annotate_wide_ext,
+        },
+        "ext_ratio": {
+            "rax_cfg": extended_ratio,
         },
     }
 

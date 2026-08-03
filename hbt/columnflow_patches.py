@@ -183,9 +183,9 @@ def patch_serialize_inference_model_base():
     """
     from columnflow.tasks.framework.inference import SerializeInferenceModelBase
 
-    hist_requirement_orig = SerializeInferenceModelBase._hist_requirement
+    requires_histograms_orig = SerializeInferenceModelBase.requires_histograms
 
-    def _hist_requirement(self, **kwargs):
+    def requires_histograms(self, **kwargs):
         # if there is at least one shift source required, only filter necessary leaf categories
         if kwargs.get("shift_sources") and set(kwargs["shift_sources"]) != {"nominal"}:
             config_inst = self.analysis_inst.get_config(kwargs["config"])
@@ -196,9 +196,9 @@ def patch_serialize_inference_model_base():
             ))
             kwargs["filter_categories"] = tuple(sorted(cat_inst.name for cat_inst in leaf_categories))
 
-        return hist_requirement_orig(self, **kwargs)
+        return requires_histograms_orig(self, **kwargs)
 
-    SerializeInferenceModelBase._hist_requirement = _hist_requirement
+    SerializeInferenceModelBase.requires_histograms = requires_histograms
 
     logger.debug(f"patched {SerializeInferenceModelBase.task_family}")
 

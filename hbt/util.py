@@ -138,20 +138,8 @@ IF_DATASET_IS_DY_MADGRAPH = IF_DATASET_HAS_TAG("dy_madgraph")
 IF_DATASET_IS_DY_AMCATNLO = IF_DATASET_HAS_TAG("dy_amcatnlo")
 IF_DATASET_IS_DY_POWHEG = IF_DATASET_HAS_TAG("dy_powheg")
 IF_DATASET_IS_W_LNU = IF_DATASET_HAS_TAG("w_lnu")
-
-
-@deferred_column
-def IF_DATASET_IS_FASTSIM(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if func.dataset_inst.has_tag("fastsim"):
-        return self.get()
-    return None
-
-
-@deferred_column
-def IF_DATASET_IS_NOT_FASTSIM(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> Any | set[Any]:
-    if not func.dataset_inst.has_tag("fastsim"):
-        return self.get()
-    return None
+IF_DATASET_IS_FASTSIM = IF_DATASET_HAS_TAG("fastsim")
+IF_DATASET_IS_NOT_FASTSIM = IF_DATASET_HAS_TAG("fastsim", negate=True)
 
 
 @conditional_column
