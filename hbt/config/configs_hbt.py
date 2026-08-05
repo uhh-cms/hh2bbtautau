@@ -2462,15 +2462,25 @@ def add_config(
 
         _splitter = None
 
-        def nano_filter_func(events: ak.Array) -> ak.Array | np.ndarray:
-            nonlocal _splitter
-            if _splitter is None:
-                from columnflow.util import load_correction_set
-                splitter_path = law.util.rel_path(__file__, "data", "mc_event_splitter.json.gz")
-                _splitter = load_correction_set(splitter_path)["mc_event_splitter"]
-            return _splitter.evaluate(events.event) == year
+        def get_nano_filter_config(task, target) -> tuple[Callable[[ak.Array], np.ndarray], set[str]] | None:
+            # skip for data
+            if task.dataset_inst.is_data:
+                return None
 
-        # filter function and columns to be loaded to evaluate it
-        cfg.x.nano_filter_config = (nano_filter_func, {"event"})
+            # define splitting function and required column names for mc
+            def nano_filter_func(events: ak.Array) -> ak.Array | np.ndarray:
+                nonlocal _splitter
+                if _splitter is None:
+                    from columnflow.util import load_correction_set
+                    splitter_path = law.util.rel_path(__file__, "data", "mc_event_splitter.json.gz")
+                    _splitter = load_correction_set(splitter_path)["mc_event_splitter"]
+                return _splitter.evaluate(events.event) == year
+
+            columns = {"event"}
+
+            return nano_filter_func, columns
+
+        # register on config to be picked up by ChunkedIOMixin's
+        cfg.x.get_nano_filter_config = get_nano_filter_config
 
     return cfg
