@@ -381,16 +381,20 @@ def add_config(
         "w_lnu_2j_pt600toinf_amcatnlo",
 
         # z + jets (not DY but qq)
-        # decided to drop z_qq for now as their contribution is negligible,
-        # but we should check that again at a much later stage
-        # "z_qq_1j_pt100to200_amcatnlo",
-        # "z_qq_1j_pt200to400_amcatnlo",
-        # "z_qq_1j_pt400to600_amcatnlo",
-        # "z_qq_1j_pt600toinf_amcatnlo",
-        # "z_qq_2j_pt100to200_amcatnlo",
-        # "z_qq_2j_pt200to400_amcatnlo",
-        # "z_qq_2j_pt400to600_amcatnlo",
-        # "z_qq_2j_pt600toinf_amcatnlo",
+        # currently dropped since the yield after default selection is <0.1% of (e.g.) VV, which is already small
+        # *if_not_era(year=2024, values=[
+        #     "z_qq_1j_pt100to200_amcatnlo",
+        #     "z_qq_1j_pt200to400_amcatnlo",
+        #     "z_qq_1j_pt400to600_amcatnlo",
+        #     "z_qq_1j_pt600toinf_amcatnlo",
+        #     "z_qq_2j_pt100to200_amcatnlo",
+        #     "z_qq_2j_pt200to400_amcatnlo",
+        #     "z_qq_2j_pt400to600_amcatnlo",
+        #     "z_qq_2j_pt600toinf_amcatnlo",
+        # ]),
+        # *if_era(year=2024, values=[
+        #     "z_qq_pt100toinf_amcatnlo",
+        # ]),
 
         # vbf w/z production
         "w_vbf_wlnu_madgraph",
