@@ -39,7 +39,7 @@ def trigger_selection(
 
     for trigger in self.config_inst.x.triggers:
         # skip the trigger if it does not apply to the dataset
-        if not trigger.applies_to_dataset(self.dataset_inst):
+        if callable(trigger.applies_to_dataset) and not trigger.applies_to_dataset(self.dataset_inst):
             continue
 
         # get bare decisions
@@ -105,5 +105,5 @@ def trigger_selection_init(self: Selector, **kwargs) -> None:
     self.uses |= {
         opt(trigger.name)
         for trigger in self.config_inst.x.triggers
-        if trigger.applies_to_dataset(self.dataset_inst)
+        if not callable(trigger.applies_to_dataset) or trigger.applies_to_dataset(self.dataset_inst)
     }

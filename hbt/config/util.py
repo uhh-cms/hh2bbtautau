@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from order import UniqueObject, TagMixin, AuxDataMixin
+from order import UniqueObject, TagMixin, AuxDataMixin, Dataset
 from order.util import typed
 
 from columnflow.types import Callable, Any, Sequence, Hashable, ClassVar
@@ -53,6 +53,16 @@ class TriggerLeg(object):
             f"'pdg_id={self.pdg_id}, min_pt={self.min_pt}, trigger_bits={self.trigger_bits}' "
             f"at {hex(id(self))}>"
         )
+
+    def __str__(self) -> str:
+        parts = []
+        if self.pdg_id is not None:
+            parts.append(f"pdg_id={self.pdg_id}")
+        if self.min_pt is not None:
+            parts.append(f"min_pt={self.min_pt}")
+        if self.trigger_bits is not None:
+            parts.append(f"trigger_bits={self.trigger_bits}")
+        return ",".join(parts) if parts else "empty"
 
     @typed
     def pdg_id(self, pdg_id: int | None) -> int | None:
@@ -125,7 +135,8 @@ class Trigger(UniqueObject, TagMixin, AuxDataMixin):
         id: int,
         run_range: tuple[int | None, int | None] | None = None,
         legs: dict[Hashable, TriggerLeg] | Sequence[TriggerLeg] | None = None,
-        applies_to_dataset: Callable | bool | Any = True,
+        applies_to_dataset: Callable[[Dataset], bool] | None = None,
+        applies_to_dataset_repr: str | None = None,
         tags: Any = None,
         aux: dict[str, Any] | None = None,
     ):
@@ -141,11 +152,13 @@ class Trigger(UniqueObject, TagMixin, AuxDataMixin):
         self._run_range = None
         self._leg = None
         self._applies_to_dataset = None
+        self._applies_to_dataset_repr = None
 
         # set initial values
         self.run_range = run_range
         self.legs = legs
         self.applies_to_dataset = applies_to_dataset
+        self.applies_to_dataset_repr = applies_to_dataset_repr
 
     def __repr__(self):
         return (
@@ -208,14 +221,17 @@ class Trigger(UniqueObject, TagMixin, AuxDataMixin):
         return legs or None
 
     @typed
-    def applies_to_dataset(self, func: Callable | bool | Any) -> Callable:
-        if not callable(func):
-            if func is not None:
-                raise TypeError(f"invalid applies_to_dataset: {func}")
-            decision = True if func is None else bool(func)
-            func = lambda dataset_inst: decision
+    def applies_to_dataset(self, func: Callable[[Dataset], bool] | None) -> Callable[[Dataset], bool]:
+        if not callable(func) and func is not None:
+            raise TypeError(f"invalid applies_to_dataset: {func}")
 
         return func
+
+    @typed
+    def applies_to_dataset_repr(self, repr_str: str | None) -> str | None:
+        if repr_str is not None and not isinstance(repr_str, str):
+            raise TypeError(f"invalid applies_to_dataset_repr: {repr_str}")
+        return repr_str
 
     @property
     def has_legs(self):

@@ -507,3 +507,73 @@ class ListShifts(HBTTask, ConfigTask, law.tasks.RunOnceTask):
                 model_lines[model_inst].append(config_inst.name)
             lines = "\n  - ".join(" & ".join(config_names) for model_inst, config_names in model_lines.items())
             self.publish_message(f"using {len(self.inference_model_insts)} inference model instances:\n  - {lines}\n")
+
+
+class ListTriggers(HBTTask, ConfigTask, law.tasks.RunOnceTask):
+
+    single_config = True
+
+    table_format = table_format_param
+
+    # no version required
+    version = None
+
+    def run(self):
+        import tabulate
+        tabulate.PRESERVE_WHITESPACE = True
+
+        # color helpers
+        green = functools.partial(law.util.colored, color="green")
+        yellow = functools.partial(law.util.colored, color="yellow")
+        cyan = functools.partial(law.util.colored, color="cyan")
+        red = functools.partial(law.util.colored, color="red")
+
+        # prepare headers
+        headers = ["Name", "ID", "Tags", "Legs", "Applies to", "Offline cuts"]
+
+        # fill rows with trigger info
+        rows = []
+        for trigger_inst in self.config_inst.x.triggers:
+            # encoded tags
+            tags_str = "-" if not trigger_inst.tags else "\n".join(sorted(trigger_inst.tags))
+
+            # encoded legs
+            legs_str = "-"
+            if trigger_inst.legs:
+                leg_parts = [
+                    f"{name} -> {str(leg)}"
+                    for name, leg in trigger_inst.legs.items()
+                ]
+                legs_str = "\n".join(leg_parts)
+
+            # encoded application to datasets function
+            applies_to_str = "Always"
+            if trigger_inst.applies_to_dataset is not None:
+                if trigger_inst.applies_to_dataset_repr:
+                    applies_parts = trigger_inst.applies_to_dataset_repr.split(" | ")
+                    applies_to_str = " or\n".join(map(green, applies_parts))
+                else:
+                    applies_to_str = f"{green('dynamic')}\n({red('func exists but repr missing')})"
+
+            # encoded cuts
+            cuts_str = "-"
+            if (cuts := trigger_inst.x("offline_cuts", None)):
+                cut_parts = [
+                    f"{yellow(var_name)}={cyan(cut)}"
+                    for var_name, cut in cuts.items()
+                    if cut is not None
+                ]
+                cuts_str = "\n".join(cut_parts)
+
+            rows.append([
+                trigger_inst.name,
+                trigger_inst.id,
+                tags_str,
+                legs_str,
+                applies_to_str,
+                cuts_str,
+            ])
+
+        # print the table
+        table = tabulate.tabulate(rows, headers=headers, tablefmt=self.table_format, intfmt="_")
+        self.publish_message(table)
