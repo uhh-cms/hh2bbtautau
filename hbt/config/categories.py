@@ -89,10 +89,10 @@ def add_categories(config: od.Config) -> None:
 
     # for the disagreement tests
     _add_category(name="single_e", selection="cat_single_e", label=r"single-e")
-    _add_category(name="single_mu", selection="cat_single_mu", label=r"single-\mu")
-    _add_category(name="cross_etau", selection="cat_cross_etau", label=r"cross-e\tau")
-    _add_category(name="cross_mutau", selection="cat_cross_mutau", label=r"cross-\mu\tau")
-    _add_category(name="cross_tautau", selection="cat_cross_tautau", label=r"cross-\tau\tau")
+    _add_category(name="single_mu", selection="cat_single_mu", label=r"single-$\mu$")
+    _add_category(name="cross_etau", selection="cat_cross_etau", label=r"cross-e$\tau$")
+    _add_category(name="cross_mutau", selection="cat_cross_mutau", label=r"cross-$\mu\tau$")
+    _add_category(name="cross_tautau", selection="cat_cross_tautau", label=r"cross-$\tau\tau$")
     _add_category(name="trig_incl", selection="cat_trig_incl", label="")
     _add_category(name="not_dyc", selection="cat_not_dyc", label="not DY region")
     _add_category(name="dyc_incl", selection="cat_dyc_incl", label="")
@@ -135,7 +135,7 @@ def add_categories(config: od.Config) -> None:
         # kinematic regions in the middle (to be extended)
         "kin": CategoryGroup(
             [
-                "incl", "res1b", "res1b_cc", "res2b", "res2b_cc",
+                "incl", "res1b", "res2b",
             ],
             is_complete=False,
             has_overlap=True,
@@ -173,7 +173,7 @@ def add_categories(config: od.Config) -> None:
         # kinematic regions in the middle (to be extended)
         "kin": CategoryGroup(
             [
-                "incl", "res1b", "res1b_cc", "res2b", "res2b_cc",
+                "incl", "res1b", "res2b",
             ],
             is_complete=False,
             has_overlap=True,

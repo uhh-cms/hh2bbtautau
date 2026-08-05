@@ -41,12 +41,11 @@ class default(HBTInferenceModel):
 
     # the default variable to use in all categories
     # (see get_category_variable for more details)
-    variable = "run3_dnn_moe_0p75_hh_fine"
-    # variable = "run3_dnn_moe_hh_fine"
+    variable = "run3_dnn_moe_hh_fine"
 
     # channels and phasespaces for category combinations
     channels = ["etau", "mutau", "tautau"]
-    phasespaces = ["res1b", "res2b", "boosted"]
+    phasespaces = ["res1b__dyc_incl__trig_incl", "res2b__dyc_incl__trig_incl"]
 
     def create_category_combinations(self) -> list[DotDict[str, str]]:
         return [
@@ -373,6 +372,14 @@ class default(HBTInferenceModel):
             type=ParameterType.rate_gauss,
             process=self.inject_all_eras("qqH_*"),
             effect=(0.5, 1.5),
+            group=["theory", "rate_nuisances"],
+        )
+
+        self.add_parameter(
+            "QCD_rate_unc",
+            type=ParameterType.rate_gauss,
+            process=["QCD_*"],
+            effect=(0.3, 1.3),
             group=["theory", "rate_nuisances"],
         )
 

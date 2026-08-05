@@ -168,7 +168,7 @@ def stylize_processes(config: od.Config) -> None:
             p.label = rf"$HH_{{vbf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
 
     if (p := config.get_process("h", default=None)):
-        p.color1 = cfg.x.colors.brown
+        p.color1 = cfg.x.colors.teal
 
     if (p := config.get_process("tt", default=None)):
         p.color1 = cfg.x.colors.yellow
