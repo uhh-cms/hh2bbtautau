@@ -96,6 +96,7 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="trig_incl", selection="cat_trig_incl", label="")
     _add_category(name="not_dyc", selection="cat_not_dyc", label="not DY region")
     _add_category(name="dyc_incl", selection="cat_dyc_incl", label="")
+    _add_category(name="ge1b", selection="cat_ge1b", label=r"$\geq$1 b-tags")
 
     #
     # build groups
@@ -135,13 +136,13 @@ def add_categories(config: od.Config) -> None:
         # kinematic regions in the middle (to be extended)
         "kin": CategoryGroup(
             [
-                "incl", "res1b", "res2b",
+                "incl", "res1b", "res2b", "ge1b", "ge2b",
             ],
             is_complete=False,
             has_overlap=True,
         ),
         # DY enriched region
-        "dy": CategoryGroup(["dyc", "not_dyc", "dyc_incl"], is_complete=True, has_overlap=True),
+        # "dy": CategoryGroup(["dyc", "not_dyc", "dyc_incl"], is_complete=True, has_overlap=True),
         # split events per trigger
         "trigger": CategoryGroup(
             [
