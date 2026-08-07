@@ -145,9 +145,11 @@ IF_DATASET_IS_NOT_FASTSIM = IF_DATASET_HAS_TAG("fastsim", negate=True)
 @conditional_column
 def IF_QUADJET_APPLIES_TO_DATASET(self: ArrayFunction.DeferredColumn, func: ArrayFunction) -> bool:
     return any(
-        trigger_inst.applies_to_dataset(func.dataset_inst)
+        (
+            trigger_inst.has_tag("cross_quadjet") and
+            (not callable(trigger_inst.applies_to_dataset) or trigger_inst.applies_to_dataset(func.dataset_inst))
+        )
         for trigger_inst in func.config_inst.x.triggers
-        if trigger_inst.has_tag("cross_quadjet")
     )
 
 

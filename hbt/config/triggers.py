@@ -281,6 +281,7 @@ def add_triggers_2016(config: od.Config) -> None:
         # does not exist for run F on but should only be used until run 276215 -> which era?
         # TODO: to be checked
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era <= "E"),
+        applies_to_dataset_repr="mc | data<=E",
         tags={"cross_trigger", "cross_e_tau"},
     )
     config.x.triggers.add(
@@ -305,6 +306,7 @@ def add_triggers_2016(config: od.Config) -> None:
         # does not exist for run F on but should only be used between run 276215 and 278270 -> which eras?
         # TODO: to be checked
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and dataset_inst.x.era <= "E"),
+        applies_to_dataset_repr="data<=E",
         tags={"cross_trigger", "cross_e_tau"},
     )
     config.x.triggers.add(
@@ -327,8 +329,9 @@ def add_triggers_2016(config: od.Config) -> None:
             ),
         ),
         # does not exist until run E but should only be used after run 278270 -> which era?
-        # TODO: to be checked
+        # TODO: to be checked, if >= is correct here
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data and dataset_inst.x.era >= "E"),
+        applies_to_dataset_repr="data>=E",
         tags={"cross_trigger", "cross_e_tau"},
     )
 
@@ -401,6 +404,7 @@ def add_triggers_2016(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or ("B" <= dataset_inst.x.era <= "F")),
+        applies_to_dataset_repr="mc | data>=B<=F",
         tags={"cross_trigger", "cross_tau_tau"},
     )
     config.x.triggers.add(
@@ -423,6 +427,7 @@ def add_triggers_2016(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "H"),
+        applies_to_dataset_repr="mc | data>=H",
         tags={"cross_trigger", "cross_tau_tau"},
     )
 
@@ -534,6 +539,7 @@ def add_triggers_2017(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
+        applies_to_dataset_repr="mc | data>=D",
         tags={"single_trigger", "single_e"},
     )
     config.x.triggers.add(
@@ -696,6 +702,7 @@ def add_triggers_2017(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
+        applies_to_dataset_repr="data",
         tags={"cross_trigger", "cross_tau_tau"},
     )
     config.x.triggers.add(
@@ -718,6 +725,7 @@ def add_triggers_2017(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
+        applies_to_dataset_repr="data",
         tags={"cross_trigger", "cross_tau_tau"},
     )
     config.x.triggers.add(
@@ -740,6 +748,7 @@ def add_triggers_2017(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
+        applies_to_dataset_repr="data",
         tags={"cross_trigger", "cross_tau_tau"},
     )
 
@@ -787,6 +796,7 @@ def add_triggers_2017(config: od.Config) -> None:
             },
         },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
+        applies_to_dataset_repr="mc | data>=D",
         tags={"cross_trigger", "cross_tau_tau_vbf"},
     )
 
@@ -810,6 +820,7 @@ def add_triggers_2018(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
+        applies_to_dataset_repr="mc | data>=D",
         tags={"single_trigger", "single_e"},
     )
     config.x.triggers.add(
@@ -885,6 +896,7 @@ def add_triggers_2018(config: od.Config) -> None:
         ),
         # the non-HPS path existed only for data and is fully covered in MC below
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
+        applies_to_dataset_repr="data",
         tags={"cross_trigger", "cross_e_tau"},
     )
 
@@ -914,6 +926,7 @@ def add_triggers_2018(config: od.Config) -> None:
         ),
         # the non-HPS path existed only for data and is fully covered in MC below
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
+        applies_to_dataset_repr="data",
         tags={"cross_trigger", "cross_mu_tau"},
     )
 
@@ -940,6 +953,7 @@ def add_triggers_2018(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
+        applies_to_dataset_repr="data",
         tags={"cross_trigger", "cross_tau_tau"},
     )
     config.x.triggers.add(
@@ -962,6 +976,7 @@ def add_triggers_2018(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
+        applies_to_dataset_repr="data",
         tags={"cross_trigger", "cross_tau_tau"},
     )
     config.x.triggers.add(
@@ -984,6 +999,7 @@ def add_triggers_2018(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_data),
+        applies_to_dataset_repr="data",
         tags={"cross_trigger", "cross_tau_tau"},
     )
 
@@ -1031,6 +1047,7 @@ def add_triggers_2018(config: od.Config) -> None:
             },
         },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
+        applies_to_dataset_repr="mc | data>=D",
         tags={"cross_trigger", "cross_tau_tau_vbf"},
     )
 
@@ -1073,6 +1090,7 @@ def add_triggers_2022(config: od.Config) -> None:
             dataset_inst.has_tag("emu_from_e") or
             dataset_inst.has_tag("emu_from_mu")
         )),
+        applies_to_dataset_repr="mc | data@{etau,ee,emu_from_e,emu_from_mu}",
         tags={"single_trigger", "single_e"},
     )
 
@@ -1101,6 +1119,7 @@ def add_triggers_2022(config: od.Config) -> None:
             dataset_inst.has_tag("emu_from_mu") or
             dataset_inst.has_tag("mumu")
         )),
+        applies_to_dataset_repr="mc | data@{mutau,emu_from_e,emu_from_mu,mumu}",
         tags={"single_trigger", "single_mu"},
     )
 
@@ -1133,6 +1152,7 @@ def add_triggers_2022(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("etau")),
+        applies_to_dataset_repr=r"mc | data@{etau}",
         tags={"cross_trigger", "cross_e_tau"},
     )
 
@@ -1166,6 +1186,7 @@ def add_triggers_2022(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("mutau")),
+        applies_to_dataset_repr=r"mc | data@{mutau}",
         tags={"cross_trigger", "cross_mu_tau"},
     )
 
@@ -1199,6 +1220,7 @@ def add_triggers_2022(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset_repr=r"mc | data@{tautau}",
         tags={"cross_trigger", "cross_tau_tau"},
     )
 
@@ -1262,6 +1284,7 @@ def add_triggers_2022(config: od.Config) -> None:
                 },
             },
             applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+            applies_to_dataset_repr=r"mc | data@{tautau}",
             tags={"cross_trigger", "cross_tau_tau_vbf"},
         )
 
@@ -1320,6 +1343,7 @@ def add_triggers_2022(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset_repr=r"mc | data@{tautau}",
         tags={"cross_trigger", "cross_tau_tau_jet"},
     )
 
@@ -1362,6 +1386,7 @@ def add_triggers_2023(config: od.Config) -> None:
             dataset_inst.has_tag("emu_from_mu") or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr="mc | data@{etau|ee|emu_from_e|emu_from_mu|parking_vbf}",
         tags={"single_trigger", "single_e"},
     )
 
@@ -1391,6 +1416,7 @@ def add_triggers_2023(config: od.Config) -> None:
             dataset_inst.has_tag("mumu") or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr="mc | data@{mutau|emu_from_e|emu_from_mu|mumu|parking_vbf}",
         tags={"single_trigger", "single_mu"},
     )
 
@@ -1427,6 +1453,7 @@ def add_triggers_2023(config: od.Config) -> None:
             dataset_inst.has_tag("etau") or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr="mc | data@{etau,parking_vbf}",
         tags={"cross_trigger", "cross_e_tau"},
     )
 
@@ -1465,6 +1492,7 @@ def add_triggers_2023(config: od.Config) -> None:
             dataset_inst.has_tag("mutau") or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr="mc | data@{mutau,parking_vbf}",
         tags={"cross_trigger", "cross_mu_tau"},
     )
 
@@ -1501,6 +1529,7 @@ def add_triggers_2023(config: od.Config) -> None:
             dataset_inst.has_tag("tautau") or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr="mc | data@{tautau,parking_vbf}",
         tags={"cross_trigger", "cross_tau_tau"},
     )
 
@@ -1559,13 +1588,16 @@ def add_triggers_2023(config: od.Config) -> None:
                 "delta_eta_jj": None,
             },
         },
-        applies_to_dataset=(lambda dataset_inst: ((
-            (dataset_inst.is_mc or dataset_inst.has_tag("tautau")) and
-            campaign_postfix == "preBPix"
-        ) or (
-            (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
-            campaign_postfix == "postBPix"
-        ))),
+        applies_to_dataset=(
+            (lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau"))
+            if campaign_postfix == "preBPix"
+            else (lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf"))
+        ),
+        applies_to_dataset_repr=(
+            r"mc | data@{tautau}"
+            if campaign_postfix == "preBPix"
+            else r"mc | data@{parking_vbf}"
+        ),
         tags={"cross_trigger", "cross_tau_tau_vbf"},
     )
 
@@ -1601,6 +1633,7 @@ def add_triggers_2023(config: od.Config) -> None:
             },
         },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
         tags={"cross_trigger", "cross_vbf"},
     )
 
@@ -1645,6 +1678,7 @@ def add_triggers_2023(config: od.Config) -> None:
             },
         },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
         tags={"cross_trigger", "cross_mu_vbf"},
     )
 
@@ -1689,8 +1723,14 @@ def add_triggers_2023(config: od.Config) -> None:
             },
         },
         applies_to_dataset=(
-            (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
-            campaign_postfix == "preBPix")
+            (lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf"))
+            if campaign_postfix == "preBPix"
+            else None
+        ),
+        applies_to_dataset_repr=(
+            r"mc | data@{parking_vbf}"
+            if campaign_postfix == "preBPix"
+            else None
         ),
         tags={"cross_trigger", "cross_e_vbf"},
     )
@@ -1736,8 +1776,14 @@ def add_triggers_2023(config: od.Config) -> None:
             },
         },
         applies_to_dataset=(
-            (lambda dataset_inst: (dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")) and
-            campaign_postfix == "postBPix")
+            (lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf"))
+            if campaign_postfix == "postBPix"
+            else None
+        ),
+        applies_to_dataset_repr=(
+            r"mc | data@{parking_vbf}"
+            if campaign_postfix == "postBPix"
+            else None
         ),
         tags={"cross_trigger", "cross_e_vbf"},
     )
@@ -1788,6 +1834,7 @@ def add_triggers_2023(config: od.Config) -> None:
             },
         },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
         tags={"cross_trigger", "cross_tau_vbf"},
     )
 
@@ -1831,6 +1878,7 @@ def add_triggers_2023(config: od.Config) -> None:
             dataset_inst.has_tag("tautau") or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr="mc | data@{tautau,parking_vbf}",
         tags={"cross_trigger", "cross_tau_tau_jet"},
     )
 
@@ -1875,6 +1923,7 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.has_tag("parking_vbf") or
             dataset_inst.has_tag("parking_hh")
         )),
+        applies_to_dataset_repr="mc | data@{etau|ee|emu_from_e|emu_from_mu|parking_vbf|parking_hh}",
         tags={"single_trigger", "single_e"},
     )
     #
@@ -1904,6 +1953,7 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.has_tag("parking_vbf") or
             dataset_inst.has_tag("parking_hh")
         )),
+        applies_to_dataset_repr="mc | data@{mutau|emu_from_e|emu_from_mu|mumu|parking_vbf|parking_hh}",
         tags={"single_trigger", "single_mu"},
     )
 
@@ -1939,6 +1989,7 @@ def add_triggers_2024(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("etau")),
+        applies_to_dataset_repr=r"mc | data@{etau}",
         tags={"cross_trigger", "cross_e_tau"},
     )
     #
@@ -1973,6 +2024,7 @@ def add_triggers_2024(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("mutau")),
+        applies_to_dataset_repr=r"mc | data@{mutau}",
         tags={"cross_trigger", "cross_mu_tau"},
     )
     #
@@ -2006,6 +2058,7 @@ def add_triggers_2024(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset_repr=r"mc | data@{tautau}",
         tags={"cross_trigger", "cross_tau_tau"},
     )
     #
@@ -2046,6 +2099,7 @@ def add_triggers_2024(config: od.Config) -> None:
             ),
         ),
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset_repr=r"mc | data@{tautau}",
         tags={"cross_trigger", "cross_tau_tau_jet"},
     )
 
@@ -2115,6 +2169,7 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.has_tag("parking_hh") or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr="mc | data@{parking_hh|parking_vbf}",
         tags={"cross_trigger", "cross_quadjet"},
     )
 
@@ -2174,6 +2229,7 @@ def add_triggers_2024(config: od.Config) -> None:
             },
         },
         applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset_repr=r"mc | data@{tautau}",
         tags={"cross_trigger", "cross_tau_tau_vbf"},
     )
 
@@ -2212,6 +2268,7 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.is_mc or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
         tags={"cross_trigger", "cross_vbf"},
     )
 
@@ -2259,6 +2316,7 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.is_mc or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
         tags={"cross_trigger", "cross_mu_vbf"},
     )
 
@@ -2306,6 +2364,7 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.is_mc or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
         tags={"cross_trigger", "cross_e_vbf"},
     )
 
@@ -2357,6 +2416,7 @@ def add_triggers_2024(config: od.Config) -> None:
             dataset_inst.is_mc or
             dataset_inst.has_tag("parking_vbf")
         )),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
         tags={"cross_trigger", "cross_tau_vbf"},
     )
 

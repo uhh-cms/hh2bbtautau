@@ -13,7 +13,7 @@ import itertools
 import law
 # import order as od
 
-from columnflow.inference import ParameterType  # , ParameterTransformation
+from columnflow.inference import ParameterType  # ParameterTransformations
 from columnflow.util import DotDict, pattern_matcher
 from columnflow.types import Sequence
 
@@ -34,7 +34,7 @@ class default(HBTInferenceModel):
 
     # whether this model is used across run 3 campaigns or if it is meant for a single campaign only
     # (e.g. this influences the lumi uncertainty treatment)
-    run3_multi_campaign = True
+    multi_campaign = True
 
     # whether to include bbvv as an additional signal process
     add_bbvv = True
@@ -387,10 +387,10 @@ class default(HBTInferenceModel):
         for config_inst in self.config_insts:
             lumi = config_inst.x.luminosity
             for unc_name in lumi.uncertainties:
-                # depending on the run3_multi_campaign setting, either the single, year specific uncertainty is used,
+                # depending on the multi_campaign setting, either the single, year specific uncertainty is used,
                 # or the correlated uncertainty scheme across all campaigns is used
                 is_year_specific = str(config_inst.campaign.x.year) in unc_name
-                if self.run3_multi_campaign == is_year_specific:
+                if self.multi_campaign == is_year_specific:
                     continue
                 # add it
                 self.add_parameter(
