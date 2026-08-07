@@ -55,13 +55,12 @@ class TriggerLeg(object):
         )
 
     def __str__(self) -> str:
-        parts = []
-        if self.pdg_id is not None:
-            parts.append(f"pdg_id={self.pdg_id}")
-        if self.min_pt is not None:
-            parts.append(f"min_pt={self.min_pt}")
-        if self.trigger_bits is not None:
-            parts.append(f"trigger_bits={self.trigger_bits}")
+        attrs = ["pdg_id", "min_pt", "trigger_bits"]
+        parts = [
+            f"{attr}={value}"
+            for attr in attrs
+            if (value := getattr(self, attr)) is not None
+        ]
         return ",".join(parts) if parts else "empty"
 
     @typed
