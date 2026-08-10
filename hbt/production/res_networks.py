@@ -73,8 +73,11 @@ class _res_dnn_evaluation(Producer):
     # limited chunk size to avoid memory issues
     max_chunk_size: int = 10_000
 
-    # the empty value to insert to output columns in case of missing or broken values
-    empty_value: float = EMPTY_FLOAT
+    # empty value to insert into score output columns in case of missing or broken values
+    empty_score_value: float = EMPTY_FLOAT
+
+    # empty value to insert into feature output columns in case of missing or broken values
+    empty_column_value: float = EMPTY_FLOAT
 
     # optionally save input features
     produce_features: bool | None = None
@@ -259,9 +262,9 @@ class _res_dnn_evaluation(Producer):
             # when the union of events with any nan-input is above a threshold, raise an exception, otherwise just warn
             # and amend the event mask
             invalid_mask = functools.reduce(operator.or_, invalid.values())
-            if invalid_mask.mean() >= 0.001:
+            if invalid_mask.sum() > 3 and invalid_mask.mean() >= 0.01:
                 raise Exception(msg)
-            task.logger.warning(f"{msg}, removing them from evaluation")
+            task.logger.warning(f"{msg}\n  -> removing them from evaluation")
             event_mask[event_mask] = ~invalid_mask
             n_mask = ak.sum(event_mask)
 
@@ -326,11 +329,11 @@ class _res_dnn_evaluation(Producer):
         # optionally store input features
         if self.produce_features:
             for name in cont:
-                values = self.empty_value * np.ones(len(events), dtype=np.float32)
+                values = self.empty_column_value * np.ones(len(events), dtype=np.float32)
                 values[event_mask] = ak.flatten(np.asarray(cont[name][..., None], dtype=np.float32))
                 events = set_ak_column_f32(events, f"{self.features_prefix}{self.cls_name}_{name}", values)
             for name in cat:
-                values = int(self.empty_value) * np.ones(len(events), dtype=np.int32)
+                values = int(self.empty_column_value) * np.ones(len(events), dtype=np.int32)
                 values[event_mask] = ak.flatten(np.asarray(cat[name][..., None], dtype=np.int32))
                 events = set_ak_column_i32(events, f"{self.features_prefix}{self.cls_name}_{name}", values)
 
@@ -530,8 +533,8 @@ class _res_dnn_evaluation(Producer):
                     "happen, so please debug",
                 )
             # warn for the remainder of cases
-            logger.warning(f"{msg}; setting them to {self.empty_value}")
-            scores[nan_mask] = self.empty_value
+            logger.warning(f"{msg}; setting them to {self.empty_score_value}")
+            scores[nan_mask] = self.empty_score_value
 
         return scores
 
@@ -539,7 +542,7 @@ class _res_dnn_evaluation(Producer):
         # prepare output columns with the shape of the original events and assign values into them
         assert scores.shape[1] == len(self.output_columns)
         for i, column in enumerate(self.output_columns):
-            values = self.empty_value * np.ones(len(events), dtype=np.float32)
+            values = self.empty_score_value * np.ones(len(events), dtype=np.float32)
             values[event_mask] = scores[:, i]
             events = set_ak_column_f32(events, column, values)
         return events
@@ -618,7 +621,7 @@ class res_dnn_pnet(res_dnn):
 
 class _reg_dnn(_res_dnn_evaluation):
 
-    empty_value = 0.0
+    empty_score_value = 0.0
     parametrized = False
 
     @property
@@ -691,7 +694,7 @@ for fold in range(_run3_dnn.n_folds):
 
 class run3_dnn_simple(_run3_dnn):
     """
-    Simple version of the run 3 dnn with a single fold for quick comparisons. Trained with kl 1 and 0.
+    Simple version of the run 3 dnn with a single fold for quick comparisons.
     """
 
     fold = None
