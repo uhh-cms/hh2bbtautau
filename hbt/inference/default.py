@@ -93,8 +93,8 @@ class default(HBTInferenceModel):
             "ttbarVV": "ttvv",
             "singlet": "st",
             "DY": "dy",
-            # "EWK": "z",  # currently not used
-            "W": "w",
+            "W": "w_lnu",
+            "EWK": "ewk",
             "VV": "vv",
             "VVV": "vvv",
             "WH_13p6TeV_hbb": "wh_hbb",
@@ -667,14 +667,14 @@ def remove_shift_parameters(model: default, keep: str | Sequence[str] | None = N
 
 
 @default.inference_model
-def default_no_shifts(self):
+def default_no_shifts(self) -> None:
     super(default_no_shifts, self).init_func()
     remove_shift_parameters(self)
     self.init_cleanup()
 
 
 @default.inference_model
-def default_shape_test(self):
+def default_shape_test(self) -> None:
     super(default_shape_test, self).init_func()
     remove_shift_parameters(self, keep="CMS_btag_lf")
     self.init_cleanup()
@@ -710,7 +710,7 @@ default_no_shifts_simple_5k = default_no_shifts.derive(
 
 
 @default.inference_model(variable="run3_dnn_moe_hh_fine_5k", empty_bin_value=0)
-def default_bin_opt(self):
+def default_bin_opt(self) -> None:
     # set everything up as in the default model
     super(default_bin_opt, self).init_func()
 
@@ -754,7 +754,7 @@ class default_cc(default):
 
 
 @default_cc.inference_model
-def default_cc_no_shifts(self):
+def default_cc_no_shifts(self) -> None:
     super(default_cc_no_shifts, self).init_func()
     remove_shift_parameters(self)
     self.init_cleanup()

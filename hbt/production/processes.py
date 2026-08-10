@@ -13,7 +13,7 @@ import order as od
 
 from columnflow.production import Producer
 from columnflow.production.cms.dy import gen_dilepton
-from columnflow.production.cms.gen_particles import gen_higgs_lookup
+from columnflow.production.cms.gen_particles import gen_higgs_lookup, gen_dy_hepmc_filters
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column, Route
 from columnflow.types import TYPE_CHECKING, Callable
@@ -102,19 +102,30 @@ class stitched_process_ids(Producer):
             )
         process_inst = self.dataset_inst.processes.get_first()
 
-        # get stitching observables
-        stitching_values = [Route(c).apply(events) for c in self.stitching_columns]
+        # potentially bypass the subprocess assignment and simply use the id if the subprocess
+        if self.dataset_inst.has_tag("bypass_subprocess_stitching"):
+            if process_inst not in self.leaf_processes:
+                raise ValueError(
+                    f"dataset {self.dataset_inst.name} has 'bypass_subprocess_stitching' enabled but its process "
+                    f"'{process_inst.name}' is not a leaf process of {self.cls_name}",
+                )
+            process_ids = np.full(len(events), process_inst.id, dtype=np.int64)
 
-        # run the cross check function if defined
-        if callable(self.stitching_values_cross_check):
-            self.stitching_values_cross_check(process_inst, stitching_values)
+        else:
+            # actual subprocess assignment
 
-        # lookup the id and check for invalid values
-        # (when the length of the events chunk is 1 by chance, the LUT access fails)
-        process_ids = self.read_lut(stitching_values)
-        invalid_mask = process_ids == 0
-        if ak.any(invalid_mask):
-            raise ValueError(f"found {sum(invalid_mask)} events that could not be assigned to a process")
+            # get stitching observables
+            stitching_values = [Route(c).apply(events) for c in self.stitching_columns]
+
+            # run the cross check function if defined
+            if callable(self.stitching_values_cross_check):
+                self.stitching_values_cross_check(process_inst, stitching_values)
+
+            # lookup the id and check for invalid values
+            # (when the length of the events chunk is 1 by chance, the LUT access fails)
+            process_ids = self.read_lut(stitching_values)
+            if ak.any(invalid_mask := process_ids == 0):
+                raise ValueError(f"found {sum(invalid_mask)} events that could not be assigned to a process")
 
         # when the assigned process ids contain the id of the main process of the dataset, it should be the only
         # identified process and there should be none other, as this would be logically inconsistent
@@ -144,6 +155,13 @@ class stitched_process_ids(Producer):
         if extend:
             lut_index = np.tile(lut_index, 2)
 
+        # indices must be non-negative
+        if np.any(bad_index := lut_index < 0):
+            raise ValueError(
+                f"{np.sum(bad_index):_} out of {len(bad_index):_} events that could not be assigned to a process with "
+                f"{self.cls_name} producer in dataset {self.dataset_inst.name}",
+            )
+
         # lookup
         value = np.squeeze(np.asarray(self.id_lut[lut_index, 0].todense()))
 
@@ -161,12 +179,16 @@ class stitched_process_ids(Producer):
             aux_name = self.cross_check_translation_dict[str(column)]
             if (aux_val := process_inst.x(aux_name, None)) is None:
                 continue
-            if isinstance(aux_val, (int, float)):
-                unmatched = values != aux_val
+            if isinstance(aux_val, (bool, int, float)):
+                unmatched = (
+                    (values != aux_val)
+                    if isinstance(aux_val, (bool, int))
+                    else (abs(values - aux_val) > 1e-5)
+                )
                 if ak.any(unmatched):
                     logger.warning(
-                        f"dataset {self.dataset_inst.name} is meant to contain {aux_name} values of "
-                        f"{aux_val}, but found {ak.sum(unmatched)} events with different values",
+                        f"dataset {self.dataset_inst.name} is meant to contain {aux_name} values of '{aux_val}', but "
+                        f"found {ak.sum(unmatched)} in {len(unmatched)} events with different values",
                     )
             elif isinstance(aux_val, (list, tuple)) and len(aux_val) == 2:
                 aux_min, aux_max = aux_val
@@ -177,7 +199,8 @@ class stitched_process_ids(Producer):
                     # exception or warning
                     msg = (
                         f"dataset {self.dataset_inst.name} is meant to contain {aux_name} values in the range "
-                        f"[{aux_min}, {aux_max}), but found {ak.sum(outliers)} events outside this range"
+                        f"[{aux_min}, {aux_max}), but found {ak.sum(outliers)} in {len(outliers)} events outside this "
+                        "range"
                     )
                     if (recovery_threshold := self.recovery_thresholds.get(aux_name)) is None:
                         raise ValueError(msg)
@@ -411,8 +434,17 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
     def setup_func(self, task: law.Task, **kwargs) -> None:
         super().setup_func(task=task, **kwargs)
 
-        import scipy.sparse
+        # fill stitching ranges
+        self.fill_stitching_ranges()
 
+        # define the lookup table
+        import scipy.sparse
+        self.id_lut = scipy.sparse.dok_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
+
+        # fill it
+        self.fill_lut()
+
+    def fill_stitching_ranges(self) -> None:
         # fill stitching ranges
         for proc in self.leaf_processes:
             lep = proc.x(self.lep_aux, 0)
@@ -423,10 +455,7 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
         # make unique and sort
         self.stitching_ranges = sorted(set(self.stitching_ranges))
 
-        # define the lookup table
-        self.id_lut = scipy.sparse.dok_matrix((len(self.stitching_ranges), 1), dtype=np.int64)
-
-        # fill it
+    def fill_lut(self) -> None:
         for proc in self.leaf_processes:
             index = self.compute_lut_index(
                 proc.x(self.lep_aux, 0),
@@ -464,6 +493,104 @@ class stitched_process_ids_lep_nj_pt(stitched_process_ids):
                     f"producer in dataset {self.dataset_inst.name} (hint: check 'stitching_ranges')",
                 )
             indices[mask] = index
+
+        return indices[0] if single else indices
+
+
+class stitched_process_ids_lep_nj_pt_taufiltered(stitched_process_ids_lep_nj_pt):
+    """
+    Same as :py:class:`stitched_process_ids_lep_nj_pt`, but also distinguishes between tautau events that do or do not
+    fall into the HepMCFilter phase space. The latter decision is parsed from the first bit of the
+    "gen_dy_hepmc_filters" column.
+    """
+
+    filtered_aux = "filtered"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # filled during setup
+        self.stitching_ranges: list[tuple[LepId, NJetsRange, PtRange, bool]] = []
+
+        # check that aux fields are present in cross_check_translation_dict
+        for field in [self.lep_aux, self.njets_aux, self.pt_aux, self.filtered_aux]:
+            if field not in self.cross_check_translation_dict.values():
+                raise ValueError(f"field {field} must be present in cross_check_translation_dict")
+
+    def init_func(self, **kwargs) -> None:
+        super().init_func(**kwargs)
+        self.uses.add(gen_dy_hepmc_filters)
+
+    def call_func(self, events: ak.Array, **kwargs) -> ak.Array:
+        events = self[gen_dy_hepmc_filters](events, **kwargs)
+        return super().call_func(events, **kwargs)
+
+    def fill_stitching_ranges(self) -> None:
+        self.stitching_ranges.clear()
+
+        # fill stitching ranges
+        for proc in self.leaf_processes:
+            lep = proc.x(self.lep_aux, 0)
+            njets = proc.x(self.njets_aux, (0, np.inf))
+            pt = proc.x(self.pt_aux, (0.0, np.inf))
+            filtered = proc.x(self.filtered_aux, False)
+            self.stitching_ranges.append((lep, njets, pt, filtered))
+
+        # make unique and sort
+        self.stitching_ranges = sorted(set(self.stitching_ranges))
+
+    def fill_lut(self) -> None:
+        for proc in self.leaf_processes:
+            index = self.compute_lut_index(
+                proc.x(self.lep_aux, 0),
+                proc.x(self.njets_aux, [0])[0],
+                proc.x(self.pt_aux, [0])[0],
+                proc.x(self.filtered_aux, False),
+            )
+            self.id_lut[index, 0] = proc.id
+
+    def compute_lut_index(
+        self,
+        lep: int | np.ndarray,
+        njets: int | np.ndarray,
+        pt: int | float | np.ndarray,
+        filtered: bool | np.ndarray,
+    ) -> int | np.ndarray:
+        # potentially convert single values into arrays
+        single = False
+        if isinstance(njets, int):
+            assert isinstance(lep, int)
+            assert isinstance(pt, (int, float))
+            assert isinstance(filtered, bool)
+            lep = np.array([lep], dtype=np.int32)
+            njets = np.array([njets], dtype=np.int32)
+            pt = np.array([pt], dtype=np.float32)
+            filtered = np.array([filtered], dtype=bool)
+            single = True
+
+        # when "filtered" is not a bool but an int array, take the first bit only for the decision
+        # (since this filter based on the "hepmc_filter_1")
+        if not isinstance(filtered, np.ndarray):
+            filtered = np.asarray(filtered)
+        if filtered.dtype != np.bool_:
+            filtered = (filtered & 1).astype(bool)
+
+        # map into bins (-1 means no binning and should raise errors)
+        indices = -np.ones(len(njets), dtype=np.int32)
+        for index, (_lep, nj_range, pt_range, _filtered) in enumerate(self.stitching_ranges):
+            lep_mask = (_lep == 0) | (_lep == lep)
+            nj_mask = (nj_range[0] <= njets) & (njets < nj_range[1])
+            pt_mask = (pt_range[0] <= pt) & (pt < pt_range[1])
+            filtered_mask = _filtered == filtered
+            mask = lep_mask & nj_mask & pt_mask & filtered_mask
+            if np.any(indices[mask] != -1):
+                raise RuntimeError(
+                    f"found misconfigured leaf process definitions while assigning process ids with {self.cls_name} "
+                    f"producer in dataset {self.dataset_inst.name} (hint: check 'stitching_ranges')",
+                )
+            indices[mask] = index
+            if single and mask[0]:
+                break
 
         return indices[0] if single else indices
 
@@ -558,55 +685,96 @@ class stitched_process_ids_m(stitched_process_ids):
         return super().call_func(events, **kwargs)
 
 
-process_ids_dy_amcatnlo_2223 = stitched_process_ids_nj_pt.derive("process_ids_dy_amcatnlo_2223", cls_dict={
-    "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
-    "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
-    "include_condition": IF_DATASET_IS_DY_AMCATNLO,
-    # still misses leaf_processes, must be set dynamically
-})
+process_ids_dy_amcatnlo_2223 = stitched_process_ids_nj_pt.derive(
+    "process_ids_dy_amcatnlo_2223",
+    cls_dict={
+        "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
+        "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
+        "include_condition": IF_DATASET_IS_DY_AMCATNLO,
+        # still misses leaf_processes, must be set dynamically
+    },
+)
 
-process_ids_dy_lep_amcatnlo_2223 = stitched_process_ids_lep_nj_pt.derive("process_ids_dy_lep_amcatnlo_2223", cls_dict={
-    "stitching_columns": ["gen_dilepton_pdgid", "LHE.NpNLO", "LHE.Vpt"],
-    "uses_for_stitching": ["LHE.NpNLO", "LHE.Vpt"],  # gen_dilepton_pdgid must haven been produced dynamically
-    "cross_check_translation_dict": {"gen_dilepton_pdgid": "lep_id", "LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
-    "include_condition": IF_DATASET_IS_DY_AMCATNLO,
-    # still misses leaf_processes, must be set dynamically
-})
+process_ids_dy_lep_amcatnlo_2223 = stitched_process_ids_lep_nj_pt.derive(
+    "process_ids_dy_lep_amcatnlo_2223",
+    cls_dict={
+        "stitching_columns": ["gen_dilepton_pdgid", "LHE.NpNLO", "LHE.Vpt"],
+        "uses_for_stitching": ["LHE.NpNLO", "LHE.Vpt"],  # gen_dilepton_pdgid must haven been produced dynamically
+        "cross_check_translation_dict": {
+            "gen_dilepton_pdgid": "lep_id",
+            "LHE.NpNLO": "njets",
+            "LHE.Vpt": "ptll",
+        },
+        "include_condition": IF_DATASET_IS_DY_AMCATNLO,
+        # still misses leaf_processes, must be set dynamically
+    },
+)
 
-process_ids_dy_powheg_2223 = stitched_process_ids_m.derive("process_ids_dy_powheg_2223", cls_dict={
-    "stitching_columns": ["LHEmll"],
-    "cross_check_translation_dict": {"LHEmll": "mll"},
-    "include_condition": IF_DATASET_IS_DY_POWHEG,
-    # still misses leaf_processes, must be set dynamically
-})
+process_ids_dy_lep_taufilter_amcatnlo_2223 = stitched_process_ids_lep_nj_pt_taufiltered.derive(
+    "process_ids_dy_lep_taufilter_amcatnlo_2223",
+    cls_dict={
+        "stitching_columns": ["gen_dilepton_pdgid", "LHE.NpNLO", "LHE.Vpt", "gen_dy_hepmc_filters"],
+        "uses_for_stitching": ["LHE.NpNLO", "LHE.Vpt"],  # gen_dilepton_pdgid must haven been produced dynamically
+        "cross_check_translation_dict": {
+            "gen_dilepton_pdgid": "lep_id",
+            "LHE.NpNLO": "njets",
+            "LHE.Vpt": "ptll",
+            "gen_dy_hepmc_filters": "filtered",
+        },
+        "include_condition": IF_DATASET_IS_DY_AMCATNLO,
+        # still misses leaf_processes, must be set dynamically
+    },
+)
 
-process_ids_dy_mumu_amcatnlo_24 = stitched_process_ids_nj.derive("process_ids_dy_mumu_amcatnlo_24", cls_dict={
-    "stitching_columns": ["LHE.NpNLO"],
-    "cross_check_translation_dict": {"LHE.NpNLO": "njets"},
-    "include_condition": IF_DATASET_IS_DY_AMCATNLO,
-    # still misses leaf_processes, must be set dynamically
-})
+process_ids_dy_powheg_2223 = stitched_process_ids_m.derive(
+    "process_ids_dy_powheg_2223",
+    cls_dict={
+        "stitching_columns": ["LHEmll"],
+        "cross_check_translation_dict": {"LHEmll": "mll"},
+        "include_condition": IF_DATASET_IS_DY_POWHEG,
+        # still misses leaf_processes, must be set dynamically
+    },
+)
 
-process_ids_dy_ee_amcatnlo_24 = stitched_process_ids_nj.derive("process_ids_dy_ee_amcatnlo_24", cls_dict={
-    "stitching_columns": ["LHE.NpNLO"],
-    "cross_check_translation_dict": {"LHE.NpNLO": "njets"},
-    "include_condition": IF_DATASET_IS_DY_AMCATNLO,
-    # still misses leaf_processes, must be set dynamically
-})
+process_ids_dy_mumu_amcatnlo_24 = stitched_process_ids_nj.derive(
+    "process_ids_dy_mumu_amcatnlo_24",
+    cls_dict={
+        "stitching_columns": ["LHE.NpNLO"],
+        "cross_check_translation_dict": {"LHE.NpNLO": "njets"},
+        "include_condition": IF_DATASET_IS_DY_AMCATNLO,
+        # still misses leaf_processes, must be set dynamically
+    },
+)
 
-process_ids_dy_tautau_amcatnlo_24 = stitched_process_ids_nj.derive("process_ids_dy_tautau_amcatnlo_24", cls_dict={
-    "stitching_columns": ["LHE.NpNLO"],
-    "cross_check_translation_dict": {"LHE.NpNLO": "njets"},
-    "include_condition": IF_DATASET_IS_DY_AMCATNLO,
-    # still misses leaf_processes, must be set dynamically
-})
+process_ids_dy_ee_amcatnlo_24 = stitched_process_ids_nj.derive(
+    "process_ids_dy_ee_amcatnlo_24",
+    cls_dict={
+        "stitching_columns": ["LHE.NpNLO"],
+        "cross_check_translation_dict": {"LHE.NpNLO": "njets"},
+        "include_condition": IF_DATASET_IS_DY_AMCATNLO,
+        # still misses leaf_processes, must be set dynamically
+    },
+)
 
-process_ids_w_lnu_amcatnlo_2223 = stitched_process_ids_nj_pt.derive("process_ids_w_lnu_amcatnlo_2223", cls_dict={
-    "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
-    "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
-    "include_condition": IF_DATASET_IS_W_LNU,
-    # still misses leaf_processes, must be set dynamically
-})
+process_ids_dy_tautau_amcatnlo_24 = stitched_process_ids_nj.derive(
+    "process_ids_dy_tautau_amcatnlo_24",
+    cls_dict={
+        "stitching_columns": ["LHE.NpNLO"],
+        "cross_check_translation_dict": {"LHE.NpNLO": "njets"},
+        "include_condition": IF_DATASET_IS_DY_AMCATNLO,
+        # still misses leaf_processes, must be set dynamically
+    },
+)
+
+process_ids_w_lnu_amcatnlo_2223 = stitched_process_ids_nj_pt.derive(
+    "process_ids_w_lnu_amcatnlo_2223",
+    cls_dict={
+        "stitching_columns": ["LHE.NpNLO", "LHE.Vpt"],
+        "cross_check_translation_dict": {"LHE.NpNLO": "njets", "LHE.Vpt": "ptll"},
+        "include_condition": IF_DATASET_IS_W_LNU,
+        # still misses leaf_processes, must be set dynamically
+    },
+)
 
 
 class process_ids_bbvv(stitched_process_ids):

@@ -523,6 +523,7 @@ class ListTriggers(HBTTask, ConfigTask, law.tasks.RunOnceTask):
         tabulate.PRESERVE_WHITESPACE = True
 
         # color helpers
+        bright = functools.partial(law.util.colored, style="bright")
         green = functools.partial(law.util.colored, color="green")
         yellow = functools.partial(law.util.colored, color="yellow")
         cyan = functools.partial(law.util.colored, color="cyan")
@@ -535,23 +536,31 @@ class ListTriggers(HBTTask, ConfigTask, law.tasks.RunOnceTask):
         rows = []
         for trigger_inst in self.config_inst.x.triggers:
             # encoded tags
-            tags_str = "-" if not trigger_inst.tags else "\n".join(sorted(trigger_inst.tags))
+            tags_str = "-" if not trigger_inst.tags else "\n".join(sorted(map(bright, trigger_inst.tags)))
 
             # encoded legs
             legs_str = "-"
             if trigger_inst.legs:
+                def leg_repr(leg):
+                    attrs = ["pdg_id", "min_pt", "trigger_bits"]
+                    parts = [
+                        f"{yellow(attr)}={cyan(value)}"
+                        for attr in attrs
+                        if (value := getattr(leg, attr)) is not None
+                    ]
+                    return ",".join(parts) if parts else bright("Empty")
                 leg_parts = [
-                    f"{name} -> {str(leg)}"
+                    f"{bright(name)} -> {leg_repr(leg)}"
                     for name, leg in trigger_inst.legs.items()
                 ]
                 legs_str = "\n".join(leg_parts)
 
             # encoded application to datasets function
-            applies_to_str = "Always"
+            applies_to_str = bright("Always")
             if trigger_inst.applies_to_dataset is not None:
                 if trigger_inst.applies_to_dataset_repr:
                     applies_parts = trigger_inst.applies_to_dataset_repr.split(" | ")
-                    applies_to_str = " or\n".join(map(green, applies_parts))
+                    applies_to_str = f" {bright('or')}\n".join(map(green, applies_parts))
                 else:
                     applies_to_str = f"{green('dynamic')}\n({red('func exists but repr missing')})"
 

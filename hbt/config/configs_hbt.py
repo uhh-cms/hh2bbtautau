@@ -132,28 +132,25 @@ def add_config(
     # add custom processes
     if not sync_mode:
         procs.add(
-            name="v",
-            id=7997,
-            label="W/Z",
-            processes=[procs.n.w, procs.n.z],
-        )
-        procs.add(
             name="multiboson",
-            id=7998,
-            label="Multiboson",
-            processes=[procs.n.vv, procs.n.vvv],
-        )
-        procs.add(
-            name="all_v",
             id=7996,
             label="Multiboson",
-            processes=[procs.n.v, procs.n.multiboson],
+            processes=[procs.n.v, procs.n.vv, procs.n.vvv, procs.n.ttv, procs.n.ttvv],
         )
+
         procs.add(
-            name="tt_multiboson",
-            id=7999,
-            label=r"$t\bar{t}$ + Multiboson",
-            processes=[procs.n.ttv, procs.n.ttvv],
+            name="ewk",
+            id=7996,
+            label="EWK",
+            processes=[procs.n.w_vbf, procs.n.z_vbf],
+        )
+
+        # TODO: need better labelling
+        procs.add(
+            name="others",
+            id=7996,
+            label="Others",
+            processes=[procs.n.multiboson, procs.n.ewk],
         )
 
     cfg.x.hh_points = DotDict.wrap({
@@ -185,10 +182,11 @@ def add_config(
     process_names = [
         "data",
         "tt",
-        "st",
         "dy",
-        "tt_multiboson",
-        "all_v",
+        "st",
+        "w_lnu"
+        "multiboson",
+        "ewk",
         "qcd",
         "h",
         "hh_ggf_hbb_htt",
@@ -322,11 +320,12 @@ def add_config(
         "dy_tautau_m50toinf_2j_amcatnlo",
 
         # additionally filtered datasets for 2022/2023 disabled for now
-        # *if_not_era(year=2024, values=[
-        #     "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-        #     "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-        #     "dy_tautau_m50toinf_2j_filtered_amcatnlo",
-        # ]),
+        # 2024 status not ready: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=*DYto2Tau*&campaign=RunIII2024Summer24*GS # noqa: E501
+        *if_not_era(year=2024, values=[
+            "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+        ]),
 
         # dy, powheg
         # *if_era(year=2022, values=["dy_ee_m50toinf_powheg"]),  # 50toinf only available in 2022, requires stitching
@@ -494,7 +493,11 @@ def add_config(
                 is_dy_inclusive = dataset.name == "dy_m50toinf_amcatnlo"
                 # tags for advanced, lepton based stitching in amcatnlo with m50toinf
                 if re.match(r"^dy(_.+)?_m50toinf(_.+)?_amcatnlo$", dataset.name):
-                    dataset.add_tag("dy_lep_amcatnlo_2223")  # lepton channel stitching in the default selector
+                    has_taufiltered_datasets = "dy_tautau_m50toinf_0j_filtered_amcatnlo" in dataset_names
+                    if not has_taufiltered_datasets:
+                        dataset.add_tag("dy_lep_amcatnlo_2223")  # lepton channel stitching in the default selector
+                    else:
+                        dataset.add_tag("dy_lep_taufilter_amcatnlo_2223")  # same, but including tau filtering
             elif year == 2024:
                 is_dy_inclusive = re.match(r"^dy_(tautau|ee|mumu)_m50toinf_amcatnlo$", dataset.name)
                 # tags for njet based stitching in amcatnlo
@@ -507,6 +510,9 @@ def add_config(
             # mark all datasets that could be dropped if not stitching
             if not is_dy_inclusive:
                 dataset.add_tag("dy_stitched")
+            # bypass dy stitching for datasets that contain only a single leaf process
+            if re.match(r"^dy_tautau_m50toinf_0j_filtered_amcatnlo$", dataset.name):
+                dataset.add_tag("bypass_subprocess_stitching")
         # w_lnu
         if dataset.name.startswith("w_lnu_"):
             dataset.add_tag("w_lnu")
@@ -637,12 +643,13 @@ def add_config(
             for kl, in cfg.x.hh_points.ggf
         ],
         "backgrounds": (backgrounds := [
-            "dy",
             "tt",
-            "v",
+            "dy",
+            "w_lnu",
             "st",
+            # "others"
             "multiboson",
-            "tt_multiboson",
+            "ewk",
             "h",
             "qcd",
         ]),
@@ -669,11 +676,18 @@ def add_config(
         if year in {2022, 2023} and "dy_m50toinf_amcatnlo" in cfg.datasets:
             if cfg.datasets.n.dy_m50toinf_amcatnlo.has_tag("dy_drop_tautau"):
                 # more involved stitching with additional lepton enriched datasets
-                expand_lep = lambda names: [
-                    procs.get(f"dy_{ll}_{name}")
-                    for ll in ["ee", "mumu", "tautau"]
-                    for name in law.util.make_list(names)
-                ]
+                def expand_lep(names, taufilter=False):
+                    names = law.util.make_list(names)
+                    leps = ["ee", "mumu"]
+                    if not taufilter:
+                        leps.append("tautau")
+                    # add plain names for ee/mumu
+                    full_names = [procs.get(f"dy_{ll}_{n}") for ll in leps for n in names]
+                    # add filtered/non-filtered names for tautau
+                    if taufilter:
+                        flags = ["filtered", "nonfiltered"]
+                        full_names += [procs.get(f"dy_tautau_{n}_{f}") for n in names for f in flags]
+                    return full_names
                 cfg.x.dy_lep_amcatnlo_2223_stitching = {
                     "m50toinf": {
                         "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
@@ -689,8 +703,25 @@ def add_config(
                         ],
                     },
                 }
+                expand_lep_taufilter = functools.partial(expand_lep, taufilter=True)
+                cfg.x.dy_lep_taufilter_amcatnlo_2223_stitching = {
+                    "m50toinf": {
+                        "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
+                        "leaf_processes": [
+                            # the following processes cover the full njet and pt phasespace per lepton channel
+                            *expand_lep_taufilter("m50toinf_0j"),
+                            *expand_lep_taufilter([
+                                f"m50toinf_{nj}j_pt{pt}"
+                                for nj in [1, 2]
+                                for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
+                            ]),
+                            *expand_lep("m50toinf_ge3j"),
+                        ],
+                    },
+                }
             else:
                 # default stitching, without lepton enriched datasets
+                assert all(not law.util.multimatch(d.name, "^dy_(ee|mumu|tautau)_.+$") for d in cfg.datasets)
                 cfg.x.dy_amcatnlo_stitching = {
                     "m50toinf": {
                         "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,

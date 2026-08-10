@@ -273,6 +273,7 @@ def default_init(self: Selector, **kwargs) -> None:
     possible_stitch_tags = [
         "dy_amcatnlo_2223",
         "dy_lep_amcatnlo_2223",
+        "dy_lep_taufilter_amcatnlo_2223",
         "dy_powheg_2223",
         "dy_ee_amcatnlo_24",
         "dy_mumu_amcatnlo_24",
