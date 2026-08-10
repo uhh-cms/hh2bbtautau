@@ -189,18 +189,18 @@ def stylize_processes(config: od.Config) -> None:
     if (p := config.get_process("multiboson", default=None)):
         p.color1 = cfg.x.colors.grey
 
-    if (p := config.get_process("w", default=None)):
+    if (p := config.get_process("others", default=None)):
+        p.color1 = cfg.x.colors.grey
+
+    if (p := config.get_process("w_lnu", default=None)):
         p.color1 = cfg.x.colors.olive
-        p.label = "W"
+        p.label = "W + Jets"
 
     if (p := config.get_process("z", default=None)):
         p.color1 = cfg.x.colors.olive
         p.label = "Z"
 
     if (p := config.get_process("v", default=None)):
-        p.color1 = cfg.x.colors.orange
-
-    if (p := config.get_process("all_v", default=None)):
         p.color1 = cfg.x.colors.orange
 
     if (p := config.get_process("ewk", default=None)):
@@ -213,9 +213,6 @@ def stylize_processes(config: od.Config) -> None:
     if (p := config.get_process("ttvv", default=None)):
         p.color1 = cfg.x.colors.brown
         p.label = r"$t\bar{t} + VV$"
-
-    if (p := config.get_process("tt_multiboson", default=None)):
-        p.color1 = cfg.x.colors.brown
 
     if (p := config.get_process("qcd", default=None)):
         p.color1 = cfg.x.colors.red
