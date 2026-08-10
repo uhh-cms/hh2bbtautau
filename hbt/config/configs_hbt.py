@@ -322,7 +322,7 @@ def add_config(
         "dy_tautau_m50toinf_2j_amcatnlo",
 
         # additionally filtered datasets for 2022/2023 disabled for now
-        # 2024 status not ready: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=DYto2Tau-2Jets_M-50_0J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8&campaign=Phase2Spring23*GS,Run3Summer22*GS,Run3Summer23*GS,Run3Winter22*GS,Run3Winter23*GS,Run3Winter24*GS,Run3Winter25*GS,Run3Winter26*GS,RunIII2024Summer24*GS,RunIISummer20UL16*GEN,RunIISummer20UL16*GENAPV,RunIISummer20UL17*GEN,RunIISummer20UL18*GEN # noqa
+        # 2024 status not ready: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=*DYto2Tau*&campaign=RunIII2024Summer24*GS # noqa: E501
         *if_not_era(year=2024, values=[
             "dy_tautau_m50toinf_0j_filtered_amcatnlo",
             "dy_tautau_m50toinf_1j_filtered_amcatnlo",
@@ -495,8 +495,11 @@ def add_config(
                 is_dy_inclusive = dataset.name == "dy_m50toinf_amcatnlo"
                 # tags for advanced, lepton based stitching in amcatnlo with m50toinf
                 if re.match(r"^dy(_.+)?_m50toinf(_.+)?_amcatnlo$", dataset.name):
-                    # dataset.add_tag("dy_lep_amcatnlo_2223")  # lepton channel stitching in the default selector
-                    dataset.add_tag("dy_lep_taufilter_amcatnlo_2223")  # same, but including tau filtering
+                    has_taufiltered_datasets = "dy_tautau_m50toinf_0j_filtered_amcatnlo" in dataset_names
+                    if not has_taufiltered_datasets:
+                        dataset.add_tag("dy_lep_amcatnlo_2223")  # lepton channel stitching in the default selector
+                    else:
+                        dataset.add_tag("dy_lep_taufilter_amcatnlo_2223")  # same, but including tau filtering
             elif year == 2024:
                 is_dy_inclusive = re.match(r"^dy_(tautau|ee|mumu)_m50toinf_amcatnlo$", dataset.name)
                 # tags for njet based stitching in amcatnlo

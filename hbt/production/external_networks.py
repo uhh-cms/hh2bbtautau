@@ -7,6 +7,7 @@ Producers for evaluating torch-based models.
 from __future__ import annotations
 
 import functools
+import operator
 
 import law
 
@@ -197,27 +198,39 @@ class _external_dnn(Producer):
         self.define_categorical_inputs(events, cat)
         self.define_continuous_inputs(events, cont, cat)
 
-        # apply event mask to all features
-        event_mask = self.define_event_mask(events, cat, cont)
-        if (n_mask := ak.sum(event_mask)) == 0:
+        # compute the event mask
+        event_mask = np.asarray(self.define_event_mask(events, cat, cont))
+        n_mask = ak.sum(event_mask)
+
+        # check for non-finite continuous inputs
+        invalid = {}
+        for n, v in cont.items():
+            if (m := np.asarray(~np.isfinite(v[event_mask]))).any():
+                invalid[n] = m
+        if invalid:
+            msg = (
+                f"found {len(invalid)} continuous feature(s) in {n_mask} selected events with non-finite values:\n  - " +
+                "\n  - ".join(f"{n}: {m.sum()} event(s) -> {100 * m.mean():.2f}%" for n, m in invalid.items())
+            )
+            # when the union of events with any nan-input is above a threshold, raise an exception, otherwise just warn
+            # and amend the event mask
+            invalid_mask = functools.reduce(operator.or_, invalid.values())
+            if invalid_mask.mean() >= 0.001:
+                raise Exception(msg)
+            event_mask[event_mask] = ~invalid_mask
+            n_mask = ak.sum(event_mask)
+
+        # warn if no events are left
+        if n_mask == 0:
             task.logger.warning(
                 f"{self.cls_name}: 0 / {len(events)} selected for evaluation ({task.dataset_inst.name})",
             )
+
+        # apply to features
         for n, v in cont.items():
             cont[n] = v[event_mask]
         for n, v in cat.items():
             cat[n] = v[event_mask]
-
-        # check for non-finite continuous inputs
-        invalid_stats = {}
-        for n, v in cont.items():
-            if (m := np.asarray(~np.isfinite(v))).any():
-                invalid_stats[n] = m
-        if invalid_stats:
-            raise Exception(
-                f"found {len(invalid_stats)} continuous feature(s) in {n_mask} events with non-finite values:\n  - " +
-                "\n  - ".join(f"{n}: {m.sum()} -> {100 * m.mean():.2f}%" for n, m in invalid_stats.items()),
-            )
 
         # build continuous inputs
         continuous_inputs = np.concatenate(
