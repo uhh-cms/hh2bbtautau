@@ -132,28 +132,25 @@ def add_config(
     # add custom processes
     if not sync_mode:
         procs.add(
-            name="v",
-            id=7997,
-            label="W/Z",
-            processes=[procs.n.w, procs.n.z],
-        )
-        procs.add(
             name="multiboson",
-            id=7998,
-            label="Multiboson",
-            processes=[procs.n.vv, procs.n.vvv],
-        )
-        procs.add(
-            name="all_v",
             id=7996,
             label="Multiboson",
-            processes=[procs.n.v, procs.n.multiboson],
+            processes=[procs.n.v, procs.n.vv, procs.n.vvv, procs.n.ttv, procs.n.ttvv],
         )
+
         procs.add(
-            name="tt_multiboson",
-            id=7999,
-            label=r"$t\bar{t}$ + Multiboson",
-            processes=[procs.n.ttv, procs.n.ttvv],
+            name="ewk",
+            id=7996,
+            label="EWK",
+            processes=[procs.n.w_vbf, procs.n.z_vbf],
+        )
+
+        # TODO: need better labelling
+        procs.add(
+            name="others",
+            id=7996,
+            label="Others",
+            processes=[procs.n.multiboson, procs.n.ewk],
         )
 
     cfg.x.hh_points = DotDict.wrap({
@@ -185,10 +182,11 @@ def add_config(
     process_names = [
         "data",
         "tt",
-        "st",
         "dy",
-        "tt_multiboson",
-        "all_v",
+        "st",
+        "w_lnu"
+        "multiboson",
+        "ewk",
         "qcd",
         "h",
         "hh_ggf_hbb_htt",
@@ -645,12 +643,13 @@ def add_config(
             for kl, in cfg.x.hh_points.ggf
         ],
         "backgrounds": (backgrounds := [
-            "dy",
             "tt",
-            "v",
+            "dy",
+            "w_lnu",
             "st",
+            # "others"
             "multiboson",
-            "tt_multiboson",
+            "ewk",
             "h",
             "qcd",
         ]),

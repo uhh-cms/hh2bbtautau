@@ -93,8 +93,8 @@ class default(HBTInferenceModel):
             "ttbarVV": "ttvv",
             "singlet": "st",
             "DY": "dy",
-            # "EWK": "z",  # currently not used
-            "W": "w",
+            "W": "w_lnu",
+            "EWK": "ewk",
             "VV": "vv",
             "VVV": "vvv",
             "WH_13p6TeV_hbb": "wh_hbb",
