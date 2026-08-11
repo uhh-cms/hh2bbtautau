@@ -649,10 +649,7 @@ def remove_shift_parameters(model: default, keep: str | Sequence[str] | None = N
 
     # remove all parameters that require a shift source other than nominal and that are not kept
     for category_name, process_name, parameter in model.iter_parameters():
-        needs_shift = (
-            (parameter.type.is_shape and not parameter.transformations.any_from_rate) or
-            (parameter.type.is_rate and parameter.transformations.any_from_shape)
-        )
+        needs_shift = parameter.type.is_shape
         if needs_shift and not keep_fn(parameter.name):
             model.remove_parameter(parameter.name, process=process_name, category=category_name)
 
