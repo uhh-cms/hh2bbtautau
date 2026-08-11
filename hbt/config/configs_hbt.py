@@ -130,28 +130,27 @@ def add_config(
     ################################################################################################
 
     # add custom processes
-    if not sync_mode:
-        procs.add(
-            name="multiboson",
-            id=7996,
-            label="Multiboson",
-            processes=[procs.n.v, procs.n.vv, procs.n.vvv, procs.n.ttv, procs.n.ttvv],
-        )
+    procs.add(
+        name="multiboson",
+        id=7996,
+        label="Multiboson",
+        processes=[procs.n.vv, procs.n.vvv, procs.n.ttv, procs.n.ttvv],
+    )
 
-        procs.add(
-            name="ewk",
-            id=7996,
-            label="EWK",
-            processes=[procs.n.w_vbf, procs.n.z_vbf],
-        )
+    procs.add(
+        name="ewk",
+        id=7997,
+        label="EWK",
+        processes=[procs.n.w_vbf, procs.n.z_vbf],
+    )
 
-        # TODO: need better labelling
-        procs.add(
-            name="others",
-            id=7996,
-            label="Others",
-            processes=[procs.n.multiboson, procs.n.ewk],
-        )
+    # TODO: need better labelling
+    procs.add(
+        name="others",
+        id=7998,
+        label="Others",
+        processes=[procs.n.multiboson, procs.n.ewk],
+    )
 
     cfg.x.hh_points = DotDict.wrap({
         "ggf_keys": ["kl"],
@@ -184,7 +183,7 @@ def add_config(
         "tt",
         "dy",
         "st",
-        "w_lnu"
+        "w_lnu",
         "multiboson",
         "ewk",
         "qcd",
