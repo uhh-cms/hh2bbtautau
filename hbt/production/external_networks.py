@@ -58,8 +58,11 @@ class _external_dnn(Producer):
     # limited chunk size to avoid memory issues
     max_chunk_size: int = 10_000
 
-    # the empty value to insert to output columns in case of missing or broken values
-    empty_value: float = EMPTY_FLOAT
+    # empty value to insert into score output columns in case of missing or broken values
+    empty_score_value: float = EMPTY_FLOAT
+
+    # empty value to insert into feature output columns in case of missing or broken values
+    empty_column_value: float = EMPTY_FLOAT
 
     # optionally save input features
     produce_features: bool | None = None
@@ -215,8 +218,9 @@ class _external_dnn(Producer):
             # when the union of events with any nan-input is above a threshold, raise an exception, otherwise just warn
             # and amend the event mask
             invalid_mask = functools.reduce(operator.or_, invalid.values())
-            if invalid_mask.mean() >= 0.001:
+            if invalid_mask.sum() > 3 and invalid_mask.mean() >= 0.01:
                 raise Exception(msg)
+            task.logger.warning(f"{msg}\n  -> removing them from evaluation")
             event_mask[event_mask] = ~invalid_mask
             n_mask = ak.sum(event_mask)
 
@@ -260,11 +264,11 @@ class _external_dnn(Producer):
         # optionally store input features
         if self.produce_features:
             for name in cont:
-                values = self.empty_value * np.ones(len(events), dtype=np.float32)
+                values = self.empty_column_value * np.ones(len(events), dtype=np.float32)
                 values[event_mask] = ak.flatten(np.asarray(cont[name][..., None], dtype=np.float32))
                 events = set_ak_column_f32(events, f"{self.features_prefix}{self.cls_name}_{name}", values)
             for name in cat:
-                values = int(self.empty_value) * np.ones(len(events), dtype=np.int32)
+                values = int(self.empty_column_value) * np.ones(len(events), dtype=np.int32)
                 values[event_mask] = ak.flatten(np.asarray(cat[name][..., None], dtype=np.int32))
                 events = set_ak_column_i32(events, f"{self.features_prefix}{self.cls_name}_{name}", values)
 
@@ -455,15 +459,15 @@ class _external_dnn(Producer):
                     "happen, so please debug",
                 )
             # warn for the remainder of cases
-            logger.warning(f"{msg}; setting them to {self.empty_value}")
-            scores[nan_mask] = self.empty_value
+            logger.warning(f"{msg}; setting them to {self.empty_score_value}")
+            scores[nan_mask] = self.empty_score_value
 
         return scores
 
     def store_scores(self, events: ak.Array, scores: Any, event_mask: ak.Array) -> ak.Array:
         # prepare output columns with the shape of the original events and assign values into them
         for i, column in enumerate(self.output_columns):
-            values = self.empty_value * np.ones(len(events), dtype=np.float32)
+            values = self.empty_score_value * np.ones(len(events), dtype=np.float32)
             values[event_mask] = scores[:, i]
             events = set_ak_column_f32(events, column, values)
 
@@ -518,7 +522,7 @@ class _e2e_dnn(_external_dnn):
 
         # store latent scores
         for i, column in enumerate(self.latent_output_columns):
-            values = self.empty_value * np.ones(len(events), dtype=np.float32)
+            values = self.empty_score_value * np.ones(len(events), dtype=np.float32)
             values[event_mask] = latent_scores[:, i]
             events = set_ak_column_f32(events, column, values)
 

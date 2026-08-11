@@ -779,13 +779,6 @@ def add_variables(config: od.Config) -> None:
         )
 
         add_variable(
-            name=f"run3_dnn_simple_{proc}",
-            expression=f"run3_dnn_simple_{proc}",
-            binning=(25, 0.0, 1.0),
-            x_title=rf"DNN {proc.upper()} output",
-        )
-
-        add_variable(
             name=f"run3_dnn_moe_{proc}_fine",
             expression=f"run3_dnn_moe_{proc}",
             binning=np.linspace(0.0, 0.8, 801).tolist() + np.linspace(0.8, 1.0, 1001)[1:].tolist(),
@@ -827,6 +820,13 @@ def add_variables(config: od.Config) -> None:
             binning=(5000, 0.0, 1.0),
             x_title=rf"DNN {proc.upper()} output",
             aux={"x_transformations": "equal_distance_with_indices"},
+        )
+
+        add_variable(
+            name=f"run3_dnn_simple_{proc}",
+            expression=f"run3_dnn_simple_{proc}",
+            binning=(25, 0.0, 1.0),
+            x_title=rf"DNN {proc.upper()} output",
         )
 
         add_variable(
