@@ -427,7 +427,7 @@ def empty(
     # fake lepton selection results
     events = set_ak_column(events, "channel_id", np.zeros(len(events), dtype=np.uint8))
     events = set_ak_column(events, "leptons_os", np.zeros(len(events), dtype=bool))
-    events = set_ak_column(events, "tau2_isolated", np.zeros(len(events), dtype=bool))
+    events = set_ak_column(events, "num_taus_iso", -np.ones(len(events), dtype=np.int16))
     events = set_ak_column(events, "cross_triggered", np.zeros(len(events), dtype=bool))
     events = set_ak_column(events, "single_triggered", np.zeros(len(events), dtype=bool))
 
@@ -477,7 +477,7 @@ def empty_init(self: Selector, **kwargs) -> None:
 
     # add custom columns
     self.uses.add("Jet.phi")  # needed by vector behavior for accessing pt in btag_weights
-    self.produces |= {"channel_id", "leptons_os", "tau2_isolated", "{single,cross}_triggered"}
+    self.produces |= {"channel_id", "leptons_os", "num_taus_iso", "{single,cross}_triggered"}
 
 
 def increment_stats(

@@ -698,7 +698,7 @@ def quadjet_tau_trigger_matching(
         electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching, tau_selection,
         tau_trigger_matching,
         # new columns
-        "channel_id", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered", "matched_trigger_ids",
+        "channel_id", "leptons_os", "num_taus_iso", "single_triggered", "cross_triggered", "matched_trigger_ids",
     },
 )
 def lepton_selection(
@@ -760,7 +760,7 @@ def lepton_selection(
     # prepare vectors for output vectors
     false_mask = (abs(events.event) < 0)
     channel_id = np.uint8(1) * false_mask
-    tau2_isolated = false_mask
+    num_taus_iso = full_like(events.event, -1, dtype=np.int16)
     leptons_os = false_mask
     single_triggered = false_mask
     cross_triggered = false_mask
@@ -931,10 +931,9 @@ def lepton_selection(
             e_charge = ak.firsts(events.Electron[trig_electron_mask].charge, axis=1)
             tau_charge = ak.firsts(sorted_sel_taus.charge, axis=1)
             is_os = e_charge == -tau_charge
-            is_iso = ak.sum(tau_iso_mask[trig_tau_mask], axis=1) >= 1
             # store global variables
             channel_id = update_channel_ids(events, channel_id, ch_etau.id, is_etau)
-            tau2_isolated = ak.where(is_etau, is_iso, tau2_isolated)
+            num_taus_iso = ak.where(is_etau, ak.sum(tau_iso_mask[trig_tau_mask], axis=1), num_taus_iso)
             leptons_os = ak.where(is_etau, is_os, leptons_os)
             single_triggered = ak.where(is_etau & is_single, True, single_triggered)
             cross_triggered = ak.where(is_etau & is_cross, True, cross_triggered)
@@ -1037,10 +1036,9 @@ def lepton_selection(
             mu_charge = ak.firsts(events.Muon[trig_muon_mask].charge, axis=1)
             tau_charge = ak.firsts(sorted_sel_taus.charge, axis=1)
             is_os = mu_charge == -tau_charge
-            is_iso = ak.sum(tau_iso_mask[trig_tau_mask], axis=1) >= 1
             # store global variables
             channel_id = update_channel_ids(events, channel_id, ch_mutau.id, is_mutau)
-            tau2_isolated = ak.where(is_mutau, is_iso, tau2_isolated)
+            num_taus_iso = ak.where(is_mutau, ak.sum(tau_iso_mask[trig_tau_mask], axis=1), num_taus_iso)
             leptons_os = ak.where(is_mutau, is_os, leptons_os)
             single_triggered = ak.where(is_mutau & is_single, True, single_triggered)
             cross_triggered = ak.where(is_mutau & is_cross, True, cross_triggered)
@@ -1169,10 +1167,9 @@ def lepton_selection(
             tau1_charge = ak.firsts(sorted_sel_taus.charge, axis=1)
             tau2_charge = ak.firsts(sorted_sel_taus.charge[:, 1:], axis=1)
             is_os = tau1_charge == -tau2_charge
-            is_iso = ak.sum(tau_iso_mask[trig_tau_mask], axis=1) >= 2
             # store global variables
             channel_id = update_channel_ids(events, channel_id, ch_tautau.id, is_tautau)
-            tau2_isolated = ak.where(is_tautau, is_iso, tau2_isolated)
+            num_taus_iso = ak.where(is_tautau, ak.sum(tau_iso_mask[trig_tau_mask], axis=1), num_taus_iso)
             leptons_os = ak.where(is_tautau, is_os, leptons_os)
             single_triggered = ak.where(is_tautau & is_single, True, single_triggered)
             cross_triggered = ak.where(is_tautau & is_cross, True, cross_triggered)
@@ -1438,7 +1435,7 @@ def lepton_selection(
     # save new columns
     events = set_ak_column(events, "channel_id", channel_id)
     events = set_ak_column(events, "leptons_os", leptons_os)
-    events = set_ak_column(events, "tau2_isolated", tau2_isolated)
+    events = set_ak_column(events, "num_taus_iso", num_taus_iso, value_type=np.int16)
     events = set_ak_column(events, "single_triggered", single_triggered)
     events = set_ak_column(events, "cross_triggered", cross_triggered)
     events = set_ak_column(events, "matched_trigger_ids", matched_trigger_ids)

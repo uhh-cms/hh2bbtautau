@@ -2253,7 +2253,7 @@ def add_config(
             # columns for typical dnn training
             "dnn": {
                 ColumnCollection.MANDATORY_COFFEA,
-                "tau2_isolated", "leptons_os", "process_id", "channel_id", "*_weight*",
+                "num_taus_iso", "leptons_os", "process_id", "channel_id", "*_weight*",
                 "Electron.{eta,phi,pt,mass,charge}",
                 "Muon.{eta,phi,pt,mass,charge}",
                 "Tau.{eta,phi,pt,mass,charge,decayMode}",

@@ -193,7 +193,7 @@ def stylize_processes(config: od.Config) -> None:
         p.color1 = cfg.x.colors.grey
 
     if (p := config.get_process("w_lnu", default=None)):
-        p.color1 = cfg.x.colors.olive
+        p.color1 = cfg.x.colors.orange
         p.label = "W + Jets"
 
     if (p := config.get_process("z", default=None)):
