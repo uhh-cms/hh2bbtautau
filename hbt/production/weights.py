@@ -41,8 +41,8 @@ class stitched_normalization_weights_dy_tautau_drop(stitched_normalization_weigh
         self,
         dataset_selection_stats: dict[str, dict[str, float | dict[str, float]]],
     ) -> dict[str, dict[str, float]]:
-        # this only applies to dy datasets with the dy_lep_amcatnlo tag
-        if not self.dataset_inst.has_tag("dy_lep_amcatnlo"):
+        # do nothing in case no datasets in the selection stats have the dy_drop_tautau tag
+        if not any(self.config_inst.get_dataset(d).has_tag("dy_drop_tautau") for d in dataset_selection_stats):
             return dataset_selection_stats
 
         # start from a copy
