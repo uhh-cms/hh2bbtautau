@@ -84,16 +84,20 @@ def cat_ss(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
     return events, events.leptons_os == 0
 
 
-@categorizer(uses={"tau2_isolated"})
+@categorizer(uses={"num_taus_iso", "channel_id"})
 def cat_iso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # isolated tau2
-    return events, events.tau2_isolated == 1
+    # isolated region should contain exactly 1 iso taus in etau/mutau
+    # isolated region should contain exactly 2 iso taus in tautau
+    ch_tautau = self.config_inst.channels.n.tautau
+    return events, events.num_taus_iso >= ak.where(events.channel_id == ch_tautau.id, 2, 1)
 
 
-@categorizer(uses={"tau2_isolated"})
+@categorizer(uses={"num_taus_iso", "channel_id"})
 def cat_noniso(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # noon-isolated tau2
-    return events, events.tau2_isolated == 0
+    # non-isolated region should contain exactly 0 iso taus in etau/mutau
+    # non-isolated region should contain exactly 1 iso tau for tautau channel
+    ch_tautau = self.config_inst.channels.n.tautau
+    return events, events.num_taus_iso == ak.where(events.channel_id == ch_tautau.id, 1, 0)
 
 
 #
