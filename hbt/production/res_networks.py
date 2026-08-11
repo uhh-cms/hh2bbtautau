@@ -63,6 +63,10 @@ class _res_dnn_evaluation(Producer):
     # which type of btagging variables to use
     btag_type: BTagType = "deepjet"
 
+    # whether the input should be fully canonicalized besides dilep phi rotation
+    # (px, py and pz flips)
+    canonicalize: bool = False
+
     # whether the model is parametrized in mass, spin and year
     # (this is a slight forward declaration but simplifies the code reasonably well in our use case)
     parametrized: bool | None = None
@@ -450,6 +454,21 @@ class _res_dnn_evaluation(Producer):
         # fatjet variables
         cont.fatjet_px, cont.fatjet_py = rot(fatjet.px, fatjet.py)
         cont.fatjet_pz, cont.fatjet_e = fatjet.pz, fatjet.energy
+
+        # canonicalize
+        if self.canonicalize:
+            objs = ["met", "vis_tau1", "vis_tau2", "bjet1", "bjet2", "fatjet"]
+            # 1. force dilep eta to be positive: mirror particles on x-y plane, changing pz
+            flip_mask = (cont.vis_tau1_pz + cont.vis_tau2_pz) < 0
+            for obj in objs:
+                if obj != "met":
+                    pz = cont[f"{obj}_pz"]
+                    cont[f"{obj}_pz"] = np.where(flip_mask, -pz, pz)
+            # 2. force leading visible lepton to be positive in py, mirror particles on x-z plane, changing py
+            flip_mask = cont.vis_tau1_py < 0
+            for obj in objs:
+                py = cont[f"{obj}_py"]
+                cont[f"{obj}_py"] = np.where(flip_mask, -py, py)
 
         # mask values of various fields as done during training of the network
         def mask_fields(mask, value, *fields):
