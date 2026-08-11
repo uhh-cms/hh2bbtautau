@@ -374,7 +374,7 @@ class CreateSyncFiles(
                 # high-level events variables
                 "channel_id": events.channel_id,
                 "os": events.leptons_os * 1,
-                "iso": events.tau2_isolated * 1,
+                "iso": events.num_taus_iso >= ak.where(events.channel_id == self.config_inst.channels.n.tautau.id, 2, 1),
                 "category_id": category_id,
                 "deterministic_seed": uint64_to_str(events.deterministic_seed),
                 # jets
