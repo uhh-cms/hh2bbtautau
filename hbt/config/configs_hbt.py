@@ -231,14 +231,13 @@ def add_config(
     dataset_names = [
         # hh ggf
         *law.util.flatten(
-            law.util.brace_expand(f"hh_ggf_hbb_h{{tt,vv,vv2l2nu}}_kl{kl}_kt1_powheg")
+            law.util.brace_expand(f"hh_ggf_hbb_h{{tt,vv,vv2l2nu,vvqqlnu}}_kl{kl}_kt1_powheg")
             for kl, in cfg.x.hh_points.ggf
         ),
 
-
         # hh vbf
         *law.util.flatten(
-            law.util.brace_expand(f"hh_vbf_hbb_h{{tt,vv,vv2l2nu}}_kv{kv}_k2v{k2v}_kl{kl}_madgraph")
+            law.util.brace_expand(f"hh_vbf_hbb_h{{tt,vv,vv2l2nu,vvqqlnu}}_kv{kv}_k2v{k2v}_kl{kl}_madgraph")
             for kv, k2v, kl in cfg.x.hh_points.vbf
         ),
 
@@ -270,40 +269,31 @@ def add_config(
 
         # tt + v
         "ttw_wlnu_amcatnlo",
-        *if_not_era(year=2024, values=[
-            "ttz_zqq_amcatnlo",  # TODO: 2024: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=TTZ-ZtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8&campaign=*2024Summer24* # noqa
-        ]),
+        "ttz_zqq_amcatnlo",
         "ttz_zll_m4to50_amcatnlo",
         "ttz_zll_m50toinf_amcatnlo",
 
         # tt + vv
         "ttww_madgraph",
-        *if_not_era(year=2022, tag="preEE", values=[
-            "ttwz_madgraph",  # not available in 22pre
-        ]),
+        "ttwz_madgraph",
         "ttzz_madgraph",
 
         # dy, amcatnlo
-        # "dy_m4to10_amcatnlo",  # affected by the pythia bug in 22+23, no replacement planned, also not for 2024
-        *if_not_era(year=2024, values=[  # lepton inclusive samples were not produced for 2024
+        *if_not_era(year=2024, values=[
+            # "dy_m4to10_amcatnlo",  # affected by the pythia bug, no replacement
             "dy_m10to50_amcatnlo",
             "dy_m50toinf_amcatnlo",
             "dy_m50toinf_0j_amcatnlo",
             "dy_m50toinf_1j_amcatnlo",
             "dy_m50toinf_2j_amcatnlo",
-            "dy_m50toinf_1j_pt40to100_amcatnlo",
-            "dy_m50toinf_1j_pt100to200_amcatnlo",
-            "dy_m50toinf_1j_pt200to400_amcatnlo",
-            "dy_m50toinf_1j_pt400to600_amcatnlo",
-            "dy_m50toinf_1j_pt600toinf_amcatnlo",
-            "dy_m50toinf_2j_pt40to100_amcatnlo",
-            "dy_m50toinf_2j_pt100to200_amcatnlo",
-            "dy_m50toinf_2j_pt200to400_amcatnlo",
-            "dy_m50toinf_2j_pt400to600_amcatnlo",
-            "dy_m50toinf_2j_pt600toinf_amcatnlo",
+            "dy_tautau_m50toinf_0j_amcatnlo",
+            "dy_tautau_m50toinf_1j_amcatnlo",
+            "dy_tautau_m50toinf_2j_amcatnlo",
+            "dy_tautau_m50toinf_0j_filtered_amcatnlo",
+            "dy_tautau_m50toinf_1j_filtered_amcatnlo",
+            "dy_tautau_m50toinf_2j_filtered_amcatnlo",
         ]),
-        # specific lepton enriched datasets, with pythia bug fix
-        *if_era(year=2024, values=[  # were not produced for 2022/23
+        *if_era(year=2024, values=[
             "dy_ee_m50toinf_amcatnlo",
             "dy_ee_m50toinf_0j_amcatnlo",
             "dy_ee_m50toinf_1j_amcatnlo",
@@ -313,17 +303,11 @@ def add_config(
             "dy_mumu_m50toinf_1j_amcatnlo",
             "dy_mumu_m50toinf_2j_amcatnlo",
             "dy_tautau_m50toinf_amcatnlo",
-        ]),
-        "dy_tautau_m50toinf_0j_amcatnlo",
-        "dy_tautau_m50toinf_1j_amcatnlo",
-        "dy_tautau_m50toinf_2j_amcatnlo",
-
-        # additionally filtered datasets for 2022/2023 disabled for now
-        # 2024 status not ready: https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=*DYto2Tau*&campaign=RunIII2024Summer24*GS # noqa: E501
-        *if_not_era(year=2024, values=[
-            "dy_tautau_m50toinf_0j_filtered_amcatnlo",
-            "dy_tautau_m50toinf_1j_filtered_amcatnlo",
-            "dy_tautau_m50toinf_2j_filtered_amcatnlo",
+            "dy_tautau_m50toinf_0j_amcatnlo",
+            "dy_tautau_m50toinf_1j_amcatnlo",
+            "dy_tautau_m50toinf_2j_amcatnlo",
+            # TODO: 2024: additional tautau kin filtered samples not ready yet
+            # https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=*DYto2Tau*&campaign=RunIII2024Summer24*GS # noqa: E501
         ]),
 
         # dy, powheg
@@ -484,8 +468,9 @@ def add_config(
             elif dataset.name.endswith("_powheg"):
                 dataset.add_tag("dy_powheg")
             # check if tautau events should be dropped due to the pythia bug in 2022/23 (done in the default selector)
-            if year in {2022, 2023} and re.match(r"^dy_m50toinf_.+$", dataset.name):
-                dataset.add_tag("dy_drop_tautau")
+            # note: samples were updated, dropping tautau events no longer necessary
+            # if year in {2022, 2023} and re.match(r"^dy_m50toinf_.+$", dataset.name):
+            #     dataset.add_tag("dy_drop_tautau")
             # the following block assigns tags necessary for year-dependent stitiching
             is_dy_inclusive = False
             if year in {2022, 2023}:
@@ -652,15 +637,6 @@ def add_config(
             "h",
             "qcd",
         ]),
-        "dy_split": [
-            "dy_m10to50",
-            "dy_m50toinf_0j",
-            "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
-            "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
-            "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
-            "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
-            "dy_m50toinf_ge3j",
-        ],
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
         "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
         "sm_ggf_data": ["data"] + sm_ggf_group,
@@ -689,14 +665,8 @@ def add_config(
                 "m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                     "leaf_processes": [
-                        # the following processes cover the full njet and pt phasespace per lepton channel
-                        *expand_lep("m50toinf_0j"),
-                        *expand_lep([
-                            f"m50toinf_{nj}j_pt{pt}"
-                            for nj in [1, 2]
-                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                        ]),
-                        *expand_lep("m50toinf_ge3j"),
+                        # the following processes cover the full njet phasespace per lepton channel
+                        *expand_lep(["m50toinf_0j", "m50toinf_1j", "m50toinf_2j", "m50toinf_ge3j"]),
                     ],
                 },
             }
@@ -705,13 +675,8 @@ def add_config(
                 "m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                     "leaf_processes": [
-                        # the following processes cover the full njet and pt phasespace per lepton channel
-                        *expand_lep_taufilter("m50toinf_0j"),
-                        *expand_lep_taufilter([
-                            f"m50toinf_{nj}j_pt{pt}"
-                            for nj in [1, 2]
-                            for pt in ["0to40", "40to100", "100to200", "200to400", "400to600", "600toinf"]
-                        ]),
+                        # the following processes cover the full njet - filtered phasespace per lepton channel
+                        *expand_lep_taufilter(["m50toinf_0j", "m50toinf_1j", "m50toinf_2j"]),
                         *expand_lep("m50toinf_ge3j"),
                     ],
                 },
