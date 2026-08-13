@@ -23,7 +23,7 @@ from columnflow.config_util import (
 )
 from columnflow.columnar_util import ColumnCollection, skip_column
 from columnflow.cms_util import CATInfo, CATSnapshot, CMSDatasetInfo
-from columnflow.types import Callable
+from columnflow.types import Callable, Sequence
 
 from hbt import env_is_cern, force_desy_resources
 
@@ -495,7 +495,7 @@ def add_config(
             if not is_dy_inclusive:
                 dataset.add_tag("dy_stitched")
             # bypass dy stitching for datasets that contain only a single leaf process
-            if re.match(r"^dy_tautau_m50toinf_0j_filtered_amcatnlo$", dataset.name):
+            if re.match(r"^dy_tautau_m50toinf_(0|1|2)j_filtered_amcatnlo$", dataset.name):
                 dataset.add_tag("bypass_subprocess_stitching")
         # w_lnu
         if dataset.name.startswith("w_lnu_"):
@@ -649,24 +649,24 @@ def add_config(
     if run == 3 and not sync_mode:
         # drell-yan, amcatnlo, using fully inclusive dataset
         if year in {2022, 2023} and "dy_m50toinf_amcatnlo" in cfg.datasets:
-            def expand_lep(names, taufilter=False):
+            def expand_lep(names: str | Sequence[str], taufilter: bool = False) -> list[od.Process]:
                 names = law.util.make_list(names)
-                leps = ["ee", "mumu"]
-                if not taufilter:
-                    leps.append("tautau")
-                # add plain names for ee/mumu
-                full_names = [procs.get(f"dy_{ll}_{n}") for ll in leps for n in names]
-                # add filtered/non-filtered names for tautau
+                leps = ["ee", "mumu", *([] if taufilter else ["tautau"])]
+                # add plain processes
+                procs = [cfg.get_process(f"dy_{ll}_{n}") for ll in leps for n in names]
+                # add filtered/non-filtered processes for tautau
                 if taufilter:
                     flags = ["filtered", "nonfiltered"]
-                    full_names += [procs.get(f"dy_tautau_{n}_{f}") for n in names for f in flags]
-                return full_names
+                    procs += [cfg.get_process(f"dy_tautau_{n}_{f}") for n in names for f in flags]
+                return procs
             cfg.x.dy_lep_amcatnlo_2223_stitching = {
                 "m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                     "leaf_processes": [
-                        # the following processes cover the full njet phasespace per lepton channel
-                        *expand_lep(["m50toinf_0j", "m50toinf_1j", "m50toinf_2j", "m50toinf_ge3j"]),
+                        # there are tautau datasets with 0-2 jets, so expand those to all lepton channels
+                        *expand_lep(["m50toinf_0j", "m50toinf_1j", "m50toinf_2j"]),
+                        # add ge3j for edge cases
+                        cfg.get_process("dy_m50toinf_ge3j"),
                     ],
                 },
             }
@@ -675,47 +675,30 @@ def add_config(
                 "m50toinf": {
                     "inclusive_dataset": cfg.datasets.n.dy_m50toinf_amcatnlo,
                     "leaf_processes": [
-                        # the following processes cover the full njet - filtered phasespace per lepton channel
+                        # there are tautau datasets with 0-2 jets, so expand those to all lepton channels and filters
                         *expand_lep_taufilter(["m50toinf_0j", "m50toinf_1j", "m50toinf_2j"]),
-                        *expand_lep("m50toinf_ge3j"),
+                        # add ge3j for edge cases
+                        cfg.get_process("dy_m50toinf_ge3j"),
                     ],
                 },
             }
 
         # drell-yan, amcatnlo, for lepton-based inclusive datasets in 2024
         if year == 2024:
-            for channel in ["tautau", "ee", "mumu"]:
-                if f"dy_{channel}_m50toinf_amcatnlo" in cfg.datasets:
-                    cfg.set_aux(f"dy_{channel}_amcatnlo_24_stitching", {
+            for ll in ["ee", "mumu", "tautau"]:
+                if f"dy_{ll}_m50toinf_amcatnlo" in cfg.datasets:
+                    cfg.set_aux(f"dy_{ll}_amcatnlo_24_stitching", {
                         "m50toinf": {
-                            "inclusive_dataset": cfg.get_dataset(f"dy_{channel}_m50toinf_amcatnlo"),
+                            "inclusive_dataset": cfg.get_dataset(f"dy_{ll}_m50toinf_amcatnlo"),
                             "leaf_processes": [
                                 # the following processes cover the full njet phasespace
-                                cfg.get_process(f"dy_{channel}_m50toinf_0j"),
-                                cfg.get_process(f"dy_{channel}_m50toinf_1j"),
-                                cfg.get_process(f"dy_{channel}_m50toinf_2j"),
-                                cfg.get_process(f"dy_{channel}_m50toinf_ge3j"),
+                                cfg.get_process(f"dy_{ll}_m50toinf_0j"),
+                                cfg.get_process(f"dy_{ll}_m50toinf_1j"),
+                                cfg.get_process(f"dy_{ll}_m50toinf_2j"),
+                                cfg.get_process(f"dy_{ll}_m50toinf_ge3j"),
                             ],
                         },
                     })
-
-        # drell-yan, powheg
-        if year == 2022 and "dy_ee_m50toinf_powheg" in cfg.datasets:
-            cfg.x.dy_powheg_2223_stitching = {
-                "ee_m50toinf": {
-                    "inclusive_dataset": cfg.datasets.n.dy_ee_m50toinf_powheg,
-                    "leaf_processes": [
-                        # the following processes cover the full inv mass phasespace
-                        *(
-                            cfg.get_process(f"dy_ee_m{mass}")
-                            for mass in [
-                                "50to120", "120to200", "200to400", "400to800", "800to1500", "1500to2500", "2500to4000",
-                                "4000to6000", "6000toinf",
-                            ]
-                        ),
-                    ],
-                },
-            }
 
         # w + jets
         # TODO: 2024: w+jets stitching not needed? do we have all datasets?
@@ -2070,8 +2053,12 @@ def add_config(
         add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        dy_weight_version = 4 if year == 2024 else 4  # 2024 not yet available in new v5
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
+        # test: reprocessed version for 23post only
+        if year == 2023 and campaign.x.postfix == "BPix":
+            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_23post_prod28.json.gz", "v1"))  # noqa: E501
+        else:
+            dy_weight_version = 4 if year == 2024 else 5  # 2024 not yet available in new v5
+            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
