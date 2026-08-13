@@ -307,6 +307,16 @@ def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarra
     return np.log((x + eps) / (1 - x + eps))
 
 
+def delta_phi12(v1:ak.Array ,v2: ak.Array) -> ak.Array:
+    # delta phi between vector and met
+    dphi = v1.phi - v2.phi
+    dphi = ak.where(dphi > np.pi,  dphi - 2*np.pi, dphi)
+    dphi = ak.where(dphi < -np.pi, dphi + 2*np.pi, dphi)
+    return dphi
+def mT(lep: ak.Array, met: ak.Array) -> ak.Array:
+    # transverse mass between vector and met
+    return (2 * lep.pt * met.pt * (1 - np.cos(delta_phi12(lep,met)))).to_numpy() ** 0.5
+    
 _uppercase_wps = {
     "vvvvloose": "VVVVLoose",
     "vvvloose": "VVVLoose",
