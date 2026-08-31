@@ -2057,7 +2057,7 @@ def add_config(
         if year == 2023 and campaign.x.postfix == "BPix":
             add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_23post_prod28.json.gz", "v1"))  # noqa: E501
         else:
-            dy_weight_version = 4 if year == 2024 else 5  # 2024 not yet available in new v5
+            dy_weight_version = 4 if year == 2024 else 4  # 2024 not yet available in new v5
             add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
