@@ -307,7 +307,7 @@ def add_config(
             "dy_tautau_m50toinf_1j_amcatnlo",
             "dy_tautau_m50toinf_2j_amcatnlo",
             # TODO: 2024: additional tautau kin filtered samples not ready yet
-            # https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=*DYto2Tau*&campaign=RunIII2024Summer24*GS # noqa: E501
+            # https://cms-pdmv-prod.web.cern.ch/grasp/samples?dataset_query=*DYto2Tau*Fil-Tau*&campaign=RunIII2024Summer24*GS # noqa: E501
         ]),
 
         # dy, powheg
