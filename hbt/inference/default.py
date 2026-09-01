@@ -668,6 +668,12 @@ def default_shape_test(self) -> None:
     self.init_cleanup()
 
 
+default_shape_test_jet1_pt = default_shape_test.derive(
+    "default_shape_test_jet1_pt",
+    cls_dict={"variable": "jet1_pt"},
+)
+
+
 default_no_shifts_jet1_pt = default_no_shifts.derive(
     "default_no_shifts_jet1_pt",
     cls_dict={"variable": "jet1_pt"},
