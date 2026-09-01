@@ -120,7 +120,7 @@ class HBTInferenceModel(HBTInferenceModelBase):
     # process tag that identifies signal processes
     signal_process_tag = "signal"
 
-    # filling of bins with yield <= 0 (setting this to 0 disables empty bin filling)
+    # filling of background bins with yield <= 0 (setting this to 0 disables empty bin filling)
     empty_bin_value = 1.0e-5
 
     # threshold for autoMCStats
@@ -177,7 +177,7 @@ class HBTInferenceModel(HBTInferenceModelBase):
                 },
                 data_from_processes=fake_processes,
                 mc_stats=self.auto_mc_stats_threshold,
-                empty_bin_value=self.empty_bin_value,
+                empty_bin_value=0.0,
                 flow_strategy=FlowStrategy.move,
             )
 
@@ -211,8 +211,9 @@ class HBTInferenceModel(HBTInferenceModelBase):
                             mc_datasets=dataset_names,
                         ),
                     },
-                    is_signal=proc_inst.has_tag(self.signal_process_tag),
+                    is_signal=(is_signal := proc_inst.has_tag(self.signal_process_tag)),
                     is_dynamic=is_dynamic,
+                    empty_bin_value=0.0 if is_signal else self.empty_bin_value,
                 )
 
                 # store whether there is at least one dataset contributing to this process with lhe weights
