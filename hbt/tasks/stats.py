@@ -558,7 +558,7 @@ class ListTriggers(HBTTask, ConfigTask, law.tasks.RunOnceTask):
             # encoded application to datasets function
             applies_to_str = bright("Always")
             if trigger_inst.applies_to_dataset is not None:
-                if trigger_inst.applies_to_dataset_repr:
+                if isinstance(trigger_inst.applies_to_dataset_repr, str):
                     applies_parts = trigger_inst.applies_to_dataset_repr.split(" | ")
                     applies_to_str = f" {bright('or')}\n".join(map(green, applies_parts))
                 else:

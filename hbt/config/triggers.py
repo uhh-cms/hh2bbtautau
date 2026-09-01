@@ -1682,111 +1682,97 @@ def add_triggers_2023(config: od.Config) -> None:
         tags={"cross_trigger", "cross_mu_vbf"},
     )
 
-    config.x.triggers.add(
-        name="HLT_VBF_DiPFJet45_Mjj500_Detajj2p5_Ele12_eta2p1_WPTight_Gsf",
-        id=607,
-        legs=dict(
-            vbf1=TriggerLeg(
-                pdg_id=1,
-                # min_pt=None,  # cut on reco objects, not TrigObj
-                # filter names:
-                # hltOverlapFilterDoublePFJet45Ele12
-                trigger_bits=get_bit_sum_v("jet", [
-                    "VBFele" if nano_trigger_bit_version == 15 else None,
-                ]),
+    if campaign_postfix == "preBPix":
+        config.x.triggers.add(
+            name="HLT_VBF_DiPFJet45_Mjj500_Detajj2p5_Ele12_eta2p1_WPTight_Gsf",
+            id=607,
+            legs=dict(
+                vbf1=TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=None,  # cut on reco objects, not TrigObj
+                    # filter names:
+                    # hltOverlapFilterDoublePFJet45Ele12
+                    trigger_bits=get_bit_sum_v("jet", [
+                        "VBFele" if nano_trigger_bit_version == 15 else None,
+                    ]),
+                ),
+                vbf2=TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=None,  # cut on reco objects, not TrigObj
+                    # filter names:
+                    # hltOverlapFilterDoublePFJet45Ele12
+                    trigger_bits=get_bit_sum_v("jet", [
+                        "VBFele" if nano_trigger_bit_version == 15 else None,
+                    ]),
+                ),
+                e=TriggerLeg(
+                    pdg_id=11,
+                    # min_pt=None,  # cut on reco objects, not TrigObj
+                    # filter names:
+                    # hltEle12erWPTightGsfTrackIsoFilterNoRhoCorrectionForVBF
+                    trigger_bits=get_bit_sum_v("e", [
+                        "VBFWPTightGsfTrackIso" if nano_trigger_bit_version == 15 else None,
+                    ]),
+                ),
             ),
-            vbf2=TriggerLeg(
-                pdg_id=1,
-                # min_pt=None,  # cut on reco objects, not TrigObj
-                # filter names:
-                # hltOverlapFilterDoublePFJet45Ele12
-                trigger_bits=get_bit_sum_v("jet", [
-                    "VBFele" if nano_trigger_bit_version == 15 else None,
-                ]),
-            ),
-            e=TriggerLeg(
-                pdg_id=11,
-                # min_pt=None,  # cut on reco objects, not TrigObj
-                # filter names:
-                # hltEle12erWPTightGsfTrackIsoFilterNoRhoCorrectionForVBF
-                trigger_bits=get_bit_sum_v("e", [
-                    "VBFWPTightGsfTrackIso" if nano_trigger_bit_version == 15 else None,
-                ]),
-            ),
-        ),
-        aux={
-            "offline_cuts": {
-                "pt_jet1": 45.0,
-                "pt_jet2": 45.0,
-                "mjj": 500.0,
-                "delta_eta_jj": 2.5,
+            aux={
+                "offline_cuts": {
+                    "pt_jet1": 45.0,
+                    "pt_jet2": 45.0,
+                    "mjj": 500.0,
+                    "delta_eta_jj": 2.5,
+                },
             },
-        },
-        applies_to_dataset=(
-            (lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf"))
-            if campaign_postfix == "preBPix"
-            else None
-        ),
-        applies_to_dataset_repr=(
-            r"mc | data@{parking_vbf}"
-            if campaign_postfix == "preBPix"
-            else None
-        ),
-        tags={"cross_trigger", "cross_e_vbf"},
-    )
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
+            applies_to_dataset_repr=r"mc | data@{parking_vbf}",
+            tags={"cross_trigger", "cross_e_vbf"},
+        )
 
-    config.x.triggers.add(
-        name="HLT_VBF_DiPFJet45_Mjj500_Detajj2p5_Ele17_eta2p1_WPTight_Gsf",
-        id=608,
-        legs=dict(
-            vbf1=TriggerLeg(
-                pdg_id=1,
-                # min_pt=None,  # cut on reco objects, not TrigObj
-                # filter names:
-                # hltOverlapFilterDoublePFJet45Ele17
-                trigger_bits=get_bit_sum_v("jet", [
-                    "VBFele" if nano_trigger_bit_version == 15 else None,
-                ]),
+    if campaign_postfix == "postBPix":
+        config.x.triggers.add(
+            name="HLT_VBF_DiPFJet45_Mjj500_Detajj2p5_Ele17_eta2p1_WPTight_Gsf",
+            id=608,
+            legs=dict(
+                vbf1=TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=None,  # cut on reco objects, not TrigObj
+                    # filter names:
+                    # hltOverlapFilterDoublePFJet45Ele17
+                    trigger_bits=get_bit_sum_v("jet", [
+                        "VBFele" if nano_trigger_bit_version == 15 else None,
+                    ]),
+                ),
+                vbf2=TriggerLeg(
+                    pdg_id=1,
+                    # min_pt=None,  # cut on reco objects, not TrigObj
+                    # filter names:
+                    # hltOverlapFilterDoublePFJet45Ele17
+                    trigger_bits=get_bit_sum_v("jet", [
+                        "VBFele" if nano_trigger_bit_version == 15 else None,
+                    ]),
+                ),
+                e=TriggerLeg(
+                    pdg_id=11,
+                    # min_pt=None,  # cut on reco objects, not TrigObj
+                    # filter names:
+                    # hltEle17erWPTightGsfTrackIsoFilterNoRhoCorrectionForVBF
+                    trigger_bits=get_bit_sum_v("e", [
+                        "VBFWPTightGsfTrackIso" if nano_trigger_bit_version == 15 else None,
+                    ]),
+                ),
             ),
-            vbf2=TriggerLeg(
-                pdg_id=1,
-                # min_pt=None,  # cut on reco objects, not TrigObj
-                # filter names:
-                # hltOverlapFilterDoublePFJet45Ele17
-                trigger_bits=get_bit_sum_v("jet", [
-                    "VBFele" if nano_trigger_bit_version == 15 else None,
-                ]),
-            ),
-            e=TriggerLeg(
-                pdg_id=11,
-                # min_pt=None,  # cut on reco objects, not TrigObj
-                # filter names:
-                # hltEle17erWPTightGsfTrackIsoFilterNoRhoCorrectionForVBF
-                trigger_bits=get_bit_sum_v("e", [
-                    "VBFWPTightGsfTrackIso" if nano_trigger_bit_version == 15 else None,
-                ]),
-            ),
-        ),
-        aux={
-            "offline_cuts": {
-                "pt_jet1": 45.0,
-                "pt_jet2": 45.0,
-                "mjj": 500.0,
-                "delta_eta_jj": 2.5,
+            aux={
+                "offline_cuts": {
+                    "pt_jet1": 45.0,
+                    "pt_jet2": 45.0,
+                    "mjj": 500.0,
+                    "delta_eta_jj": 2.5,
+                },
             },
-        },
-        applies_to_dataset=(
-            (lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf"))
-            if campaign_postfix == "postBPix"
-            else None
-        ),
-        applies_to_dataset_repr=(
-            r"mc | data@{parking_vbf}"
-            if campaign_postfix == "postBPix"
-            else None
-        ),
-        tags={"cross_trigger", "cross_e_vbf"},
-    )
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("parking_vbf")),
+            applies_to_dataset_repr=r"mc | data@{parking_vbf}",
+            tags={"cross_trigger", "cross_e_vbf"},
+        )
 
     config.x.triggers.add(
         name="HLT_VBF_DiPFJet45_Mjj500_Detajj2p5_MediumDeepTauPFTauHPS45_L2NN_eta2p1",
