@@ -309,8 +309,8 @@ no_stitching = default.derive("no_stitching")
 
 
 @no_stitching.init
-def no_stitching_init(self: HistProducer) -> None:
-    super(no_stitching, self).init_func()
+def no_stitching_init(self: HistProducer, **kwargs) -> None:
+    super(no_stitching, self).init_func(**kwargs)
 
     if self.dataset_inst.is_data:
         return
