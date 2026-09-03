@@ -75,6 +75,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         sum_leaves_first: bool = True,
         # strategy for shape transfer
         shape_transfer: Literal["from_os_noniso", "from_ss_iso"] = "from_os_noniso",
+        second_axis_name: str = "shift",  # NEW: "shift" for regular plots, "step" for cutflow
+
         **kwargs,
     ) -> dict[od.Process, Any]:
         import numpy as np
@@ -99,13 +101,14 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
         # extract all unique category names and verify that the axis order is exactly
         # "category -> shift -> variable" which is needed to insert values at the end
-        CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
+        CAT_AXIS, SECOND_AXIS, VAR_AXIS = range(3)
         category_names = set()
+        
         for proc, h in hists.items():
             # validate axes
             assert len(h.axes) == 3
             assert h.axes[CAT_AXIS].name == "category"
-            assert h.axes[SHIFT_AXIS].name == "shift"
+            assert h.axes[SECOND_AXIS].name == second_axis_name
             # get the category axis
             cat_ax = h.axes["category"]
             category_names.update(list(cat_ax))
@@ -215,7 +218,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
 
             # data will always have a single shift whereas mc might have multiple,
             # broadcast numbers in-place manually if necessary
-            if (n_shifts := mc_hist.axes["shift"].size) > 1:
+            if second_axis_name == "shift" and (n_shifts := mc_hist.axes["shift"].size) > 1:
                 def broadcast_data_num(num: sn.Number) -> None:
                     num._nominal = np.repeat(num.nominal, n_shifts, axis=0)
                     for name, (unc_up, unc_down) in num._uncertainties.items():
@@ -348,6 +351,7 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     analysis_inst.x.hist_hooks.qcd = qcd_estimation
     analysis_inst.x.hist_hooks.qcd_zerofill = functools.partial(qcd_estimation, empty_bin_value=1e-5)
     analysis_inst.x.hist_hooks.qcd_from_ss_iso = functools.partial(qcd_estimation, shape_transfer="from_ss_iso")
+    analysis_inst.x.hist_hooks.qcd_cutflow = functools.partial(qcd_estimation, second_axis_name="step")
     analysis_inst.x.hist_hooks.qcd_raw = functools.partial(
         qcd_estimation,
         fill_empty_negative_norms=False,
