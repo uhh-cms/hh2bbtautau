@@ -517,6 +517,9 @@ def add_config(
         if law.util.multi_match(dataset.name, [r"^(ww|wz|zz)_.*pythia$"]):
             dataset.add_tag("no_lhe_weights")
             dataset.remove_tag("partial_lhe_weights")
+        # datasets with single boson processes
+        if dataset.name.startswith(("dy_", "w_", "z_")):
+            dataset.add_tag("has_single_boson")
         # single higgs
         if dataset.name.startswith(("h_", "wph_", "wmh_", "zh_")):
             dataset.add_tag("has_higgs")

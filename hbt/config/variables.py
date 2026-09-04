@@ -10,7 +10,7 @@ import functools
 
 import order as od
 
-from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior  # optional_column
+from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior, optional_column, has_ak_column
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
 
@@ -193,6 +193,28 @@ def add_variables(config: od.Config) -> None:
         expression="PuppiMET.phi",
         binning=(66, -3.3, 3.3),
         x_title=r"MET $\phi$",
+    )
+    add_variable(
+        name="met_pt_norecoil",
+        expression=lambda events: (
+            events.PuppiMET.pt_recoil_uncorrected
+            if has_ak_column(events, "PuppiMET.pt_recoil_uncorrected")
+            else events.PuppiMET["pt"]
+        ),
+        aux={"inputs": [optional_column("PuppiMET.pt_recoil_uncorrected"), "PuppiMET.pt"]},
+        binning=(40, 0, 200),
+        x_title=r"MET $p_T$ (recoil uncorr.)",
+    )
+    add_variable(
+        name="met_phi_norecoil",
+        expression=lambda events: (
+            events.PuppiMET.phi_recoil_uncorrected
+            if has_ak_column(events, "PuppiMET.phi_recoil_uncorrected")
+            else events.PuppiMET["phi"]
+        ),
+        aux={"inputs": [optional_column("PuppiMET.phi_recoil_uncorrected"), "PuppiMET.phi"]},
+        binning=(66, -3.3, 3.3),
+        x_title=r"MET $\phi$ (recoil uncorr.)",
     )
     add_variable(
         name="met_px",

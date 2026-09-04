@@ -11,8 +11,8 @@ import order as od
 
 from columnflow.histogramming import HistProducer
 from columnflow.histogramming.default import cf_default
-from columnflow.columnar_util import Route
 from columnflow.util import maybe_import, pattern_matcher, safe_div
+from columnflow.columnar_util import Route, optional_column, has_ak_column
 from columnflow.hist_util import create_hist_from_variables
 from columnflow.types import TYPE_CHECKING, Any
 
@@ -35,7 +35,21 @@ def default(self: HistProducer, events: ak.Array, **kwargs) -> ak.Array:
     # build the full event weight
     if self.dataset_inst.is_mc and len(events):
         for column in self.weight_columns:
-            weight = weight * Route(column).apply(events)
+            col_weight = None
+
+            # when a sequence is passed, use the first column that exists within events
+            if isinstance(column, (tuple, list)):
+                for _column in column:
+                    if has_ak_column(events, _column):
+                        col_weight = Route(_column).apply(events)
+                        break
+                else:
+                    raise Exception(f"none of {column} could not be resolved in events")
+            else:
+                col_weight = Route(column).apply(events)
+
+            # multiply the weight
+            weight = weight * col_weight
 
     return events, weight
 
@@ -138,6 +152,8 @@ def default_post_process_merged_hist(self: HistProducer, h: hist.Hist, task: law
 
 @default.init
 def default_init(self: HistProducer) -> None:
+    super(default, self).init_func()
+
     # use the config's auxiliary event_weights, drop some of them based on drop_weights, and on this
     # weight producer instance, store weight_columns, used columns, and shifts
     self.weight_columns = set()
@@ -183,8 +199,11 @@ def default_init(self: HistProducer) -> None:
         **self.dataset_inst.x("event_weights", {}),
         **(self.custom_weights or {}),
     }
-    for weight_name, shift_insts in all_weights.items():
-        if not do_keep(weight_name) or do_drop(weight_name):
+    for weight_col, shift_insts in all_weights.items():
+        weight_col = Route(weight_col)
+
+        # check if needed
+        if not do_keep(weight_col) or do_drop(weight_col):
             continue
 
         # manually skip pdf and scale weights for samples that do not have lhe info
@@ -192,8 +211,8 @@ def default_init(self: HistProducer) -> None:
         if is_lhe_weight and self.dataset_inst.has_tag("no_lhe_weights"):
             continue
 
-        self.weight_columns.add(weight_name)
-        self.uses.add(weight_name)
+        self.weight_columns.add(weight_col)
+        self.uses.add(weight_col)
         self.shifts |= {shift_inst.name for shift_inst in shift_insts}
 
 
@@ -262,16 +281,6 @@ normalization_only = default.derive("normalization_only", cls_dict={
     "keep_weights": {"normalization_weight"},
 })
 
-normalization_inclusive = default.derive("normalization_inclusive", cls_dict={
-    "custom_weights": {"normalization_weight_inclusive": []},
-    "drop_weights": {"normalization_weight"},
-})
-
-normalization_inclusive_only = default.derive("normalization_inclusive_only", cls_dict={
-    "custom_weights": {"normalization_weight_inclusive": []},
-    "keep_weights": {"normalization_weight_inclusive"},
-})
-
 for weight_name in [
     "normalized_pdf_weight",
     "normalized_murmuf_weight",
@@ -294,3 +303,25 @@ for weight_name in [
 default.derive("no_tau_and_trigger_weight", cls_dict={
     "drop_weights": {"tau_weight", "trigger_weight"},
 })
+
+
+no_stitching = default.derive("no_stitching")
+
+
+@no_stitching.init
+def no_stitching_init(self: HistProducer, **kwargs) -> None:
+    super(no_stitching, self).init_func(**kwargs)
+
+    if self.dataset_inst.is_data:
+        return
+
+    # norm weight must be present
+    norm_weight = Route("normalization_weight")
+    if norm_weight not in self.weight_columns:
+        raise Exception(f"'{norm_weight.column}' column not found in weight_columns")
+
+    # replace it with a tuple (norm_weight incl (optional), norm_weight)
+    norm_weight_incl = optional_column("normalization_weight_inclusive")
+    self.weight_columns.remove(norm_weight)
+    self.weight_columns.add((norm_weight_incl, norm_weight))
+    self.uses.add(norm_weight_incl)
