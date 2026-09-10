@@ -937,17 +937,21 @@ def add_variables(config: od.Config) -> None:
     )
 
     # add variations for different variables with different selections
+    extend_var_names = [
+        "met_pt", "met_phi", "met_pt_nosmear", "met_pt_nophi", "met_pt_norecoil",
+        "dilep_vis_pt",
+    ]
     for name_postfix, selection, x_postfix in [
-        ("_mz70to110", VisZMassWindow(m_min=70.0, m_max=110.0), r"$70 \geq m_Z < 110$"),
-        ("_mzreg70to110", RegZMassWindow(m_min=70.0, m_max=110.0), r"reg. $70 \geq m_Z < 110$"),
-        ("_mzreg10", RegZMassWindow(m_min=10.0), r"reg. $m_Z \geq 10$"),
-        ("_mzreg12", RegZMassWindow(m_min=12.0), r"reg. $m_Z \geq 12$"),
-        ("_mzreg15", RegZMassWindow(m_min=15.0), r"reg. $m_Z \geq 15$"),
+        ("_mll70to110", VisDiLepMassWindow(m_min=70.0, m_max=110.0), r"$70 \geq m_{ll} < 110$"),
+        ("_mllreg70to110", RegDiLepMassWindow(m_min=70.0, m_max=110.0), r"reg. $70 \geq m_{ll} < 110$"),
+        ("_mllreg10", RegDiLepMassWindow(m_min=10.0), r"reg. $m_{ll} \geq 10$"),
+        ("_mllreg12", RegDiLepMassWindow(m_min=12.0), r"reg. $m_{ll} \geq 12$"),
+        ("_mllreg15", RegDiLepMassWindow(m_min=15.0), r"reg. $m_{ll} \geq 15$"),
         ("_ptl20", VisAllLepPtWindow(pt_min=20.0), r"$p_{T,l} \geq 20$"),
         ("_ptl30", VisAllLepPtWindow(pt_min=30.0), r"$p_{T,l} \geq 30$"),
         ("_ptl40", VisAllLepPtWindow(pt_min=40.0), r"$p_{T,l} \geq 40$"),
     ]:
-        for orig_name in ["met_pt", "met_phi", "met_pt_nosmear", "met_pt_nophi", "met_pt_norecoil", "dilep_vis_pt"]:
+        for orig_name in extend_var_names:
             v = config.get_variable(orig_name).copy(
                 name=f"{orig_name}{name_postfix}",
                 id="+",
@@ -1150,22 +1154,32 @@ class VarDiLepReg(VarExp):
         lnu1 = stack_lvectors([nu1, dilepvis[:, 0]]).sum(axis=-1)
         lnu2 = stack_lvectors([nu2, dilepvis[:, 1]]).sum(axis=-1)
 
-        if attr == "dr_lnu":
+        if attr == "dr":
             # dr between lep+nu pairs
             return delta_r12(stack_lvectors([lnu1, lnu2]))
 
         # build the full system
-        dilepreg = stack_lvectors([lnu1, lnu2])
+        dilep = stack_lvectors([lnu1, lnu2])
 
         if attr == "raw":
-            return dilepreg
+            return dilep
 
-        dilepreg = dilepreg.sum(axis=-1)
+        dilep = dilep.sum(axis=-1)
 
         if attr is None:
-            return dilepreg
+            return dilep
         if attr == "mass":
-            return dilepreg.mass
+            return dilep.mass
+        if attr == "pt":
+            return dilep.pt
+        if attr == "eta":
+            return dilep.eta
+        if attr == "abs_eta":
+            return abs(dilep.eta)
+        if attr == "phi":
+            return dilep.phi
+        if attr == "energy":
+            return dilep.energy
 
         self.raise_unknown_attr(attr)
 
@@ -1365,7 +1379,7 @@ class VisAllLepPtWindow(_LepPtWindow):
         return ak.all(mask, axis=-1)
 
 
-class VisZMassWindow(VarExp):
+class VisDiLepMassWindow(VarExp):
 
     compose = {"dilep": VarDiLepVis}
 
@@ -1405,6 +1419,6 @@ class VisZMassWindow(VarExp):
         return ~mask if negate else mask
 
 
-class RegZMassWindow(VisZMassWindow):
+class RegDiLepMassWindow(VisDiLepMassWindow):
 
     compose = {"dilep": VarDiLepReg}
