@@ -1970,11 +1970,8 @@ def add_config(
             2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2024
             2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
-<<<<<<< HEAD
-=======
             #https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=222#Year_2025
             2025:(cat_info.get_file("dc", "Cert_Collisions2025_391658_398903_Golden.json"), "v1"),
->>>>>>> a3ada39 (feat:adding 2025/26 cororection)
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
