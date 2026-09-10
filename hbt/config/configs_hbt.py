@@ -53,7 +53,7 @@ def add_config(
 
     # some validations
     assert run in {2, 3}
-    assert year in {2016, 2017, 2018, 2022, 2023, 2024}
+    assert year in {2016, 2017, 2018, 2022, 2023, 2024, 2025, 2026}
 
     # get all root processes
     procs = get_root_processes_from_campaign(campaign)
@@ -247,12 +247,12 @@ def add_config(
         "tt_fh_powheg",
 
         # single top
-        *if_not_era(year=2024, values=[
+        *if_not_era(year=[2024, 2025, 2026], values=[
             "st_tchannel_t_4f_powheg",
             "st_tchannel_tbar_4f_powheg",
         ]),
         # dedicated decay channels in 2024
-        *if_era(year=2024, values=[
+        *if_era(year=[2024, 2025, 2026], values=[
             "st_tchannel_t_had_4f_powheg",
             "st_tchannel_t_lep_4f_powheg",
             "st_tchannel_tbar_had_4f_powheg",
@@ -279,7 +279,7 @@ def add_config(
         "ttzz_madgraph",
 
         # dy, amcatnlo
-        *if_not_era(year=2024, values=[
+        *if_not_era(year=[2024, 2025, 2026], values=[
             # "dy_m4to10_amcatnlo",  # affected by the pythia bug, no replacement
             "dy_m10to50_amcatnlo",
             "dy_m50toinf_amcatnlo",
@@ -293,7 +293,7 @@ def add_config(
             "dy_tautau_m50toinf_1j_filtered_amcatnlo",
             "dy_tautau_m50toinf_2j_filtered_amcatnlo",
         ]),
-        *if_era(year=2024, values=[
+        *if_era(year=[2024, 2025, 2026], values=[
             "dy_ee_m50toinf_amcatnlo",
             "dy_ee_m50toinf_0j_amcatnlo",
             "dy_ee_m50toinf_1j_amcatnlo",
@@ -345,7 +345,7 @@ def add_config(
 
         # w + jets
         # inclusive samples might not be produced for 2024
-        *if_not_era(year=2024, values=[
+        *if_not_era(year=[2024, 2025, 2026], values=[
             "w_lnu_amcatnlo",
             "w_lnu_0j_amcatnlo",
             "w_lnu_1j_amcatnlo",
@@ -364,7 +364,7 @@ def add_config(
 
         # z + jets (not DY but qq)
         # currently dropped since the yield after default selection is <0.1% of (e.g.) VV, which is already small
-        # *if_not_era(year=2024, values=[
+        # *if_not_era(year=[2024, 2025, 2026], values=[
         #     "z_qq_1j_pt100to200_amcatnlo",
         #     "z_qq_1j_pt200to400_amcatnlo",
         #     "z_qq_1j_pt400to600_amcatnlo",
@@ -374,7 +374,7 @@ def add_config(
         #     "z_qq_2j_pt400to600_amcatnlo",
         #     "z_qq_2j_pt600toinf_amcatnlo",
         # ]),
-        # *if_era(year=2024, values=[
+        # *if_era(year=[2024, 2025, 2026], values=[
         #     "z_qq_pt100toinf_amcatnlo",
         # ]),
 
@@ -435,6 +435,12 @@ def add_config(
         # data, 24
         *if_era(year=2024, values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "cdefghi"  # noqa: E501
+        ]),
+        *if_era(year=2025, values=[
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "cdefg"  # noqa: E501
+        ]),
+        *if_era(year=2026, values=[
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "bcd"  # noqa: E501
         ]),
     ]
     for dataset_name in dataset_names:
@@ -900,6 +906,21 @@ def add_config(
             "lumi_13p6TeV_23_24": 0.0068j,
             "lumi_13p6TeV_24": 0.0144j,
         })
+    ## put placeholder for 25/26
+    elif year == 2025:
+        cfg.x.luminosity = Number(109_948.177486, {
+            "lumi_13p6TeV_2025": 0.016j,
+            "lumi_13p6TeV_22_23_24": 0.0020j,
+            "lumi_13p6TeV_23_24": 0.0068j,
+            "lumi_13p6TeV_24": 0.0144j,
+        })
+    elif year == 2026:
+        cfg.x.luminosity = Number(109_948.177486, {
+            "lumi_13p6TeV_2024": 0.016j,
+            "lumi_13p6TeV_22_23_24": 0.0020j,
+            "lumi_13p6TeV_23_24": 0.0068j,
+            "lumi_13p6TeV_24": 0.0144j,
+        })
     else:
         assert False
 
@@ -950,6 +971,9 @@ def add_config(
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23BPix
+        
+        # 2025 and 2026 wps are the same as 2024
+        btag_key="2024"
         cfg.x.btag_working_points = DotDict.wrap({
             "deepjet": {
                 "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048, "2024": None}[btag_key],
@@ -1154,7 +1178,8 @@ def add_config(
     from columnflow.calibration.cms.jets import JECConfig, BJECConfig, JERConfig
 
     # bjec toggle
-    cfg.x.use_bjec = run == 3  # note: set to False to disable BJEC and use plain JEC
+    cfg.x.use_bjec = run == 3  if year<2025 else False# note: set to False to disable BJEC and use plain JEC
+    
 
     # common jec/jer settings configuration
     if run == 2:
@@ -1174,6 +1199,7 @@ def add_config(
             (2023, ""): "Prompt23",
             (2023, "BPix"): "Prompt23",
             (2024, ""): "Prompt24",
+            (2025, ""): "Prompt25",
         }[(year, campaign.x.postfix)]
         jec_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
         jec_version = {
@@ -1182,8 +1208,9 @@ def add_config(
             (2023, ""): "V4",
             (2023, "BPix"): "V4",
             (2024, ""): "V5",
+            (2025, ""): "V3",
         }[(year, campaign.x.postfix)]
-        jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}"
+        jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}" if year<2025 else f"Summer24{campaign.x.postfix}{jerc_postfix}"
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
@@ -1191,6 +1218,7 @@ def add_config(
             2022: "V2",
             2023: "V3",
             2024: "V2",
+            2025: "V2",
         }[year]
         jet_type = "AK4PFPuppi"
     else:
@@ -1438,7 +1466,7 @@ def add_config(
             e_postfix = {"": "Re-recoBCD", "EE": "Re-recoE+PromptFG"}[campaign.x.postfix]
         elif year == 2023:
             e_postfix = {"": "PromptC", "BPix": "PromptD"}[campaign.x.postfix]
-        elif year == 2024:
+        elif year >= 2024:
             e_postfix = "Prompt"
         else:
             assert False
@@ -1907,6 +1935,20 @@ def add_config(
                 pog_directories={"dc": "Collisions24"},
                 snapshot=CATSnapshot(btv="2026-03-10", dc="2026-08-04", egm="2025-12-15", jme="2026-07-16", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
             ),
+            (2025, "", 15): CATInfo(
+                run=3,
+                vnano=15,
+                era="25Prompt-Summer24",
+                pog_directories={"dc": "Collisions25"},
+                snapshot=CATSnapshot(btv="2026-06-26", dc="latest", egm="2026-06-26", jme="2026-07-16", lum="2026-06-05", muo="2026-04-28", tau="2026-08-05"),  # noqa: E501
+            ),
+             (2026, "", 15): CATInfo(
+                run=3,
+                vnano=15,
+                era="26Prompt-Summer24",
+                pog_directories={"dc": "Collisions26"},
+                snapshot=CATSnapshot(btv="2026-06-26", dc="latest", egm="2025-12-15", jme="2026-07-16", lum="2026-04-15", muo="2026-06-18", tau="2026-01-14"),  # noqa: E501
+            ),
         }[(year, campaign.x.postfix, vnano)]
     else:
         assert False
@@ -1928,6 +1970,11 @@ def add_config(
             2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2024
             2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
+<<<<<<< HEAD
+=======
+            #https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=222#Year_2025
+            2025:(cat_info.get_file("dc", "Cert_Collisions2025_391658_398903_Golden.json"), "v1"),
+>>>>>>> a3ada39 (feat:adding 2025/26 cororection)
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
@@ -1942,7 +1989,7 @@ def add_config(
         }[year],
     })
     # pileup weight corrections
-    add_external("pu_sf", (cat_info.get_file("lum", f"puWeights{'_BCDEFGHI' if year == 2024 else ''}.json.gz"), "v1"))
+    add_external("pu_sf", (cat_info.get_file("lum", f"puWeights{ {2024: '_BCDEFGHI', 2025: '_2025pp_Golden_Summer24_25ns_69200ub'}.get(year, '') }.json.gz"), "v1"))
     # jet energy corrections
     if cfg.x.use_bjec:
         add_external("jet_jerc", (f"{central_hbt_dir}/central_jme_files/bjec/Run{run}{jec_campaign}/{cat_info.snapshot.jme}/regJet_jerc.json.gz", "v1"))  # noqa: E501
@@ -2008,9 +2055,10 @@ def add_config(
         add_external("jet_id", (cat_info.get_file("jme", "jetid.json.gz"), "v1"))
         # muon scale factors
         add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
-        add_external("muon_sf_lowpt", (cat_info.get_file("muo", "muon_JPsi.json.gz"), "v1"))
+        if year <2025: # TODO: 2025 onward not yet available
+            add_external("muon_sf_lowpt", (cat_info.get_file("muo", "muon_JPsi.json.gz"), "v1"))
         # met phi correction
-        if year != 2024:  # TODO: 2024: not yet available
+        if year < 2024:  # TODO: 2024 onward not yet available
             add_external("met_phi_corr", (cat_info.get_file("jme", f"met_xyCorrections_{year}_{year}{campaign.x.postfix}.json.gz"), "v1"))  # noqa: E501
         # electron scale factors
         add_external("electron_sf", (cat_info.get_file("egm", "electron.json.gz"), "v1"))
@@ -2062,9 +2110,9 @@ def add_config(
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
         # test: reprocessed version for 23post only
         if year == 2023 and campaign.x.postfix == "BPix":
-            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_23post_prod28.json.gz", "v2"))  # noqa: E501
-        else:
-            dy_weight_version = 4 if year == 2024 else 4  # 2024 not yet available in new v5
+            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_23post_prod28.json.gz", "v1"))  # noqa: E501
+        else: #TODO: 2024 onward not yet available in new v5
+            dy_weight_version = 4 if year >= 2024 else 5  # 2024 not yet available in new v5 
             add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
@@ -2133,7 +2181,7 @@ def add_config(
                 ),
                 version="v1",
             ))
-        elif year == 2024:
+        elif year >= 2024:# TODO:2025 onwards not available
             add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
 
             tau_pog_era_cclub = f"{year}fullYear"
@@ -2334,6 +2382,13 @@ def add_config(
         from hbt.config.triggers import add_triggers_2023
         add_triggers_2023(cfg)
     elif year == 2024:
+        from hbt.config.triggers import add_triggers_2024
+        add_triggers_2024(cfg)
+    # placeholder for 2025 and 2026, since we don't have triggers yet, but we can use the 2024 ones for now
+    elif year == 2025:
+        from hbt.config.triggers import add_triggers_2024
+        add_triggers_2024(cfg)
+    elif year == 2026:
         from hbt.config.triggers import add_triggers_2024
         add_triggers_2024(cfg)
     else:

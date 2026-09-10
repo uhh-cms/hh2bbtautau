@@ -157,13 +157,13 @@ add_lazy_config(
 )
 
 # 2025
-# add_lazy_config(
-#     campaign_module="cmsdb.campaigns.run3_2025_nano_v15",
-#     campaign_attr="campaign_run3_2025_nano_local_v15",
-#     config_name="25_v15",
-#     config_id=10015,
-#     split_2024_mc=True,
-# )
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2025_nano_v15",
+    campaign_attr="campaign_run3_2025_nano_local_v15",
+    config_name="25_v15",
+    config_id=10015,
+    split_2024_mc=True,
+)
 
 # 2026
 # add_lazy_config(
