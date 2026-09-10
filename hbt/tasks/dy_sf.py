@@ -25,7 +25,7 @@ from columnflow.tasks.production import ProduceColumns
 from columnflow.tasks.reduction import ProvideReducedEvents
 from columnflow.hist_util import create_hist_from_variables, fill_hist
 from columnflow.columnar_util import (
-    ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, set_ak_column,
+    ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, set_ak_column, full_like,
 )
 from columnflow.util import maybe_import
 from columnflow.types import TYPE_CHECKING, Callable
@@ -322,6 +322,20 @@ class DYWeights(DYBaseTask):
             --version prod20_vbf
     """
 
+    mll_range = law.CSVParameter(
+        cls=luigi.FloatParameter,
+        min_len=2,
+        max_len=2,
+        default=(70.0, 110.0),
+        description="invariant dilepton mass range to select; negative end value means infinite; default: 70,110",
+    )
+    met_range = law.CSVParameter(
+        cls=luigi.FloatParameter,
+        min_len=2,
+        max_len=2,
+        default=(0.0, 50.0),
+        description="invariant dilepton mass range to select; negative end value means infinite; default: 0,50",
+    )
     output_postfix = luigi.Parameter(
         default=law.NO_STR,
         description="optional postfix appended to the output file name; no default",
@@ -337,7 +351,19 @@ class DYWeights(DYBaseTask):
         self.fit_identifiers = ["fit_njets2", "fit_njets3", "fit_njets4"]
 
     def output(self):
-        postfix = "" if self.output_postfix in {"", None, law.NO_STR} else f"_{self.output_postfix.lstrip('_')}"
+        def encode_range(start, end):
+            start_str = str(max(law.util.try_int(start), 0)).replace(".", "p")
+            end_str = "inf" if end < 0 else str(law.util.try_int(end)).replace(".", "p")
+            return f"{start_str}to{end_str}"
+
+        postfix_parts = []
+        if self.mll_range != self.__class__.mll_range._default:
+            postfix_parts.append(f"mll{encode_range(*self.mll_range)}")
+        if self.met_range != self.__class__.met_range._default:
+            postfix_parts.append(f"met{encode_range(*self.met_range)}")
+        if self.output_postfix not in {"", None, law.NO_STR}:
+            postfix_parts.append(self.output_postfix.lstrip("_"))
+        postfix = "_".join(["", *postfix_parts]) if postfix_parts else ""
 
         # weights
         outputs = {
@@ -558,12 +584,16 @@ class DYWeights(DYBaseTask):
             outputs["weights"].dump(dict_out, formatter="pickle")
 
     def select_events(self, events: ak.Array) -> ak.Array:
-        # default selection
-        mask = (
-            (events.dilep_vis_mass >= 70.0) &
-            (events.dilep_vis_mass < 110.0) &
-            (events.met < 50.0)
-        )
+        mask = full_like(events.met, True, dtype=bool)
+        if self.mll_range[0] >= 0:
+            mask = mask & (events.dilep_vis_mass >= self.mll_range[0])
+        if self.mll_range[1] >= 0:
+            mask = mask & (events.dilep_vis_mass < self.mll_range[1])
+        if self.met_range[0] >= 0:
+            mask = mask & (events.met >= self.met_range[0])
+        if self.met_range[1] >= 0:
+            mask = mask & (events.met < self.met_range[1])
+
         return events[mask]
 
     def get_mask(self, events, njet_bin=None, nbjet_bin=None, channel=None):
