@@ -6,11 +6,14 @@ Definition of variables.
 
 from __future__ import annotations
 
+import abc
 import functools
 
 import order as od
 
-from columnflow.columnar_util import EMPTY_FLOAT, Route, attach_coffea_behavior, optional_column, has_ak_column
+from columnflow.columnar_util import (
+    EMPTY_FLOAT, Route, attach_coffea_behavior, optional_column, has_ak_column, full_like,
+)
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
 
@@ -181,54 +184,6 @@ def add_variables(config: od.Config) -> None:
         binning=(4, -0.5, 3.5),
         x_title=r"Number of b-jets (UParT medium)",
         discrete_x=True,
-    )
-    add_variable(
-        name="met_pt",
-        expression="PuppiMET.pt",
-        binning=(40, 0, 200),
-        x_title=r"MET $p_T$",
-    )
-    add_variable(
-        name="met_phi",
-        expression="PuppiMET.phi",
-        binning=(66, -3.3, 3.3),
-        x_title=r"MET $\phi$",
-    )
-    add_variable(
-        name="met_pt_norecoil",
-        expression=lambda events: (
-            events.PuppiMET.pt_recoil_uncorrected
-            if has_ak_column(events, "PuppiMET.pt_recoil_uncorrected")
-            else events.PuppiMET["pt"]
-        ),
-        aux={"inputs": [optional_column("PuppiMET.pt_recoil_uncorrected"), "PuppiMET.pt"]},
-        binning=(40, 0, 200),
-        x_title=r"MET $p_T$ (recoil uncorr.)",
-    )
-    add_variable(
-        name="met_phi_norecoil",
-        expression=lambda events: (
-            events.PuppiMET.phi_recoil_uncorrected
-            if has_ak_column(events, "PuppiMET.phi_recoil_uncorrected")
-            else events.PuppiMET["phi"]
-        ),
-        aux={"inputs": [optional_column("PuppiMET.phi_recoil_uncorrected"), "PuppiMET.phi"]},
-        binning=(66, -3.3, 3.3),
-        x_title=r"MET $\phi$ (recoil uncorr.)",
-    )
-    add_variable(
-        name="met_px",
-        expression=lambda events: events.PuppiMET.px,
-        aux={"inputs": ["PuppiMET.{pt,phi}"]},
-        binning=(50, -250, 250),
-        x_title=r"MET $p_x$",
-    )
-    add_variable(
-        name="met_py",
-        expression=lambda events: events.PuppiMET.py,
-        aux={"inputs": ["PuppiMET.{pt,phi}"]},
-        binning=(50, -250, 250),
-        x_title=r"MET $p_y$",
     )
 
     # regression variables
@@ -505,6 +460,73 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$\Delta R_{ll}$ (regressed)",
     )
 
+    # met variables
+    def met_pt_args(x_postfix=None):
+        x_title = r"MET $p_T$"
+        if x_postfix:
+            if isinstance(x_postfix, (list, tuple)):
+                x_postfix = ", ".join(x_postfix)
+            x_title += f" ({x_postfix})"
+        return {
+            "binning": (40, 0, 200),
+            "x_title": x_title,
+            "unit": "GeV",
+        }
+
+    def met_phi_args(x_postfix=None):
+        x_title = r"MET $\phi$"
+        if x_postfix:
+            if isinstance(x_postfix, (list, tuple)):
+                x_postfix = ", ".join(x_postfix)
+            x_title += f" ({x_postfix})"
+        return {
+            "binning": (34, -3.4, 3.4),
+            "x_title": x_title,
+        }
+
+    add_variable(
+        name="met_pt",
+        expression="PuppiMET.pt",
+        **met_pt_args(),
+    )
+    add_variable(
+        name="met_phi",
+        expression="PuppiMET.phi",
+        **met_phi_args(),
+    )
+    add_variable(
+        name="met_px",
+        expression="PuppiMET.px",
+        aux={"inputs": ["PuppiMET.{pt,phi}"]},
+        binning=(50, -250, 250),
+        x_title=r"MET $p_x$",
+    )
+    add_variable(
+        name="met_py",
+        expression="PuppiMET.py",
+        aux={"inputs": ["PuppiMET.{pt,phi}"]},
+        binning=(50, -250, 250),
+        x_title=r"MET $p_y$",
+    )
+    add_variable(
+        name="met_pt_nosmear",
+        expression=(var_met_pt_nosmear := FallbackVarExp(columns=["PuppiMET.pt_unsmeared", "PuppiMET.pt"])),
+        aux={"inputs": var_met_pt_nosmear.uses},
+        **met_pt_args(x_postfix="unsmeared"),
+    )
+    add_variable(
+        name="met_pt_nophi",
+        expression=(var_met_pt_nophi := FallbackVarExp(columns=["PuppiMET.pt_metphi_uncorrected", "PuppiMET.pt"])),
+        aux={"inputs": var_met_pt_nophi.uses},
+        **met_pt_args(x_postfix="phi uncorr."),
+    )
+    add_variable(
+        name="met_pt_norecoil",
+        expression=(var_met_pt_norecoil := FallbackVarExp(columns=["PuppiMET.pt_recoil_uncorrected", "PuppiMET.pt"])),
+        aux={"inputs": var_met_pt_norecoil.uses},
+        **met_pt_args(x_postfix="recoil uncorr."),
+    )
+
     # visible hh variables
     add_variable(
         name="hh_vis_energy",
@@ -760,6 +782,14 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Subleading muon $\phi$",
     )
 
+    # generator variables
+    add_variable(
+        name="dilep_gen_pt",
+        expression="gen_dilepton_pt",
+        binning=(50, 0, 500),
+        x_title=r"Gen $p_{T,ll}$",
+    )
+
     # DNN outputs
     for proc in ["hh", "tt", "dy"]:
         # outputs of the resonant pDNN at SM-like mass and spin values
@@ -921,18 +951,44 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": ["e2e_model1_bin*"]},
     )
 
+    # add variations for different variables with different selections
+    extend_var_names = [
+        "met_pt", "met_phi", "met_pt_nosmear", "met_pt_nophi", "met_pt_norecoil",
+        "dilep_vis_pt",
+    ]
+    for name_postfix, selection, x_postfix in [
+        ("_mll70to110", VisDiLepMassWindow(m_min=70.0, m_max=110.0), r"$70 \geq m_{ll} < 110$"),
+        ("_mllreg70to110", RegDiLepMassWindow(m_min=70.0, m_max=110.0), r"reg. $70 \geq m_{ll} < 110$"),
+        ("_mllreg10", RegDiLepMassWindow(m_min=10.0), r"reg. $m_{ll} \geq 10$"),
+        ("_mllreg12", RegDiLepMassWindow(m_min=12.0), r"reg. $m_{ll} \geq 12$"),
+        ("_mllreg15", RegDiLepMassWindow(m_min=15.0), r"reg. $m_{ll} \geq 15$"),
+        ("_ptl20", VisAllLepPtWindow(pt_min=20.0), r"$p_{T,l} \geq 20$"),
+        ("_ptl30", VisAllLepPtWindow(pt_min=30.0), r"$p_{T,l} \geq 30$"),
+        ("_ptl40", VisAllLepPtWindow(pt_min=40.0), r"$p_{T,l} \geq 40$"),
+    ]:
+        for orig_name in extend_var_names:
+            v = config.get_variable(orig_name).copy(
+                name=f"{orig_name}{name_postfix}",
+                id="+",
+                selection=selection,
+            )
+            v.x.inputs = set(v.x("inputs", [])) | selection.uses
+            v.x_title = f"{v.x_title[:-1]}, {x_postfix})" if v.x_title.endswith(")") else f"{v.x_title} ({x_postfix})"
+            config.add_variable(v)
+
 
 #
 # tools for defining variable functions
 #
 
-class VarExp:
+class VarExp(metaclass=abc.ABCMeta):
 
     uses: set[str | Route] | None = None
     compose: dict[str, Type[VarExp]] | None = None
 
     def __init__(
         self,
+        *,
         uses: Sequence[str | Route] | set[str | Route] | None = None,
         compose: dict[str, Type[VarExp]] | None = None,
     ) -> None:
@@ -951,17 +1007,62 @@ class VarExp:
     def partial(self, *args, **kwargs) -> Callable[[ak.Array], ak.Array | np.ndarray]:
         return functools.partial(self.__call__, *args, **kwargs) if args or kwargs else self.__call__
 
-    def __call__(self, events) -> ak.Array | np.ndarray:
+    def __call__(self, events: ak.Array) -> ak.Array | np.ndarray:
         raise NotImplementedError
 
     def raise_unknown_attr(self, attr) -> None:
         raise ValueError(f"unknown {self.__class__.__name__} attr: {attr}")
 
-    def var_kwargs(self, *args, **kwargs) -> dict[str, Any]:
+    def var_kwargs(
+        self,
+        *args,
+        inputs: Sequence[str | Route] | set[str | Route] | None = None,
+        aux: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> dict[str, Any]:
+        # default aux fields
+        if aux is None:
+            aux = {}
+        # evaluate inputs
+        inputs = (inputs or set())
+        inputs.update(aux.get("inputs") or set())
+        inputs.update(self.uses)
+        # add back to aux
+        if inputs:
+            aux["inputs"] = inputs
+        # build arguments
         return {
             "expression": self.partial(*args, **kwargs),
-            "aux": {"inputs": self.uses},
+            "aux": aux,
         }
+
+
+class FallbackVarExp(VarExp):
+
+    def __init__(self, *, columns: Sequence[str | Route], **kwargs) -> None:
+        super().__init__(**kwargs)
+
+        # store columns in order as routes
+        self.columns = list(map(optional_column, columns))
+
+        # set uses to columns on instance-level
+        self.uses = set(self.columns)
+
+    def __call__(
+        self,
+        events: ak.Array,
+        prepend: Sequence[str | Route] | None = None,
+        append: Sequence[str | Route] | None = None,
+    ) -> ak.Array | np.ndarray:
+        columns = [
+            *(map(optional_column, prepend) if prepend else []),
+            *self.columns,
+            *(map(optional_column, append) if append else []),
+        ]
+        for c in columns:
+            if has_ak_column(events, c):
+                return c.apply(events)
+        raise ValueError(f"none of the columns exist in the events: {columns}")
 
 
 #
@@ -1022,7 +1123,7 @@ class VarDiLepVis(VarExp):
         if attr == "dr":
             return delta_r12(leps)
 
-        dilep = leps.sum(axis=1)
+        dilep = leps.sum(axis=-1)
 
         if attr is None:
             return dilep
@@ -1048,10 +1149,10 @@ class VarDiLepReg(VarExp):
     compose = {"dilepvis": VarDiLepVis}
 
     def __call__(self, events: ak.Array, attr: str | None = None) -> ak.Array:
-        dilepvis = self.dilepvis(events)
+        dilepvis = self.dilepvis(events, attr="raw")
 
         # regressed nu components are relative to the visible dilep system and need to be rotated back
-        ref_phi = dilepvis.phi
+        ref_phi = dilepvis.sum(axis=-1).phi
         nu1 = create_lvector_xyz(
             *rotate_px_py(events.reg_dnn_moe_nu1_px, events.reg_dnn_moe_nu1_py, ref_phi),
             events.reg_dnn_moe_nu1_pz,
@@ -1064,19 +1165,36 @@ class VarDiLepReg(VarExp):
         if attr == "nus":
             return nu1, nu2
 
+        # build the two lep+nu pairs
+        lnu1 = stack_lvectors([nu1, dilepvis[:, 0]]).sum(axis=-1)
+        lnu2 = stack_lvectors([nu2, dilepvis[:, 1]]).sum(axis=-1)
+
         if attr == "dr":
-            lepsvis = self.dilepvis(events, attr="raw")
-            l1_reg = stack_lvectors([nu1, lepsvis[:, 0]]).sum(axis=-1)
-            l2_reg = stack_lvectors([nu2, lepsvis[:, 1]]).sum(axis=-1)
-            return delta_r12(stack_lvectors([l1_reg, l2_reg]))
+            # dr between lep+nu pairs
+            return delta_r12(stack_lvectors([lnu1, lnu2]))
 
         # build the full system
-        dilepreg = stack_lvectors([nu1, nu2, dilepvis]).sum(axis=-1)
+        dilep = stack_lvectors([lnu1, lnu2])
+
+        if attr == "raw":
+            return dilep
+
+        dilep = dilep.sum(axis=-1)
 
         if attr is None:
-            return dilepreg
+            return dilep
         if attr == "mass":
-            return dilepreg.mass
+            return dilep.mass
+        if attr == "pt":
+            return dilep.pt
+        if attr == "eta":
+            return dilep.eta
+        if attr == "abs_eta":
+            return abs(dilep.eta)
+        if attr == "phi":
+            return dilep.phi
+        if attr == "energy":
+            return dilep.energy
 
         self.raise_unknown_attr(attr)
 
@@ -1090,7 +1208,7 @@ class VarMETReg(VarExp):
         nu1, nu2 = self.dilepreg(events, attr="nus")
         met = stack_lvectors([nu1, nu2]).sum(axis=-11)
 
-        if attr is None:
+        if attr in {None, "raw"}:
             return met
         if attr == "px":
             return met.px
@@ -1219,3 +1337,103 @@ class VarNBTags(VarExp):
             self.raise_unknown_attr(attr)
 
         return ak.sum(events.Jet[attr] >= wp_value, axis=1)
+
+
+class _MultiMask(VarExp):
+
+    @abc.abstractmethod
+    def select(self, mask: ak.Array) -> ak.Array | np.ndarray:
+        return
+
+
+class _LepPtWindow(_MultiMask):
+
+    def __init__(
+        self,
+        *,
+        pt_min: int | float = 0.0,
+        pt_max: int | float = -1.0,
+        negate: bool = False,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+
+        self.pt_min = pt_min
+        self.pt_max = pt_max
+        self.negate = False
+
+    def __call__(
+        self,
+        events: ak.Array,
+        pt_min: int | float | None = None,
+        pt_max: int | float | None = None,
+        negate: bool | None = None,
+    ) -> ak.Array:
+        pt_min = pt_min if pt_min is not None else self.pt_min
+        pt_max = pt_max if pt_max is not None else self.pt_max
+        negate = negate if negate is not None else self.negate
+
+        leps = self.dilep(events, attr="raw")
+        mask = full_like(leps.pt, True, dtype=bool)
+
+        if pt_min > 0.0:
+            mask = mask & (leps.pt >= pt_min)
+        if pt_max > 0.0:
+            mask = mask & (leps.pt < pt_max)
+
+        # select leptons to make final decision
+        mask = self.select(mask)
+        return ~mask if negate else mask
+
+
+class VisAllLepPtWindow(_LepPtWindow):
+
+    compose = {"dilep": VarDiLepVis}
+
+    def select(self, mask: ak.Array) -> ak.Array | np.ndarray:
+        return ak.all(mask, axis=-1)
+
+
+class VisDiLepMassWindow(VarExp):
+
+    compose = {"dilep": VarDiLepVis}
+
+    def __init__(
+        self,
+        *,
+        m_min: int | float = 0.0,
+        m_max: int | float = -1.0,
+        negate: bool = False,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+
+        self.m_min = m_min
+        self.m_max = m_max
+        self.negate = False
+
+    def __call__(
+        self,
+        events: ak.Array,
+        m_min: int | float | None = None,
+        m_max: int | float | None = None,
+        negate: bool | None = None,
+    ) -> ak.Array:
+        m_min = m_min if m_min is not None else self.m_min
+        m_max = m_max if m_max is not None else self.m_max
+        negate = negate if negate is not None else self.negate
+
+        m = self.dilep(events, attr="mass")
+        mask = full_like(m, True, dtype=bool)
+
+        if m_min > 0.0:
+            mask = mask & (m >= m_min)
+        if m_max > 0.0:
+            mask = mask & (m < m_max)
+
+        return ~mask if negate else mask
+
+
+class RegDiLepMassWindow(VisDiLepMassWindow):
+
+    compose = {"dilep": VarDiLepReg}

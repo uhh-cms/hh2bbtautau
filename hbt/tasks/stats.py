@@ -530,7 +530,7 @@ class ListTriggers(HBTTask, ConfigTask, law.tasks.RunOnceTask):
         red = functools.partial(law.util.colored, color="red")
 
         # prepare headers
-        headers = ["Name", "ID", "Tags", "Legs", "Applies to", "Offline cuts"]
+        headers = ["Name", "ID", "Tags", "Legs", "Applies to dataset", "Offline cuts"]
 
         # fill rows with trigger info
         rows = []
@@ -555,14 +555,14 @@ class ListTriggers(HBTTask, ConfigTask, law.tasks.RunOnceTask):
                 ]
                 legs_str = "\n".join(leg_parts)
 
-            # encoded application to datasets function
-            applies_to_str = bright("Always")
+            # encoded application to dataset function
+            applies_to_dataset_str = bright("All")
             if trigger_inst.applies_to_dataset is not None:
                 if isinstance(trigger_inst.applies_to_dataset_repr, str):
                     applies_parts = trigger_inst.applies_to_dataset_repr.split(" | ")
-                    applies_to_str = f" {bright('or')}\n".join(map(green, applies_parts))
+                    applies_to_dataset_str = f" {bright('or')}\n".join(map(green, applies_parts))
                 else:
-                    applies_to_str = f"{green('dynamic')}\n({red('func exists but repr missing')})"
+                    applies_to_dataset_str = f"{green('dynamic')}\n({red('func exists but repr missing')})"
 
             # encoded cuts
             cuts_str = "-"
@@ -579,7 +579,7 @@ class ListTriggers(HBTTask, ConfigTask, law.tasks.RunOnceTask):
                 trigger_inst.id,
                 tags_str,
                 legs_str,
-                applies_to_str,
+                applies_to_dataset_str,
                 cuts_str,
             ])
 

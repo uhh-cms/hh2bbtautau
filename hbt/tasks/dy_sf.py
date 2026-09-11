@@ -10,6 +10,7 @@ import gzip
 import dataclasses
 import functools
 
+import luigi
 import law
 import order as od
 
@@ -18,16 +19,19 @@ from columnflow.tasks.framework.mixins import (
     DatasetsProcessesMixin, ProducerClassesMixin, CalibratorClassesMixin,
     SelectorClassMixin, ReducerClassMixin,
 )
+from columnflow.tasks.framework.plotting import PlotBase
+from columnflow.tasks.framework.decorators import view_output_plots
 from columnflow.tasks.production import ProduceColumns
 from columnflow.tasks.reduction import ProvideReducedEvents
 from columnflow.hist_util import create_hist_from_variables, fill_hist
 from columnflow.columnar_util import (
-    ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, layout_ak_array, set_ak_column,
+    ChunkedIOHandler, RouteFilter, update_ak_array, attach_coffea_behavior, set_ak_column, full_like,
 )
 from columnflow.util import maybe_import
 from columnflow.types import TYPE_CHECKING, Callable
 
 from hbt.tasks.base import HBTTask
+from hbt.util import stack_lvectors
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -68,26 +72,32 @@ class DYBaseTask(
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        # some useful definitions for later use
-        cat_dyc = self.config_inst.get_category("dyc")
-        cat_os = self.config_inst.get_category("os")
-        self.category_ids = [
-            cat.id for cat in cat_dyc.get_leaf_categories()
-            if cat_os.has_category(cat, deep=True)
-        ]
-
-        # get era dependent variables
-        self.dilep_pt_inst = self.config_inst.variables.n.dilep_vis_pt.copy_shallow()
-        self.njets_inst = self.config_inst.variables.n.njets.copy_shallow()
+        # define binnings
+        binning_nbjets = (4, -0.5, 3.5)
+        binning_dilep_pt = (40, 0, 300)
         if self.config_inst.campaign.x.year == 2024:
-            # custom binning due to higher statistics
-            self.dilep_pt_inst.binning = np.linspace(0.0, 80.0, 33).tolist() + np.linspace(80.0, 200.0, 25)[1:].tolist()
-            self.nbjets_inst = self.config_inst.variables.n.nbjets_upart_overflow.copy_shallow()
-        else:
-            self.nbjets_inst = self.config_inst.variables.n.nbjets_pnet_overflow.copy_shallow()
+            binning_dilep_pt = (
+                np.linspace(0.0, 80.0, 33).tolist() +
+                np.linspace(80.0, self.var_dilep_pt.x_max, 25)[1:]
+            ).tolist()
 
-        # get maximum value of dilep pt for later use
-        self.max_dilep_pt_inst = self.dilep_pt_inst.x_max
+        # define variables
+        self.var_nbjets = od.Variable(  # used to compute normalization factors in njet/nbjet bins
+            name="nbjets",
+            id="+",
+            aux={"underflow": True, "overflow": True},
+            binning=binning_nbjets,
+            x_title=r"Number of b-jets",
+            discrete_x=True,
+        )
+        self.var_dilep_pt = od.Variable(  # used for the continuous fit
+            name="dilep_vis_pt",
+            id="+",
+            aux={"underflow": True, "overflow": True},
+            binning=binning_dilep_pt,
+            unit="GeV",
+            x_title=r"$p_{T,ll}$ (visible)",
+        )
 
     @classmethod
     def modify_param_values(cls, params):
@@ -120,10 +130,10 @@ class LoadDYData(DYBaseTask):
         super().__init__(*args, **kwargs)
 
         self.read_columns = [
-            f"Jet.{self.config_inst.x.btag_default.jet_column}",
             "channel_id",
             "category_ids",
             "process_id",
+            "leptons_os",
             "Electron.pt",
             "Electron.eta",
             "Electron.phi",
@@ -136,6 +146,8 @@ class LoadDYData(DYBaseTask):
             "Tau.phi",
             "Tau.eta",
             "Tau.pt",
+            f"Jet.{self.config_inst.x.btag_default.jet_column}",
+            f"{self.config_inst.x.met_name}.pt",
             "gen_dilepton_pt",
         ]
         self.event_weight_columns = list(self.config_inst.x.event_weights.keys())
@@ -147,6 +159,8 @@ class LoadDYData(DYBaseTask):
             "category_ids",
             "process_id",
             "dilep_vis_pt",
+            "dilep_vis_mass",
+            "met",
             "gen_dilepton_pt",
             "weight",
             "njets",
@@ -223,16 +237,20 @@ class LoadDYData(DYBaseTask):
                         events = attach_coffea_behavior(events)
 
                         # filter events for DY weight derivation
-                        cat_mask = np.isin(ak.flatten(events.category_ids), self.category_ids)
-                        cat_mask = layout_ak_array(cat_mask, events.category_ids)
+                        channel_mask = (
+                            (events.channel_id == self.config_inst.channels.n.ee.id) |
+                            (events.channel_id == self.config_inst.channels.n.mumu.id)
+                        )
+
+                        # filter for ee/mumu opposite-sign events with a minimal dilep mass cut
+                        dilep = stack_lvectors([events.Electron, events.Muon, events.Tau])[:, :2].sum(axis=-1)
                         event_mask = (
-                            ak.any(cat_mask, axis=1) &
-                            (
-                                (events.channel_id == self.config_inst.channels.n.ee.id) |
-                                (events.channel_id == self.config_inst.channels.n.mumu.id)
-                            )
+                            channel_mask &
+                            (events.leptons_os == 1) &
+                            (dilep.mass >= 15.0)
                         )
                         events = events[event_mask]
+                        dilep = dilep[event_mask]
 
                         # compute additional columns
                         events = set_ak_column(
@@ -251,12 +269,12 @@ class LoadDYData(DYBaseTask):
                             value_type=np.int32,
                         )
 
-                        events = set_ak_column(
-                            events,
-                            "dilep_vis_pt",
-                            self.dilep_pt_inst.expression(events),
-                        )
+                        # store additional columns for downstream use
+                        events = set_ak_column(events, "dilep_vis_pt", dilep.pt)
+                        events = set_ak_column(events, "dilep_vis_mass", dilep.mass)
+                        events = set_ak_column(events, "met", events[self.config_inst.x.met_name]["pt"])
 
+                        # combined weight
                         weight = np.ones(len(events), dtype=np.float32)
                         if not dataset_name.startswith("data_"):
                             for col in self.event_weight_columns + dataset_weight_columns:
@@ -303,6 +321,27 @@ class DYWeights(DYBaseTask):
             --datasets bkg_data_dy \
             --version prod20_vbf
     """
+
+    mll_range = law.CSVParameter(
+        cls=luigi.FloatParameter,
+        min_len=2,
+        max_len=2,
+        default=(70.0, 110.0),
+        description="invariant dilepton mass range to select; negative end value means infinite; default: 70,110",
+    )
+    met_range = law.CSVParameter(
+        cls=luigi.FloatParameter,
+        min_len=2,
+        max_len=2,
+        default=(0.0, 50.0),
+        description="invariant dilepton mass range to select; negative end value means infinite; default: 0,50",
+    )
+    output_postfix = luigi.Parameter(
+        default=law.NO_STR,
+        description="optional postfix appended to the output file name; no default",
+    )
+    view_cmd = PlotBase.view_cmd
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -312,16 +351,31 @@ class DYWeights(DYBaseTask):
         self.fit_identifiers = ["fit_njets2", "fit_njets3", "fit_njets4"]
 
     def output(self):
+        def encode_range(start, end):
+            start_str = str(max(law.util.try_int(start), 0)).replace(".", "p")
+            end_str = "inf" if end < 0 else str(law.util.try_int(end)).replace(".", "p")
+            return f"{start_str}to{end_str}"
+
+        postfix_parts = []
+        if self.mll_range != self.__class__.mll_range._default:
+            postfix_parts.append(f"mll{encode_range(*self.mll_range)}")
+        if self.met_range != self.__class__.met_range._default:
+            postfix_parts.append(f"met{encode_range(*self.met_range)}")
+        if self.output_postfix not in {"", None, law.NO_STR}:
+            postfix_parts.append(self.output_postfix.lstrip("_"))
+        postfix = "_".join(["", *postfix_parts]) if postfix_parts else ""
+
+        # weights
         outputs = {
-            "plots": {},
+            "weights": self.target(f"weights{postfix}.pkl"),
         }
 
-        outputs["weights"] = self.target("weights.pkl")
-
+        # plots
+        outputs["plots"] = {}
         for tmp_id in self.fit_identifiers:
             for factor in self.unc_factors:
                 tmp_id_full = f"{tmp_id}_unc{factor}"
-                outputs["plots"][tmp_id_full] = self.target(f"{tmp_id_full}.pdf")
+                outputs["plots"][tmp_id_full] = self.target(f"{tmp_id_full}{postfix}.pdf")
 
         return outputs
 
@@ -329,6 +383,7 @@ class DYWeights(DYBaseTask):
         return LoadDYData.req(self)
 
     @law.decorator.notify
+    @view_output_plots
     def run(self):
         import scipy.optimize
 
@@ -336,6 +391,11 @@ class DYWeights(DYBaseTask):
 
         # read data, potentially from cache
         data_events, dy_events, bkg_events = self.input().load(formatter="pickle")
+
+        # late event selection
+        data_events = self.select_events(data_events)
+        dy_events = self.select_events(dy_events)
+        bkg_events = self.select_events(bkg_events)
 
         @dataclasses.dataclass
         class Deps:
@@ -404,7 +464,7 @@ class DYWeights(DYBaseTask):
 
             @functools.cache
             def get_fit(fit_njet_bin, fit_syst, factor) -> tuple[Callable, str, tuple[float, ...]]:
-                var = self.dilep_pt_inst
+                var = self.var_dilep_pt
 
                 data_mask = self.get_mask(data_events, njet_bin=fit_njet_bin, channel="mumu")
                 data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
@@ -464,9 +524,7 @@ class DYWeights(DYBaseTask):
 
             @functools.cache
             def get_norm(njet_bin, nbjet_bin, syst, fit_njet_bin, fit_syst) -> float:
-
-                var = self.nbjets_inst
-                var.name = "nbjets"
+                var = self.var_nbjets
 
                 data_mask = self.get_mask(data_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
                 data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
@@ -479,12 +537,7 @@ class DYWeights(DYBaseTask):
                 bkg_mask = self.get_mask(bkg_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
                 bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
 
-                ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                    data_hist,
-                    dy_hist,
-                    bkg_hist,
-                    var,
-                )
+                ratio_values, ratio_err, bin_centers = self.get_ratio_values(data_hist, dy_hist, bkg_hist, var)
 
                 norm = Norm(ratio_values[nbjet_bin[0]], ratio_err[nbjet_bin[0]])
                 norm_value = norm.nom
@@ -529,6 +582,19 @@ class DYWeights(DYBaseTask):
 
             # save final dy weights
             outputs["weights"].dump(dict_out, formatter="pickle")
+
+    def select_events(self, events: ak.Array) -> ak.Array:
+        mask = full_like(events.met, True, dtype=bool)
+        if self.mll_range[0] >= 0:
+            mask = mask & (events.dilep_vis_mass >= self.mll_range[0])
+        if self.mll_range[1] >= 0:
+            mask = mask & (events.dilep_vis_mass < self.mll_range[1])
+        if self.met_range[0] >= 0:
+            mask = mask & (events.met >= self.met_range[0])
+        if self.met_range[1] >= 0:
+            mask = mask & (events.met < self.met_range[1])
+
+        return events[mask]
 
     def get_mask(self, events, njet_bin=None, nbjet_bin=None, channel=None):
         mask = np.ones(len(events), dtype=bool)
@@ -606,8 +672,6 @@ class DYWeights(DYBaseTask):
         return (ratio_values, ratio_err, bin_centers)
 
     def get_fit_function(self, x, c, n, mu, sigma, a, b, r):
-        from scipy import special
-
         """
         x: dependent variable (i.g., dilep_vis_pt)
         c: Gaussian offset
@@ -616,9 +680,10 @@ class DYWeights(DYBaseTask):
         a, b: polinomial parameters
         r: regime boundary between Guassian and linear fits
         """
+        from scipy import special
 
         # we cap x to the last bin edge of dilep_pt to stay within the function range
-        max_x = self.max_dilep_pt_inst
+        max_x = self.var_dilep_pt.x_max
 
         # choose gaussian and linear functions to do the fit
         gauss = c + (n * (1 / sigma) * np.exp(-0.5 * ((np.minimum(x, max_x) - mu) / sigma) ** 2))
@@ -634,9 +699,8 @@ class DYWeights(DYBaseTask):
         return sci_erf_neg * gauss + sci_erf_pos * pol
 
     def get_fit_str(self, c, n, mu, sigma, a, b, r):
-
         # we cap x to the last bin edge of dilep_pt
-        max_x_str = str(self.max_dilep_pt_inst)
+        max_x_str = str(self.var_dilep_pt.x_max)
 
         # parameter to control the transition smoothness between the two functions
         step_par = 0.04 if self.config_inst.campaign.x.year == 2024 else 0.08
@@ -658,7 +722,7 @@ class DYWeights(DYBaseTask):
         fig.subplots_adjust(top=0.93)
 
         # get nominal fit
-        s = np.linspace(0, self.max_dilep_pt_inst, 1000)
+        s = np.linspace(0, self.var_dilep_pt.x_max, 1000)
         y_nom = [self.get_fit_function(v, *fit_params["nominal"][fit_njet_bin]) for v in s]
         ax.plot(s, y_nom, color="black", label="Nominal", lw=2)
 
@@ -689,8 +753,8 @@ class DYWeights(DYBaseTask):
 
         # styling and legends
         ax.legend(loc="lower right")
-        ax.set_xlabel(r"$\mathrm{p}_{\mathrm{T,ll}} \ [\mathrm{GeV}]$", fontsize=15, loc="right")
-        ax.set_ylabel("Data - MC / DY", fontsize=15, loc="top")
+        ax.set_xlabel(self.var_dilep_pt.get_full_x_title(), fontsize=15, loc="right")
+        ax.set_ylabel("(Data - MC) / DY", fontsize=15, loc="top")
         ax.grid(True)
         fig.text(0.12, 0.97, label, verticalalignment="top", horizontalalignment="left", fontsize=13)
         ax.tick_params(axis="both", labelsize=15)
@@ -709,6 +773,9 @@ class ExportDYWeights(HBTTask, ConfigTask):
             --configs 22pre_v14,22post_v14,... \
             --version prod20_vbf
     """
+
+    output_postfix = DYWeights.output_postfix
+
     single_config = False
 
     def requires(self):
@@ -722,7 +789,8 @@ class ExportDYWeights(HBTTask, ConfigTask):
         }
 
     def output(self):
-        return self.target("hbt_corrections.json.gz")
+        postfix = "" if self.output_postfix in {"", None, law.NO_STR} else f"_{self.output_postfix.lstrip('_')}"
+        return self.target(f"hbt_corrections{postfix}.json.gz")
 
     @law.decorator.notify
     def run(self):
@@ -747,6 +815,7 @@ class ExportDYWeights(HBTTask, ConfigTask):
             f.write(cset.model_dump_json(exclude_unset=True))
 
         # validate the content
+        self.publish_message(f"showing correction summary for {outp.abspath}")
         law.util.interruptable_popen(f"correction summary {outp.abspath}", shell=True)
 
     def expr_in_range(self, expr: str, lower_bound: float | int, upper_bound: float | int) -> str:

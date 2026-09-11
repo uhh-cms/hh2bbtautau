@@ -113,19 +113,21 @@ class Trigger(UniqueObject, TagMixin, AuxDataMixin):
 
         - *name*: The path name of a trigger that should have fired.
         - *id*: A unique id of the trigger.
-        - *run_range*: An inclusive range describing the runs where the trigger is to be applied
-          (usually only defined by data). None in the tuple means no lower or upper boundary.
-        - *legs*: A dictionary mapping arbitrary keys to :py:class:`TriggerLeg` objects containing
-          additional information and constraints of particular trigger legs.
-        - *applies_to_dataset*: A function that obtains an ``order.Dataset`` instance to decide
-          whether the trigger applies to that dataset. Defaults to *True*.
+        - *run_range*: An inclusive range describing the runs where the trigger is to be applied (usually only defined
+          by data). None in the tuple means no lower or upper boundary.
+        - *legs*: A dictionary mapping arbitrary keys to :py:class:`TriggerLeg` objects containing additional
+          information and constraints of particular trigger legs.
+        - *applies_to_dataset*: A function that obtains an ``order.Dataset`` instance to decide whether the trigger
+          applies to that dataset. Defaults to *True*.
+        - *applies_to_dataset_repr*: A string representation of the *applies_to_dataset* function for easier
+            identification and debugging.
 
     For accepted types and conversions, see the *typed* setters implemented in this class.
 
     In addition, a base class from *order* provides additional functionality via mixins:
 
-        - *tags*: Trigger objects can be assigned *tags* that can be checked later on, e.g. to
-          describe the type of the trigger ("single_mu", "cross", ...).
+        - *tags*: Trigger objects can be assigned *tags* that can be checked later on, e.g. to describe the type of the
+          trigger ("single_mu", "cross", ...).
     """
 
     def __init__(

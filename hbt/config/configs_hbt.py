@@ -413,22 +413,26 @@ def add_config(
         "tth_hbb_powheg",
         "tth_hnonbb_powheg",
 
-        # data
+        # data, 22pre
         *if_era(year=2022, tag="preEE", values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "cd"
         ]),
+        # data, 22post
         *if_era(year=2022, tag="postEE", values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau"] for period in "efg"
         ]),
+        # data, 23pre
         *if_era(year=2023, tag="preBPix", values=[
             f"data_{stream}_c{v}" for stream in ["e", "mu", "tau"] for v in "1234"
         ]),
         *if_era(year=2023, tag="preBPix", values=[
             f"data_{stream}_c{v}" for stream in ["parking_vbf"] for v in "34"
         ]),
+        # data, 23post
         *if_era(year=2023, tag="postBPix", values=[
             f"data_{stream}_d{v}" for stream in ["e", "mu", "tau", "parking_vbf"] for v in "12"
         ]),
+        # data, 24
         *if_era(year=2024, values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "cdefghi"  # noqa: E501
         ]),
@@ -1918,22 +1922,22 @@ def add_config(
             2016: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt", "v1"),  # noqa: E501
             2017: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt", "v1"),  # noqa: E501
             2018: ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt", "v1"),  # noqa: E501
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2022
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2022
             2022: (cat_info.get_file("dc", "Cert_Collisions2022_355100_362760_Golden.json"), "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2023
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2023
             2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2024
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2024
             2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2017: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
             2018: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2022
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2022
             2022: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2023
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2023
             2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
-            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=194#Year_2024
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2024
             2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
         }[year],
     })
@@ -2058,7 +2062,7 @@ def add_config(
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
         # test: reprocessed version for 23post only
         if year == 2023 and campaign.x.postfix == "BPix":
-            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_23post_prod28.json.gz", "v1"))  # noqa: E501
+            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_23post_prod28.json.gz", "v2"))  # noqa: E501
         else:
             dy_weight_version = 4 if year == 2024 else 4  # 2024 not yet available in new v5
             add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
@@ -2187,12 +2191,13 @@ def add_config(
             "Electron.*", *skip_column("Electron.{track_cov,gsf}*"),
             "Muon.*", skip_column("Muon.track_cov*"),
             "Tau.*", skip_column("Tau.track_cov*"),
-            f"{cfg.x.met_name}.{{pt,phi,significance,covXX,covXY,covYY}}",
+            f"{cfg.x.met_name}.{{pt,phi,ptUnclustered*,phiUnclustered*,significance,covXX,covXY,covYY}}",
             # variations created during met phi calibration and that are not registered shifts to the selector
             f"{cfg.x.met_name}.{{pt,phi}}_{{unsmeared,metphi_*,minbias_xs_*}}",
             "PV.npvs",
             # keep all columns added during selection and reduction, but skip cutflow features
             ColumnCollection.ALL_FROM_SELECTOR,
+            ColumnCollection.ALL_FROM_REDUCER,
             skip_column("cutflow.*"),
         },
         "cf.MergeSelectionMasks": {
