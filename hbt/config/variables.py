@@ -17,7 +17,9 @@ from columnflow.columnar_util import (
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
 
-from hbt.util import create_lvector_xyz, stack_lvectors, rotate_px_py, delta_r12, with_type, logit
+from hbt.util import (
+    create_lvector_xyz, stack_lvectors, rotate_px_py, delta_r12, delta_eta12, delta_phi12, with_type, logit,
+)
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -398,6 +400,20 @@ def add_variables(config: od.Config) -> None:
         binning=(30, 0, 6),
         x_title=r"$\Delta R_{ll}$ (visible)",
     )
+    add_variable(
+        name="dilep_vis_deta",
+        expression=var_dilepvis.partial(attr="deta"),
+        aux={"inputs": var_dilepvis.uses},
+        binning=(30, 0, 6),
+        x_title=r"$\Delta \eta_{ll}$ (visible)",
+    )
+    add_variable(
+        name="dilep_vis_dhi",
+        expression=var_dilepvis.partial(attr="dphi"),
+        aux={"inputs": var_dilepvis.uses},
+        binning=(32, 0, 1.6),
+        x_title=r"$\Delta \phi_{ll}$ (visible)",
+    )
 
     # regressed dilepton variables
     add_variable(
@@ -452,6 +468,20 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": var_dilepreg.uses},
         binning=(30, 0, 6),
         x_title=r"$\Delta R_{ll}$ (regressed)",
+    )
+    add_variable(
+        name="dilep_reg_deta",
+        expression=var_dilepreg.partial(attr="deta"),
+        aux={"inputs": var_dilepreg.uses},
+        binning=(30, 0, 6),
+        x_title=r"$\Delta \eta_{ll}$ (regressed)",
+    )
+    add_variable(
+        name="dilep_reg_dphi",
+        expression=var_dilepreg.partial(attr="dphi"),
+        aux={"inputs": var_dilepreg.uses},
+        binning=(32, 0, 1.6),
+        x_title=r"$\Delta \phi_{ll}$ (regressed)",
     )
 
     # met variables
@@ -1107,6 +1137,10 @@ class VarDiLepVis(VarExp):
             return leps
         if attr == "dr":
             return delta_r12(leps)
+        if attr == "deta":
+            return delta_eta12(leps)
+        if attr == "dphi":
+            return delta_phi12(leps)
 
         dilep = leps.sum(axis=-1)
 
@@ -1154,15 +1188,17 @@ class VarDiLepReg(VarExp):
         lnu1 = stack_lvectors([nu1, dilepvis[:, 0]]).sum(axis=-1)
         lnu2 = stack_lvectors([nu2, dilepvis[:, 1]]).sum(axis=-1)
 
-        if attr == "dr":
-            # dr between lep+nu pairs
-            return delta_r12(stack_lvectors([lnu1, lnu2]))
-
         # build the full system
         dilep = stack_lvectors([lnu1, lnu2])
 
         if attr == "raw":
             return dilep
+        if attr == "dr":
+            return delta_r12(dilep)
+        if attr == "deta":
+            return delta_eta12(dilep)
+        if attr == "dphi":
+            return delta_phi12(dilep)
 
         dilep = dilep.sum(axis=-1)
 
@@ -1218,6 +1254,10 @@ class VarHHVis(VarExp):
             return hs
         if attr == "dr":
             return delta_r12(hs)
+        if attr == "deta":
+            return delta_eta12(hs)
+        if attr == "dphi":
+            return delta_phi12(hs)
 
         hh = hs.sum(axis=1)
 
@@ -1252,6 +1292,10 @@ class VarHHReg(VarExp):
             return hs
         if attr == "dr":
             return delta_r12(hs)
+        if attr == "deta":
+            return delta_eta12(hs)
+        if attr == "dphi":
+            return delta_phi12(hs)
 
         hh = hs.sum(axis=1)
 
@@ -1285,6 +1329,10 @@ class VarHHGen(VarExp):
             return hh
         if attr == "dr":
             return delta_r12(hh)
+        if attr == "deta":
+            return delta_eta12(hh)
+        if attr == "dphi":
+            return delta_phi12(hh)
 
         hh = hh.sum(axis=1)
 

@@ -74,11 +74,11 @@ class DYBaseTask(
 
         # define binnings
         binning_nbjets = (4, -0.5, 3.5)
-        binning_dilep_pt = (40, 0, 300)
+        binning_dilep_pt = (60, 0, 300)
         if self.config_inst.campaign.x.year == 2024:
             binning_dilep_pt = (
                 np.linspace(0.0, 80.0, 33).tolist() +
-                np.linspace(80.0, self.var_dilep_pt.x_max, 25)[1:]
+                np.linspace(80.0, self.var_dilep_pt.x_max, 45)[1:]
             ).tolist()
 
         # define variables
@@ -333,8 +333,8 @@ class DYWeights(DYBaseTask):
         cls=luigi.FloatParameter,
         min_len=2,
         max_len=2,
-        default=(0.0, 50.0),
-        description="invariant dilepton mass range to select; negative end value means infinite; default: 0,50",
+        default=(0.0, -1.0),
+        description="invariant dilepton mass range to select; negative end value means infinite; default: 0,-1",
     )
     output_postfix = luigi.Parameter(
         default=law.NO_STR,
@@ -356,11 +356,10 @@ class DYWeights(DYBaseTask):
             end_str = "inf" if end < 0 else str(law.util.try_int(end)).replace(".", "p")
             return f"{start_str}to{end_str}"
 
-        postfix_parts = []
-        if self.mll_range != self.__class__.mll_range._default:
-            postfix_parts.append(f"mll{encode_range(*self.mll_range)}")
-        if self.met_range != self.__class__.met_range._default:
-            postfix_parts.append(f"met{encode_range(*self.met_range)}")
+        postfix_parts = [
+            f"mll{encode_range(*self.mll_range)}",
+            f"met{encode_range(*self.met_range)}",
+        ]
         if self.output_postfix not in {"", None, law.NO_STR}:
             postfix_parts.append(self.output_postfix.lstrip("_"))
         postfix = "_".join(["", *postfix_parts]) if postfix_parts else ""

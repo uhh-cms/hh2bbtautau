@@ -302,6 +302,18 @@ def delta_r12(vectors: ak.Array) -> ak.Array:
     return ak.fill_none(dr, EMPTY_FLOAT)
 
 
+def delta_eta12(vectors: ak.Array) -> ak.Array:
+    # delta eta between first two elements
+    dr = abs(ak.firsts(vectors[:, :1], axis=1).eta - ak.firsts(vectors[:, 1:2], axis=1).eta)
+    return ak.fill_none(dr, EMPTY_FLOAT)
+
+
+def delta_phi12(vectors: ak.Array) -> ak.Array:
+    # delta phi between first two elements
+    dr = ak.firsts(vectors[:, :1], axis=1).delta_phi(ak.firsts(vectors[:, 1:2], axis=1))
+    return ak.fill_none(dr, EMPTY_FLOAT)
+
+
 def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarray:
     # eps confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
     x = events[col]
