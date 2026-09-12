@@ -8,3 +8,4 @@ import hbt.tasks.pipelines
 import hbt.tasks.dy_sf
 import hbt.tasks.studies
 import hbt.tasks.sync
+import hbt.tasks.cutflow
