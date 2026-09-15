@@ -53,17 +53,20 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="eq0j", selection="cat_eq0j", label="0 jets")
     _add_category(name="eq1j", selection="cat_eq1j", label="1 jet")
     _add_category(name="eq2j", selection="cat_eq2j", label="2 jets")
-    _add_category(name="ge2j", selection="cat_ge2j", label=r"$\geq$2 jets")
     _add_category(name="eq3j", selection="cat_eq3j", label="3 jets")
     _add_category(name="eq4j", selection="cat_eq4j", label="4 jets")
-    _add_category(name="ge4j", selection="cat_ge4j", label=r"$\geq$4 jets")
     _add_category(name="eq5j", selection="cat_eq5j", label="5 jets")
+    _add_category(name="ge2j", selection="cat_ge2j", label=r"$\geq$2 jets")
+    _add_category(name="ge3j", selection="cat_ge3j", label=r"$\geq$3 jets")
+    _add_category(name="ge4j", selection="cat_ge4j", label=r"$\geq$4 jets")
     _add_category(name="ge5j", selection="cat_ge5j", label=r"$\geq$5 jets")
     _add_category(name="ge6j", selection="cat_ge6j", label=r"$\geq$6 jets")
     _add_category(name="eq0b", selection="cat_eq0b", label="0 b-tags")
-    _add_category(name="ge0b", selection="cat_ge0b", label="")
     _add_category(name="eq1b", selection="cat_eq1b", label="1 b-tag")
     _add_category(name="eq2b", selection="cat_eq2b", label="2 b-tags")
+    _add_category(name="eq3b", selection="cat_eq2b", label="3 b-tags")
+    _add_category(name="ge0b", selection="cat_ge0b", label="")
+    _add_category(name="ge1b", selection="cat_ge1b", label=r"$\geq$1 b-tag")
     _add_category(name="ge2b", selection="cat_ge2b", label=r"$\geq$2 b-tags")
     _add_category(name="ge3b", selection="cat_ge3b", label=r"$\geq$3 b-tags")
     _add_category(name="dy", selection="cat_dy", label="DY enriched")
@@ -71,7 +74,6 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="dy_st", selection=["cat_dy", "cat_single_triggered"], label="DY enriched, ST")
     _add_category(name="tt", selection="cat_tt", label=r"$t\bar{t}$ enriched")
     _add_category(name="mll40", selection="cat_mll40", label=r"$m_{ll} > 40$")
-
     _add_category(name="res1b", selection="cat_res1b", label="res1b")
     _add_category(name="res2b", selection="cat_res2b", label="res2b")
     _add_category(name="boosted", selection="cat_boosted", label="boosted")
@@ -79,7 +81,7 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="res1b_novbf", selection="cat_res1b_novbf", label="res1b, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
     _add_category(name="res2b_novbf", selection="cat_res2b_novbf", label="res2b, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
     _add_category(name="boosted_novbf", selection="cat_boosted_novbf", label="boosted, VBF cleaned", tags={"skip_cutflow"})  # noqa: E501
-    # new cclub based categories
+    # cclub based categories
     _add_category(name="res1b_cc", selection="cat_res1b_cc", label="Resolved, ggF, 1 b-tag", tags={"skip_cutflow"})
     _add_category(name="res2b_cc", selection="cat_res2b_cc", label=r"Resolved, ggF, $\geq$2 b-tags", tags={"skip_cutflow"})  # noqa: E501
     _add_category(name="vbf_cc", selection="cat_vbf_cc", label="Resolved, VBF", tags={"skip_cutflow"})
@@ -136,7 +138,9 @@ def add_categories(config: od.Config) -> None:
         # kinematic regions in the middle (to be extended)
         "kin": CategoryGroup(
             [
-                "incl", "res1b", "res2b", "ge1b", "ge2b",
+                "incl", "res1b", "res2b", "boosted",
+                "res1b_cc", "res2b_cc", "vbf_cc", "boosted_cc",
+                "eq2j", "eq3j", "eq4j", "eq5j", "ge2j", "ge3j", "ge4j",
             ],
             is_complete=False,
             has_overlap=True,
@@ -151,6 +155,8 @@ def add_categories(config: od.Config) -> None:
             is_complete=False,
             has_overlap=True,
         ),
+        # btag groups
+        "btags": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),
         # qcd regions last
         "sign": CategoryGroup(["os", "ss"], is_complete=True, has_overlap=False),
         "tau2": CategoryGroup(["iso", "noniso"], is_complete=True, has_overlap=False),
@@ -170,25 +176,9 @@ def add_categories(config: od.Config) -> None:
         # channels
         "channel": CategoryGroup(["ee", "mumu", "emu"], is_complete=False, has_overlap=False),
         # kinematic regions
-        "kin_dy": CategoryGroup(["dyc", "not_dyc"], is_complete=True, has_overlap=False),
-        # kinematic regions in the middle (to be extended)
-        "kin": CategoryGroup(
-            [
-                "incl", "res1b", "res2b",
-            ],
-            is_complete=False,
-            has_overlap=True,
-        ),
-        # split events per trigger
-        "trigger": CategoryGroup(
-            [
-                "single_e", "single_mu", "trig_incl"
-            ],
-            is_complete=False,
-            has_overlap=True,
-        ),
-        # "jets": CategoryGroup(["eq2j", "eq3j", "eq4j", "ge2j", "ge4j", "eq5j", "ge6j"], is_complete=True, has_overlap=True),  # noqa: E501
-        # "tags": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge0b", "ge2b"], is_complete=True, has_overlap=True),
+        "kin": CategoryGroup(["incl", "dy", "dyc", "tt", "dy_st", "mll40"], is_complete=True, has_overlap=True),
+        "jets": CategoryGroup(["eq2j", "eq3j", "eq4j", "ge2j", "ge4j", "eq5j", "ge6j"], is_complete=True, has_overlap=True),  # noqa: E501
+        "btags": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge0b", "ge2b"], is_complete=True, has_overlap=True),
         # relative sign
         "sign": CategoryGroup(["os"], is_complete=False, has_overlap=False),
     }

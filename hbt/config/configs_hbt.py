@@ -617,10 +617,10 @@ def add_config(
     # process groups for conveniently looping over certain processes
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {
-        "signals": [
+        "signals": (signals_sm := [
             "hh_ggf_hbb_htt_kl1_kt1",
             "hh_vbf_hbb_htt_kv1_k2v1_kl1",
-        ],
+        ]),
         "signals_ggf": [
             f"hh_ggf_hbb_htt_kl{kl}_kt1"
             for kl, in cfg.x.hh_points.ggf
@@ -638,16 +638,29 @@ def add_config(
             "dy",
             "w_lnu",
             "st",
-            # "others"
+            "multiboson",
+            "ewk",
+            "h",
+            "qcd",
+        ]),
+        "backgrounds_dygen": (backgrounds_dygen := [
+            "tt",
+            "dy_ee",
+            "dy_mumu",
+            "dy_tautau",
+            "w_lnu",
+            "st",
             "multiboson",
             "ewk",
             "h",
             "qcd",
         ]),
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
-        "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
-        "sm_ggf_data": ["data"] + sm_ggf_group,
-        "sm_data": ["data"] + sm_group,
+        "sm_ggf_data": ["data", sm_ggf_group],
+        "sm": (sm_group := [*signals_sm, *backgrounds]),
+        "sm_data": ["data", *sm_group],
+        "sm_dygen": (sm_dygen_group := [*signals_sm, *backgrounds_dygen]),
+        "sm_dygen_data": ["data", *sm_dygen_group],
         "bkg_data": ["data"] + backgrounds,
     }
     cfg.x.default_process_group = "sm_data"
@@ -1564,7 +1577,7 @@ def add_config(
 
     # dy specific methods
     if run == 3:
-        from columnflow.production.cms.dy import DrellYanConfig
+        from columnflow.production.cms.dy import DrellYanWeightConfig, RecoilConfig
         dy_era = f"{year}"
         if year == 2022:
             dy_era += "preEE" if campaign.has_tag("preEE") else "postEE"
@@ -1573,7 +1586,7 @@ def add_config(
 
         # dy reweighting with custom weights
         # (originally by hleprare group, https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight)
-        cfg.x.dy_weight_config = DrellYanConfig(
+        cfg.x.dy_weight_config = DrellYanWeightConfig(
             era=dy_era,
             correction="dy_weight",
             systs=[
@@ -1592,7 +1605,7 @@ def add_config(
 
         # dy boson recoil correction
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        cfg.x.dy_recoil_config = DrellYanConfig(
+        cfg.x.dy_recoil_config = RecoilConfig(
             era=dy_era,
             order="NLO",
             correction="Recoil_correction_Rescaling",
@@ -2060,12 +2073,8 @@ def add_config(
         add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
         # dy weight and recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        # test: reprocessed version for 23post only
-        if year == 2023 and campaign.x.postfix == "BPix":
-            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_23post_prod28.json.gz", "v2"))  # noqa: E501
-        else:
-            dy_weight_version = 4 if year == 2024 else 4  # 2024 not yet available in new v5
-            add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
+        dy_weight_version = 4 if year == 2024 else 5  # 2024 not yet available in new v5
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"

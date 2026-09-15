@@ -199,7 +199,7 @@ class _external_dnn(Producer):
         events = self.update_events(events)
 
         # prepare continuous and categorical network inputs
-        # ! NOTE: the order in which inputs are assigned to the DotDicts must match exactly the networks' feature order
+        # ! NOTE: the order in which inputs are assigned to the DotDict's must match exactly the networks' feature order
         cont = DotDict()
         cat = DotDict()
         self.define_categorical_inputs(events, cat)
