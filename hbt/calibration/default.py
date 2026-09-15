@@ -16,7 +16,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.electron import electron_sceta
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_3, IF_RUN_3_2024, IF_MC
+from hbt.util import IF_RUN_3, IF_RUN_3_2024, IF_RUN_3_2024_2025, IF_MC
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -186,7 +186,7 @@ def default_init(self: Calibrator, **kwargs) -> None:
         IF_RUN_3(self.muon_sr_full_cls),
         IF_RUN_3(self.muon_sr_nominal_cls),
         # TODO: 2024: remove condition when met phi corrections are made available
-        ~IF_RUN_3_2024(self.met_phi_cls),
+        ~IF_RUN_3_2024_2025(self.met_phi_cls),
     }
 
     self.uses |= derived_calibrators

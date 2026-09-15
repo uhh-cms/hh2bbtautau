@@ -1214,6 +1214,8 @@ def add_config(
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
+        elif year == 2025:
+            jec_campaign = f"Summer24{campaign.x.postfix}{jerc_postfix}"
         jer_version = "JR" + {
             2022: "V2",
             2023: "V3",
@@ -1971,7 +1973,7 @@ def add_config(
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2024
             2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
             #https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=222#Year_2025
-            2025:(cat_info.get_file("dc", "Cert_Collisions2025_391658_398903_Golden.json"), "v1"),
+            2025: (cat_info.get_file("dc", "Cert_Collisions2025_391658_398903_Golden.json"), "v1"),
         }[year],
         "normtag": {
             2016: ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
@@ -1983,6 +1985,8 @@ def add_config(
             2023: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2024
             2024: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
+            # 2025 TODO
+            2025: ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json", "v1"),
         }[year],
     })
     # pileup weight corrections

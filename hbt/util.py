@@ -116,6 +116,9 @@ def IF_RUN_3_2023_POST(self, func: ArrayFunction) -> bool:
 def IF_RUN_3_2024(self, func: ArrayFunction) -> bool:
     return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2024
 
+@conditional_column
+def IF_RUN_3_2024_2025(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2024, 2025}
 
 @conditional_column
 def IF_RUN_3_2022_2023(self, func: ArrayFunction) -> bool:
