@@ -180,6 +180,15 @@ def stylize_processes(config: od.Config) -> None:
     if (p := config.get_process("dy", default=None)):
         p.color1 = cfg.x.colors.blue
 
+    if (p := config.get_process("dy_ee", default=None)):
+        p.color1 = "#004c93"
+
+    if (p := config.get_process("dy_mumu", default=None)):
+        p.color1 = "#3f90da"
+
+    if (p := config.get_process("dy_tautau", default=None)):
+        p.color1 = "#8ac2f7"
+
     if (p := config.get_process("vv", default=None)):
         p.color1 = cfg.x.colors.grey
 

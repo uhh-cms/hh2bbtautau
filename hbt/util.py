@@ -310,7 +310,7 @@ def delta_eta12(vectors: ak.Array) -> ak.Array:
 
 def delta_phi12(vectors: ak.Array) -> ak.Array:
     # delta phi between first two elements
-    dr = ak.firsts(vectors[:, :1], axis=1).delta_phi(ak.firsts(vectors[:, 1:2], axis=1))
+    dr = abs(ak.firsts(vectors[:, :1], axis=1).delta_phi(ak.firsts(vectors[:, 1:2], axis=1)))
     return ak.fill_none(dr, EMPTY_FLOAT)
 
 

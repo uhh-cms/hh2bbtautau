@@ -617,10 +617,10 @@ def add_config(
     # process groups for conveniently looping over certain processes
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {
-        "signals": [
+        "signals": (signals_sm := [
             "hh_ggf_hbb_htt_kl1_kt1",
             "hh_vbf_hbb_htt_kv1_k2v1_kl1",
-        ],
+        ]),
         "signals_ggf": [
             f"hh_ggf_hbb_htt_kl{kl}_kt1"
             for kl, in cfg.x.hh_points.ggf
@@ -638,16 +638,29 @@ def add_config(
             "dy",
             "w_lnu",
             "st",
-            # "others"
+            "multiboson",
+            "ewk",
+            "h",
+            "qcd",
+        ]),
+        "backgrounds_dygen": (backgrounds_dygen := [
+            "tt",
+            "dy_ee",
+            "dy_mumu",
+            "dy_tautau",
+            "w_lnu",
+            "st",
             "multiboson",
             "ewk",
             "h",
             "qcd",
         ]),
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
-        "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
-        "sm_ggf_data": ["data"] + sm_ggf_group,
-        "sm_data": ["data"] + sm_group,
+        "sm_ggf_data": ["data", sm_ggf_group],
+        "sm": (sm_group := [*signals_sm, *backgrounds]),
+        "sm_data": ["data", *sm_group],
+        "sm_dygen": (sm_dygen_group := [*signals_sm, *backgrounds_dygen]),
+        "sm_dygen_data": ["data", *sm_dygen_group],
         "bkg_data": ["data"] + backgrounds,
     }
     cfg.x.default_process_group = "sm_data"
