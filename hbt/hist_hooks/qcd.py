@@ -14,6 +14,7 @@ import order as od
 import scinum as sn
 
 from columnflow.util import maybe_import, DotDict
+from columnflow.hist_util import sum_hists
 from columnflow.types import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -183,28 +184,30 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         if not data_hists:
             task.logger.warning("no data histograms found, skipping QCD estimation")
             return hists
-        mc_hist = sum(mc_hists[1:], mc_hists[0].copy())
-        data_hist = sum(data_hists[1:], data_hists[0].copy())
+        mc_hist = sum_hists(mc_hists)
+        data_hist = sum_hists(data_hists)
 
         # start by copying the mc hist and reset it, then fill it at specific category slices
-        hists[qcd_proc] = qcd_hist = mc_hist.copy().reset()
+        qcd_hist = mc_hist.copy().reset()
         for group_name in complete_groups:
             group = qcd_groups[group_name]
 
-            if not requested_group:
+            # define the target category
+            if requested_group:
+                target_category = requested_category
+            else:
                 for key, cats in group.items():
                     if len(cats) > 1:
                         raise ValueError(f"ABCD group {group_name} has multiple categories for region {key}")
+                target_category = group.os_iso[0].name
 
             # get the corresponding histograms and convert them to number objects, each one storing an array of values
             # with uncertainties
             # shapes: (SHIFT, VAR)
             def get_hist(h: hist.Histogram, region_name: str) -> hist.Histogram:
-                # define intermediate categories to sum over if necessary
-                for cat in group[region_name]:
-                    h = ensure_category(h, cat.name)
-                h = h[{"category": [hist.loc(cat.name) for cat in group[region_name]]}]
-                return h[{"category": sum}]
+                h = h[{"category": [hist.loc(cat.name) for cat in group[region_name] if cat in h.axes["category"]]}]
+                h = h[{"category": sum}]
+                return h
 
             os_noniso_mc = hist_to_num(get_hist(mc_hist, "os_noniso"), "os_noniso_mc")
             ss_noniso_mc = hist_to_num(get_hist(mc_hist, "ss_noniso"), "ss_noniso_mc")
@@ -307,22 +310,16 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 qcd_values[zero_mask] = empty_bin_value
                 qcd_variances[zero_mask] = 0.0
 
-            # ensure that the requested category exists in the qcd histogram (if set)
-            if requested_group:
-                qcd_hist = ensure_category(qcd_hist, requested_category)
+            # ensure that the target category exists in the qcd histogram
+            qcd_hist = ensure_category(qcd_hist, target_category)
 
             # insert values into the qcd histogram
-            cat_axis = qcd_hist.axes["category"]
-            for cat_index in range(cat_axis.size):
-                if cat_axis.value(cat_index) == group.os_iso[0].name:
-                    qcd_hist.view().value[cat_index, ...] = qcd_values
-                    qcd_hist.view().variance[cat_index, ...] = qcd_variances
-                    break
-            else:
-                raise RuntimeError(
-                    f"could not find index of bin on 'category' axis of qcd histogram {qcd_hist} for category "
-                    f"{group.os_iso}",
-                )
+            cat_index = qcd_hist.axes["category"].index(target_category)
+            qcd_hist.view().value[cat_index, ...] = qcd_values
+            qcd_hist.view().variance[cat_index, ...] = qcd_variances
+
+            # save the histogram
+            hists[qcd_proc] = qcd_hist
 
         return hists
 
