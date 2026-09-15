@@ -643,7 +643,7 @@ def add_config(
             "h",
             "qcd",
         ]),
-        "backgrounds_dygen": (backgrounds_dygen := [
+        "backgrounds_dylep": (backgrounds_dylep := [
             "tt",
             "dy_ee",
             "dy_mumu",
@@ -659,8 +659,8 @@ def add_config(
         "sm_ggf_data": ["data", sm_ggf_group],
         "sm": (sm_group := [*signals_sm, *backgrounds]),
         "sm_data": ["data", *sm_group],
-        "sm_dygen": (sm_dygen_group := [*signals_sm, *backgrounds_dygen]),
-        "sm_dygen_data": ["data", *sm_dygen_group],
+        "sm_dylep": (sm_dylep_group := [*signals_sm, *backgrounds_dylep]),
+        "sm_dylep_data": ["data", *sm_dylep_group],
         "bkg_data": ["data"] + backgrounds,
     }
     cfg.x.default_process_group = "sm_data"
