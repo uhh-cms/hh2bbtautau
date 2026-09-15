@@ -997,7 +997,8 @@ def add_variables(config: od.Config) -> None:
     extend_var_names = [
         "met_pt", "met_phi", "met_pt_nosmear", "met_pt_nophi", "met_pt_norecoil", "met_pt_reglep1_parallel",
         "met_pt_reglep2_parallel", "met_pt_reglep1_perpendicular", "met_pt_reglep2_perpendicular",
-        "dilep_vis_pt", "mu1_pt",
+        "dilep_vis_pt", "dilep_reg_pt", "dilep_vis_dr", "dilep_reg_dr",
+        "mu1_pt",
     ]
     for name_postfix, selection, x_postfix in [
         ("_mll70to110", VisDiLepMassWindow(m_min=70.0, m_max=110.0), r"$70 \leq m_{ll} < 110$"),
