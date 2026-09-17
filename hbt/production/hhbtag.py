@@ -265,6 +265,8 @@ def hhbtag_setup(
         (2023, ""): 2,
         (2023, "BPix"): 3,
         (2024, ""): 4,
+        (2025, ""): 5,
+        (2026, ""): 6,
     }[campaign_key]
 
     # validate the met name

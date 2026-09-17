@@ -573,13 +573,22 @@ def add_config(
                 info.n_files = 1
 
         # group datasets together for btag WP efficiency calculation in 2024
-        if year == 2024:
-            cfg.x.btag_wp_eff_groups = [
-                ["hh_*", "tt_*", "st_*", "ttw_*", "ttz_*", "ttww_*", "ttwz_*", "ttzz_*"],
+        if year >= 2024:
+            if year==2024:
+                cfg.x.btag_wp_eff_groups = [
+                ["hh_*","tt_*", "st_*", "ttw_*", "ttz_*", "ttww_*", "ttwz_*", "ttzz_*"],
                 ["dy_*"],
                 ["w_*", "z_*", "zz_*", "wz_*", "ww_*", "www_*", "wwz_*", "wzz_*", "zzz_*"],
                 ["h_*", "wmh_*", "wph_*", "zh_*", "tth_*"],
             ]
+            elif year>=2025:
+                cfg.x.btag_wp_eff_groups = [
+                    ["hh_ggf_hbb_htt_*_powheg","tt_dl_powheg"],
+                    ["hh_ggf_*hvv*","hh_vbf_*","tt_sl_powheg","tt_fh_powheg", "st_*", "ttw_*", "ttz_*", "ttww_*", "ttwz_*", "ttzz_*"],
+                    ["dy_*"],
+                    ["w_*", "z_*", "zz_*", "wz_*", "ww_*", "www_*", "wwz_*", "wzz_*", "zzz_*"],
+                    ["h_*", "wmh_*", "wph_*", "zh_*", "tth_*"],
+                ]
             group_matched = False
             for i, dataset_pattern in enumerate(cfg.x.btag_wp_eff_groups):
                 if law.util.multi_match(dataset.name, dataset_pattern):
@@ -973,7 +982,7 @@ def add_config(
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23BPix
         
         # 2025 and 2026 wps are the same as 2024
-        btag_key="2024"
+        btag_key="2024" if year in {2024, 2025, 2026} else str(btag_key)
         cfg.x.btag_working_points = DotDict.wrap({
             "deepjet": {
                 "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048, "2024": None}[btag_key],
@@ -1027,7 +1036,7 @@ def add_config(
             wp=cfg.x.btag_working_points.upart.medium,
             weight_column="btag_weight",  # no need for normalization in wp based method
         )
-        cfg.x.btag_default = cfg.x.btag_upart if year == 2024 else cfg.x.btag_pnet
+        cfg.x.btag_default = cfg.x.btag_upart if year >= 2024 else cfg.x.btag_pnet
     else:
         assert False
 
@@ -1080,7 +1089,7 @@ def add_config(
         discriminator=cfg.x.btag_deepjet.jet_column,
     )
     if run == 3:
-        if year != 2024:
+        if year < 2024:
             cfg.x.btag_sf_pnet = BTagSFConfig(
                 correction_set="particleNet_shape",
                 jec_sources=cfg.x.btag_sf_jec_sources,
@@ -1214,7 +1223,7 @@ def add_config(
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
-        elif year == 2025:
+        elif year > 2023:
             jec_campaign = f"Summer24{campaign.x.postfix}{jerc_postfix}"
         jer_version = "JR" + {
             2022: "V2",
@@ -2001,7 +2010,7 @@ def add_config(
     # jet veto map
     add_external("jet_veto_map", (cat_info.get_file("jme", "jetvetomaps.json.gz"), "v1"))
     # btag scale factor
-    if run == 3 and year == 2024:
+    if run == 3 and year >= 2024:
         add_external("btag_wp_sf_corr", (f"{central_hbt_dir}/custom_btv_files/btag_merged_2024_2026-03-10.json.gz", "v1"))  # noqa: E501
     else:
         # tmp fix for 23post, see https://trello.com/c/DbgRNT7o/24-change-23post-btagsfcorr-back-to-cat-deployed-file
@@ -2068,7 +2077,8 @@ def add_config(
         # EGM tool for simplified ss application
         add_external("egm_tool", (f"{central_hbt_dir}/custom_egm_files/egm_tools.json.gz", "v1"))
         # hh-btag, https://github.com/elviramartinv/HHbtag/tree/CCLUB
-        hhb_postfix = "_2024" if year == 2024 else ""
+        # TODO: take 2024 as placeholder for 25/26
+        hhb_postfix = "_2024" if year >= 2024 else ""
         add_external("hh_btag_repo", Ext(
             f"{central_hbt_dir}/HHbtag-9b98eb8.tar.gz",
             subpaths=DotDict(
@@ -2078,7 +2088,8 @@ def add_config(
             version="v3",
         ))
         # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB, https://indico.cern.ch/event/1590750/contributions/6784135/attachments/3169657/5634394/Jet_taggers_0711.pdf # noqa
-        vbfj_postfix = "_2024" if year == 2024 else ""
+         # TODO: take 2024 as placeholder for 25/26
+        vbfj_postfix = "_2024" if year >= 2024 else ""
         add_external("vbf_jtag_repo", Ext(
             f"{central_hbt_dir}/VBFjtag-82b2a1a.tar.gz",
             subpaths=DotDict(
@@ -2182,7 +2193,7 @@ def add_config(
                 ),
                 version="v1",
             ))
-        elif year >= 2024:# TODO:2025 onwards not available
+        elif year == 2024:# TODO:2025 onwards not available
             add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
 
             tau_pog_era_cclub = f"{year}fullYear"

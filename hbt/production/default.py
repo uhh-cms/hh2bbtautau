@@ -19,8 +19,8 @@ from hbt.production.weights import (
     normalized_murmuf_weight, normalized_ps_weights, normalized_btag_weights_pnet,
 )
 from hbt.production.tau import tau_weights
-from hbt.production.trigger_sf import trigger_weight
-from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3_2022_2023, IF_RUN_3_2024
+from hbt.production.trigger_sf import trigger_weight, trigger_weight_placeholder
+from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3_2022_2023, IF_RUN_3_2024_2025_2026
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -85,13 +85,13 @@ muon_weights_lowpt = muon_weights.derive(
 @producer(
     uses={
         hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,
-        IF_RUN_3_2022_2023(normalized_btag_weights_pnet), IF_RUN_3_2024(btag_wp_weights),
+        IF_RUN_3_2022_2023(normalized_btag_weights_pnet), IF_RUN_3_2024_2025_2026(btag_wp_weights),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
     produces={
         hbt_category_ids, stitched_normalization_weights_dy_tautau_drop, normalized_pu_weight, normalized_ps_weights,
-        IF_RUN_3_2022_2023(normalized_btag_weights_pnet), IF_RUN_3_2024(btag_wp_weights),
+        IF_RUN_3_2022_2023(normalized_btag_weights_pnet), IF_RUN_3_2024_2025_2026(btag_wp_weights),
         IF_DATASET_HAS_LHE_WEIGHTS(normalized_pdf_weight, normalized_murmuf_weight),
         # weight producers added dynamically if produce_weights is set
     },
@@ -158,8 +158,8 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             events = self[muon_iso_weights](events, **kwargs)
 
         # trigger weight
-        if self.has_dep(trigger_weight):
-            events = self[trigger_weight](events, **kwargs)
+        if self.has_dep(self.trigger_weight_cls):
+            events = self[self.trigger_weight_cls](events, **kwargs)
 
         # top pt weight
         if self.has_dep(top_pt_weight):
@@ -177,13 +177,19 @@ def default_init(self: Producer, **kwargs) -> None:
     super(default, self).init_func(**kwargs)
 
     if self.produce_weights:
+        # TODO: trigger scale factor inputs aren't available yet for 2025/2026 -> flat placeholder (SF = 1) 
+        self.trigger_weight_cls = (
+            trigger_weight_placeholder
+            if self.config_inst.campaign.x.year >= 2025
+            else trigger_weight
+        )
         weight_producers = {
             tau_weights,
             electron_id_weights,
             electron_reco_weights,
             muon_id_weights,
             muon_iso_weights,
-            trigger_weight,
+            self.trigger_weight_cls
         }
 
         if self.dataset_inst.has_tag("ttbar"):

@@ -1072,3 +1072,26 @@ def trigger_weight(
             events = set_ak_column_f32(events, varied_weight_name, trigger_weight)
 
     return events
+
+@producer(
+    uses={"channel_id"},
+    produces={
+        "trigger_weight",
+        "trigger_weight_{e,mu,jet,vbfjets}_{up,down}",
+        IF_RUN_3_2024("trigger_weight_quadjet_{up,down}"),
+        "trigger_weight_tau_dm{0,1,10,11}_{up,down}",
+    },
+)
+def trigger_weight_placeholder(
+    self: Producer,
+    events: ak.Array,
+    **kwargs,
+) -> ak.Array:
+    """
+    Placeholder for years without trigger scale factor inputs yet (2025/2026).
+    Sets all trigger weight columns to 1, with no dependency on any external correction file.
+    """
+    ones = np.ones(len(events), dtype=np.float32)
+    for route in self.produced_columns:
+        events = set_ak_column_f32(events, route, ones)
+    return events

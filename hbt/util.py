@@ -117,8 +117,12 @@ def IF_RUN_3_2024(self, func: ArrayFunction) -> bool:
     return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2024
 
 @conditional_column
-def IF_RUN_3_2024_2025(self, func: ArrayFunction) -> bool:
-    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2024, 2025}
+def IF_RUN_3_2025(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2025
+
+@conditional_column
+def IF_RUN_3_2026(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year == 2026
 
 @conditional_column
 def IF_RUN_3_2022_2023(self, func: ArrayFunction) -> bool:
@@ -129,6 +133,9 @@ def IF_RUN_3_2022_2023(self, func: ArrayFunction) -> bool:
 def IF_RUN_3_2023_2024(self, func: ArrayFunction) -> bool:
     return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2023, 2024}
 
+@conditional_column
+def IF_RUN_3_2024_2025_2026(self, func: ArrayFunction) -> bool:
+    return func.config_inst.campaign.x.run == 3 and func.config_inst.campaign.x.year in {2024, 2025, 2026}
 
 IF_DATASET_HAS_LHE_WEIGHTS = IF_DATASET_HAS_TAG("no_lhe_weights", negate=True)
 IF_DATASET_HAS_TOP = IF_DATASET_HAS_TAG("has_top")

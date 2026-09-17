@@ -116,7 +116,7 @@ def electron_selection(
         self.config_inst.campaign.x.year == 2023 and
         self.config_inst.campaign.has_tag("postBPix")
     )
-    is_2024 = self.config_inst.campaign.x.year == 2024
+    is_2024 = self.config_inst.campaign.x.year >= 2024
     is_single = trigger.has_tag("single_e")
     is_cross = trigger.has_tag("cross_e_tau")
     is_cross_vbf = trigger.has_tag("cross_e_vbf")
@@ -273,8 +273,8 @@ def muon_selection(
     - ID und ISO : https://twiki.cern.ch/twiki/bin/view/CMS/MuonUL2017?rev=15
     """
     is_2016 = self.config_inst.campaign.x.year == 2016
-    is_2023 = self.config_inst.campaign.x.year == 2023
-    is_2024 = self.config_inst.campaign.x.year == 2024
+    is_2023 = self.config_inst.campaign.x.year == 2023 
+    is_2024 = self.config_inst.campaign.x.year >= 2024 # TODO:place holder >= in the future, but for now we want to be able to run on 2025+ campaigns as well
     is_single = trigger.has_tag("single_mu")
     is_cross = trigger.has_tag("cross_mu_tau")
     is_cross_vbf = trigger.has_tag("cross_mu_vbf")
@@ -404,8 +404,10 @@ def tau_selection(
     is_vbf = trigger.has_tag({"cross_vbf", "cross_mu_vbf", "cross_e_vbf"})
     is_2016 = self.config_inst.campaign.x.year == 2016
     is_run3 = self.config_inst.campaign.x.run == 3
+    is_2022 = self.config_inst.campaign.x.year == 2022
     is_2023 = self.config_inst.campaign.x.year == 2023
-    is_2024 = self.config_inst.campaign.x.year == 2024
+    is_2024 = self.config_inst.campaign.x.year >= 2024 # TODO: plan to remove >= in the future, but for now we want to be able to run on 2025+ campaigns as well
+  
     get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
     if (is_vbf or is_cross_vbf) and not (is_2023 or is_2024):
         raise ValueError("Invalid trigger configuration, no vbf trigger should be available before 2023")

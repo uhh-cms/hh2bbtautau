@@ -40,7 +40,7 @@ from hbt.production.weights import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
 from hbt.util import (
-    IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2022_2023, IF_RUN_3_2024, IF_DATA, IF_DATASET_HAS_TAG,
+    IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2022_2023, IF_RUN_3_2024_2025_2026, IF_DATA, IF_DATASET_HAS_TAG,
 )
 
 np = maybe_import("numpy")
@@ -95,7 +95,7 @@ def dy_drop_tautau_setup(self: Selector, task: law.Task, **kwargs) -> None:
         jet_selection, mc_weight, pu_weight, ps_weights, IF_RUN_3_2022_2023(btag_weights_pnet), process_ids,
         cutflow_features, attach_coffea_behavior, IF_DATA(patch_ecalBadCalibFilter),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, pdf_weights_raw, murmuf_weights, murmuf_weights_raw),
-        IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau), IF_RUN_3_2024(fill_btag_wp_count_hists),
+        IF_DATASET_HAS_TAG("dy_drop_tautau")(dy_drop_tautau), IF_RUN_3_2024_2025_2026(fill_btag_wp_count_hists),
     },
     produces={
         jet_id, fatjet_id, trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights,
