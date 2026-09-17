@@ -1486,15 +1486,26 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
-        cfg.x.electron_reco_sf = ElectronSFConfig(
-            correction="Electron-ID-SF",
-            campaign=f"{year}{e_postfix}",
-            working_point={
-                "RecoBelow20": (lambda variables: variables["pt"] < 20.0),
-                "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
-                "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
-            },
-        )
+        if year<=2024:
+            cfg.x.electron_reco_sf = ElectronSFConfig(
+                correction="Electron-ID-SF",
+                campaign=f"{year}{e_postfix}",
+                working_point={
+                    "RecoBelow20": (lambda variables: variables["pt"] < 20.0),
+                    "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
+                    "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
+                },
+            )
+        ## TODO: missing low pT reco SFs
+        else:
+            cfg.x.electron_reco_sf = ElectronSFConfig(
+                correction="Electron-ID-SF",
+                campaign=f"{year}{e_postfix}",
+                working_point={
+                    "Reco20to75": (lambda variables: (variables["pt"] >= 20.0) & (variables["pt"] < 75.0)),
+                    "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
+                },
+            )
         cfg.x.electron_trigger_sf_names = ElectronSFConfig(
             correction="Electron-HLT-SF",
             campaign=f"{year}{e_postfix}",

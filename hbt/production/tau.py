@@ -128,21 +128,41 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             genuine_mask = genuine_mask & mask
         # TODO: 2024: the stat$i_dm$d variations are not yet existing in the TAU correction file (will they?), so fall
         # back to nominal in the meantime
-        if self.config_inst.campaign.x.year == 2024 and syst.startswith("stat"):
+        if self.config_inst.campaign.x.year >= 2024 and syst.startswith("stat"):
             syst = "nom"
         # end TODO
-        inputs = {
-            "pt": taus_flat.pt[genuine_mask],
-            "dm": taus_flat.decayMode[genuine_mask],
-            "genmatch": 5,
-            "wp": vs_jet_wp,
-            "wp_VSe": vs_e_wp,
-            "syst": syst,
-            "flag": "dm",
-        }
-        sfs_flat[genuine_mask] = self.id_vs_jet_corrector.evaluate(
-            *(inputs[inp.name] for inp in self.id_vs_jet_corrector.inputs),
-        )
+        needs_wp_vsmu = self.config_inst.campaign.x.year <= 2025  # <- flip this if it's the other way round
+
+        if needs_wp_vsmu:
+            # wp_VSmu is channel dependent -> evaluate separately per channel
+            for ch in [ch_etau, ch_mutau, ch_tautau]:
+                ch_mask = genuine_mask & (ch_flat == ch.id)
+                inputs = {
+                    "pt": taus_flat.pt[ch_mask],
+                    "dm": taus_flat.decayMode[ch_mask],
+                    "genmatch": 5,
+                    "wp": vs_jet_wp,
+                    "wp_VSe": vs_e_wp,
+                    "wp_VSmu": vs_mu_wp[ch.name],
+                    "syst": syst,
+                    "flag": "dm",
+                }
+                sfs_flat[ch_mask] = self.id_vs_jet_corrector.evaluate(
+                    *(inputs[inp.name] for inp in self.id_vs_jet_corrector.inputs),
+                )
+        else:
+            inputs = {
+                "pt": taus_flat.pt[genuine_mask],
+                "dm": taus_flat.decayMode[genuine_mask],
+                "genmatch": 5,
+                "wp": vs_jet_wp,
+                "wp_VSe": vs_e_wp,
+                "syst": syst,
+                "flag": "dm",
+            }
+            sfs_flat[genuine_mask] = self.id_vs_jet_corrector.evaluate(
+                *(inputs[inp.name] for inp in self.id_vs_jet_corrector.inputs),
+            )
 
     # electrons faking taus (separately for decay modes)
     def fill_e_fakes(sfs_flat: np.array, syst: str, mask: np.array | ak.Array | None = None) -> None:
