@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import abc
 import functools
+import itertools
 
 import order as od
 
 from columnflow.columnar_util import (
-    EMPTY_FLOAT, Route, attach_coffea_behavior, optional_column, has_ak_column, full_like,
+    EMPTY_FLOAT, Route, attach_coffea_behavior, optional_column, has_ak_column, full_like, ak_concatenate_safe,
 )
 from columnflow.util import maybe_import
 from columnflow.types import Sequence, Callable, Type, Any
@@ -841,6 +842,14 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Gen $p_{T,ll}$",
     )
 
+    # weights
+    add_variable(
+        name="trigger_weight",
+        expression="trigger_weight",
+        binning=(40, 0.0, 2.0),
+        x_title=r"Trigger weight",
+    )
+
     # DNN outputs
     for proc in ["hh", "tt", "dy"]:
         # outputs of the resonant pDNN at SM-like mass and spin values
@@ -993,32 +1002,68 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": ["e2e_model1_bin*"]},
     )
 
+    #
     # add variations for different variables with different selections
-    extend_var_names = [
-        "met_pt", "met_phi", "met_pt_nosmear", "met_pt_nophi", "met_pt_norecoil", "met_pt_reglep1_parallel",
-        "met_pt_reglep2_parallel", "met_pt_reglep1_perpendicular", "met_pt_reglep2_perpendicular",
-        "dilep_vis_pt", "dilep_reg_pt", "dilep_vis_dr", "dilep_reg_dr",
-        "mu1_pt",
-    ]
-    for name_postfix, selection, x_postfix in [
-        ("_mll70to110", VisDiLepMassWindow(m_min=70.0, m_max=110.0), r"$70 \leq m_{ll} < 110$"),
-        ("_mllreg70to110", RegDiLepMassWindow(m_min=70.0, m_max=110.0), r"reg. $70 \leq m_{ll} < 110$"),
-        ("_mllreg10", RegDiLepMassWindow(m_min=10.0), r"reg. $m_{ll} \geq 10$"),
-        ("_mllreg12", RegDiLepMassWindow(m_min=12.0), r"reg. $m_{ll} \geq 12$"),
-        ("_mllreg15", RegDiLepMassWindow(m_min=15.0), r"reg. $m_{ll} \geq 15$"),
-        ("_ptl20", VisAllLepPtWindow(pt_min=20.0), r"$p_{T,l} \geq 20$"),
-        ("_ptl30", VisAllLepPtWindow(pt_min=30.0), r"$p_{T,l} \geq 30$"),
-        ("_ptl40", VisAllLepPtWindow(pt_min=40.0), r"$p_{T,l} \geq 40$"),
-    ]:
-        for orig_name in extend_var_names:
-            v = config.get_variable(orig_name).copy(
-                name=f"{orig_name}{name_postfix}",
-                id="+",
-                selection=selection,
-            )
-            v.x.inputs = set(v.x("inputs", [])) | selection.uses
-            v.x_title = f"{v.x_title[:-1]}, {x_postfix})" if v.x_title.endswith(")") else f"{v.x_title} ({x_postfix})"
-            config.add_variable(v)
+    #
+
+    def add_extended_variable(name, postfix, selection, x_postfix):
+        v = config.get_variable(name).copy(
+            name=f"{name}{postfix}",
+            id="+",
+            selection=selection,
+        )
+        v.x.inputs = set(v.x("inputs", [])) | set(selection.uses)
+        v.x_title = f"{v.x_title[:-1]}, {x_postfix})" if v.x_title.endswith(")") else f"{v.x_title} ({x_postfix})"
+
+        # if f"{name}{postfix}" == "dilep_vis_pt_lep1pt0to40":
+        #     from IPython import embed; embed(header="wuuut")
+        return config.add_variable(v)
+
+    extensions = itertools.chain(
+        itertools.product(
+            [
+                "met_pt", "met_phi", "met_pt_nosmear", "met_pt_nophi", "met_pt_norecoil", "met_pt_reglep1_parallel",
+                "met_pt_reglep2_parallel", "met_pt_reglep1_perpendicular", "met_pt_reglep2_perpendicular",
+                "dilep_vis_pt", "dilep_reg_pt", "dilep_vis_dr", "dilep_reg_dr",
+                "mu1_pt",
+            ], [
+                ("_mll70to110", MaskDiLepPtVis(m_min=70.0, m_max=110.0), r"$70 \leq m_{ll} < 110$"),
+                ("_mllreg70to110", MaskDiLepPtReg(m_min=70.0, m_max=110.0), r"reg. $70 \leq m_{ll} < 110$"),
+                ("_mllreg10", MaskDiLepPtReg(m_min=10.0), r"reg. $m_{ll} \geq 10$"),
+                ("_mllreg12", MaskDiLepPtReg(m_min=12.0), r"reg. $m_{ll} \geq 12$"),
+                ("_mllreg15", MaskDiLepPtReg(m_min=15.0), r"reg. $m_{ll} \geq 15$"),
+                ("_ptl20", MaskAllLepPtVis(pt_min=20.0), r"$p_{T,l} \geq 20$"),
+                ("_ptl30", MaskAllLepPtVis(pt_min=30.0), r"$p_{T,l} \geq 30$"),
+                ("_ptl40", MaskAllLepPtVis(pt_min=40.0), r"$p_{T,l} \geq 40$"),
+                ("_ptl50", MaskAllLepPtVis(pt_min=50.0), r"$p_{T,l} \geq 50$"),
+            ],
+        ),
+        itertools.product(
+            ["dilep_vis_pt", "dilep_vis_dr"],
+            [
+                *[
+                    (
+                        f"_lep{i + 1}pt{pt_min}to{pt_max}",
+                        MaskSingleLepPtVis(lep_index=i, pt_min=pt_min, pt_max=pt_max),
+                        rf"${pt_min} \leq p_{{T,l{i + 1}}} < {pt_max}$",
+                    )
+                    for i in range(2)
+                    for pt_min, pt_max in [(0, 40), (40, 80), (80, 120), (120, 160), (160, 200)]
+                ],
+                *[
+                    (
+                        f"_lep{i + 1}dm{dm if dm >= 0 else 'm1'}",
+                        MaskSingleLepDecayMode(lep_index=i, dm=dm),
+                        rf"DM$_{{{i + 1}}} = {dm}$",
+                    )
+                    for i in range(2)
+                    for dm in [-1, 0, 1, 10, 11]
+                ],
+            ],
+        ),
+    )
+    for name, (name_postfix, selection, x_postfix) in extensions:
+        add_extended_variable(name, name_postfix, selection, x_postfix)
 
 
 #
@@ -1408,7 +1453,7 @@ class _MultiMask(VarExp):
         return
 
 
-class _LepPtWindow(_MultiMask):
+class _MaskLepPt(_MultiMask):
 
     def __init__(
         self,
@@ -1448,7 +1493,24 @@ class _LepPtWindow(_MultiMask):
         return ~mask if negate else mask
 
 
-class VisAllLepPtWindow(_LepPtWindow):
+class MaskSingleLepPtVis(_MaskLepPt):
+
+    compose = {"dilep": VarDiLepVis}
+
+    def __init__(self, *, lep_index: int, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.lep_index = lep_index
+
+    def select(self, mask: ak.Array) -> ak.Array | np.ndarray:
+        return mask[:, self.lep_index]
+
+
+class MaskSingleLepPtReg(MaskSingleLepPtVis):
+
+    compose = {"dilep": VarDiLepReg}
+
+
+class MaskAllLepPtVis(_MaskLepPt):
 
     compose = {"dilep": VarDiLepVis}
 
@@ -1456,7 +1518,7 @@ class VisAllLepPtWindow(_LepPtWindow):
         return ak.all(mask, axis=-1)
 
 
-class VisDiLepMassWindow(VarExp):
+class MaskDiLepPtVis(VarExp):
 
     compose = {"dilep": VarDiLepVis}
 
@@ -1496,6 +1558,42 @@ class VisDiLepMassWindow(VarExp):
         return ~mask if negate else mask
 
 
-class RegDiLepMassWindow(VisDiLepMassWindow):
+class MaskDiLepPtReg(MaskDiLepPtVis):
 
     compose = {"dilep": VarDiLepReg}
+
+
+class MaskSingleLepDecayMode(VarExp):
+
+    uses = {"{Electron,Muon,Tau}.pt", "Tau.decayMode"}
+
+    def __init__(self, *, lep_index: int, dm: int, negate: bool = False, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+        self.lep_index = lep_index
+        self.dm = dm
+        self.negate = False
+
+    def __call__(
+        self,
+        events: ak.Array,
+        lep_index: int | None = None,
+        dm: int | None = None,
+        negate: bool | None = None,
+    ) -> ak.Array | np.ndarray:
+        lep_index = lep_index if lep_index is not None else self.lep_index
+        dm = dm if dm is not None else self.dm
+        negate = negate if negate is not None else self.negate
+        assert lep_index in {0, 1}
+
+        dms = ak_concatenate_safe(
+            [
+                full_like(events.Electron.pt, -1, dtype=np.int32),
+                full_like(events.Muon.pt, -1, dtype=np.int32),
+                events.Tau.decayMode,
+            ],
+            axis=1,
+        )
+        mask = ak.drop_none(dms, axis=1)[:, lep_index] == dm
+
+        return ~mask if negate else mask
