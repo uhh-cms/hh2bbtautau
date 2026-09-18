@@ -336,19 +336,21 @@ class DYWeights(DYBaseTask):
         default=(0.0, -1.0),
         description="invariant dilepton mass range to select; negative end value means infinite; default: 0,-1",
     )
+    nbtag_min = luigi.ChoiceParameter(
+        default=0,
+        choices=[0, 1, 2],
+        var_type=int,
+        description="minimum number of b-tagged jets to select; choices: 0,1,2; default: 0",
+    )
     output_postfix = luigi.Parameter(
         default=law.NO_STR,
         description="optional postfix appended to the output file name; no default",
     )
+    unc_factor = luigi.FloatParameter(
+        default=1.5,
+        description="uncertainty factor for fit shifts; default: 1.5",
+    )
     view_cmd = PlotBase.view_cmd
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        # define possible uncertainty factors for fit shifts
-        self.unc_factors = [1.5]
-
-        self.fit_identifiers = ["fit_njets2", "fit_njets3", "fit_njets4"]
 
     def output(self):
         def encode_range(start, end):
@@ -359,22 +361,23 @@ class DYWeights(DYBaseTask):
         postfix_parts = [
             f"mll{encode_range(*self.mll_range)}",
             f"met{encode_range(*self.met_range)}",
+            f"ge{self.nbtag_min}b",
+            f"unc{self.unc_factor}".replace(".", "p"),
         ]
         if self.output_postfix not in {"", None, law.NO_STR}:
             postfix_parts.append(self.output_postfix.lstrip("_"))
-        postfix = "_".join(["", *postfix_parts]) if postfix_parts else ""
+        postfix = "_".join(postfix_parts)
 
         # weights
         outputs = {
-            "weights": self.target(f"weights{postfix}.pkl"),
+            "weights": self.target(f"weights_{postfix}.pkl"),
         }
 
         # plots
-        outputs["plots"] = {}
-        for tmp_id in self.fit_identifiers:
-            for factor in self.unc_factors:
-                tmp_id_full = f"{tmp_id}_unc{factor}"
-                outputs["plots"][tmp_id_full] = self.target(f"{tmp_id_full}{postfix}.pdf")
+        outputs["plots"] = {
+            njets: self.target(f"fit_njets{njets}_{postfix}.pdf")
+            for njets in [2, 3, 4]
+        }
 
         return outputs
 
@@ -409,31 +412,35 @@ class DYWeights(DYBaseTask):
             def to_window(self):
                 return [(0.0, float("inf"), f"{self.norm_value}*({self.fit_string})")]
 
-        dict_setup = {
+        fit0b = self.nbtag_min == 0
+        fit1b = self.nbtag_min <= 1
+
+        # shift -> njet range -> nbtag range -> Deps object
+        sf_setup = {
             "nominal": (create_setup := lambda fit_syst: ({
                 (2, 3): {
-                    (0, 1): Deps(fit_njet_bin=(2, 3), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(2, 3), fit_syst=fit_syst),
+                    (0, 1): Deps(fit_njet_bin=(2, 3), fit_syst=fit_syst) if fit0b else None,
+                    (1, 2): Deps(fit_njet_bin=(2, 3), fit_syst=fit_syst) if fit1b else None,
                     (2, 101): Deps(fit_njet_bin=(2, 3), fit_syst=fit_syst),
                 },
                 (3, 4): {
-                    (0, 1): Deps(fit_njet_bin=(3, 4), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(3, 4), fit_syst=fit_syst),
+                    (0, 1): Deps(fit_njet_bin=(3, 4), fit_syst=fit_syst) if fit0b else None,
+                    (1, 2): Deps(fit_njet_bin=(3, 4), fit_syst=fit_syst) if fit1b else None,
                     (2, 101): Deps(fit_njet_bin=(3, 4), fit_syst=fit_syst),
                 },
                 (4, 5): {
-                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
+                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst) if fit0b else None,
+                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst) if fit1b else None,
                     (2, 101): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
                 },
                 (5, 6): {
-                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
+                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst) if fit0b else None,
+                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst) if fit1b else None,
                     (2, 101): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
                 },
                 (6, 101): {
-                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
-                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
+                    (0, 1): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst) if fit0b else None,
+                    (1, 2): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst) if fit1b else None,
                     (2, 101): Deps(fit_njet_bin=(4, 101), fit_syst=fit_syst),
                 },
             }))("nominal"),
@@ -454,113 +461,113 @@ class DYWeights(DYBaseTask):
         }
 
         # get dict_out for each possible uncertainty factor
-        for factor in self.unc_factors:
-            print("-> using unc factor:", factor)
-            # initialize dicts to be updated
-            dict_out = {}
-            ratios = {}
-            fit_params = {}
+        print("-> using unc factor:", self.unc_factor)
+        # initialize dicts to be updated
+        dict_out = {}
+        ratios = {}
+        fit_params = {}
 
-            @functools.cache
-            def get_fit(fit_njet_bin, fit_syst, factor) -> tuple[Callable, str, tuple[float, ...]]:
-                var = self.var_dilep_pt
+        @functools.cache
+        def get_fit(fit_njet_bin, fit_syst, factor) -> tuple[Callable, str, tuple[float, ...]]:
+            var = self.var_dilep_pt
 
-                data_mask = self.get_mask(data_events, njet_bin=fit_njet_bin, channel="mumu")
-                data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
+            data_mask = self.get_mask(data_events, njet_bin=fit_njet_bin, channel="mumu")
+            data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
 
-                dy_mask = self.get_mask(dy_events, njet_bin=fit_njet_bin, channel="mumu")
-                dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])
+            dy_mask = self.get_mask(dy_events, njet_bin=fit_njet_bin, channel="mumu")
+            dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_events.weight[dy_mask])
 
-                bkg_mask = self.get_mask(bkg_events, njet_bin=fit_njet_bin, channel="mumu")
-                bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
+            bkg_mask = self.get_mask(bkg_events, njet_bin=fit_njet_bin, channel="mumu")
+            bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
 
-                ratio_values, ratio_err, bin_centers = self.get_ratio_values(
-                    data_hist,
-                    dy_hist,
-                    bkg_hist,
-                    var,
-                )
+            ratio_values, ratio_err, bin_centers = self.get_ratio_values(
+                data_hist,
+                dy_hist,
+                bkg_hist,
+                var,
+            )
 
-                # cache ratio values for later plotting
-                if fit_syst == "nominal":
-                    ratios[fit_njet_bin] = (ratio_values, ratio_err, bin_centers)
+            # cache ratio values for later plotting
+            if fit_syst == "nominal":
+                ratios[fit_njet_bin] = (ratio_values, ratio_err, bin_centers)
 
-                # change depending on fit_syst
-                if fit_syst.startswith("syst_"):
+            # change depending on fit_syst
+            if fit_syst.startswith("syst_"):
+                nominal_r = get_fit(fit_njet_bin, "nominal", factor)[2][6]  # get nominal r value
 
-                    nominal_r = get_fit(fit_njet_bin, "nominal", factor)[2][6]  # get nominal r value
+                if fit_syst in ["syst_up", "syst_down"]:
+                    bin_mask = np.ones_like(bin_centers, dtype=bool)
+                else:
+                    bin_mask = bin_centers <= nominal_r
+                    bin_mask = bin_mask if "gauss" in fit_syst else ~bin_mask
 
-                    if fit_syst in ["syst_up", "syst_down"]:
-                        bin_mask = np.ones_like(bin_centers, dtype=bool)
+                sign = 1.0 if "up" in fit_syst else -1.0
+                ratio_values = np.where(bin_mask, ratio_values + sign * factor * ratio_err, ratio_values)
+
+            # define starting values with respective bounds
+            starting_values = [1, 1, 10, 3, 1, 0, 50]
+            lower_bounds = [0.6, 0, 0, 0, 0, -2, 20]
+            upper_bounds = [1.2, 10, 50, 20, 2, 3, 100]
+
+            # perform the fit
+            popt, pcov = scipy.optimize.curve_fit(
+                self.get_fit_function,
+                bin_centers,
+                ratio_values,
+                p0=starting_values, method="trf",
+                sigma=np.maximum(ratio_err, 1e-5),
+                absolute_sigma=True,
+                bounds=(lower_bounds, upper_bounds),
+            )
+
+            c, n, mu, sigma, a, b, r = popt
+            fit_str = self.get_fit_str(*popt)
+
+            # placeholder for fit calculation
+            return functools.partial(self.get_fit_function, c=c, n=n, mu=mu, sigma=sigma, a=a, b=b, r=r), fit_str, popt  # noqa: E501
+
+        @functools.cache
+        def get_norm(njet_bin, nbjet_bin, syst, fit_njet_bin, fit_syst) -> float:
+            var = self.var_nbjets
+
+            data_mask = self.get_mask(data_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
+            data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
+
+            dy_mask = self.get_mask(dy_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
+            fit_funct = get_fit(fit_njet_bin, fit_syst, self.unc_factor)[0]
+            dy_weight = dy_events.weight[dy_mask] * fit_funct(dy_events.gen_dilepton_pt[dy_mask])
+            dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_weight)
+
+            bkg_mask = self.get_mask(bkg_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
+            bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
+
+            ratio_values, ratio_err, bin_centers = self.get_ratio_values(data_hist, dy_hist, bkg_hist, var)
+
+            norm = Norm(ratio_values[nbjet_bin[0]], ratio_err[nbjet_bin[0]])
+            norm_value = norm.nom
+
+            # general syst case
+            if syst in ["stat_up", "stat_down"]:
+                norm_value = norm.up if syst.endswith("up") else norm.down
+            # nbjet syst cases
+            if nbjet_bin[0] == 0 and syst.startswith("stat_btag0_"):
+                norm_value = norm.up if syst.endswith("up") else norm.down
+            elif nbjet_bin[0] == 1 and syst.startswith("stat_btag1_"):
+                norm_value = norm.up if syst.endswith("up") else norm.down
+            elif nbjet_bin[0] == 2 and syst.startswith("stat_btag2_"):
+                norm_value = norm.up if syst.endswith("up") else norm.down
+
+            return norm_value
+
+        for syst in sf_setup.keys():
+            dict_out[syst] = {}
+            for njet_bin in sf_setup[syst]:
+                dict_out[syst][njet_bin] = {}
+                for nbjet_bin, deps in sf_setup[syst][njet_bin].items():
+                    if deps is None:
+                        fit_str = [(0.0, float("inf"), "1")]
                     else:
-                        bin_mask = bin_centers <= nominal_r
-                        bin_mask = bin_mask if "gauss" in fit_syst else ~bin_mask
-
-                    sign = 1.0 if "up" in fit_syst else -1.0
-                    ratio_values = np.where(bin_mask, ratio_values + sign * factor * ratio_err, ratio_values)
-
-                # define starting values with respective bounds
-                starting_values = [1, 1, 10, 3, 1, 0, 50]
-                lower_bounds = [0.6, 0, 0, 0, 0, -2, 20]
-                upper_bounds = [1.2, 10, 50, 20, 2, 3, 100]
-
-                # perform the fit
-                popt, pcov = scipy.optimize.curve_fit(
-                    self.get_fit_function,
-                    bin_centers,
-                    ratio_values,
-                    p0=starting_values, method="trf",
-                    sigma=np.maximum(ratio_err, 1e-5),
-                    absolute_sigma=True,
-                    bounds=(lower_bounds, upper_bounds),
-                )
-
-                c, n, mu, sigma, a, b, r = popt
-                fit_str = self.get_fit_str(*popt)
-
-                # placeholder for fit calculation
-                return functools.partial(self.get_fit_function, c=c, n=n, mu=mu, sigma=sigma, a=a, b=b, r=r), fit_str, popt  # noqa: E501
-
-            @functools.cache
-            def get_norm(njet_bin, nbjet_bin, syst, fit_njet_bin, fit_syst) -> float:
-                var = self.var_nbjets
-
-                data_mask = self.get_mask(data_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-                data_hist = self.hist_function(var, data_events[var.name][data_mask], data_events.weight[data_mask])
-
-                dy_mask = self.get_mask(dy_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-                fit_funct = get_fit(fit_njet_bin, fit_syst, factor)[0]
-                dy_weight = dy_events.weight[dy_mask] * fit_funct(dy_events.gen_dilepton_pt[dy_mask])
-                dy_hist = self.hist_function(var, dy_events[var.name][dy_mask], dy_weight)
-
-                bkg_mask = self.get_mask(bkg_events, njet_bin=njet_bin, nbjet_bin=nbjet_bin, channel="mumu")
-                bkg_hist = self.hist_function(var, bkg_events[var.name][bkg_mask], bkg_events.weight[bkg_mask])
-
-                ratio_values, ratio_err, bin_centers = self.get_ratio_values(data_hist, dy_hist, bkg_hist, var)
-
-                norm = Norm(ratio_values[nbjet_bin[0]], ratio_err[nbjet_bin[0]])
-                norm_value = norm.nom
-
-                # general syst case
-                if syst in ["stat_up", "stat_down"]:
-                    norm_value = norm.up if syst.endswith("up") else norm.down
-                # nbjet syst cases
-                if nbjet_bin[0] == 0 and syst.startswith("stat_btag0_"):
-                    norm_value = norm.up if syst.endswith("up") else norm.down
-                elif nbjet_bin[0] == 1 and syst.startswith("stat_btag1_"):
-                    norm_value = norm.up if syst.endswith("up") else norm.down
-                elif nbjet_bin[0] == 2 and syst.startswith("stat_btag2_"):
-                    norm_value = norm.up if syst.endswith("up") else norm.down
-
-                return norm_value
-
-            for syst in dict_setup.keys():
-                dict_out[syst] = {}
-                for njet_bin in dict_setup[syst]:
-                    dict_out[syst][njet_bin] = {}
-                    for nbjet_bin, deps in dict_setup[syst][njet_bin].items():
-
-                        fit_function, fit_string, fit_popt = get_fit(deps.fit_njet_bin, deps.fit_syst, factor)
+                        fit_function, fit_string, fit_popt = get_fit(deps.fit_njet_bin, deps.fit_syst, self.unc_factor)
                         norm_value = get_norm(njet_bin, nbjet_bin, syst, deps.fit_njet_bin, deps.fit_syst)
 
                         # ending up in fit result
@@ -571,16 +578,19 @@ class DYWeights(DYBaseTask):
                             fit_params[deps.fit_syst] = {}
                         fit_params[deps.fit_syst][deps.fit_njet_bin] = fit_popt
 
-                        # store it
-                        dict_out[syst][njet_bin][nbjet_bin] = fit_result.to_window()
+                        # serialize
+                        fit_str = fit_result.to_window()
 
-            # create and save fit plot with systematic uncertainty bands
-            for fit_njet_bins, values in ratios.items():
-                ratio_values, ratio_err, bin_centers = values
-                self.get_fit_plot(fit_njet_bins, fit_params, factor, ratio_values, ratio_err, bin_centers)
+                    # store it
+                    dict_out[syst][njet_bin][nbjet_bin] = fit_str
 
-            # save final dy weights
-            outputs["weights"].dump(dict_out, formatter="pickle")
+        # create and save fit plot with systematic uncertainty bands
+        for fit_njet_bins, values in ratios.items():
+            ratio_values, ratio_err, bin_centers = values
+            self.get_fit_plot(fit_njet_bins, fit_params, ratio_values, ratio_err, bin_centers)
+
+        # save final dy weights
+        outputs["weights"].dump(dict_out, formatter="pickle")
 
     def select_events(self, events: ak.Array) -> ak.Array:
         mask = full_like(events.met, True, dtype=bool)
@@ -592,6 +602,8 @@ class DYWeights(DYBaseTask):
             mask = mask & (events.met >= self.met_range[0])
         if self.met_range[1] >= 0:
             mask = mask & (events.met < self.met_range[1])
+        if self.nbtag_min > 0:
+            mask = mask & (events.nbjets >= self.nbtag_min)
 
         return events[mask]
 
@@ -711,7 +723,7 @@ class DYWeights(DYBaseTask):
 
         return fit_string
 
-    def get_fit_plot(self, fit_njet_bin, fit_params, factor, ratio_values, ratio_err, bin_centers):
+    def get_fit_plot(self, fit_njet_bin, fit_params, ratio_values, ratio_err, bin_centers):
         from matplotlib import pyplot as plt
 
         outputs = self.output()
@@ -759,9 +771,7 @@ class DYWeights(DYBaseTask):
         ax.tick_params(axis="both", labelsize=15)
 
         # save plot
-        for key in outputs["plots"].keys():
-            if (f"{int(njets)}" in key) and (f"{factor}" in key):
-                outputs["plots"][key].dump(fig, formatter="mpl")
+        outputs["plots"][njets].dump(fig, formatter="mpl")
 
 
 class ExportDYWeights(HBTTask, ConfigTask):
@@ -776,6 +786,8 @@ class ExportDYWeights(HBTTask, ConfigTask):
     output_postfix = DYWeights.output_postfix
 
     single_config = False
+
+    exclude_params_req_set = {"output_postfix"}
 
     def requires(self):
         return {
