@@ -78,8 +78,8 @@ class DYBaseTask(
         if self.config_inst.campaign.x.year == 2024:
             binning_dilep_pt = (
                 np.linspace(0.0, 80.0, 33).tolist() +
-                np.linspace(80.0, self.var_dilep_pt.x_max, 45)[1:]
-            ).tolist()
+                np.linspace(80.0, binning_dilep_pt[-1], 45)[1:].tolist()
+            )
 
         # define variables
         self.var_nbjets = od.Variable(  # used to compute normalization factors in njet/nbjet bins

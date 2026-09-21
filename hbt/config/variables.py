@@ -318,6 +318,14 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$m_{bb}$",
     )
     add_variable(
+        name="dihhbjet_mass_hzoom",
+        expression=var_dihhbjet.partial(attr="mass"),
+        aux={"inputs": var_dihhbjet.uses},
+        binning=(75, 0, 250),
+        unit="GeV",
+        x_title=r"$m_{bb}$",
+    )
+    add_variable(
         name="dihhbjet_pt",
         expression=var_dihhbjet.partial(attr="pt"),
         aux={"inputs": var_dihhbjet.uses},

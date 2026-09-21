@@ -1983,7 +1983,7 @@ def add_config(
     # dnn models trained with run 2 legacy setup but run 3 data
     for fold in range(5):
         # for 2024, use version with btag for now, but we could also drop it since we have no full shape correction
-        basename = f"model_2024_v2_fold{fold}_btag_moe.tgz" if year == 2024 else f"model_fold{fold}_moe.tgz"
+        basename = f"model_2024_btag_v3_fold{fold}_moe.tgz" if year == 2024 else f"model_v3_22_23_fold{fold}_moe.tgz"
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/{basename}", "v1"))
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
@@ -2067,10 +2067,11 @@ def add_config(
             version="v1",
         ))
         add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
-        # dy weight and recoil corrections
+        # dy weight
+        dy_weight_version = 5
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", "v2"))  # noqa: E501
+        # bosonic recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        dy_weight_version = 4 if year == 2024 else 5  # 2024 not yet available in new v5
-        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
         trigger_sf_internal_subpath = f"AnalysisCore-{cclub_long_hash}/data/TriggerScaleFactors"
@@ -2414,8 +2415,8 @@ def add_config(
                 for lfn_num_base in lfn_num_bases
             ), [])
 
-            if (skip_lfns := dataset_inst.get_info(shift_inst.name).x("skip_lfns", [])):
-                lfns = set(lfns) - set(skip_lfns)
+            if (broken_files := dataset_inst.get_info(shift_inst.name).x("broken_files", [])):
+                lfns = set(lfns) - set(broken_files)
 
             return sorted(lfns)
 
