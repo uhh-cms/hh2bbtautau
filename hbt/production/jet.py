@@ -13,7 +13,7 @@ import law
 import dataclasses
 
 from columnflow.production import Producer, producer
-from columnflow.columnar_util import set_ak_column
+from columnflow.columnar_util import set_ak_column, full_like
 from columnflow.util import maybe_import, load_correction_set
 
 ak = maybe_import("awkward")
@@ -390,12 +390,14 @@ def quadjet_jet_trigger_sf(
     https://gitlab.cern.ch/cclubbtautau/AnalysisCore/-/blob/3e57bd1eaae7a086065c77b6c59dd6cf0600546c/data/TriggerScaleFactors/2024fullYear/ParkingHH_PNet1BTag0p20_BTag.json.gz
     """
     if jet_mask is Ellipsis:
-        jet_mask = np.ones_like(events.HHBJet.pt, dtype=bool)
+        jet_mask = full_like(events.HHBJet.pt, True, dtype=bool)
     jet_pt_sorting = ak.argsort(events.HHBJet.pt[jet_mask], axis=-1, ascending=False)
     hhbjet_1 = ak.firsts(events.HHBJet[jet_pt_sorting][jet_mask[jet_pt_sorting]][:, :1], axis=1)
 
+    bjet1_btag = hhbjet_1[f"{self.config_inst.x.btag_default.jet_column}"]
+    bad_btag_mask = bjet1_btag < 0
     variable_map = {
-        "bjet1_btag": hhbjet_1[f"{self.config_inst.x.btag_default.jet_column}"],
+        "bjet1_btag": ak.where(bad_btag_mask, 0.0, bjet1_btag),
     }
 
     for syst, postfix in [
@@ -411,6 +413,9 @@ def quadjet_jet_trigger_sf(
         }
         inputs = [variable_map_syst[inp.name] for inp in self.quadjet_trig_corrector.inputs]
         sf = self.quadjet_trig_corrector(*inputs)
+
+        # add ones for events with bad btag values
+        sf = ak.where(bad_btag_mask, 1.0, sf)
 
         # store it
         events = set_ak_column(events, f"{self.sf_name}{postfix}", sf, value_type=np.float32)

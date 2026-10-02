@@ -175,18 +175,23 @@ def stylize_processes(config: od.Config) -> None:
         p.label = r"$t\bar{t}$"
 
     if (p := config.get_process("st", default=None)):
+        p.label = r"Single $t$"
         p.color1 = cfg.x.colors.purple
 
     if (p := config.get_process("dy", default=None)):
+        p.label = r"Drell-Yan"
         p.color1 = cfg.x.colors.blue
 
     if (p := config.get_process("dy_ee", default=None)):
+        p.label = r"Drell-Yan ($ee$)"
         p.color1 = "#004c93"
 
     if (p := config.get_process("dy_mumu", default=None)):
+        p.label = r"Drell-Yan ($\mu\mu$)"
         p.color1 = "#3f90da"
 
     if (p := config.get_process("dy_tautau", default=None)):
+        p.label = r"Drell-Yan ($\tau\tau$)"
         p.color1 = "#8ac2f7"
 
     if (p := config.get_process("vv", default=None)):
