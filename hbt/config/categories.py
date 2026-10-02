@@ -98,7 +98,6 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="trig_incl", selection="cat_trig_incl", label="")
     _add_category(name="not_dyc", selection="cat_not_dyc", label="not DY region")
     _add_category(name="dyc_incl", selection="cat_dyc_incl", label="")
-    _add_category(name="ge1b", selection="cat_ge1b", label=r"$\geq$1 b-tags")
 
     #
     # build groups
