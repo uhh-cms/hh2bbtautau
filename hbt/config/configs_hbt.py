@@ -2068,7 +2068,7 @@ def add_config(
         ))
         add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
         # dy weight
-        dy_weight_version = 5
+        dy_weight_version = "5_ge1b"
         add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", "v2"))  # noqa: E501
         # bosonic recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
