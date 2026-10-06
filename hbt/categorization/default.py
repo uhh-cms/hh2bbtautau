@@ -120,11 +120,6 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 
 
 @categorizer(uses={jet_multiplicity})
-def cat_ge0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, self[jet_multiplicity](events, **kwargs) >= 0
-
-
-@categorizer(uses={jet_multiplicity})
 def cat_eq0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, self[jet_multiplicity](events, **kwargs) == 0
 
@@ -132,11 +127,6 @@ def cat_eq0j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 @categorizer(uses={jet_multiplicity})
 def cat_eq1j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, self[jet_multiplicity](events, **kwargs) == 1
-
-
-@categorizer(uses={jet_multiplicity})
-def cat_ge2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, self[jet_multiplicity](events, **kwargs) >= 2
 
 
 @categorizer(uses={jet_multiplicity})
@@ -160,6 +150,16 @@ def cat_eq5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 
 
 @categorizer(uses={jet_multiplicity})
+def cat_ge2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, self[jet_multiplicity](events, **kwargs) >= 2
+
+
+@categorizer(uses={jet_multiplicity})
+def cat_ge3j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, self[jet_multiplicity](events, **kwargs) >= 3
+
+
+@categorizer(uses={jet_multiplicity})
 def cat_ge4j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, self[jet_multiplicity](events, **kwargs) >= 4
 
@@ -172,11 +172,6 @@ def cat_ge5j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 @categorizer(uses={jet_multiplicity})
 def cat_ge6j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, self[jet_multiplicity](events, **kwargs) >= 6
-
-
-@categorizer(uses={bjet_multiplicity})
-def cat_ge0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, self[bjet_multiplicity](events, **kwargs) >= 0
 
 
 @categorizer(uses={bjet_multiplicity})
@@ -197,6 +192,11 @@ def cat_eq2b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 @categorizer(uses={bjet_multiplicity})
 def cat_eq3b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, self[bjet_multiplicity](events, **kwargs) == 3
+
+
+@categorizer(uses={bjet_multiplicity})
+def cat_ge0b(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, self[bjet_multiplicity](events, **kwargs) >= 0
 
 
 @categorizer(uses={bjet_multiplicity})

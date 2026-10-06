@@ -177,7 +177,7 @@ def default_init(self: Producer, **kwargs) -> None:
     super(default, self).init_func(**kwargs)
 
     if self.produce_weights:
-        # TODO: trigger scale factor inputs aren't available yet for 2025/2026 -> flat placeholder (SF = 1) 
+        # TODO: trigger scale factor inputs aren't available yet for 2025/2026 -> flat placeholder (SF = 1)
         self.trigger_weight_cls = (
             trigger_weight_placeholder
             if self.config_inst.campaign.x.year >= 2025

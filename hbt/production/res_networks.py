@@ -222,7 +222,7 @@ class _res_dnn_evaluation(Producer):
             (2024, ""): 3,
             (2025, ""): 3,
             (2026, ""): 3,
-              
+
         }[(self.config_inst.campaign.x.year, self.config_inst.campaign.x.postfix)]
 
     def teardown_func(self, task: law.Task, **kwargs) -> None:

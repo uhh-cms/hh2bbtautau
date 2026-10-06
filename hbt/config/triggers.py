@@ -2626,6 +2626,7 @@ def add_triggers_2024(config: od.Config) -> None:
 
     """
 
+
 def add_triggers_2025(config: od.Config) -> None:
     """
     Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
@@ -2919,7 +2920,7 @@ def add_triggers_2025(config: od.Config) -> None:
     #
     # vbf
     #
-    ## TODO: this trigger is missing for 2025 onwards
+    # TODO: this trigger is missing for 2025 onwards
     # config.x.triggers.add(
     #     name="HLT_VBF_DoublePNetTauhPFJet20_eta2p2",
     #     id=610,

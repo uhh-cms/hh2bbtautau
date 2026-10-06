@@ -1073,6 +1073,7 @@ def trigger_weight(
 
     return events
 
+
 @producer(
     uses={"channel_id"},
     produces={

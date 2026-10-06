@@ -16,7 +16,7 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.electron import electron_sceta
 from columnflow.util import maybe_import
 
-from hbt.util import IF_RUN_3, IF_RUN_3_2024, IF_RUN_3_2024_2025_2026, IF_MC
+from hbt.util import IF_RUN_3, IF_RUN_3_2024_2025_2026, IF_MC
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")

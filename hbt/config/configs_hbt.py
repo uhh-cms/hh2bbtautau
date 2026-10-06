@@ -584,21 +584,13 @@ def add_config(
 
         # group datasets together for btag WP efficiency calculation in 2024
         if year >= 2024:
-            if year==2024:
-                cfg.x.btag_wp_eff_groups = [
-                ["hh_*","tt_*", "st_*", "ttw_*", "ttz_*", "ttww_*", "ttwz_*", "ttzz_*"],
+            cfg.x.btag_wp_eff_groups = [
+                ["hh_*", "tt_*", "st_*", "ttw_*", "ttz_*", "ttww_*", "ttwz_*", "ttzz_*"],
                 ["dy_*"],
                 ["w_*", "z_*", "zz_*", "wz_*", "ww_*", "www_*", "wwz_*", "wzz_*", "zzz_*"],
                 ["h_*", "wmh_*", "wph_*", "zh_*", "tth_*"],
             ]
-            elif year>=2025:
-                cfg.x.btag_wp_eff_groups = [
-                    ["hh_ggf_hbb_htt_*_powheg","tt_dl_powheg"],
-                    ["hh_ggf_*hvv*","hh_vbf_*","tt_sl_powheg","tt_fh_powheg", "st_*", "ttw_*", "ttz_*", "ttww_*", "ttwz_*", "ttzz_*"],
-                    ["dy_*"],
-                    ["w_*", "z_*", "zz_*", "wz_*", "ww_*", "www_*", "wwz_*", "wzz_*", "zzz_*"],
-                    ["h_*", "wmh_*", "wph_*", "zh_*", "tth_*"],
-                ]
+
             group_matched = False
             for i, dataset_pattern in enumerate(cfg.x.btag_wp_eff_groups):
                 if law.util.multi_match(dataset.name, dataset_pattern):
@@ -642,10 +634,10 @@ def add_config(
     # process groups for conveniently looping over certain processes
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {
-        "signals": [
+        "signals": (signals_sm := [
             "hh_ggf_hbb_htt_kl1_kt1",
             "hh_vbf_hbb_htt_kv1_k2v1_kl1",
-        ],
+        ]),
         "signals_ggf": [
             f"hh_ggf_hbb_htt_kl{kl}_kt1"
             for kl, in cfg.x.hh_points.ggf
@@ -663,16 +655,29 @@ def add_config(
             "dy",
             "w_lnu",
             "st",
-            # "others"
+            "multiboson",
+            "ewk",
+            "h",
+            "qcd",
+        ]),
+        "backgrounds_dylep": (backgrounds_dylep := [
+            "tt",
+            "dy_ee",
+            "dy_mumu",
+            "dy_tautau",
+            "w_lnu",
+            "st",
             "multiboson",
             "ewk",
             "h",
             "qcd",
         ]),
         "sm_ggf": (sm_ggf_group := ["hh_ggf_hbb_htt_kl1_kt1", *backgrounds]),
-        "sm": (sm_group := ["hh_ggf_hbb_htt_kl1_kt1", "hh_vbf_hbb_htt_kv1_k2v1_kl1", *backgrounds]),
-        "sm_ggf_data": ["data"] + sm_ggf_group,
-        "sm_data": ["data"] + sm_group,
+        "sm_ggf_data": ["data", sm_ggf_group],
+        "sm": (sm_group := [*signals_sm, *backgrounds]),
+        "sm_data": ["data", *sm_group],
+        "sm_dylep": (sm_dylep_group := [*signals_sm, *backgrounds_dylep]),
+        "sm_dylep_data": ["data", *sm_dylep_group],
         "bkg_data": ["data"] + backgrounds,
     }
     cfg.x.default_process_group = "sm_data"
@@ -925,17 +930,17 @@ def add_config(
             "lumi_13p6TeV_23_24": 0.0068j,
             "lumi_13p6TeV_24": 0.0144j,
         })
-    ## TODO:put placeholder for 25/26
+    # TODO:put placeholder for 25/26
     elif year == 2025:
-        #https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis#2025_Era_definition
+        # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis#2025_Era_definition
         cfg.x.luminosity = Number(110_640.0,
                                   {
-            "lumi_13p6TeV_2025": 0.05j,# placeholder suggest by LUM POG
-           
-        })
+                                      "lumi_13p6TeV_2025": 0.05j,  # placeholder suggest by LUM POG
+
+                                  })
     elif year == 2026:
         cfg.x.luminosity = Number(28_060.0, {
-        "lumi_13p6TeV_2026": 0.05j,# placeholder suggest by LUM POG
+            "lumi_13p6TeV_2026": 0.05j,  # placeholder suggest by LUM POG
         })
     else:
         assert False
@@ -987,9 +992,9 @@ def add_config(
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23
         # https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23BPix
-        
+
         # 2025 and 2026 wps are the same as 2024
-        btag_key="2024" if year in {2024, 2025, 2026} else str(btag_key)
+        btag_key = "2024" if year in {2024, 2025, 2026} else str(btag_key)
         cfg.x.btag_working_points = DotDict.wrap({
             "deepjet": {
                 "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0479, "2023BPix": 0.048, "2024": None}[btag_key],
@@ -1194,8 +1199,7 @@ def add_config(
     from columnflow.calibration.cms.jets import JECConfig, BJECConfig, JERConfig
 
     # bjec toggle
-    cfg.x.use_bjec = run == 3  if year<2025 else False# note: set to False to disable BJEC and use plain JEC
-    
+    cfg.x.use_bjec = run == 3 if year < 2025 else False  # note: set to False to disable BJEC and use plain JEC
 
     # common jec/jer settings configuration
     if run == 2:
@@ -1226,7 +1230,7 @@ def add_config(
             (2024, ""): "V5",
             (2025, ""): "V3",
         }[(year, campaign.x.postfix)]
-        jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}" if year<2025 else f"Summer24{campaign.x.postfix}{jerc_postfix}"
+        jer_campaign = f"Summer{year2}{campaign.x.postfix}{jerc_postfix}" if year < 2025 else f"Summer24{campaign.x.postfix}{jerc_postfix}"
         # special "Run" fragment in 2023 jer campaign
         if year == 2023:
             jer_campaign += f"_Run{'Cv1234' if campaign.has_tag('preBPix') else 'D'}"
@@ -1493,7 +1497,7 @@ def add_config(
             campaign=f"{year}{e_postfix}",
             working_point="wp80iso",
         )
-        if year<=2024:
+        if year <= 2024:
             cfg.x.electron_reco_sf = ElectronSFConfig(
                 correction="Electron-ID-SF",
                 campaign=f"{year}{e_postfix}",
@@ -1503,7 +1507,7 @@ def add_config(
                     "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
                 },
             )
-        ## TODO: missing low pT reco SFs for 2025
+        # TODO: missing low pT reco SFs for 2025
         else:
             cfg.x.electron_reco_sf = ElectronSFConfig(
                 correction="Electron-ID-SF",
@@ -1621,7 +1625,7 @@ def add_config(
 
     # dy specific methods
     if run == 3:
-        from columnflow.production.cms.dy import DrellYanConfig
+        from columnflow.production.cms.dy import DrellYanWeightConfig, RecoilConfig
         dy_era = f"{year}"
         if year == 2022:
             dy_era += "preEE" if campaign.has_tag("preEE") else "postEE"
@@ -1630,7 +1634,7 @@ def add_config(
 
         # dy reweighting with custom weights
         # (originally by hleprare group, https://cms-higgs-leprare.docs.cern.ch/htt-common/DY_reweight)
-        cfg.x.dy_weight_config = DrellYanConfig(
+        cfg.x.dy_weight_config = DrellYanWeightConfig(
             era=dy_era,
             correction="dy_weight",
             systs=[
@@ -1649,7 +1653,7 @@ def add_config(
 
         # dy boson recoil correction
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
-        cfg.x.dy_recoil_config = DrellYanConfig(
+        cfg.x.dy_recoil_config = RecoilConfig(
             era=dy_era,
             order="NLO",
             correction="Recoil_correction_Rescaling",
@@ -1999,7 +2003,7 @@ def add_config(
             2023: (cat_info.get_file("dc", "Cert_Collisions2023_366442_370790_Golden.json"), "v1"),
             # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=223#Year_2024
             2024: (cat_info.get_file("dc", "Cert_Collisions2024_378981_386951_Golden.json"), "v1"),
-            #https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=222#Year_2025
+            # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis?rev=222#Year_2025
             2025: (cat_info.get_file("dc", "Cert_Collisions2025_391658_398903_Golden.json"), "v1"),
         }[year],
         "normtag": {
@@ -2017,7 +2021,12 @@ def add_config(
         }[year],
     })
     # pileup weight corrections
-    add_external("pu_sf", (cat_info.get_file("lum", f"puWeights{ {2024: '_BCDEFGHI', 2025: '_2025pp_Golden_Summer24_25ns_69200ub'}.get(year, '') }.json.gz"), "v1"))
+    add_external(
+        "pu_sf",
+        (cat_info.get_file(
+            "lum",
+            f"puWeights{ {2024: '_BCDEFGHI', 2025: '_2025pp_Golden_Summer24_25ns_69200ub'}.get(year, '') }.json.gz"),
+            "v1"))
     # jet energy corrections
     if cfg.x.use_bjec:
         add_external("jet_jerc", (f"{central_hbt_dir}/central_jme_files/bjec/Run{run}{jec_campaign}/{cat_info.snapshot.jme}/regJet_jerc.json.gz", "v1"))  # noqa: E501
@@ -2045,12 +2054,8 @@ def add_config(
     # dnn models trained with run 2 legacy setup but run 3 data
     for fold in range(5):
         # for 2024, use version with btag for now, but we could also drop it since we have no full shape correction
-        basename = f"model_2024_v2_fold{fold}_btag_moe.tgz" if year == 2024 else f"model_fold{fold}_moe.tgz"
+        basename = f"model_2024_btag_v3_fold{fold}_moe.tgz" if year == 2024 else f"model_v3_22_23_fold{fold}_moe.tgz"
         add_external(f"run3_dnn_fold{fold}_moe", (f"{central_hbt_dir}/run3_models/run3_dnn/{basename}", "v1"))
-    # and again with different kl setups (disabled since they were still run with the broken dy frequencies)
-    # add_external("run3_dnn_simple_kl1", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl1/model_fold0_seed1.tgz", "v1"))  # noqa: E501
-    # add_external("run3_dnn_simple_kl0", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_kl0/model_fold0_seed1.tgz", "v1"))  # noqa: E501
-    # add_external("run3_dnn_simple_allkl", (f"{central_hbt_dir}/run3_models/run3_dnn_simple_allkl/model_fold0_seed1.tgz", "v1"))  # noqa: E501
     # pytorch models
     add_external("torch_test_dnn", (f"{central_hbt_dir}/run3_models/run3_torch_test/run3_external_dnn.pt2", "v1"))
     add_external("torch_simple_kl01", (f"{central_hbt_dir}/run3_models/run3_torch_simple_kl01/comparison_dnn.pt2", "v3"))  # noqa: E501
@@ -2083,7 +2088,7 @@ def add_config(
         add_external("jet_id", (cat_info.get_file("jme", "jetid.json.gz"), "v1"))
         # muon scale factors
         add_external("muon_sf", (cat_info.get_file("muo", "muon_Z.json.gz"), "v1"))
-        if year <2025: # TODO: 2025 onward not yet available
+        if year < 2025:  # TODO: 2025 onward not yet available
             add_external("muon_sf_lowpt", (cat_info.get_file("muo", "muon_JPsi.json.gz"), "v1"))
         # met phi correction
         if year < 2024:  # TODO: 2024 onward not yet available
@@ -2106,7 +2111,7 @@ def add_config(
             version="v3",
         ))
         # vbf-hhtag, https://github.com/elviramartinv/VBFjtag/tree/CCLUB, https://indico.cern.ch/event/1590750/contributions/6784135/attachments/3169657/5634394/Jet_taggers_0711.pdf # noqa
-         # TODO: take 2024 as placeholder for 25/26
+        # TODO: take 2024 as placeholder for 25/26
         vbfj_postfix = "_2024" if year >= 2024 else ""
         add_external("vbf_jtag_repo", Ext(
             f"{central_hbt_dir}/VBFjtag-82b2a1a.tar.gz",
@@ -2136,13 +2141,16 @@ def add_config(
             version="v1",
         ))
         add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
-        # dy weight and recoil corrections
+        # dy weight
+        dy_weight_version = 5
+        add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", "v2"))  # noqa: E501
+        # bosonic recoil corrections
         # https://cms-higgs-leprare.docs.cern.ch/htt-common/V_recoil
         # test: reprocessed version for 23post only
         if year == 2023 and campaign.x.postfix == "BPix":
             add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_test_23post_prod28.json.gz", "v1"))  # noqa: E501
-        else: #TODO: 2024 onward not yet available in new v5
-            dy_weight_version = 4 if year >= 2024 else 5  # 2024 not yet available in new v5 
+        else:  # TODO: 2024 onward not yet available in new v5
+            dy_weight_version = 4 if year >= 2024 else 5  # 2024 not yet available in new v5
             add_external("dy_weight_sf", (f"{central_hbt_dir}/custom_dy_files/hbt_corrections_v{dy_weight_version}.json.gz", f"v{dy_weight_version}"))  # noqa: E501
         add_external("dy_recoil_sf", (f"{central_hbt_dir}/central_dy_files/Recoil_corrections_v5.json.gz", "v1"))
         # tau and trigger specific files are not consistent across 2022/2023 and 2024 yet
@@ -2211,7 +2219,7 @@ def add_config(
                 ),
                 version="v1",
             ))
-        elif year == 2024:# TODO:2025 onwards not available
+        elif year == 2024:  # TODO:2025 onwards not available
             add_external("tau_sf", (cat_info.get_file("tau", "tau.json.gz"), "v1"))
 
             tau_pog_era_cclub = f"{year}fullYear"
@@ -2476,6 +2484,7 @@ def add_config(
 
             # create the lfn base
             lfn_base = dir_cls(store_path, fs=fs)
+
             def _collect_root_files(base):
                 # files directly here?
                 files = [
@@ -2506,9 +2515,8 @@ def add_config(
                 # dataset structure changes
                 lfns = _collect_root_files(lfn_base)
 
-            
             if (skip_lfns := dataset_inst.get_info(shift_inst.name).x("skip_lfns", [])):
-            
+
                 lfns = set(lfns) - set(skip_lfns)
 
             return sorted(lfns)

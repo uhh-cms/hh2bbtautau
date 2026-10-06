@@ -318,8 +318,9 @@ def jet_selection(
             ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
         )
     else:
-        # Horn removal recommendation : remove all jets below 50 GeV if they are in the eta range ]2.5, 3.0[
-        # from https://twiki.cern.ch/twiki/bin/view/CMS/JetMET?rev=293#Run3_recommendations
+        # Horn removal recommendation: remove all jets below 50 GeV if they are in the eta range ]2.5, 3.0[
+        # from https://cms-jme-jerc.docs.cern.ch/recommendations/jer/#known-issues
+        # (previously https://twiki.cern.ch/twiki/bin/view/CMS/JetMET?rev=293#Run3_recommendations)
         ak4_mask = ak4_mask & ~((events.Jet.pt <= 50) & (abs(events.Jet.eta) > 2.5) & ((events.Jet.eta) < 3.0))
 
     # default jets
