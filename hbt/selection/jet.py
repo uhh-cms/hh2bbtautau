@@ -293,7 +293,7 @@ def jet_selection(
         self.config_inst.campaign.x.year == 2023 and
         self.config_inst.campaign.has_tag("postBPix")
     )
-    is_2024 = self.config_inst.campaign.x.year == 2024
+    is_2024 = self.config_inst.campaign.x.year >= 2024
     ch_tautau = self.config_inst.get_channel("tautau")
 
     if self.dataset_inst.has_tag("parking_vbf") and not (is_2023_pre or is_2023_post or is_2024):

@@ -40,7 +40,7 @@ from hbt.production.weights import btag_weights_deepjet, btag_weights_pnet
 from hbt.production.features import cutflow_features
 from hbt.production.patches import patch_ecalBadCalibFilter
 from hbt.util import (
-    IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2022_2023, IF_RUN_3_2024_2025_2026, IF_DATA, IF_DATASET_HAS_TAG,
+IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3, IF_RUN_3_2022_2023, IF_RUN_3_2024_2025_2026, IF_DATA, IF_DATASET_HAS_TAG,
 )
 
 np = maybe_import("numpy")

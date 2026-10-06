@@ -2625,3 +2625,541 @@ def add_triggers_2024(config: od.Config) -> None:
     )
 
     """
+
+def add_triggers_2025(config: od.Config) -> None:
+    """
+    Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
+    https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
+    Tau Trigger: https://twiki.cern.ch/twiki/bin/viewauth/CMS/TauTrigger#Trigger_Table_for_2025
+    Electron Trigger: https://cmshltinfo.app.cern.ch/summary?search=WPTight&year=2025&paths=true&prescaled=false&stream-types=Physics,Scouting,Parking  # noqa: E501
+    Muon Trigger: https://muon-wiki.docs.cern.ch/documentation/hlt/?h=hlt#recommended-paths-maintained-by-the-muon-pog
+    # No changes were made to the NanoAOD Tau Trigger objects, so the same filterbits as V14 are used in V15 as well.
+    """
+    nano_trigger_bit_version = config.x("nano_trigger_bit_version", config.campaign.x.version)
+    get_bit_sum_v = functools.partial(get_bit_sum, nano_trigger_bit_version)
+
+    config.x.triggers = od.UniqueObjectIndex(Trigger)
+
+    #
+    # single electron
+    #
+    config.x.triggers.add(
+        name="HLT_Ele30_WPTight_Gsf",  # https://cms-talk.web.cern.ch/t/single-e-trigger-recommendation-for-run-3-2024/128908/2  # noqa: E501
+        id=205,
+        legs=dict(
+            e=TriggerLeg(
+                pdg_id=11,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # WPTightTrackIso
+                trigger_bits=get_bit_sum_v("e", [
+                    "WPTightTrackIso",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("etau") or
+            dataset_inst.has_tag("ee") or
+            dataset_inst.has_tag("emu_from_e") or
+            dataset_inst.has_tag("emu_from_mu") or
+            dataset_inst.has_tag("parking_vbf") or
+            dataset_inst.has_tag("parking_hh")
+        )),
+        applies_to_dataset_repr="mc | data@{etau|ee|emu_from_e|emu_from_mu|parking_vbf|parking_hh}",
+        tags={"single_trigger", "single_e"},
+    )
+    #
+    # single muon
+    #
+    config.x.triggers.add(
+        name="HLT_IsoMu24",
+        id=105,
+        legs=dict(
+            mu=TriggerLeg(
+                pdg_id=13,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered0p08 (1mu + Iso)
+                trigger_bits=get_bit_sum_v("mu", [
+                    "Iso",
+                    "SingleMuon",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("mutau") or
+            dataset_inst.has_tag("emu_from_e") or
+            dataset_inst.has_tag("emu_from_mu") or
+            dataset_inst.has_tag("mumu") or
+            dataset_inst.has_tag("parking_vbf") or
+            dataset_inst.has_tag("parking_hh")
+        )),
+        applies_to_dataset_repr="mc | data@{mutau|emu_from_e|emu_from_mu|mumu|parking_vbf|parking_hh}",
+        tags={"single_trigger", "single_mu"},
+    )
+
+    #
+    # e tauh pnet
+    #
+    config.x.triggers.add(
+        name="HLT_Ele24_eta2p1_WPTight_Gsf_PNetTauhPFJet30_Loose_eta2p3_CrossL1",
+        id=406,
+        legs=dict(
+            e=TriggerLeg(
+                pdg_id=11,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPPNetPFTau30L1Seeded
+                trigger_bits=get_bit_sum_v("e", [
+                    "EleTauPNet",
+                ]),
+            ),
+            tau=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoEle24WPTightGsfLooseETauWPPNetPFTau30L1Seeded
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNet",
+                    # Note: the "PNet" trigger bit is probably incorrect, it expects
+                    # "PNetTauhTag" in the filter name. However, effect is minimal (< 1%).
+                    # added for synchronization purposes.
+                    "OverlapFilterIsoEle",
+                    "Loose",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("etau")),
+        applies_to_dataset_repr=r"mc | data@{etau}",
+        tags={"cross_trigger", "cross_e_tau"},
+    )
+    #
+    # mu tauh pnet
+    #
+    config.x.triggers.add(
+        name="HLT_IsoMu20_eta2p1_PNetTauhPFJet27_Loose_eta2p3_CrossL1",
+        id=305,
+        legs=dict(
+            mu=TriggerLeg(
+                pdg_id=13,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoMu20LooseMuTauWPPNetPFJet27 (OverlapFilter PFTau)
+                trigger_bits=get_bit_sum_v("mu", [
+                    "MuTauPNet",
+                ]),
+            ),
+            tau=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterIsoMu20LooseMuTauWPPNetPFJet27
+                trigger_bits=get_bit_sum_v("tau", [
+                    "OverlapFilterIsoMu",
+                    "Loose",
+                    "PNet",
+                    # Note: the "PNet" trigger bit is probably incorrect, it expects
+                    # "PNetTauhTag" in the filter name. However, effect is minimal (~ 1%).
+                    # added for synchronization purposes.
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("mutau")),
+        applies_to_dataset_repr=r"mc | data@{mutau}",
+        tags={"cross_trigger", "cross_mu_tau"},
+    )
+    #
+    # tauh tauh pnet
+    #
+    config.x.triggers.add(
+        name="HLT_DoublePNetTauhPFJet30_Medium_L2NN_eta2p3",
+        id=510,
+        legs=dict(
+            tau1=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltDoublePFJets30PNetTauhTagMediumWPL2DoubleTau
+                trigger_bits=get_bit_sum_v("tau", [
+                    "DiTau",
+                    "PNet",
+                    "Medium" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+            tau2=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltDoublePFJets30PNetTauhTagMediumWPL2DoubleTau
+                trigger_bits=get_bit_sum_v("tau", [
+                    "DiTau",
+                    "PNet",
+                    "Medium" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset_repr=r"mc | data@{tautau}",
+        tags={"cross_trigger", "cross_tau_tau"},
+    )
+    #
+    # tau tau jet pnet
+    #
+    config.x.triggers.add(
+        name="HLT_DoublePNetTauhPFJet26_L2NN_eta2p3_PFJet60",
+        id=703,
+        legs=dict(
+            tau1=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltDoublePFJets26PNetTauhTagL2DoubleTauJet
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNet",
+                    "DiTauAndPFJet",
+                ]),
+            ),
+            tau2=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltDoublePFJets26PNetTauhTagL2DoubleTauJet
+                trigger_bits=get_bit_sum_v("tau", [
+                    "PNet",
+                    "DiTauAndPFJet",
+                ]),
+            ),
+            jet=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltHpsOverlapFilterDoublePNetTauh26PFJet60
+                trigger_bits=get_bit_sum_v("jet", [
+                    "DoubleTau+Jet",
+                ]),
+            ),
+        ),
+        applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+        applies_to_dataset_repr=r"mc | data@{tautau}",
+        tags={"cross_trigger", "cross_tau_tau_jet"},
+    )
+
+    #
+    # quadjet
+    #
+    config.x.triggers.add(
+        name="HLT_PFHT250_QuadPFJet25_PNet1BTag0p20_PNet1Tauh0p50",
+        id=801,
+        legs=dict(
+            # matched to a tau
+            jet_tau=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltPFCentralJetNoIDPt25PNet1TauHTag0p50
+                trigger_bits=get_bit_sum_v("jet", [
+                    "PFCentralJetNoIDPt25PNet1TauHTag0p50",
+                    "4PFCentralJetPt25",  # already required for the other trigger bit, but doesn't hurt to also require it here  # noqa: E501
+                ]),
+            ),
+            # matched to a bjet
+            jet_bjet=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltPFCentralJetNoIDPt25PNet1BTag0p20
+                trigger_bits=get_bit_sum_v("jet", [
+                    "PFCentralJetNoIDPt25PNet1BTag0p20",
+                    "4PFCentralJetPt25",  # already required for the other trigger bit, but doesn't hurt to also require it here  # noqa: E501
+                ]),
+            ),
+            # no specific additional requirement to being a central pfjet with pt > 25 GeV
+            # jet3 is used for taus, jet4 for the bjets, for now this is just semantics as both
+            # have the same trigger bits and offline cuts, but could be used to separate
+            # in the future if needed
+            jet3=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hlt4PFCentralJetPt25
+                trigger_bits=get_bit_sum_v("jet", [
+                    "4PFCentralJetPt25",
+                ]),
+            ),
+            jet4=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hlt4PFCentralJetPt25
+                trigger_bits=get_bit_sum_v("jet", [
+                    "4PFCentralJetPt25",
+                ]),
+            ),
+        ),
+        aux={
+            "offline_cuts": {
+                "pt_jet_tau": 25.0,
+                "pt_jet_bjet": 25.0,
+                "pt_jet_3": 25.0,
+                "pt_jet_4": 25.0,
+                "ht": 250.0,
+            },
+        },
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_hh") or
+            dataset_inst.has_tag("parking_vbf")
+        )),
+        applies_to_dataset_repr="mc | data@{parking_hh|parking_vbf}",
+        tags={"cross_trigger", "cross_quadjet"},
+    )
+
+    #
+    # vbf
+    #
+    ## TODO: this trigger is missing for 2025 onwards
+    # config.x.triggers.add(
+    #     name="HLT_VBF_DoublePNetTauhPFJet20_eta2p2",
+    #     id=610,
+    #     legs=dict(
+    #         tau1=TriggerLeg(
+    #             pdg_id=15,
+    #             # min_pt=None,  # cut on reco objects, not TrigObj
+    #             # filter name:
+    #             # hltDoublePFJets20PNetTauhTagL2DoubleTau
+    #             trigger_bits=get_bit_sum_v("tau", [
+    #                 "VBFDiTau" if nano_trigger_bit_version == 15 else None,
+    #                 "PNet",
+    #             ]),
+    #         ),
+    #         tau2=TriggerLeg(
+    #             pdg_id=15,
+    #             # min_pt=None,  # cut on reco objects, not TrigObj
+    #             # filter name:
+    #             # hltDoublePFJets20PNetTauhTagL2DoubleTau
+    #             trigger_bits=get_bit_sum_v("tau", [
+    #                 "VBFDiTau" if nano_trigger_bit_version == 15 else None,
+    #                 "PNet",
+    #             ]),
+    #         ),
+    #         # additional leg infos for vbf jets
+    #         vbf1=TriggerLeg(
+    #             pdg_id=1,
+    #             # min_pt=None,  # cut on reco objects, not TrigObj
+    #             # filter names:
+    #             # hltMatchedVBFTwoPFJets2CrossCleanedFromDouble20PNetTauhTag
+    #             trigger_bits=get_bit_sum_v("jet", [
+    #                 "VBFcrossCleanedDeepTauPFTau" if nano_trigger_bit_version == 15 else None,  # same as cclub group
+    #             ]),
+    #         ),
+    #         vbf2=TriggerLeg(
+    #             pdg_id=1,
+    #             # min_pt=None,  # cut on reco objects, not TrigObj
+    #             # filter names:
+    #             # hltMatchedVBFTwoPFJets2CrossCleanedFromDouble20PNetTauhTag
+    #             trigger_bits=get_bit_sum_v("jet", [
+    #                 "VBFcrossCleanedDeepTauPFTau" if nano_trigger_bit_version == 15 else None,
+    #             ]),
+    #         ),
+    #     ),
+    #     aux={
+    #         "offline_cuts": {
+    #             "pt_jet1": 160.0,
+    #             "pt_jet2": 70.0,
+    #             "mjj": 1100.0,  # filter value is 850.0
+    #             "delta_eta_jj": None,
+    #         },
+    #     },
+    #     applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.has_tag("tautau")),
+    #     applies_to_dataset_repr=r"mc | data@{tautau}",
+    #     tags={"cross_trigger", "cross_tau_tau_vbf"},
+    # )
+
+    config.x.triggers.add(
+        name="HLT_VBF_DiPFJet125_45_Mjj1050",
+        id=611,
+        legs=dict(
+            vbf1=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltL1PFJetCategoriesVBFinclTight1050
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFincl" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+            vbf2=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltL1PFJetCategoriesVBFinclTight1050
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFincl" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+        ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 125.0,
+                "pt_jet2": 45.0,
+                "mjj": 1050.0,
+                "delta_eta_jj": None,
+            },
+        },
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
+        tags={"cross_trigger", "cross_vbf"},
+    )
+
+    config.x.triggers.add(
+        name="HLT_VBF_DiPFJet95_45_Mjj750_Mu3_TrkIsoVVL",
+        id=612,
+        legs=dict(
+            vbf1=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltL1PFJetCategoriesVBFMuTight750
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFmu" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+            vbf2=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltL1PFJetCategoriesVBFMuTight750
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFmu" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+            mu=TriggerLeg(
+                pdg_id=13,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltMuon3RelTrkIsoVVLFiltered -> bit 0, "*RelTrkIsoVVLFiltered", "TrkIsoVVL"
+                trigger_bits=get_bit_sum_v("mu", [
+                    # "TrkIsoVVL",  # should probably be applied, but trigger sfs calculated by CCLUB don't include it, so we don't either  # noqa: E501
+                ]),
+            ),
+        ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 95.0,
+                "pt_jet2": 45.0,
+                "mjj": 750.0,
+                "delta_eta_jj": None,
+            },
+        },
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
+        tags={"cross_trigger", "cross_mu_vbf"},
+    )
+
+    config.x.triggers.add(
+        name="HLT_VBF_DiPFJet50_Mjj600_Ele22_eta2p1_WPTight_Gsf",
+        id=613,
+        legs=dict(
+            vbf1=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltDiPFJet50Ele22OverlapFilter
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFele" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+            vbf2=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltDiPFJet50Ele22OverlapFilter
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFele" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+            e=TriggerLeg(
+                pdg_id=11,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltEle22erWPTightGsfTrackIsoFilterNoRhoCorrectionForVBF
+                trigger_bits=get_bit_sum_v("e", [
+                    "VBFWPTightGsfTrackIso" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+        ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 50.0,
+                "pt_jet2": 50.0,
+                "mjj": 600.0,
+                "delta_eta_jj": None,
+            },
+        },
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
+        tags={"cross_trigger", "cross_e_vbf"},
+    )
+
+    config.x.triggers.add(
+        name="HLT_VBF_DiPFJet45_Mjj650_PNetTauhPFJet45_L2NN_eta2p3",
+        id=614,
+        legs=dict(
+            vbf1=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hlt2PFJetsL1VBFDiJetIsoTauMatchedVBFLooseIDPt45Mass650
+                # CCLUB has VBFcrossCleanedDijet -> 19
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFcrossCleanedUsingDijetCorr",
+                ]),
+            ),
+            vbf2=TriggerLeg(
+                pdg_id=1,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hlt2PFJetsL1VBFDiJetIsoTauMatchedVBFLooseIDPt45Mass650
+                trigger_bits=get_bit_sum_v("jet", [
+                    "VBFcrossCleanedUsingDijetCorr",
+                ]),
+            ),
+            tau=TriggerLeg(
+                pdg_id=15,
+                # min_pt=None,  # cut on reco objects, not TrigObj
+                # filter names:
+                # hltSinglePFJet45PNetTauhTagL2VBFIsoTau
+                # CCLUB has DeepTau, VBFSingleTau -> 3, 30
+                # redundant with VBFSingleTau
+                trigger_bits=get_bit_sum_v("tau", [
+                    "VBFSingleTau" if nano_trigger_bit_version in {14, 15} else None,
+                    "PNet" if nano_trigger_bit_version == 15 else None,
+                ]),
+            ),
+        ),
+        aux={
+            "offline_cuts": {
+                "pt_jet1": 65.0,
+                "pt_jet2": 65.0,
+                "mjj": 900.0,
+                "delta_eta_jj": None,
+            },
+        },
+        applies_to_dataset=(lambda dataset_inst: (
+            dataset_inst.is_mc or
+            dataset_inst.has_tag("parking_vbf")
+        )),
+        applies_to_dataset_repr=r"mc | data@{parking_vbf}",
+        tags={"cross_trigger", "cross_tau_vbf"},
+    )

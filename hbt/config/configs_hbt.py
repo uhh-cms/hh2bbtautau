@@ -436,9 +436,11 @@ def add_config(
         *if_era(year=2024, values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "cdefghi"  # noqa: E501
         ]),
+        # data, 25
         *if_era(year=2025, values=[
-            f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "cdefg"  # noqa: E501
+            f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "bcdefg"  # noqa: E501
         ]),
+        # data, 26
         *if_era(year=2026, values=[
             f"data_{stream}_{period}" for stream in ["e", "mu", "tau", "parking_vbf", "parking_hh"] for period in "bcd"  # noqa: E501
         ]),
@@ -492,7 +494,7 @@ def add_config(
                         dataset.add_tag("dy_lep_amcatnlo_2223")  # lepton channel stitching in the default selector
                     else:
                         dataset.add_tag("dy_lep_taufilter_amcatnlo_2223")  # same, but including tau filtering
-            elif year == 2024:
+            elif year >= 2024:
                 is_dy_inclusive = re.match(r"^dy_(tautau|ee|mumu)_m50toinf_amcatnlo$", dataset.name)
                 # tags for njet based stitching in amcatnlo
                 if re.match(r"^dy_tautau_m50toinf_(\dj_)?amcatnlo$", dataset.name):
@@ -515,7 +517,7 @@ def add_config(
                 dataset.add_tag("w_lnu_amcatnlo_2223")
                 if re.match(r"^w_lnu_\dj_(pt.+_)?amcatnlo$", dataset.name):
                     dataset.add_tag("w_lnu_stitched")
-            elif year == 2024:
+            elif year >= 2024:
                 # no stitching needed, cmsdb has cross sections defined for nj - pt binning processes
                 # with BR information extracted from 2022pre
                 pass
@@ -563,8 +565,16 @@ def add_config(
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
+            if isinstance(limit_dataset_files, dict):
+                # keys are dataset tags, "default" applies to all other datasets
+                n_max = next(
+                    (n for tag, n in limit_dataset_files.items() if tag != "default" and dataset.has_tag(tag)),
+                    limit_dataset_files["default"],
+                )
+            else:
+                n_max = limit_dataset_files
             for info in dataset.info.values():
-                info.n_files = min(info.n_files, limit_dataset_files)
+                info.n_files = min(info.n_files, n_max)
 
         # apply synchronization settings
         if sync_mode:
@@ -915,20 +925,17 @@ def add_config(
             "lumi_13p6TeV_23_24": 0.0068j,
             "lumi_13p6TeV_24": 0.0144j,
         })
-    ## put placeholder for 25/26
+    ## TODO:put placeholder for 25/26
     elif year == 2025:
-        cfg.x.luminosity = Number(109_948.177486, {
-            "lumi_13p6TeV_2025": 0.016j,
-            "lumi_13p6TeV_22_23_24": 0.0020j,
-            "lumi_13p6TeV_23_24": 0.0068j,
-            "lumi_13p6TeV_24": 0.0144j,
+        #https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis#2025_Era_definition
+        cfg.x.luminosity = Number(110_640.0,
+                                  {
+            "lumi_13p6TeV_2025": 0.05j,# placeholder suggest by LUM POG
+           
         })
     elif year == 2026:
-        cfg.x.luminosity = Number(109_948.177486, {
-            "lumi_13p6TeV_2024": 0.016j,
-            "lumi_13p6TeV_22_23_24": 0.0020j,
-            "lumi_13p6TeV_23_24": 0.0068j,
-            "lumi_13p6TeV_24": 0.0144j,
+        cfg.x.luminosity = Number(28_060.0, {
+        "lumi_13p6TeV_2026": 0.05j,# placeholder suggest by LUM POG
         })
     else:
         assert False
@@ -1496,7 +1503,7 @@ def add_config(
                     "RecoAbove75": (lambda variables: variables["pt"] >= 75.0),
                 },
             )
-        ## TODO: missing low pT reco SFs
+        ## TODO: missing low pT reco SFs for 2025
         else:
             cfg.x.electron_reco_sf = ElectronSFConfig(
                 correction="Electron-ID-SF",
@@ -2407,13 +2414,13 @@ def add_config(
     elif year == 2024:
         from hbt.config.triggers import add_triggers_2024
         add_triggers_2024(cfg)
-    # placeholder for 2025 and 2026, since we don't have triggers yet, but we can use the 2024 ones for now
+    # TODO: placeholder for 2025 and 2026, since we don't have triggers yet, but we can use the 2024 ones for now
     elif year == 2025:
-        from hbt.config.triggers import add_triggers_2024
-        add_triggers_2024(cfg)
+        from hbt.config.triggers import add_triggers_2025
+        add_triggers_2025(cfg)
     elif year == 2026:
-        from hbt.config.triggers import add_triggers_2024
-        add_triggers_2024(cfg)
+        from hbt.config.triggers import add_triggers_2025
+        add_triggers_2025(cfg)
     else:
         raise False
 
@@ -2469,25 +2476,39 @@ def add_config(
 
             # create the lfn base
             lfn_base = dir_cls(store_path, fs=fs)
-
+            def _collect_root_files(base):
+                # files directly here?
+                files = [
+                    "/" + base.child(basename, type="f").path.lstrip("/")
+                    for basename in base.listdir(pattern="*.root")
+                ]
+                if files:
+                    return files
+                # otherwise descend into numeric subdirectories
+                lfns = []
+                for d in base.listdir():
+                    if d.isnumeric():
+                        lfns.extend(_collect_root_files(base.child(d, type="d")))
+                return lfns
             # determine sub directories with numbering scheme
             if nano_creator == "uhh":
                 # custom nanos are always put into a single directory named "0"
                 lfn_num_bases = [lfn_base.child("0", type="d")]
+                # loop though files and interpret paths as lfns
+                lfns = sum((
+                    [
+                        "/" + lfn_num_base.child(basename, type="f").path.lstrip("/")
+                        for basename in lfn_num_base.listdir(pattern="*.root")
+                    ]
+                    for lfn_num_base in lfn_num_bases
+                ), [])
             else:  # rucio
-                # query the directory and filter for numbers
-                lfn_num_bases = [lfn_base.child(d, type="d") for d in lfn_base.listdir() if d.isnumeric()]
+                # dataset structure changes
+                lfns = _collect_root_files(lfn_base)
 
-            # loop though files and interpret paths as lfns
-            lfns = sum((
-                [
-                    "/" + lfn_num_base.child(basename, type="f").path.lstrip("/")
-                    for basename in lfn_num_base.listdir(pattern="*.root")
-                ]
-                for lfn_num_base in lfn_num_bases
-            ), [])
-
+            
             if (skip_lfns := dataset_inst.get_info(shift_inst.name).x("skip_lfns", [])):
+            
                 lfns = set(lfns) - set(skip_lfns)
 
             return sorted(lfns)
