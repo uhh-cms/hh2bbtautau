@@ -925,6 +925,28 @@ def add_variables(config: od.Config) -> None:
             },
         )
 
+        if proc == "hh":
+            signal_proc_ids = [p.id for p, *_ in config.walk_processes() if p.has_tag("signal")]
+
+            def shift(events: ak.Array, col: str, frac: float = 0.5) -> ak.Array | np.ndarray:
+                is_signal = np.isin(events.process_id, signal_proc_ids)
+                x = events[col]
+                x = ak.where(is_signal, x + frac * (1 - x), x)
+                return logit(x)
+
+            for frac in [0.5, 0.7, 0.9]:
+                frac_str = str(frac).replace(".", "p")
+                add_variable(
+                    name=f"run3_dnn_moe_{proc}_logit_fine_shift{frac_str}",
+                    expression=functools.partial(shift, col=f"run3_dnn_moe_{proc}", frac=frac),
+                    binning=(2000, -15, 15),
+                    x_title=rf"logit(DNN {proc.upper()} output, shift{frac_str})",
+                    aux={
+                        "inputs": [f"run3_dnn_moe_{proc}"],
+                        "x_transformations": "equal_distance_with_indices",
+                    },
+                )
+
         add_variable(
             name=f"run3_dnn_moe_{proc}_fine_5k",
             expression=f"run3_dnn_moe_{proc}",
