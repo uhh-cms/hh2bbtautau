@@ -314,9 +314,9 @@ def delta_phi12(vectors: ak.Array) -> ak.Array:
     return ak.fill_none(dr, EMPTY_FLOAT)
 
 
-def logit(events: ak.Array, col: str, eps: float = 1e-6) -> ak.Array | np.ndarray:
+def logit(events: ak.Array, col: str | None = None, eps: float = 1e-6) -> ak.Array | np.ndarray:
     # eps confines the range of the transformed values to approx. [-13.8, 13.8] for x in [0, 1]
-    x = events[col]
+    x = events[col] if col is not None else events
     return np.log((x + eps) / (1 - x + eps))
 
 
