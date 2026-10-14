@@ -144,16 +144,6 @@ def add_categories(config: od.Config) -> None:
             is_complete=False,
             has_overlap=True,
         ),
-        # DY enriched region
-        # "dy": CategoryGroup(["dyc", "not_dyc", "dyc_incl"], is_complete=True, has_overlap=True),
-        # split events per trigger
-        "trigger": CategoryGroup(
-            [
-                "single_e", "single_mu", "cross_etau", "cross_mutau", "cross_tautau", "trig_incl"
-            ],
-            is_complete=False,
-            has_overlap=True,
-        ),
         # btag groups
         "btags": CategoryGroup(["eq0b", "eq1b", "eq2b", "ge3b"], is_complete=True, has_overlap=False),
         # qcd regions last
