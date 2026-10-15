@@ -89,16 +89,6 @@ def add_categories(config: od.Config) -> None:
     _add_category(name="res1b_inclvbf_cc", selection="cat_res1b_inclvbf_cc", label="Resolved, ggF, 1 b-tag", tags={"skip_cutflow"})  # noqa: E501
     _add_category(name="res2b_inclvbf_cc", selection="cat_res2b_inclvbf_cc", label=r"Resolved, ggF, $\geq$2 b-tags", tags={"skip_cutflow"})  # noqa: E501
 
-    # for the disagreement tests
-    _add_category(name="single_e", selection="cat_single_e", label=r"single-e")
-    _add_category(name="single_mu", selection="cat_single_mu", label=r"single-$\mu$")
-    _add_category(name="cross_etau", selection="cat_cross_etau", label=r"cross-e$\tau$")
-    _add_category(name="cross_mutau", selection="cat_cross_mutau", label=r"cross-$\mu\tau$")
-    _add_category(name="cross_tautau", selection="cat_cross_tautau", label=r"cross-$\tau\tau$")
-    _add_category(name="trig_incl", selection="cat_trig_incl", label="")
-    _add_category(name="not_dyc", selection="cat_not_dyc", label="not DY region")
-    _add_category(name="dyc_incl", selection="cat_dyc_incl", label="")
-
     #
     # build groups
     #
@@ -141,7 +131,7 @@ def add_categories(config: od.Config) -> None:
                 "res1b_cc", "res2b_cc", "vbf_cc", "boosted_cc",
                 "eq2j", "eq3j", "eq4j", "eq5j", "ge2j", "ge3j", "ge4j",
             ],
-            is_complete=False,
+            is_complete=True,
             has_overlap=True,
         ),
         # btag groups
@@ -195,15 +185,15 @@ def add_categories(config: od.Config) -> None:
         skip_fn=skip_fn_ctrl,
     )
 
-    # # additional combined categories
-    # _add_category(
-    #     name="incl__os__iso",
-    #     label=r"$e\tau/\mu\tau/\tau\tau$, inclusive",
-    #     categories=[
-    #         config.get_category("etau__incl__os__iso"),
-    #         config.get_category("mutau__incl__os__iso"),
-    #         config.get_category("tautau__incl__os__iso"),
-    #     ],
-    # )
+    # additional combined categories
+    _add_category(
+        name="incl__os__iso",
+        label=r"$e\tau/\mu\tau/\tau\tau$, inclusive",
+        categories=[
+            config.get_category("etau__incl__os__iso"),
+            config.get_category("mutau__incl__os__iso"),
+            config.get_category("tautau__incl__os__iso"),
+        ],
+    )
 
     id_cache.close()
