@@ -262,6 +262,17 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             c_int: sn.Number = integrate_num(c_data, axis=1) - integrate_num(c_mc, axis=1)
             d_int: sn.Number = integrate_num(d_data, axis=1) - integrate_num(d_mc, axis=1)
 
+            # log nominal ingredients of the estimation
+            nom = mc_hist.axes["shift"].index(config_inst.get_shift("nominal").name)
+            logger.info(
+                f"QCD estimation for group {group_name} (nominal): "
+                f"B data = {float(integrate_num(b_data, axis=1)()[nom]):.3f}, "
+                f"B mc = {float(integrate_num(b_mc, axis=1)()[nom]):.3f}, "
+                f"C data - mc = {float(c_int()[nom]):.3f}, D data - mc = {float(d_int()[nom]):.3f}, "
+                f"TF = {float((c_int / d_int)()[nom]):.4f}; categories: " +
+                ", ".join(f"{region}: {[c.name for c in cats]}" for region, cats in group.items()),
+            )
+
             # check negative integrals in shift bins
             c_neg_mask = c_int() <= 0
             warn_negative_bins(c_neg_mask, c_region_name)

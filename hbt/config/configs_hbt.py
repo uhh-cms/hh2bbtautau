@@ -219,6 +219,33 @@ def add_config(
         # add the process
         cfg.add_process(proc)
 
+    # processes for the in-situ qcd estimation (see hbt/hist_hooks/qcd_in_situ.py and hbt/inference/qcd_in_situ.py):
+    # for each background process used in inference models a copy representing its contribution in the non-isolated
+    # control region, plus one process for the data in that region; they have no datasets and are only filled by the
+    # hist hook, so the "dynamic" tag marks them as such for inference models
+    qcd_cr_base_names = [
+        "tt", "ttv", "ttvv", "st", "dy", "w_lnu", "ewk", "vv", "vvv",
+        "wh_hbb", "wh_htt", "zh_hbb", "zh_htt", "h_ggf_hbb", "h_ggf_htt", "h_vbf_hbb", "h_vbf_htt",
+        "tth_hbb", "tth_hnonbb",
+    ]
+    cfg.add_process(
+        name="qcd_cr_data",
+        id=9_000_000,
+        label="Data (QCD CR)",
+        tags={"dynamic", "qcd_cr", "qcd_cr_data"},
+    )
+    for i, base_name in enumerate(qcd_cr_base_names, 1):
+        base_proc = cfg.get_process(base_name, default=None)
+        if not base_proc:
+            continue
+        cfg.add_process(
+            name=f"qcd_cr_{base_name}",
+            id=9_000_000 + i,
+            label=f"{base_proc.label} (QCD CR)",
+            tags={"dynamic", "qcd_cr"},
+            aux={"qcd_cr_base": base_name},
+        )
+
     # configure colors, labels, etc
     from hbt.config.styles import stylize_processes
     stylize_processes(cfg)
@@ -1850,6 +1877,11 @@ def add_config(
         cfg.add_shift(name=f"dy_{dy_name}_up", id=211 + 2 * i, type="shape")
         cfg.add_shift(name=f"dy_{dy_name}_down", id=212 + 2 * i, type="shape")
         add_shift_aliases(cfg, f"dy_{dy_name}", {"dy_weight": f"dy_weight_{dy_name}_{{direction}}"})
+
+    # statistical uncertainty of the transfer factor in the in-situ qcd estimation, not connected to any column but
+    # filled by the corresponding hist hook (see hbt/hist_hooks/qcd_in_situ.py)
+    cfg.add_shift(name="qcd_tf_up", id=9001, type="shape")
+    cfg.add_shift(name="qcd_tf_down", id=9002, type="shape")
 
     ################################################################################################
     # external files

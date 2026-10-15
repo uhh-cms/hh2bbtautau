@@ -192,7 +192,7 @@ class HBTInferenceModel(HBTInferenceModelBase):
                 dataset_names = []
 
                 # when the process is not dynmically built, collect datasets contributing to it
-                is_dynamic = proc_name == "qcd"
+                is_dynamic = proc_name == "qcd" or proc_inst.has_tag("dynamic")
                 if not is_dynamic:
                     dataset_names = [dataset.name for dataset in get_all_datasets_from_process(config_inst, proc_name)]
                     if not dataset_names:
@@ -213,7 +213,8 @@ class HBTInferenceModel(HBTInferenceModelBase):
                     },
                     is_signal=(is_signal := proc_inst.has_tag(self.signal_process_tag)),
                     is_dynamic=is_dynamic,
-                    empty_bin_value=0.0 if is_signal else self.empty_bin_value,
+                    # no empty bin filling for signals and for templates of the in-situ qcd estimation
+                    empty_bin_value=0.0 if (is_signal or proc_inst.has_tag("qcd_cr")) else self.empty_bin_value,
                 )
 
                 # store whether there is at least one dataset contributing to this process with lhe weights

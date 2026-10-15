@@ -155,9 +155,21 @@ class TorchModelToDatacards(HBTTask, ConfigTask, law.WrapperTask):
             return
 
         base_cls = default_inference_model.get_cls(self.base_inference_model)
+        # distinguish between the pre-computed qcd template (hooks "qcd*") and the in-situ estimation
+        # (hooks "qcd_in_situ*") that adds control region processes to the datacard instead
+        in_situ = any(hook.startswith("qcd_in_situ") for hook in self.hist_hooks)
+        # the in-situ estimation requires both the hook and a model that adds the control region processes,
+        # otherwise the datacard would silently lack the qcd contribution
+        if in_situ != getattr(base_cls, "add_qcd_in_situ", False):
+            raise ValueError(
+                f"inference model '{self.base_inference_model}' {'does not support' if in_situ else 'requires'} the "
+                f"in-situ qcd estimation, but hist hooks {'contain' if in_situ else 'do not contain'} 'qcd_in_situ*': "
+                f"{self.hist_hooks}",
+            )
         base_cls.derive(self.inference_model_name, cls_dict={
             "variable": self.variable_name,
-            "add_qcd": any(hook.startswith("qcd") for hook in self.hist_hooks),
+            "add_qcd": not in_situ and any(hook.startswith("qcd") for hook in self.hist_hooks),
+            "add_qcd_in_situ": in_situ,
         })
 
     def requires(self):

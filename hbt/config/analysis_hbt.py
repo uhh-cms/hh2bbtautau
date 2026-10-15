@@ -66,6 +66,10 @@ add_blinding_hooks(analysis_hbt)
 from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
 add_qcd_hooks(analysis_hbt)
 
+# in-situ qcd estimation
+from hbt.hist_hooks.qcd_in_situ import add_hooks as add_qcd_in_situ_hooks
+add_qcd_in_situ_hooks(analysis_hbt)
+
 # binning
 from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
 add_binning_hooks(analysis_hbt)
