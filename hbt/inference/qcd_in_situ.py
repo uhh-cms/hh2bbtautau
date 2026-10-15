@@ -18,6 +18,8 @@ region. The statistical uncertainty of TF is a shape nuisance per era and catego
 
 from __future__ import annotations
 
+import copy
+
 import law
 import order as od
 
@@ -25,13 +27,13 @@ from columnflow.inference import ParameterType
 from columnflow.util import DotDict
 from columnflow.types import Any
 
-from hbt.inference.default import default_no_shifts
+from hbt.inference.default import default, remove_shift_parameters
 
 
 logger = law.logger.get_logger(__name__)
 
 
-class default_qcd_in_situ(default_no_shifts):
+class default_qcd_in_situ(default):
     """
     Default statistical model for the HH -> bbtautau analysis with the in-situ QCD estimation.
     """
@@ -105,8 +107,9 @@ class default_qcd_in_situ(default_no_shifts):
 
           - plain (non-regex, non-negated) process patterns are extended by their control region counterparts, so that
             a parameter acting on a background process also acts on its copy in the control region
-          - unless *qcd_cr_data* is *True*, the parameter is removed from the control region data process which is not
-            subject to any modeling uncertainty
+          - unless *qcd_cr_data* is *True*, rate parameters are removed from the control region data process; shape
+            parameters are kept since the transfer factor applied to the data template depends on the shifted mc in
+            the C and D regions (see :py:meth:`sync_qcd_cr_data_parameters` for shape parameters that were not matched)
         """
         if self.add_qcd_in_situ and process is not None and process_match_mode is any:
             patterns = law.util.make_list(process)
@@ -120,10 +123,35 @@ class default_qcd_in_situ(default_no_shifts):
 
         parameter = super().add_parameter(*args, process=process, process_match_mode=process_match_mode, **kwargs)
 
-        if self.add_qcd_in_situ and not qcd_cr_data:
+        if self.add_qcd_in_situ and not qcd_cr_data and parameter.type.is_rate:
             self.remove_parameter(parameter.name, process=self.qcd_cr_data_pattern)
 
         return parameter
+
+    def sync_qcd_cr_data_parameters(self) -> None:
+        """
+        Attaches every shape parameter acting on a control region background copy also to the control region data
+        process of the same category and era, as the hist hook fills the data template for all mc shifts with the
+        corresponding transfer factor.
+        """
+        for cat_obj in self.categories:
+            for config_inst in self.config_insts:
+                key = self.campaign_keys[config_inst]
+                data_name = self.inject_era(config_inst, f"{self.qcd_cr_data_name}{self.qcd_cr_suffix}")
+                data_proc = self.get_process(data_name, category=cat_obj.name, silent=True)
+                if not data_proc:
+                    continue
+                existing = {param.name for param in data_proc.parameters}
+                for proc_obj in cat_obj.processes:
+                    if proc_obj is data_proc or not proc_obj.name.endswith(self.qcd_cr_suffix):
+                        continue
+                    # only copies of the same era
+                    if f"_{key}" not in proc_obj.name:
+                        continue
+                    for param in proc_obj.parameters:
+                        if param.type.is_shape and param.name not in existing:
+                            data_proc.parameters.append(copy.deepcopy(param))
+                            existing.add(param.name)
 
     def init_parameters(self) -> None:
         super().init_parameters()
@@ -158,3 +186,16 @@ class default_qcd_in_situ(default_no_shifts):
                     qcd_cr_data=True,
                     group=["experiment", "shape_nuisances", "qcd_in_situ"],
                 )
+
+        # shape parameters of background copies also act on the data copy through the transfer factor
+        self.sync_qcd_cr_data_parameters()
+
+
+@default_qcd_in_situ.inference_model
+def default_qcd_in_situ_no_shifts(self) -> None:
+    """
+    Variant without mc shape nuisances, keeping the statistical uncertainty of the transfer factor.
+    """
+    super(default_qcd_in_situ_no_shifts, self).init_func()
+    remove_shift_parameters(self, keep="CMS_bbtt_QCD_TF_*")
+    self.init_cleanup()
