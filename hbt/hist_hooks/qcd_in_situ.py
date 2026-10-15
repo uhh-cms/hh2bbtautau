@@ -12,8 +12,24 @@ The ABCD method is split into two parts:
     -1 to the background copies (see hbt/inference/qcd_in_situ.py), so that systematic variations of the backgrounds
     in A and in B are correlated in the fit
 
-The statistical uncertainty of TF is written as the up/down variations of the shift source *tf_shift_source* to all
-control region histograms.
+Uncertainty treatment (see also hbt/inference/qcd_in_situ.py for the datacard side):
+
+  - Bin-by-bin statistics: every control region template carries the variance of its B histogram scaled by TF^2
+    (data: Poisson counts, MC: sum of squared weights). The fit combines them per bin via autoMCStats.
+  - TF statistics: TF = (data_C - MC_C) / (data_D - MC_D) is computed from the nominal, integrated C and D regions
+    with Poisson uncertainties for data and sum-of-squared-weights uncertainties for MC, propagated uncorrelated
+    through the ratio. The result is written as the up/down variations of the shift source *tf_shift_source*
+    (nominal B histogram times TF +- sigma_TF) to all control region templates, data and backgrounds alike, and
+    becomes one shape nuisance per era and category in the datacard.
+  - MC systematic shifts: for every systematic shift present in the MC histograms, TF is recomputed from the shifted
+    MC in C and D (data stays nominal). Background copies receive their shifted B histogram times TF(shift); the data
+    copy receives its nominal B histogram times TF(shift) for every MC shift. The datacard attaches all shape
+    nuisances acting on a background copy to the data copy as well, so a variation moves TF * (data_B - sum(bkg_B))
+    coherently. Rate (lnN) nuisances of the datacard do not enter TF.
+  - A systematic shift with a non-positive C or D integral falls back to the nominal TF with a warning; a non-positive
+    nominal C or D sets TF and its variations to zero.
+  - No clipping: negative bins of data_B - sum(bkg_B) are kept; only the total expectation per bin is relevant in the
+    fit.
 """
 
 from __future__ import annotations
@@ -87,6 +103,9 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         shape_transfer: Literal["from_os_noniso", "from_ss_iso"] = "from_os_noniso",
         # name of the shift source whose up/down variations receive the statistical uncertainty of the transfer factor
         tf_shift_source: str = "qcd_tf",
+        # whether to recompute the transfer factor for every systematic shift of the mc histograms and use it for the
+        # corresponding shifted background templates (the data template always uses the nominal transfer factor)
+        tf_per_shift: bool = True,
         **kwargs,
     ) -> dict[od.Process, Any]:
         import numpy as np
@@ -208,14 +227,16 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         tf_shifts = [f"{tf_shift_source}_{d}" for d in ["up", "down"]]
 
         # create empty output histograms with the same axes as the input ones, plus the transfer factor shifts
-        def prepare_output(h: hist.Histogram) -> hist.Histogram:
+        # (the data copy additionally receives all shifts of the mc histograms, as its transfer factor depends on them)
+        def prepare_output(h: hist.Histogram, extra_shifts: list[str]) -> hist.Histogram:
             h = h.copy().reset()
-            for shift_name in tf_shifts:
+            for shift_name in list(extra_shifts) + tf_shifts:
                 h = ensure_axis_value(h, "shift", shift_name)
             return h
 
-        cr_hists: dict[od.Process, hist.Histogram] = {data_cr_proc: prepare_output(data_hist)}
-        cr_hists.update({cr_proc: prepare_output(hists[proc]) for proc, cr_proc in bkg_cr_procs.items()})
+        mc_shift_names = [s for s in mc_hist.axes["shift"] if s not in tf_shifts]
+        cr_hists: dict[od.Process, hist.Histogram] = {data_cr_proc: prepare_output(data_hist, mc_shift_names)}
+        cr_hists.update({cr_proc: prepare_output(hists[proc], []) for proc, cr_proc in bkg_cr_procs.items()})
 
         for group_name in complete_groups:
             group = qcd_groups[group_name]
@@ -287,8 +308,51 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                     f"-{tf_nom - tf_down:.4f}",
                 )
 
+            # transfer factors per systematic shift of the mc histograms (data is only available for the nominal
+            # shift), used for the shifted templates of all control region copies so that a variation of a background
+            # also propagates through the mc subtraction in the C and D regions
+            tf_shift: dict[str, float] = {shift_name: tf_nom for shift_name in mc_shift_names}
+            if tf_per_shift:
+                # helper to integrate the mc histogram of a region for a specific shift, falling back to nominal
+                def integrate_mc_region(region_name: str, shift_name: str) -> float:
+                    h = get_hist(mc_hist, region_name)
+                    if h is None:
+                        return 0.0
+                    if shift_name not in h.axes["shift"]:
+                        shift_name = nominal
+                    return float(h[{"shift": hist.loc(shift_name)}].values().sum())
+
+                c_data = float(integrate_region(data_hist, c_region, "c_data")())
+                d_data = float(integrate_region(data_hist, d_region, "d_data")())
+                for shift_name in mc_shift_names:
+                    if shift_name == nominal:
+                        continue
+                    c_shift = c_data - integrate_mc_region(c_region, shift_name)
+                    d_shift = d_data - integrate_mc_region(d_region, shift_name)
+                    if not (np.isfinite(c_shift) and np.isfinite(d_shift) and c_shift > 0 and d_shift > 0):
+                        task.logger.warning(
+                            f"non-positive QCD integrals in group {group_name} for shift {shift_name} "
+                            f"({c_region}: {c_shift}, {d_region}: {d_shift}), using the nominal transfer factor",
+                        )
+                    else:
+                        tf_shift[shift_name] = c_shift / d_shift
+                # report shifts that change the transfer factor noticeably
+                if tf_nom > 0:
+                    large = {
+                        name: tf / tf_nom - 1
+                        for name, tf in tf_shift.items()
+                        if name != nominal and abs(tf / tf_nom - 1) > 0.05
+                    }
+                    if large:
+                        task.logger.info(
+                            f"QCD transfer factor in group {group_name} changes by more than 5% for shifts: " +
+                            ", ".join(f"{name}: {rel:+.1%}" for name, rel in sorted(large.items())),
+                        )
+
             # helper to insert the B histogram, scaled by the transfer factor, into the target category of the output
-            def fill_output(h_out: hist.Histogram, h_in: hist.Histogram) -> None:
+            # for backgrounds, each shift of the input is scaled by the transfer factor of that shift; for data, which
+            # only has a nominal histogram, the nominal input is scaled by the transfer factor of every mc shift
+            def fill_output(h_out: hist.Histogram, h_in: hist.Histogram, is_data: bool) -> None:
                 h_b = get_hist(h_in, b_region)
                 if h_b is None:
                     return
@@ -296,24 +360,25 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 cat_index = h_out.axes["category"].index(target_category)
                 out_view = h_out.view(flow=True)
                 b_view = h_b.view(flow=True)
+                nominal_index = h_b.axes["shift"].index(nominal)
 
-                # all shifts of the input histogram, scaled by the nominal transfer factor
-                for shift_name in h_b.axes["shift"]:
+                shift_names = mc_shift_names if is_data else list(h_b.axes["shift"])
+                for shift_name in shift_names:
                     out_index = h_out.axes["shift"].index(shift_name)
-                    in_index = h_b.axes["shift"].index(shift_name)
-                    out_view.value[cat_index, out_index] = b_view.value[in_index] * tf_nom
-                    out_view.variance[cat_index, out_index] = b_view.variance[in_index] * tf_nom**2
+                    in_index = nominal_index if is_data else h_b.axes["shift"].index(shift_name)
+                    tf_val = tf_shift.get(shift_name, tf_nom)
+                    out_view.value[cat_index, out_index] = b_view.value[in_index] * tf_val
+                    out_view.variance[cat_index, out_index] = b_view.variance[in_index] * tf_val**2
 
                 # nominal input, scaled by the varied transfer factors
-                in_index = h_b.axes["shift"].index(nominal)
                 for shift_name, tf_var in zip(tf_shifts, [tf_up, tf_down]):
                     out_index = h_out.axes["shift"].index(shift_name)
-                    out_view.value[cat_index, out_index] = b_view.value[in_index] * tf_var
-                    out_view.variance[cat_index, out_index] = b_view.variance[in_index] * tf_var**2
+                    out_view.value[cat_index, out_index] = b_view.value[nominal_index] * tf_var
+                    out_view.variance[cat_index, out_index] = b_view.variance[nominal_index] * tf_var**2
 
-            fill_output(cr_hists[data_cr_proc], data_hist)
+            fill_output(cr_hists[data_cr_proc], data_hist, is_data=True)
             for proc, cr_proc in bkg_cr_procs.items():
-                fill_output(cr_hists[cr_proc], hists[proc])
+                fill_output(cr_hists[cr_proc], hists[proc], is_data=False)
 
         # add the control region histograms
         hists.update(cr_hists)
