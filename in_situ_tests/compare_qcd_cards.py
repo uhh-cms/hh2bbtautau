@@ -50,7 +50,7 @@ for old_path in sorted(glob.glob(os.path.join(OLD_DIR, f"shapes__*__{OLD_HOOKS}*
     qcd_old = old[qcd_old_key[0]].values()
 
     # new: data in the control region minus background copies
-    cr_keys = [k for k in nominal_keys(new) if k.endswith("_QCDCR")]
+    cr_keys = [k for k in nominal_keys(new) if "_QCDCR" in k]
     data_cr_key = [k for k in cr_keys if k.startswith("QCD_data_")]
     assert len(data_cr_key) == 1, f"{cat}: unexpected data cr keys {data_cr_key}"
     bkg_cr_keys = [k for k in cr_keys if k not in data_cr_key]

@@ -98,7 +98,7 @@ def read_qcd(variant: str, cat: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     d = uproot.open(path)[cat]
 
     if variant == REFERENCE:
-        cr_keys = [k for k in nominal_keys(d) if k.endswith("_QCDCR")]
+        cr_keys = [k for k in nominal_keys(d) if "_QCDCR" in k]
         data_key = [k for k in cr_keys if k.startswith("QCD_data_")][0]
         bkg_keys = [k for k in cr_keys if k != data_key]
         values = d[data_key].values() - sum(d[k].values() for k in bkg_keys)
@@ -167,9 +167,16 @@ def plot(cat: str, results: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]
         ax.set_yscale("log")
         ax.set_ylim(max(all_values.min() * 0.3, 1e-3), all_values.max() * 100)
     else:
-        ax.set_yscale("symlog", linthresh=1.0)
-        ax.set_ylim(-max(abs(all_values.min()) * 3, 1.0), all_values.max() * 100)
+        # symmetric log: logarithmic beyond +-linthresh, linear in between (needed to display negative bins)
+        linthresh = 1.0
+        ax.set_yscale("symlog", linthresh=linthresh, linscale=0.6)
+        ax.set_ylim(-max(abs(all_values.min()) * 3, linthresh), all_values.max() * 100)
         ax.axhline(0, color="#6b6b6b", linewidth=1)
+        # note the linear window so that the zero tick is understood
+        ax.text(
+            0.99, 0.02, f"symmetric log scale, linear within $\\pm${linthresh:g}",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=13, color="#555555",
+        )
     ax.set_ylabel("Entries")
     ax.text(
         0.04, 0.95, description, transform=ax.transAxes, ha="left", va="top", fontsize=20,
