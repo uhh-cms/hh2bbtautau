@@ -3,7 +3,7 @@
 """
 Histogram hooks for the in-situ QCD estimation.
 
-The ABCD method is split into two parts:
+The ABCD method is split into two parts:^
 
   - this hook computes the transfer factor TF from the same-sign regions C/D and writes the histograms of the
     opposite-sign, non-isolated region B into the signal region A, scaled by TF, as separate "control region"
@@ -19,8 +19,8 @@ Uncertainty treatment (see also hbt/inference/qcd_in_situ.py for the datacard si
   - TF statistics: TF = (data_C - MC_C) / (data_D - MC_D) is computed from the nominal, integrated C and D regions
     with Poisson uncertainties for data and sum-of-squared-weights uncertainties for MC, propagated uncorrelated
     through the ratio. The result is written as the up/down variations of the shift source *tf_shift_source*
-    (nominal B histogram times TF +- sigma_TF) to all control region templates, data and backgrounds alike, and
-    becomes one shape nuisance per era and category in the datacard.
+    (nominal B histogram times TF +- sigma_TF) to all control region templates, data and backgrounds alike. The
+    inference model converts their integral effect into one rate (lnN) nuisance per era and category.
   - MC systematic shifts: for every systematic shift present in the MC histograms, TF is recomputed from the shifted
     MC in C and D (data stays nominal). Background copies receive their shifted B histogram times TF(shift); the data
     copy receives its nominal B histogram times TF(shift) for every MC shift. The datacard attaches all shape
