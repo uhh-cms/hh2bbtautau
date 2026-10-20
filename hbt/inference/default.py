@@ -45,7 +45,7 @@ class default(HBTInferenceModel):
 
     # channels and phasespaces for category combinations
     channels = ["etau", "mutau", "tautau"]
-    phasespaces = ["res1b__dyc_incl__trig_incl", "res2b__dyc_incl__trig_incl"]
+    phasespaces = ["res1b", "res2b"]
 
     def create_category_combinations(self) -> list[DotDict[str, str]]:
         return [
@@ -665,10 +665,29 @@ def remove_shift_parameters(model: default, keep: str | Sequence[str] | None = N
             model.remove_parameter(parameter.name, process=process_name, category=category_name)
 
 
+# helper to remove all parameters of a model instance whose names do not match any of the *keep* patterns
+def keep_parameters(model: default, keep: str | Sequence[str]) -> None:
+    keep_fn = pattern_matcher(keep)
+    for category_name, process_name, parameter in model.iter_parameters():
+        if not keep_fn(parameter.name):
+            model.remove_parameter(parameter.name, process=process_name, category=category_name)
+
+
 @default.inference_model
 def default_no_shifts(self) -> None:
     super(default_no_shifts, self).init_func()
     remove_shift_parameters(self)
+    self.init_cleanup()
+
+
+@default.inference_model
+def default_qcd_test(self) -> None:
+    """
+    Variant for the first a-priori vs. in-situ comparison: only luminosity uncertainties and the flat qcd rate
+    uncertainty (plus autoMCStats).
+    """
+    super(default_qcd_test, self).init_func()
+    keep_parameters(self, ["lumi_*", "QCD_rate_unc"])
     self.init_cleanup()
 
 
