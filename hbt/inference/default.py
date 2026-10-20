@@ -375,13 +375,15 @@ class default(HBTInferenceModel):
             group=["theory", "rate_nuisances"],
         )
 
-        self.add_parameter(
-            "QCD_rate_unc",
-            type=ParameterType.rate_gauss,
-            process=["QCD_*"],
-            effect=(0.3, 1.3),
-            group=["theory", "rate_nuisances"],
-        )
+        # flat method uncertainty on the pre-computed (a-priori ABCD) qcd template
+        if self.add_qcd:
+            self.add_parameter(
+                "QCD_rate_unc",
+                type=ParameterType.rate_gauss,
+                process=self.inject_all_eras("QCD_datadriven"),
+                effect=(0.9, 1.1),
+                group=["experiment", "rate_nuisances"],
+            )
 
         # lumi
         for config_inst in self.config_insts:
