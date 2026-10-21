@@ -52,7 +52,7 @@ class default(HBTInferenceModel):
     # (next extension: tau_shape_uncs = ["tau_stat*"], dy_shape_names = ["syst", "stat"])
     btag_shape_uncs: Sequence[str] | None = ["hf", "lf"]
     tau_shape_uncs: Sequence[str] | None = []
-    dy_shape_names: Sequence[str] = ["syst"]
+    dy_shape_names: Sequence[str] = ["syst", "stat"]
 
     # whether to add shape nuisances based on dedicated datasets (hdamp, tune, mtop), which require running the full
     # chain from SelectEvents onwards for these datasets
