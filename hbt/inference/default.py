@@ -47,11 +47,12 @@ class default(HBTInferenceModel):
     channels = ["etau", "mutau", "tautau"]
     phasespaces = ["res1b", "res2b"]
 
-    # weight-based shape nuisances to include, as patterns on the uncertainty names in the config (None for all);
-    # currently reduced to the sources needed for the a-priori vs. in-situ qcd comparison
+    # weight-based shape nuisances to include, as patterns on the uncertainty names in the config (None for all, an
+    # empty list for none); currently reduced to the sources needed for the a-priori vs. in-situ qcd comparison
+    # (next extension: tau_shape_uncs = ["tau_stat*"], dy_shape_names = ["syst", "stat"])
     btag_shape_uncs: Sequence[str] | None = ["hf", "lf"]
-    tau_shape_uncs: Sequence[str] | None = ["tau_stat*"]
-    dy_shape_names: Sequence[str] = ["syst", "stat"]
+    tau_shape_uncs: Sequence[str] | None = []
+    dy_shape_names: Sequence[str] = ["syst"]
 
     # whether to add shape nuisances based on dedicated datasets (hdamp, tune, mtop), which require running the full
     # chain from SelectEvents onwards for these datasets
