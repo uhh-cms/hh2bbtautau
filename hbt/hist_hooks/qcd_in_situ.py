@@ -18,9 +18,11 @@ Uncertainty treatment (see also hbt/inference/qcd_in_situ.py for the datacard si
     (data: Poisson counts, MC: sum of squared weights). The fit combines them per bin via autoMCStats.
   - TF statistics: TF = (data_C - MC_C) / (data_D - MC_D) is computed from the nominal, integrated C and D regions
     with Poisson uncertainties for data and sum-of-squared-weights uncertainties for MC, propagated uncorrelated
-    through the ratio. The result is written as the up/down variations of the shift source *tf_shift_source*
-    (nominal B histogram times TF +- sigma_TF) to all control region templates, data and backgrounds alike. The
-    inference model converts their integral effect into one rate (lnN) nuisance per era and category.
+    through the ratio. The result is written as the up/down variations of the shift source *tf_shift_source* to all
+    control region templates, data and backgrounds alike, in log-normal form: nominal B histogram times
+    TF * (1 + sigma_TF / TF) and TF / (1 + sigma_TF / TF). The inference model converts their integral effect into
+    one rate (lnN) nuisance per era and category. The log-normal form keeps the templates positive and the lnN
+    encodable also when sigma_TF / TF exceeds 100% (a warning is issued above 50%).
   - MC systematic shifts: for every systematic shift present in the MC histograms, TF is recomputed from the shifted
     MC in C and D (data stays nominal). Background copies receive their shifted B histogram times TF(shift); the data
     copy receives its nominal B histogram times TF(shift) for every MC shift. The datacard attaches all shape
@@ -301,12 +303,21 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
             else:
                 tf = c_int / d_int
                 tf_nom = float(tf())
-                tf_up = tf_nom + float(tf(sn.UP, unc=True))
-                tf_down = tf_nom - float(tf(sn.DOWN, unc=True))
+                # relative statistical uncertainty, written as log-normal variations TF * (1 + rel) and
+                # TF / (1 + rel) so that the templates stay positive and the inference model can encode the integral
+                # effect as a (symmetric) lnN nuisance even when the relative uncertainty exceeds 100%
+                tf_rel_unc = float(tf(sn.UP, unc=True)) / tf_nom
+                tf_up = tf_nom * (1.0 + tf_rel_unc)
+                tf_down = tf_nom / (1.0 + tf_rel_unc)
                 task.logger.info(
-                    f"QCD transfer factor in group {group_name}: {tf_nom:.4f} +{tf_up - tf_nom:.4f} "
-                    f"-{tf_nom - tf_down:.4f}",
+                    f"QCD transfer factor in group {group_name}: {tf_nom:.4f} +-{tf_nom * tf_rel_unc:.4f} "
+                    f"({100 * tf_rel_unc:.1f}%, log-normal variations {tf_down:.4f} / {tf_up:.4f})",
                 )
+                if tf_rel_unc > 0.5:
+                    task.logger.warning(
+                        f"relative uncertainty of the QCD transfer factor in group {group_name} is "
+                        f"{100 * tf_rel_unc:.0f}%, the C/D regions have too few events for a reliable estimate",
+                    )
 
             # transfer factors per systematic shift of the mc histograms (data is only available for the nominal
             # shift), used for the shifted templates of all control region copies so that a variation of a background

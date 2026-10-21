@@ -30,9 +30,8 @@ import order as od
 
 from columnflow.inference import ParameterType, ParameterTransformation
 from columnflow.util import DotDict
-from columnflow.types import Any
 
-from hbt.inference.default import default, remove_shift_parameters
+from hbt.inference.default import default, remove_shift_parameters, keep_parameters
 
 
 logger = law.logger.get_logger(__name__)
@@ -209,14 +208,15 @@ class default_qcd_in_situ(default):
         )
 
         # statistical uncertainty of the transfer factor, decorrelated across eras and categories; the up/down
-        # templates written by the hook only differ in normalization, so the effect is converted to a rate (lnN)
+        # templates written by the hook only differ in normalization, so the shape parameter is converted to a rate
+        # (lnN) parameter from the integral effect of the templates (declared as shape, effect_from_shape changes it)
         for combi in self.create_category_combinations():
             info = self.create_category_info(**combi)
             for config_inst in self.config_insts:
                 key = self.campaign_keys[config_inst]
                 self.add_parameter(
                     f"CMS_bbtt_QCD_TF_{key}_{'_'.join(combi.values())}",
-                    type=ParameterType.rate_gauss,
+                    type=ParameterType.shape,
                     transformations=[ParameterTransformation.effect_from_shape],
                     config_data={
                         config_inst.name: self.parameter_config_spec(shift_source=self.qcd_tf_shift_source),
@@ -237,6 +237,31 @@ def default_qcd_in_situ_no_shifts(self) -> None:
     Variant without mc shape nuisances, keeping the statistical uncertainty of the transfer factor.
     """
     super(default_qcd_in_situ_no_shifts, self).init_func()
-    # (the transfer factor uncertainty is a rate parameter and therefore not removed)
-    remove_shift_parameters(self)
+    # keep the transfer factor uncertainty, which is declared as a shape parameter but serialized as a rate (lnN)
+    remove_shift_parameters(self, keep="CMS_bbtt_QCD_TF_*")
+    self.init_cleanup()
+
+
+@default_qcd_in_situ.inference_model
+def default_qcd_in_situ_test(self) -> None:
+    """
+    Variant for the first a-priori vs. in-situ comparison: only luminosity uncertainties, the frozen subtraction
+    factor and the transfer factor uncertainty (plus autoMCStats).
+    """
+    super(default_qcd_in_situ_test, self).init_func()
+    keep_parameters(self, ["lumi_*", "QCD_scale", "CMS_bbtt_QCD_TF_*"])
+    self.init_cleanup()
+
+
+@default_qcd_in_situ.inference_model
+def default_qcd_in_situ_test_shifts(self) -> None:
+    """
+    Variant for the second a-priori vs. in-situ comparison: as default_qcd_in_situ_test, plus the reduced set of
+    weight-based shape nuisances (top pt, btag hf/lf, genuine tau id, dy), which also act on the control region copies.
+    """
+    super(default_qcd_in_situ_test_shifts, self).init_func()
+    keep_parameters(self, [
+        "lumi_*", "QCD_scale", "CMS_bbtt_QCD_TF_*",
+        "CMS_top_pT_reweighting", "CMS_btag_*", "CMS_eff_t_*", "CMS_DY_*",
+    ])
     self.init_cleanup()

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 import itertools
-# import collections
+import collections
 
 import law
-# import order as od
+import order as od
 
 from columnflow.inference import ParameterType  # ParameterTransformations
 from columnflow.util import DotDict, pattern_matcher
@@ -46,6 +46,16 @@ class default(HBTInferenceModel):
     # channels and phasespaces for category combinations
     channels = ["etau", "mutau", "tautau"]
     phasespaces = ["res1b", "res2b"]
+
+    # weight-based shape nuisances to include, as patterns on the uncertainty names in the config (None for all);
+    # currently reduced to the sources needed for the a-priori vs. in-situ qcd comparison
+    btag_shape_uncs: Sequence[str] | None = ["hf", "lf"]
+    tau_shape_uncs: Sequence[str] | None = ["tau_stat*"]
+    dy_shape_names: Sequence[str] = ["syst", "stat"]
+
+    # whether to add shape nuisances based on dedicated datasets (hdamp, tune, mtop), which require running the full
+    # chain from SelectEvents onwards for these datasets
+    add_dataset_shifts = False
 
     def create_category_combinations(self) -> list[DotDict[str, str]]:
         return [
@@ -407,6 +417,87 @@ class default(HBTInferenceModel):
         #
         # shape parameters from shifts acting on ProduceColumns or CreateHistograms (mostly weight variations)
         #
+
+        # top pt weight
+        self.add_parameter(
+            "CMS_top_pT_reweighting",
+            type=ParameterType.shape,
+            config_data={
+                config_inst.name: self.parameter_config_spec(shift_source="top_pt")
+                for config_inst in self.config_insts
+            },
+            process=self.inject_all_eras("ttbar"),
+            group=["experiment", "shape_nuisances"],
+        )
+
+        # btag
+        btag_map: collections.defaultdict[str, list[od.Config]] = collections.defaultdict(list)
+        for config_inst in self.config_insts:
+            for name in config_inst.x.btag_unc_names:
+                if self.btag_shape_uncs is not None and not law.util.multi_match(name, self.btag_shape_uncs):
+                    continue
+                btag_map[name].append(config_inst)
+        for name, config_insts in btag_map.items():
+            # decorrelate hf/lfstats across years, correlate others
+            if re.match(r"^(l|h)fstats(1|2)$", name):
+                for config_inst in config_insts:
+                    self.add_parameter(
+                        f"CMS_btag_{name}_{self.campaign_keys[config_inst]}",
+                        type=ParameterType.shape,
+                        config_data={
+                            config_inst.name: self.parameter_config_spec(shift_source=f"btag_{name}"),
+                        },
+                        process=self.process_matches(configs=config_inst, skip_datadriven=True),
+                        process_match_mode=all,
+                        group=["experiment", "shape_nuisances"],
+                    )
+            else:
+                self.add_parameter(
+                    f"CMS_btag_{name}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=f"btag_{name}")
+                        for config_inst in config_insts
+                    },
+                    process=self.process_matches(configs=config_insts, skip_datadriven=True),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
+
+        # tau weights
+        for config_inst in self.config_insts:
+            for name in config_inst.x.tau_unc_names:
+                if self.tau_shape_uncs is not None and not law.util.multi_match(name, self.tau_shape_uncs):
+                    continue
+                # each uncertainty only applies to specific channels
+                unc_channels = config_inst.get_shift(f"tau_{name}_up").x.applies_to_channels
+                self.add_parameter(
+                    f"CMS_eff_t_{name}_{self.campaign_keys[config_inst]}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=f"tau_{name}"),
+                    },
+                    category=[f"*_{ch}_*" for ch in unc_channels],
+                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
+
+        # dy weights (decorrelated across years)
+        for config_inst in self.config_insts:
+            for dy_name in self.dy_shape_names:
+                self.add_parameter(
+                    f"CMS_DY_{dy_name}_{config_inst.campaign.x.year}",
+                    type=ParameterType.shape,
+                    config_data={
+                        config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}"),
+                    },
+                    process=self.process_matches(processes=["DY"], configs=config_inst),
+                    process_match_mode=all,
+                    group=["experiment", "shape_nuisances"],
+                )
+
+        # (not used yet)
         """
         # pileup
         for config_inst in self.config_insts:
@@ -420,18 +511,6 @@ class default(HBTInferenceModel):
                 process_match_mode=all,
                 group=["experiment", "shape_nuisances"],
             )
-
-        # top pt weight
-        self.add_parameter(
-            "CMS_top_pT_reweighting",
-            type=ParameterType.shape,
-            config_data={
-                config_inst.name: self.parameter_config_spec(shift_source="top_pt")
-                for config_inst in self.config_insts
-            },
-            process=self.inject_all_eras("ttbar"),
-            group=["experiment", "shape_nuisances"],
-        )
 
         # pdf shape (could be decorrelated across some process groups if needed)
         self.add_parameter(
@@ -470,38 +549,6 @@ class default(HBTInferenceModel):
                 group=["theory", "shape_nuisances"],
             )
 
-        # btag
-        btag_map: collections.defaultdict[str, list[od.Config]] = collections.defaultdict(list)
-        for config_inst in self.config_insts:
-            for name in config_inst.x.btag_unc_names:
-                btag_map[name].append(config_inst)
-        for name, config_insts in btag_map.items():
-            # decorrelate hf/lfstats across years, correlate others
-            if re.match(r"^(l|h)fstats(1|2)$", name):
-                for config_inst in config_insts:
-                    self.add_parameter(
-                        f"CMS_btag_{name}_{self.campaign_keys[config_inst]}",
-                        type=ParameterType.shape,
-                        config_data={
-                            config_inst.name: self.parameter_config_spec(shift_source=f"btag_{name}"),
-                        },
-                        process=self.process_matches(configs=config_inst, skip_datadriven=True),
-                        process_match_mode=all,
-                        group=["experiment", "shape_nuisances"],
-                    )
-            else:
-                self.add_parameter(
-                    f"CMS_btag_{name}",
-                    type=ParameterType.shape,
-                    config_data={
-                        config_inst.name: self.parameter_config_spec(shift_source=f"btag_{name}")
-                        for config_inst in config_insts
-                    },
-                    process=self.process_matches(configs=config_insts, skip_datadriven=True),
-                    process_match_mode=all,
-                    group=["experiment", "shape_nuisances"],
-                )
-
         # electron weights
         # TODO: possibly correlate?
         for e_source in ["e_id", "e_reco"]:
@@ -531,23 +578,6 @@ class default(HBTInferenceModel):
                         config_inst.name: self.parameter_config_spec(shift_source=mu_source),
                     },
                     category=["*_mutau_*"],
-                    process=self.process_matches(configs=config_inst, skip_datadriven=True),
-                    process_match_mode=all,
-                    group=["experiment", "shape_nuisances"],
-                )
-
-        # tau weights
-        for config_inst in self.config_insts:
-            for name in config_inst.x.tau_unc_names:
-                # each uncertainty only applies to specific channels
-                unc_channels = config_inst.get_shift(f"tau_{name}_up").x.applies_to_channels
-                self.add_parameter(
-                    f"CMS_eff_t_{name}_{self.campaign_keys[config_inst]}",
-                    type=ParameterType.shape,
-                    config_data={
-                        config_inst.name: self.parameter_config_spec(shift_source=f"tau_{name}"),
-                    },
-                    category=[f"*_{ch}_*" for ch in unc_channels],
                     process=self.process_matches(configs=config_inst, skip_datadriven=True),
                     process_match_mode=all,
                     group=["experiment", "shape_nuisances"],
@@ -596,62 +626,49 @@ class default(HBTInferenceModel):
         pass  # TODO
         """
 
-        # dy shifts
-        for i, dy_name in enumerate(["syst", "stat"]):
+        #
+        # shape parameters based on entire dataset variations (dedicated datasets, full chain)
+        #
+
+        if self.add_dataset_shifts:
+            # hdamp
             self.add_parameter(
-                f"CMS_DY_{dy_name}_{config_inst.campaign.get_aux('year')}",
+                "hdamp",
                 type=ParameterType.shape,
                 config_data={
-                    config_inst.name: self.parameter_config_spec(shift_source=f"dy_{dy_name}")
+                    config_inst.name: self.parameter_config_spec(shift_source="hdamp")
                     for config_inst in self.config_insts
                 },
-                process=self.process_matches(processes=["DY"], configs=config_inst),
+                process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
                 process_match_mode=all,
                 group=["experiment", "shape_nuisances"],
             )
 
-        #
-        # shape parameters based on entire dataset variations
-        #
+            # tune
+            self.add_parameter(
+                "underlying_event",
+                type=ParameterType.shape,
+                config_data={
+                    config_inst.name: self.parameter_config_spec(shift_source="tune")
+                    for config_inst in self.config_insts
+                },
+                process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
+                process_match_mode=all,
+                group=["experiment", "shape_nuisances"],
+            )
 
-        # hdamp
-        self.add_parameter(
-            "hdamp",
-            type=ParameterType.shape,
-            config_data={
-                config_inst.name: self.parameter_config_spec(shift_source="hdamp")
-                for config_inst in self.config_insts
-            },
-            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
-            process_match_mode=all,
-            group=["experiment", "shape_nuisances"],
-        )
-
-        # tune
-        self.add_parameter(
-            "underlying_event",
-            type=ParameterType.shape,
-            config_data={
-                config_inst.name: self.parameter_config_spec(shift_source="tune")
-                for config_inst in self.config_insts
-            },
-            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
-            process_match_mode=all,
-            group=["experiment", "shape_nuisances"],
-        )
-
-        # mtop
-        self.add_parameter(
-            "mtop",
-            type=ParameterType.shape,
-            config_data={
-                config_inst.name: self.parameter_config_spec(shift_source="mtop")
-                for config_inst in self.config_insts
-            },
-            process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
-            process_match_mode=all,
-            group=["experiment", "shape_nuisances"],
-        )
+            # mtop
+            self.add_parameter(
+                "mtop",
+                type=ParameterType.shape,
+                config_data={
+                    config_inst.name: self.parameter_config_spec(shift_source="mtop")
+                    for config_inst in self.config_insts
+                },
+                process=self.process_matches(processes=["ttbar", "singlet"], configs=self.config_insts),
+                process_match_mode=all,
+                group=["experiment", "shape_nuisances"],
+            )
 
 
 # helper to remove all parameters that require shifted inputs from a model instance
@@ -688,6 +705,17 @@ def default_qcd_test(self) -> None:
     """
     super(default_qcd_test, self).init_func()
     keep_parameters(self, ["lumi_*", "QCD_rate_unc"])
+    self.init_cleanup()
+
+
+@default.inference_model
+def default_qcd_test_shifts(self) -> None:
+    """
+    Variant for the second a-priori vs. in-situ comparison: as default_qcd_test, plus the reduced set of weight-based
+    shape nuisances (top pt, btag hf/lf, genuine tau id, dy).
+    """
+    super(default_qcd_test_shifts, self).init_func()
+    keep_parameters(self, ["lumi_*", "QCD_rate_unc", "CMS_top_pT_reweighting", "CMS_btag_*", "CMS_eff_t_*", "CMS_DY_*"])
     self.init_cleanup()
 
 
