@@ -9,7 +9,10 @@ Per-bin shape comparison of the QCD estimate in the signal region between
   (c) optionally, the template datacards with the old order qcd -> flats (disabled by default).
 
 For every category a figure with absolute yields and the ratio to the in-situ estimate is written, as well as a text
-table with the per-bin values (absolute and normalized to unit integral).
+table with the per-bin values (absolute and normalized to unit integral). When the datacards contain shape nuisances,
+a second table (qcd_shift_effects.txt) lists how each nuisance moves the in-situ QCD estimate (integral and largest
+per-bin change); the a-priori template carries no shape nuisances. The transfer factor uncertainty is read from the
+lnN line of the in-situ datacard, with TF_REL_UNC below as fallback.
 
 Run inside the columnflow sandbox (needs uproot, numpy, matplotlib).
 """
@@ -41,13 +44,15 @@ FLATS = "flats_kl1_n10_guardedext0p25"
 
 # variants: label -> (directory, hook string in the file name, categorical color)
 VARIANTS = {
-    "in situ": (f"{BASE}/inf__default_qcd_in_situ/prod28_insitu_v2", f"hooks_qcd_in_situ__{FLATS}", "#3f90da"),
-    "flats -> qcd": (f"{BASE}/inf__default_no_shifts/prod28_abcd_v2", f"hooks_{FLATS}__qcd", "#e76300"),
+    "in situ": (f"{BASE}/inf__default_qcd_in_situ_test_shifts/prod28_insitu_v2", f"hooks_qcd_in_situ__{FLATS}", "#3f90da"),
+    "flats -> qcd": (f"{BASE}/inf__default_qcd_test_shifts/prod28_abcd_v2", f"hooks_{FLATS}__qcd_zerofill", "#e76300"),
     # old hook order, kept for reference
     # "qcd -> flats (old)": (f"{BASE}/inf__default_no_shifts/prod28_abcd_v2", f"hooks_qcd__{FLATS}", "#832db6"),
 }
 REFERENCE = "in situ"
-OUT_DIR = "qcd_shape_comparison"
+OUT_DIR = "qcd_shape_comparison_shifts"
+# draw the quadrature sum of all shape nuisance effects on the in-situ estimate as an additional band
+SHOW_SHIFT_BAND = True
 
 # relative statistical uncertainty of the transfer factor per category, sigma_TF / TF, taken from the hook logs
 # (in the in-situ datacard this is a separate, fully correlated shape nuisance and therefore not part of the per-bin
@@ -113,7 +118,86 @@ def read_qcd(variant: str, cat: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     return values, variances**0.5, edges
 
 
-def plot(cat: str, results: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]) -> None:
+def read_lnn_rel_unc(variant: str, cat: str, name_prefix: str) -> float | None:
+    """
+    Returns the relative uncertainty (kappa_up - 1) of the first lnN line of the datacard of *variant* in category
+    *cat* whose nuisance name starts with *name_prefix*, or None if the card or the line does not exist.
+    """
+    directory, hooks, _ = VARIANTS[variant]
+    path = os.path.join(directory, f"datacard__{cat}__{hooks}.txt")
+    if not os.path.exists(path):
+        return None
+    for line in open(path):
+        parts = line.split()
+        if len(parts) > 2 and parts[0].startswith(name_prefix) and parts[1] == "lnN":
+            effects = [e for e in parts[2:] if e != "-"]
+            if effects:
+                return float(effects[0].split("/")[-1]) - 1.0
+    return None
+
+
+def read_tf_rel_unc(cat: str) -> float | None:
+    # sigma_TF / TF from the in-situ datacard, falling back to TF_REL_UNC
+    rel = read_lnn_rel_unc(REFERENCE, cat, "CMS_bbtt_QCD_TF_")
+    return TF_REL_UNC.get(cat) if rel is None else rel
+
+
+def read_qcd_shifts(cat: str) -> dict[tuple[str, str], np.ndarray]:
+    """
+    Returns the in-situ QCD estimate per (nuisance, direction) found in the shapes file, with processes lacking a
+    template for a nuisance taken at their nominal value.
+    """
+    directory, hooks, _ = VARIANTS[REFERENCE]
+    d = uproot.open(os.path.join(directory, f"shapes__{cat}__{hooks}.root"))[cat]
+    keys = [k for k in d.keys(cycle=False) if "_QCDCR" in k]
+    nominal = {k: d[k].values() for k in keys if "__" not in k}
+    varied: dict[tuple[str, str], dict[str, np.ndarray]] = {}
+    for k in keys:
+        if "__" not in k:
+            continue
+        proc, rest = k.split("__", 1)
+        m = re.match(r"^(.+)(Up|Down)$", rest)
+        if m and proc in nominal:
+            varied.setdefault((m.group(1), m.group(2)), {})[proc] = d[k].values()
+
+    def estimate(values: dict[str, np.ndarray]) -> np.ndarray:
+        return sum((v if p.startswith("QCD_data_") else -v) for p, v in values.items())
+
+    return {key: estimate({**nominal, **procs}) for key, procs in varied.items()}
+
+
+def write_shift_table(cat: str, nominal: np.ndarray, shifts: dict[tuple[str, str], np.ndarray], f) -> None:
+    f.write(f"\n=== {cat} ===\n")
+    if not shifts:
+        f.write("no shape nuisances in the in-situ shapes file\n")
+        return
+    total = nominal.sum()
+    f.write(f"nominal in-situ QCD integral: {total:.3f}\n")
+    f.write(f"{'nuisance':45s} {'integral Up':>14s} {'integral Down':>14s} {'max |bin change| Up':>20s} "
+            f"{'max |bin change| Down':>22s}\n")
+    names = sorted({name for name, _ in shifts})
+    for name in names:
+        cells = []
+        for direction in ("Up", "Down"):
+            v = shifts.get((name, direction))
+            if v is None:
+                cells += ["-", "-"]
+                continue
+            rel_int = (v.sum() - total) / total * 100 if total else float("nan")
+            with np.errstate(divide="ignore", invalid="ignore"):
+                rel_bin = np.nanmax(np.abs((v - nominal) / nominal)) * 100
+            cells += [f"{rel_int:+8.2f}%", f"{rel_bin:8.2f}%"]
+        f.write(f"{name:45s} {cells[0]:>14s} {cells[2]:>14s} {cells[1]:>20s} {cells[3]:>22s}\n")
+    f.write("(integral: relative change of the QCD integral; bin change: largest relative change of a single bin)\n")
+
+
+def plot(
+    cat: str,
+    results: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]],
+    tf_rel_unc: float | None = None,
+    shifts: dict[tuple[str, str], np.ndarray] | None = None,
+    rate_rel_uncs: dict[str, float] | None = None,
+) -> None:
     ref_values, ref_errors, edges = results[REFERENCE]
     n = len(ref_values)
     x = np.arange(n + 1)  # equal-width bins in index space, edges shown as tick labels
@@ -131,6 +215,10 @@ def plot(cat: str, results: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]
         values, errors, _ = results[label]
         color = VARIANTS[label][2]
         is_ref = label == REFERENCE
+        # template variants: flat rate uncertainty of the datacard in quadrature with the per-bin statistics
+        rate_rel_unc = (rate_rel_uncs or {}).get(label) if not is_ref else None
+        if rate_rel_unc is not None:
+            errors = np.sqrt(errors**2 + (rate_rel_unc * values)**2)
         ax.stairs(
             values, x, color=color, label=SERIES_LABELS.get(label, label),
             linewidth=3 if is_ref else 2, linestyle="-" if is_ref else "--", zorder=2 if is_ref else 3,
@@ -141,17 +229,33 @@ def plot(cat: str, results: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]
         hi = np.r_[values + errors, values[-1] + errors[-1]]
         ax.fill_between(
             x, lo, hi, step="post", color="#1f5fa8" if is_ref else color, alpha=0.3 if is_ref else 0.25,
-            linewidth=0, label="stat. unc. (non-iso region)" if is_ref else "stat. unc.",
+            linewidth=0,
+            label=(
+                "stat. unc. (non-iso region)" if is_ref else
+                (rf"stat. $\oplus$ {rate_rel_unc * 100:.0f}% rate unc." if rate_rel_unc is not None else "stat. unc.")
+            ),
         )
-        if is_ref and cat in TF_REL_UNC:
+        if is_ref and tf_rel_unc is not None:
             # transfer factor uncertainty on top, in quadrature with the B region statistics
-            tot = np.sqrt(errors**2 + (TF_REL_UNC[cat] * values)**2)
+            tot = np.sqrt(errors**2 + (tf_rel_unc * values)**2)
             lo_tot = np.r_[values - tot, values[-1] - tot[-1]]
             hi_tot = np.r_[values + tot, values[-1] + tot[-1]]
             ax.fill_between(
                 x, lo_tot, hi_tot, step="post", facecolor="none", edgecolor="#8fc1ec", hatch="////",
-                linewidth=0, alpha=0.9, label=rf"$\oplus$ TF unc. ({TF_REL_UNC[cat] * 100:.0f}%)",
+                linewidth=0, alpha=0.9, label=rf"$\oplus$ TF unc. ({tf_rel_unc * 100:.0f}%)",
             )
+            if SHOW_SHIFT_BAND and shifts:
+                # quadrature sum of the largest up/down effect per nuisance on the in-situ estimate
+                by_name: dict[str, np.ndarray] = {}
+                for (name, _), v in shifts.items():
+                    by_name[name] = np.maximum(by_name.get(name, 0.0), np.abs(v - values))
+                syst = np.sqrt(sum(dv**2 for dv in by_name.values()))
+                tot2 = np.sqrt(tot**2 + syst**2)
+                ax.fill_between(
+                    x, np.r_[values - tot2, values[-1] - tot2[-1]], np.r_[values + tot2, values[-1] + tot2[-1]],
+                    step="post", facecolor="none", edgecolor="#9c9ca1", hatch="\\\\", linewidth=0, alpha=0.9,
+                    label=r"$\oplus$ shape nuisances",
+                )
         if label != REFERENCE:
             with np.errstate(divide="ignore", invalid="ignore"):
                 ratio = values / ref_values
@@ -231,7 +335,8 @@ if __name__ == "__main__":
     os.makedirs(OUT_DIR, exist_ok=True)
     for old in glob.glob(os.path.join(OUT_DIR, "qcd_shape_*.*")):
         os.remove(old)
-    with open(os.path.join(OUT_DIR, "qcd_shapes.txt"), "w") as f:
+    with open(os.path.join(OUT_DIR, "qcd_shapes.txt"), "w") as f, \
+            open(os.path.join(OUT_DIR, "qcd_shift_effects.txt"), "w") as f_shifts:
         for cat in cats:
             results = {}
             for variant in VARIANTS:
@@ -242,7 +347,15 @@ if __name__ == "__main__":
                 results[variant] = r
             if REFERENCE not in results:
                 continue
-            plot(cat, results)
+            tf_rel_unc = read_tf_rel_unc(cat)
+            shifts = read_qcd_shifts(cat)
+            rate_rel_uncs = {v: read_lnn_rel_unc(v, cat, "QCD_rate_unc") for v in results if v != REFERENCE}
+            plot(cat, results, tf_rel_unc=tf_rel_unc, shifts=shifts, rate_rel_uncs=rate_rel_uncs)
             write_table(cat, results, f)
-            print(f"{cat}: " + ", ".join(f"{l} = {v[0].sum():.3f}" for l, v in results.items()))
-    print(f"\nfigures and table written to {OUT_DIR}/")
+            write_shift_table(cat, results[REFERENCE][0], shifts, f_shifts)
+            print(
+                f"{cat}: " + ", ".join(f"{l} = {v[0].sum():.3f}" for l, v in results.items()) +
+                (f", TF unc. = {tf_rel_unc * 100:.1f}%" if tf_rel_unc is not None else "") +
+                f", {len({n for n, _ in shifts})} shape nuisances",
+            )
+    print(f"\nfigures and tables written to {OUT_DIR}/")

@@ -698,7 +698,7 @@ def default_no_shifts(self) -> None:
     self.init_cleanup()
 
 
-@default.inference_model
+@default.inference_model(multi_campaign=False)
 def default_qcd_test(self) -> None:
     """
     Variant for the first a-priori vs. in-situ comparison: only luminosity uncertainties and the flat qcd rate
@@ -709,7 +709,7 @@ def default_qcd_test(self) -> None:
     self.init_cleanup()
 
 
-@default.inference_model
+@default.inference_model(multi_campaign=False)
 def default_qcd_test_shifts(self) -> None:
     """
     Variant for the second a-priori vs. in-situ comparison: as default_qcd_test, plus the reduced set of weight-based

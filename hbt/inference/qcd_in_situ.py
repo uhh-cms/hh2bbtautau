@@ -231,7 +231,7 @@ class default_qcd_in_situ(default):
         self.sync_qcd_cr_data_parameters()
 
 
-@default_qcd_in_situ.inference_model
+@default_qcd_in_situ.inference_model(multi_campaign=False)
 def default_qcd_in_situ_no_shifts(self) -> None:
     """
     Variant without mc shape nuisances, keeping the statistical uncertainty of the transfer factor.
@@ -242,7 +242,7 @@ def default_qcd_in_situ_no_shifts(self) -> None:
     self.init_cleanup()
 
 
-@default_qcd_in_situ.inference_model
+@default_qcd_in_situ.inference_model(multi_campaign=False)
 def default_qcd_in_situ_test(self) -> None:
     """
     Variant for the first a-priori vs. in-situ comparison: only luminosity uncertainties, the frozen subtraction
@@ -253,7 +253,7 @@ def default_qcd_in_situ_test(self) -> None:
     self.init_cleanup()
 
 
-@default_qcd_in_situ.inference_model
+@default_qcd_in_situ.inference_model(multi_campaign=False)
 def default_qcd_in_situ_test_shifts(self) -> None:
     """
     Variant for the second a-priori vs. in-situ comparison: as default_qcd_in_situ_test, plus the reduced set of

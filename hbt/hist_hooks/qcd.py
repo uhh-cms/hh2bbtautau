@@ -355,6 +355,12 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     # add different hook variations
     analysis_inst.x.hist_hooks.qcd = qcd_estimation
     analysis_inst.x.hist_hooks.qcd_zerofill = functools.partial(qcd_estimation, empty_bin_value=1e-5)
+    # variant with only mc statistics in the qcd template (data statistics not entering autoMCStats)
+    analysis_inst.x.hist_hooks.qcd_zerofill_mcvar = functools.partial(
+        qcd_estimation,
+        empty_bin_value=1e-5,
+        variance_strategy="mc",
+    )
     analysis_inst.x.hist_hooks.qcd_from_ss_iso = functools.partial(qcd_estimation, shape_transfer="from_ss_iso")
     analysis_inst.x.hist_hooks.qcd_raw = functools.partial(
         qcd_estimation,

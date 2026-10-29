@@ -15,7 +15,10 @@ The ABCD method is split into two parts:^
 Uncertainty treatment (see also hbt/inference/qcd_in_situ.py for the datacard side):
 
   - Bin-by-bin statistics: every control region template carries the variance of its B histogram scaled by TF^2
-    (data: Poisson counts, MC: sum of squared weights). The fit combines them per bin via autoMCStats.
+    (data: Poisson counts, MC: sum of squared weights). The fit combines them per bin via autoMCStats. With
+    *variance_strategy* "mc" the data template is written with zero variances and therefore does not contribute to
+    autoMCStats (only the MC subtraction does); "none" drops all variances. This mirrors the option of the a-priori
+    hook, whose default "mc_data" keeps both as well.
   - TF statistics: TF = (data_C - MC_C) / (data_D - MC_D) is computed from the nominal, integrated C and D regions
     with Poisson uncertainties for data and sum-of-squared-weights uncertainties for MC, propagated uncorrelated
     through the ratio. The result is written as the up/down variations of the shift source *tf_shift_source* to all
@@ -108,10 +111,20 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         # whether to recompute the transfer factor for every systematic shift of the mc histograms and use it for the
         # corresponding shifted background templates (the data template always uses the nominal transfer factor)
         tf_per_shift: bool = True,
+        # which per-bin variances to keep in the control region templates (same meaning as in the a-priori hook):
+        # "mc_data" keeps all, "mc" sets the variances of the data template to zero so that only mc statistics enter
+        # autoMCStats, "none" sets all variances to zero
+        variance_strategy: Literal["mc_data", "mc", "none"] = "mc_data",
         **kwargs,
     ) -> dict[od.Process, Any]:
         import numpy as np
         import hist
+
+        if variance_strategy not in (known_variance_strategies := {"mc_data", "mc", "none"}):
+            raise ValueError(
+                f"unknown variance strategy '{variance_strategy}', known strategies are: "
+                f"{', '.join(known_variance_strategies)}",
+            )
 
         if shape_transfer not in (known_shape_transfers := {"from_os_noniso", "from_ss_iso"}):
             raise ValueError(
@@ -372,6 +385,8 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                 out_view = h_out.view(flow=True)
                 b_view = h_b.view(flow=True)
                 nominal_index = h_b.axes["shift"].index(nominal)
+                # variances are dropped for data templates with the "mc" strategy and for all with "none"
+                keep_variance = variance_strategy == "mc_data" or (variance_strategy == "mc" and not is_data)
 
                 shift_names = mc_shift_names if is_data else list(h_b.axes["shift"])
                 for shift_name in shift_names:
@@ -379,13 +394,17 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
                     in_index = nominal_index if is_data else h_b.axes["shift"].index(shift_name)
                     tf_val = tf_shift.get(shift_name, tf_nom)
                     out_view.value[cat_index, out_index] = b_view.value[in_index] * tf_val
-                    out_view.variance[cat_index, out_index] = b_view.variance[in_index] * tf_val**2
+                    out_view.variance[cat_index, out_index] = (
+                        b_view.variance[in_index] * tf_val**2 if keep_variance else 0.0
+                    )
 
                 # nominal input, scaled by the varied transfer factors
                 for shift_name, tf_var in zip(tf_shifts, [tf_up, tf_down]):
                     out_index = h_out.axes["shift"].index(shift_name)
                     out_view.value[cat_index, out_index] = b_view.value[nominal_index] * tf_var
-                    out_view.variance[cat_index, out_index] = b_view.variance[nominal_index] * tf_var**2
+                    out_view.variance[cat_index, out_index] = (
+                        b_view.variance[nominal_index] * tf_var**2 if keep_variance else 0.0
+                    )
 
             fill_output(cr_hists[data_cr_proc], data_hist, is_data=True)
             for proc, cr_proc in bkg_cr_procs.items():
@@ -417,3 +436,5 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
     # add different hook variations
     analysis_inst.x.hist_hooks.qcd_in_situ = qcd_in_situ
     analysis_inst.x.hist_hooks.qcd_in_situ_from_ss_iso = functools.partial(qcd_in_situ, shape_transfer="from_ss_iso")
+    # variant with only mc statistics in the control region templates (data template without autoMCStats)
+    analysis_inst.x.hist_hooks.qcd_in_situ_mcvar = functools.partial(qcd_in_situ, variance_strategy="mc")
